@@ -82,7 +82,7 @@ function viewContextNote(view: TopNavView) {
   if (["market-intelligence", "market-investors", "market-market", "market-tech", "market-network"].includes(view)) {
     return "Markets context: relative position and competitor pressure are folded into this score.";
   }
-  if (["investors", "investor-search", "directory", "connections", "network"].includes(view)) {
+  if (["investors", "investor-search", "investor-funding", "directory", "connections", "network"].includes(view)) {
     return "Raise readiness context: investor fit and momentum signals are weighted in this score.";
   }
   if (["data-room", "audit", "workspace"].includes(view)) {

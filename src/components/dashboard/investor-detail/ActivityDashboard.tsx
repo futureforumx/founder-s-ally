@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2, LineChart } from "lucide-react";
 import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
@@ -196,6 +196,53 @@ function useActiveFund(firmRecordsId: string | null, vcDirectoryFirmId: string |
         .maybeSingle();
       if (error) return null;
       return (data as FundRecord | null) ?? null;
+    },
+    enabled: Boolean((safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured),
+    retry: false,
+  });
+}
+
+type FirmFundingIntelRow = {
+  funding_intel_activity_score: number | null;
+  funding_intel_momentum_score: number | null;
+  funding_intel_pace_label: string | null;
+  funding_intel_summary: string | null;
+  funding_intel_focus_json: Record<string, unknown> | null;
+  funding_intel_recent_investments_json: unknown[] | null;
+  funding_intel_updated_at: string | null;
+};
+
+function paceLabelShort(raw: string | null | undefined): string {
+  const u = safeTrim(raw).toLowerCase();
+  if (u === "accelerating") return "Accelerating";
+  if (u === "steady") return "Steady";
+  if (u === "slowing") return "Cooling";
+  if (u === "insufficient_data") return "—";
+  return safeTrim(raw) || "—";
+}
+
+function useFirmFundingIntel(
+  firmRecordsId: string | null,
+  vcDirectoryFirmId: string | null,
+  firmDisplayName: string | null,
+) {
+  return useQuery<FirmFundingIntelRow | null>({
+    queryKey: ["activity-firm-funding-intel", firmRecordsId, vcDirectoryFirmId, safeLower(firmDisplayName)],
+    queryFn: async () => {
+      const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
+      if (!resolvedId) return null;
+      const { data, error } = await DB
+        .from("firm_records")
+        .select(
+          [
+            "funding_intel_activity_score,funding_intel_momentum_score,funding_intel_pace_label",
+            ",funding_intel_summary,funding_intel_focus_json,funding_intel_recent_investments_json,funding_intel_updated_at",
+          ].join(""),
+        )
+        .eq("id", resolvedId)
+        .maybeSingle();
+      if (error) return null;
+      return (data as FirmFundingIntelRow | null) ?? null;
     },
     enabled: Boolean((safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured),
     retry: false,
@@ -428,6 +475,11 @@ export function ActivityDashboard({
     vcDirectoryFirmId ?? null,
     firmDisplayName ?? firmName,
   );
+  const { data: fundingIntel } = useFirmFundingIntel(
+    firmRecordsId ?? null,
+    vcDirectoryFirmId ?? null,
+    firmDisplayName ?? firmName,
+  );
 
   // Merge DB deals with prop deals (prop deals may have more context)
   const allDeals = useMemo((): DealRow[] => {
@@ -518,6 +570,12 @@ export function ActivityDashboard({
   const SECTOR_COLORS = ["bg-primary/15 text-primary", "bg-warning/15 text-warning", "bg-destructive/15 text-destructive"];
 
   const hasEnoughData = totalDeals > 0;
+
+  const showFundingIntel =
+    fundingIntel &&
+    (fundingIntel.funding_intel_activity_score != null ||
+      fundingIntel.funding_intel_momentum_score != null ||
+      safeTrim(fundingIntel.funding_intel_summary));
 
   return (
     <div className="space-y-4">
@@ -651,6 +709,47 @@ export function ActivityDashboard({
           )}
         </div>
       </div>
+
+      {showFundingIntel ? (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <LineChart className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+              Funding intel (90d, news-linked)
+            </p>
+            {fundingIntel!.funding_intel_pace_label ? (
+              <Badge variant="outline" className="text-[9px] font-medium">
+                {paceLabelShort(fundingIntel!.funding_intel_pace_label)}
+              </Badge>
+            ) : null}
+          </div>
+          <div className="mb-2 flex flex-wrap gap-4 text-sm">
+            {fundingIntel!.funding_intel_activity_score != null ? (
+              <span className="font-semibold tabular-nums">
+                Activity <span className="text-accent">{Math.round(fundingIntel!.funding_intel_activity_score)}</span>/100
+              </span>
+            ) : null}
+            {fundingIntel!.funding_intel_momentum_score != null ? (
+              <span className="font-semibold tabular-nums">
+                Momentum <span className="text-accent">{Math.round(fundingIntel!.funding_intel_momentum_score)}</span>/100
+              </span>
+            ) : null}
+          </div>
+          {safeTrim(fundingIntel!.funding_intel_summary) ? (
+            <p className="text-xs leading-relaxed text-muted-foreground">{fundingIntel!.funding_intel_summary}</p>
+          ) : null}
+          {Array.isArray(fundingIntel!.funding_intel_focus_json?.recent_focus) &&
+          (fundingIntel!.funding_intel_focus_json!.recent_focus as string[]).length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {(fundingIntel!.funding_intel_focus_json!.recent_focus as string[]).map((s) => (
+                <Badge key={s} variant="secondary" className="text-[9px]">
+                  {s}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Row 2: Deal Heatmap (live, by month) */}
       <div className="rounded-xl border border-border bg-card p-4">

@@ -5,6 +5,7 @@
  */
 const FIRM_CONTACT_EMAIL_BY_HOST: Readonly<Record<string, string>> = {
   "12-48.com": "info@12-48.com",
+  "2020.co": "dw@2020.co",
 };
 
 function normalizeHost(hostname: string): string {

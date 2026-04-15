@@ -101,6 +101,129 @@ export type Database = {
         }
         Relationships: []
       }
+      company_job_ingestion_runs: {
+        Row: {
+          id: string
+          organization_id: string
+          started_at: string
+          finished_at: string | null
+          status: string
+          error_message: string | null
+          jobs_upserted: number
+          jobs_deactivated: number
+          source_detection_json: Json | null
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          started_at?: string
+          finished_at?: string | null
+          status: string
+          error_message?: string | null
+          jobs_upserted?: number
+          jobs_deactivated?: number
+          source_detection_json?: Json | null
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          started_at?: string
+          finished_at?: string | null
+          status?: string
+          error_message?: string | null
+          jobs_upserted?: number
+          jobs_deactivated?: number
+          source_detection_json?: Json | null
+        }
+        Relationships: []
+      }
+      company_jobs: {
+        Row: {
+          id: string
+          organization_id: string
+          source_type: "WEBSITE" | "ASHBY" | "GREENHOUSE" | "LEVER"
+          source_url: string | null
+          external_job_id: string | null
+          title: string
+          department: string | null
+          team: string | null
+          location: string | null
+          location_type: string | null
+          employment_type: string | null
+          posted_at: string | null
+          apply_url: string
+          description_snippet: string | null
+          description_raw: string | null
+          compensation_text: string | null
+          compensation_min: string | null
+          compensation_max: string | null
+          compensation_currency: string | null
+          is_active: boolean
+          first_seen_at: string
+          last_seen_at: string
+          dedupe_key: string
+          raw_json: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          source_type: "WEBSITE" | "ASHBY" | "GREENHOUSE" | "LEVER"
+          source_url?: string | null
+          external_job_id?: string | null
+          title: string
+          department?: string | null
+          team?: string | null
+          location?: string | null
+          location_type?: string | null
+          employment_type?: string | null
+          posted_at?: string | null
+          apply_url: string
+          description_snippet?: string | null
+          description_raw?: string | null
+          compensation_text?: string | null
+          compensation_min?: string | null
+          compensation_max?: string | null
+          compensation_currency?: string | null
+          is_active?: boolean
+          first_seen_at?: string
+          last_seen_at?: string
+          dedupe_key: string
+          raw_json?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          source_type?: "WEBSITE" | "ASHBY" | "GREENHOUSE" | "LEVER"
+          source_url?: string | null
+          external_job_id?: string | null
+          title?: string
+          department?: string | null
+          team?: string | null
+          location?: string | null
+          location_type?: string | null
+          employment_type?: string | null
+          posted_at?: string | null
+          apply_url?: string
+          description_snippet?: string | null
+          description_raw?: string | null
+          compensation_text?: string | null
+          compensation_min?: string | null
+          compensation_max?: string | null
+          compensation_currency?: string | null
+          is_active?: boolean
+          first_seen_at?: string
+          last_seen_at?: string
+          dedupe_key?: string
+          raw_json?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       company_analyses: {
         Row: {
           burn_rate: string | null
@@ -534,6 +657,15 @@ export type Database = {
           email_source: string | null
           entity_type: Database["public"]["Enums"]["entity_type"] | null
           facebook_url: string | null
+          funding_intel_activity_score: number | null
+          funding_intel_focus_json: Record<string, unknown> | null
+          funding_intel_last_deal_at: string | null
+          funding_intel_metrics_json: Record<string, unknown> | null
+          funding_intel_momentum_score: number | null
+          funding_intel_pace_label: string | null
+          funding_intel_recent_investments_json: unknown[] | null
+          funding_intel_summary: string | null
+          funding_intel_updated_at: string | null
           firm_name: string
           firm_type: string | null
           founded_year: number | null
@@ -632,6 +764,15 @@ export type Database = {
           email_source?: string | null
           entity_type?: Database["public"]["Enums"]["entity_type"] | null
           facebook_url?: string | null
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Record<string, unknown> | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Record<string, unknown> | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: unknown[] | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           firm_name: string
           firm_type?: string | null
           founded_year?: number | null
@@ -729,6 +870,15 @@ export type Database = {
           email_source?: string | null
           entity_type?: Database["public"]["Enums"]["entity_type"] | null
           facebook_url?: string | null
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Record<string, unknown> | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Record<string, unknown> | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: unknown[] | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           firm_name?: string
           firm_type?: string | null
           founded_year?: number | null
@@ -880,6 +1030,15 @@ export type Database = {
           firm_id: string
           first_name: string | null
           full_name: string
+          funding_intel_activity_score: number | null
+          funding_intel_focus_json: Record<string, unknown> | null
+          funding_intel_last_deal_at: string | null
+          funding_intel_metrics_json: Record<string, unknown> | null
+          funding_intel_momentum_score: number | null
+          funding_intel_pace_label: string | null
+          funding_intel_recent_investments_json: unknown[] | null
+          funding_intel_summary: string | null
+          funding_intel_updated_at: string | null
           id: string
           instagram_url: string | null
           investment_style: string | null
@@ -934,6 +1093,15 @@ export type Database = {
           firm_id: string
           first_name?: string | null
           full_name: string
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Record<string, unknown> | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Record<string, unknown> | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: unknown[] | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           id?: string
           instagram_url?: string | null
           investment_style?: string | null
@@ -988,6 +1156,15 @@ export type Database = {
           firm_id?: string
           first_name?: string | null
           full_name?: string
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Record<string, unknown> | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Record<string, unknown> | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: unknown[] | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           id?: string
           instagram_url?: string | null
           investment_style?: string | null

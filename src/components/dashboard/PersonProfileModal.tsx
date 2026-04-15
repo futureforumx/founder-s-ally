@@ -54,7 +54,24 @@ type FirmInvestorSnapshot = {
   country: string | null;
   avatar_url: string | null;
   profile_image_url: string | null;
+  /** Synced from Prisma person intel → `firm_investors` (see `intel:funding:sync-supabase`). */
+  funding_intel_activity_score?: number | null;
+  funding_intel_momentum_score?: number | null;
+  funding_intel_pace_label?: string | null;
+  funding_intel_summary?: string | null;
+  funding_intel_focus_json?: Record<string, unknown> | null;
+  funding_intel_recent_investments_json?: unknown[] | null;
+  funding_intel_updated_at?: string | null;
 };
+
+function formatFundingIntelPaceLabel(raw: string | null | undefined): string {
+  const u = safeTrim(raw).toLowerCase();
+  if (u === "accelerating") return "Accelerating vs prior window";
+  if (u === "steady") return "Steady vs prior window";
+  if (u === "slowing") return "Cooling vs prior window";
+  if (u === "insufficient_data") return "Not enough history for pace";
+  return safeTrim(raw) || "—";
+}
 
 /** When bio + narrative are only a short line (e.g. title stub), still run person-website-profile. */
 function isThinInvestorNarrative(
@@ -289,7 +306,11 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         const { data, error } = await supabase
           .from("firm_investors")
           .select(
-            "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url, profile_image_url",
+            [
+              "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url, profile_image_url",
+              ",funding_intel_activity_score,funding_intel_momentum_score,funding_intel_pace_label",
+              ",funding_intel_summary,funding_intel_focus_json,funding_intel_recent_investments_json,funding_intel_updated_at",
+            ].join(""),
           )
           .eq("id", person.id)
           .eq("firm_id", firmId)
@@ -906,6 +927,71 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                     </a>
                   ))}
                 </div>
+
+                {firmInvestorSnap &&
+                (firmInvestorSnap.funding_intel_activity_score != null ||
+                  safeTrim(firmInvestorSnap.funding_intel_summary)) ? (
+                  <div className="mb-6 rounded-2xl border border-border bg-secondary/25 p-4">
+                    <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Funding intel (90d, news-attributed)
+                    </h4>
+                    <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
+                      {firmInvestorSnap.funding_intel_activity_score != null ? (
+                        <span className="font-semibold tabular-nums text-foreground">
+                          Activity{" "}
+                          <span className="text-accent">{Math.round(firmInvestorSnap.funding_intel_activity_score)}</span>
+                          /100
+                        </span>
+                      ) : null}
+                      {firmInvestorSnap.funding_intel_momentum_score != null ? (
+                        <span className="font-semibold tabular-nums text-foreground">
+                          Momentum{" "}
+                          <span className="text-accent">{Math.round(firmInvestorSnap.funding_intel_momentum_score)}</span>
+                          /100
+                        </span>
+                      ) : null}
+                      {firmInvestorSnap.funding_intel_pace_label ? (
+                        <Badge variant="outline" className="text-[10px] font-medium">
+                          {formatFundingIntelPaceLabel(firmInvestorSnap.funding_intel_pace_label)}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {safeTrim(firmInvestorSnap.funding_intel_summary) ? (
+                      <p className="text-xs leading-relaxed text-muted-foreground">{firmInvestorSnap.funding_intel_summary}</p>
+                    ) : null}
+                    {Array.isArray(firmInvestorSnap.funding_intel_focus_json?.recent_focus) &&
+                    (firmInvestorSnap.funding_intel_focus_json?.recent_focus as string[]).length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {(firmInvestorSnap.funding_intel_focus_json!.recent_focus as string[]).map((s) => (
+                          <Badge key={s} variant="secondary" className="text-[10px]">
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                    {Array.isArray(firmInvestorSnap.funding_intel_recent_investments_json) &&
+                    firmInvestorSnap.funding_intel_recent_investments_json.length > 0 ? (
+                      <ul className="mt-3 space-y-1 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+                        {firmInvestorSnap.funding_intel_recent_investments_json.slice(0, 6).map((row, idx) => {
+                          const r = row as { company_name?: string; sector?: string | null };
+                          const cn = safeTrim(r.company_name) || "Company";
+                          const sec = safeTrim(r.sector);
+                          return (
+                            <li key={`${cn}-${idx}`} className="flex justify-between gap-2">
+                              <span className="truncate font-medium text-foreground/90">{cn}</span>
+                              {sec ? <span className="shrink-0 text-muted-foreground/80">{sec}</span> : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                    {safeTrim(firmInvestorSnap.funding_intel_updated_at) ? (
+                      <p className="mt-2 text-[9px] text-muted-foreground/70">
+                        Updated {firmInvestorSnap.funding_intel_updated_at!.slice(0, 10)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 {/* ── 2-Column Bento Body ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

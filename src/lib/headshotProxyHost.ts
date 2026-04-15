@@ -1,4 +1,4 @@
-import { safeTrim } from "@/lib/utils";
+import { safeTrim } from "./utils";
 
 /**
  * Hosts where direct browser `<img src>` often fails (403 / empty / tracking pixel).

@@ -159,6 +159,7 @@ function normalizeInvestorNameKey(name: string): string {
 
 const FIRM_HQ_LOCATION_OVERRIDES: Record<string, string> = {
   "137ventures": "San Francisco, CA",
+  "500global": "San Francisco, CA",
 };
 
 function resolveFirmHqLocationOverride(...nameCandidates: Array<string | null | undefined>): string | null {

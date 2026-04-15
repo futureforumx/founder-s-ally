@@ -1,0 +1,54 @@
+# Nightly funding / venture deal ingestion (Prisma → Postgres).
+#
+# Pacific time: GitHub `cron` is always UTC. We trigger twice (08:00 and 09:00 UTC)
+# so local 1:00 America/Los_Angeles is covered across PST (UTC-8) and PDT (UTC-7).
+# The script then enforces "only run work at 1 AM Pacific" when INGEST_REQUIRE_PACIFIC_HOUR=1.
+#
+# Secrets: DATABASE_URL (required). OPENAI_API_KEY (optional, improves extraction).
+# Optional repo variable: INGEST_SKIP_SOURCES (e.g. GEEKWIRE_FUNDINGS) for sources blocked from datacenter IPs.
+
+name: Funding ingest
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    env:
+      INGEST_TRIGGER: github_actions
+      INGEST_MAX_ARTICLES_PER_SOURCE: "40"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright (startups.gallery / Framer listings)
+        run: npx playwright install --with-deps chromium
+
+      - name: Prisma migrate (idempotent)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Ingest funding articles
+        run: npm run funding:ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INGEST_SKIP_SOURCES: ${{ vars.INGEST_SKIP_SOURCES }}
+          INGEST_REQUIRE_PACIFIC_HOUR: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          INGEST_SKIP_PACIFIC_GUARD: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+
+      - name: Market intel (link deals → entities + rollups)
+        run: npm run intel:funding:pipeline
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

@@ -118,11 +118,15 @@ const KNOWN_VC_LOGO_URLS: Record<string, string> = {
     "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
   "sequoia capital china":
     "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+  "1955 capital":
+    "https://image.pitchbook.com/dyVy2lGNkma4M3fHJf5FJkCXyYh1764067281169_200x200",
 };
 
 const KNOWN_DOMAIN_LOGO_URLS: Record<string, string> = {
   "sequoiacap.com":
     "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
+  "1955.capital":
+    "https://image.pitchbook.com/dyVy2lGNkma4M3fHJf5FJkCXyYh1764067281169_200x200",
 };
 
 /** Prefer DB logo; when absent, use a curated asset for well-known firms with bad favicons. */

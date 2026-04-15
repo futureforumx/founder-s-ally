@@ -368,6 +368,9 @@ model VCFirm {
   ratings            VCRating[]
   aliases            VCFirmAlias[]
   reg_d_filings      RegDFiling[]
+  funding_deal_investor_links FundingDealInvestorLink[]
+  firm_market_intel_snapshots FirmMarketIntelSnapshot[]
+  derived_market_intel         VCFirmDerivedMarketIntel?
 
   @@index([firm_name])
   @@index([firm_type])
@@ -615,6 +618,9 @@ model VCPerson {
   signals         VCSignal[]
   score_snapshots VCScoreSnapshot[]
   ratings         VCRating[]
+  funding_deal_investor_links FundingDealInvestorLink[]
+  investor_market_intel_snapshots InvestorMarketIntelSnapshot[]
+  derived_market_intel              VCPersonDerivedMarketIntel?
 
   @@unique([data_source, import_record_id])
   @@index([firm_id])
@@ -833,6 +839,7 @@ model Startup {
   competitors_to   StartupCompetitor[]    @relation("CompetitorTo")
   signals          StartupSignal[]
   score_snapshots  StartupScoreSnapshot[]
+  funding_deal_company_links FundingDealCompanyLink[]
 
   @@index([domain])
   @@index([stage])
@@ -1599,4 +1606,441 @@ model DeadLetterQueue {
   @@index([status, failed_at])
   @@index([target_table, target_id])
   @@map("dead_letter_queue")
+}
+
+// =============================================================================
+// Funding news ingestion (RSS / HTML → structured deals, daily pipeline)
+// =============================================================================
+
+enum FundingIngestSourceKey {
+  STARTUPS_GALLERY_NEWS
+  TECHCRUNCH_VENTURE
+  GEEKWIRE_FUNDINGS
+  ALLEYWATCH_FUNDING
+}
+
+enum FundingArticleFetchStatus {
+  PENDING
+  FETCHED
+  FAILED
+  SKIPPED_DUPLICATE
+}
+
+enum FundingDealInvestorRole {
+  LEAD
+  PARTICIPANT
+  EXISTING
+  UNKNOWN
+}
+
+/// One execution of the funding ingest job (manual, cron, or CI).
+model IngestionRun {
+  id            String    @id @default(cuid())
+  started_at    DateTime  @default(now()) @db.Timestamptz(6)
+  finished_at   DateTime? @db.Timestamptz(6)
+  /// running | success | partial | failed
+  status        String    @db.VarChar(24)
+  /// manual | cron | github_actions
+  trigger_kind  String?   @db.VarChar(32)
+  /// Pacific calendar date (YYYY-MM-DD) for idempotency / reporting.
+  pacific_date  String?   @db.VarChar(12)
+  summary_json  Json?
+  error_message String?   @db.Text
+
+  extraction_logs ExtractionLog[]
+
+  @@index([started_at])
+  @@index([pacific_date])
+  @@map("ingestion_runs")
+}
+
+/// Per-source high-water marks and opaque cursors (ETag, page tokens).
+model IngestionSourceCheckpoint {
+  id                        String                 @id @default(cuid())
+  source_key                FundingIngestSourceKey @unique
+  last_success_at           DateTime?              @db.Timestamptz(6)
+  last_article_published_at DateTime?              @db.Timestamptz(6)
+  last_run_id               String?
+  cursor_json               Json?
+  updated_at                DateTime               @updatedAt @db.Timestamptz(6)
+
+  @@map("ingestion_source_checkpoints")
+}
+
+/// Canonical article row (dedupe by canonical_url).
+model SourceArticle {
+  id                String                    @id @default(cuid())
+  source_key        FundingIngestSourceKey
+  /// Category or news hub where the article link was discovered (e.g. TechCrunch venture RSS page).
+  listing_url       String?
+  canonical_url     String                    @unique
+  article_url       String
+  title             String
+  published_at      DateTime?                 @db.Timestamptz(6)
+  author            String?
+  fetch_status      FundingArticleFetchStatus @default(FETCHED)
+  raw_excerpt       String?                   @db.Text
+  raw_text          String?                   @db.Text
+  content_hash      String?                   @db.VarChar(128)
+  html_fetched_at   DateTime?                 @db.Timestamptz(6)
+  first_seen_run_id String?
+  last_seen_run_id  String?
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  deals           FundingDeal[]
+  extraction_logs ExtractionLog[]
+
+  @@index([source_key, published_at])
+  @@index([published_at])
+  @@map("source_articles")
+}
+
+/// Structured deal extracted from an article (one slot per article for v1; extend slot_index for multi-deal posts).
+model FundingDeal {
+  id                String        @id @default(cuid())
+  source_article_id String
+  source_article    SourceArticle @relation(fields: [source_article_id], references: [id], onDelete: Cascade)
+
+  slot_index Int @default(0)
+
+  company_name            String
+  company_name_normalized String
+  company_website         String?
+  company_hq              String?
+
+  round_type_raw        String?
+  round_type_normalized String?
+
+  amount_raw         String?
+  amount_minor_units BigInt?
+  currency           String  @default("USD") @db.VarChar(8)
+
+  announced_date DateTime? @db.Date
+
+  sector_raw        String?
+  sector_normalized String?
+
+  founders_mentioned           String[] @default([])
+  existing_investors_mentioned String[] @default([])
+
+  deal_summary String? @db.Text
+
+  extraction_confidence Float
+  /// regex | openai | hybrid
+  extraction_method     String @db.VarChar(24)
+  raw_extraction_json   Json?
+
+  needs_review  Boolean @default(false)
+  review_reason String? @db.Text
+
+  /// When this row is a duplicate of an earlier deal from another article.
+  duplicate_of_deal_id String?
+  duplicate_of         FundingDeal?  @relation("FundingDealDuplicate", fields: [duplicate_of_deal_id], references: [id], onDelete: SetNull)
+  duplicates           FundingDeal[] @relation("FundingDealDuplicate")
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  investors       FundingDealInvestor[]
+  extraction_logs      ExtractionLog[]
+  company_link         FundingDealCompanyLink?
+  entity_match_reviews EntityMatchReview[] @relation("EntityMatchReviewDeal")
+
+  @@unique([source_article_id, slot_index])
+  @@index([company_name_normalized, announced_date])
+  @@index([needs_review])
+  @@index([duplicate_of_deal_id])
+  @@map("funding_deals")
+}
+
+model FundingDealInvestor {
+  id              String      @id @default(cuid())
+  funding_deal_id String
+  funding_deal    FundingDeal @relation(fields: [funding_deal_id], references: [id], onDelete: Cascade)
+
+  role            FundingDealInvestorRole
+  name_raw        String
+  name_normalized String
+  sort_order      Int                     @default(0)
+
+  investor_link        FundingDealInvestorLink?
+  entity_match_reviews EntityMatchReview[] @relation("EntityMatchReviewInvestor")
+
+  @@index([funding_deal_id])
+  @@map("funding_deal_investors")
+}
+
+/// Deterministic / fuzzy link from an ingested deal row to `startups` (portfolio company).
+model FundingDealCompanyLink {
+  id                 String                   @id @default(cuid())
+  funding_deal_id    String                   @unique
+  funding_deal       FundingDeal              @relation(fields: [funding_deal_id], references: [id], onDelete: Cascade)
+  startup_id         String?
+  startup              Startup?                 @relation(fields: [startup_id], references: [id], onDelete: SetNull)
+  match_method         FundingEntityMatchMethod
+  match_confidence     Float
+  match_evidence_json  Json?
+  created_at           DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                 @updatedAt @db.Timestamptz(6)
+
+  @@index([startup_id])
+  @@map("funding_deal_company_links")
+}
+
+/// Link from parsed investor string on a deal to canonical `vc_firms` / optional `vc_people`.
+model FundingDealInvestorLink {
+  id                        String                   @id @default(cuid())
+  funding_deal_investor_id  String                   @unique
+  funding_deal_investor     FundingDealInvestor      @relation(fields: [funding_deal_investor_id], references: [id], onDelete: Cascade)
+  vc_firm_id                String?
+  vc_firm                   VCFirm?                  @relation(fields: [vc_firm_id], references: [id], onDelete: SetNull)
+  vc_person_id              String?
+  vc_person                 VCPerson?                @relation(fields: [vc_person_id], references: [id], onDelete: SetNull)
+  match_method              FundingEntityMatchMethod
+  match_confidence          Float
+  match_evidence_json       Json?
+  created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                 @updatedAt @db.Timestamptz(6)
+
+  @@index([vc_firm_id])
+  @@index([vc_person_id])
+  @@map("funding_deal_investor_links")
+}
+
+enum FundingEntityMatchMethod {
+  DOMAIN_EXACT
+  NAME_EXACT
+  ALIAS_EXACT
+  FUZZY_HIGH
+  FUZZY_MEDIUM
+  MANUAL
+  UNRESOLVED
+}
+
+enum EntityMatchReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  AUTO_EXPIRED
+}
+
+enum EntityMatchReviewKind {
+  DEAL_COMPANY
+  DEAL_INVESTOR
+}
+
+/// Queue for ambiguous entity resolution (operator review).
+model EntityMatchReview {
+  id                        String                   @id @default(cuid())
+  kind                      EntityMatchReviewKind
+  funding_deal_id           String?
+  funding_deal              FundingDeal?             @relation("EntityMatchReviewDeal", fields: [funding_deal_id], references: [id], onDelete: Cascade)
+  funding_deal_investor_id  String?
+  funding_deal_investor     FundingDealInvestor?     @relation("EntityMatchReviewInvestor", fields: [funding_deal_investor_id], references: [id], onDelete: Cascade)
+  candidate_json            Json
+  status                    EntityMatchReviewStatus  @default(PENDING)
+  resolution_notes          String?                  @db.Text
+  resolved_startup_id       String?
+  resolved_vc_firm_id       String?
+  resolved_vc_person_id     String?
+  created_at                DateTime                 @default(now()) @db.Timestamptz(6)
+  resolved_at               DateTime?                @db.Timestamptz(6)
+
+  @@index([status, created_at])
+  @@index([funding_deal_id])
+  @@map("entity_match_reviews")
+}
+
+/// Time-bucketed rollup + transparent scoring inputs for a VC firm.
+model FirmMarketIntelSnapshot {
+  id                       String   @id @default(cuid())
+  vc_firm_id               String
+  vc_firm                  VCFirm   @relation(fields: [vc_firm_id], references: [id], onDelete: Cascade)
+  window_days              Int
+  as_of_date               DateTime @db.Date
+  metrics_json             Json
+  activity_score           Float
+  momentum_score           Float
+  activity_components_json Json
+  momentum_components_json Json
+  focus_json               Json
+  formula_version          String   @default("intel_v1") @db.VarChar(16)
+  computed_at              DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([vc_firm_id, window_days, as_of_date], name: "firm_market_intel_firm_window_date_key")
+  @@index([as_of_date(sort: Desc), window_days, activity_score(sort: Desc)])
+  @@index([vc_firm_id, as_of_date(sort: Desc)])
+  @@map("firm_market_intel_snapshots")
+}
+
+/// Person-level rollup when `FundingDealInvestorLink.vc_person_id` is populated.
+model InvestorMarketIntelSnapshot {
+  id                       String   @id @default(cuid())
+  vc_person_id             String
+  vc_person                VCPerson @relation(fields: [vc_person_id], references: [id], onDelete: Cascade)
+  window_days              Int
+  as_of_date               DateTime @db.Date
+  metrics_json             Json
+  activity_score           Float
+  momentum_score           Float
+  activity_components_json Json
+  momentum_components_json Json
+  focus_json               Json
+  formula_version          String   @default("intel_v1") @db.VarChar(16)
+  computed_at              DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([vc_person_id, window_days, as_of_date], name: "investor_market_intel_person_window_date_key")
+  @@index([as_of_date(sort: Desc), window_days, activity_score(sort: Desc)])
+  @@map("investor_market_intel_snapshots")
+}
+
+/// Latest market-intelligence enrichment for app surfaces (never replaces canonical firm identity).
+model VCFirmDerivedMarketIntel {
+  vc_firm_id                String    @id
+  vc_firm                   VCFirm    @relation(fields: [vc_firm_id], references: [id], onDelete: Cascade)
+  recent_activity_summary   String?   @db.Text
+  recent_investments_json   Json?
+  activity_metrics_json     Json?
+  focus_json                Json?
+  pace_label                String?   @db.VarChar(24)
+  activity_score            Float?
+  momentum_score            Float?
+  score_components_json     Json?
+  last_seen_investing_at    DateTime? @db.Timestamptz(6)
+  source_formula_version    String    @default("intel_v1") @db.VarChar(16)
+  updated_at                DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([activity_score(sort: Desc)])
+  @@map("vc_firm_derived_market_intel")
+}
+
+model VCPersonDerivedMarketIntel {
+  vc_person_id               String    @id
+  vc_person                  VCPerson  @relation(fields: [vc_person_id], references: [id], onDelete: Cascade)
+  recent_investment_summary  String?   @db.Text
+  recent_investments_json    Json?
+  activity_metrics_json      Json?
+  focus_json                 Json?
+  pace_label                 String?   @db.VarChar(24)
+  activity_score             Float?
+  momentum_score             Float?
+  score_components_json      Json?
+  last_seen_investing_at     DateTime? @db.Timestamptz(6)
+  source_formula_version     String    @default("intel_v1") @db.VarChar(16)
+  updated_at                 DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("vc_person_derived_market_intel")
+}
+
+model IntelBatchRun {
+  id           String    @id @default(cuid())
+  started_at   DateTime  @default(now()) @db.Timestamptz(6)
+  finished_at  DateTime? @db.Timestamptz(6)
+  job_kind     String    @db.VarChar(32)
+  status       String    @db.VarChar(16)
+  summary_json Json?
+  error_message String?  @db.Text
+
+  @@index([started_at(sort: Desc)])
+  @@map("intel_batch_runs")
+}
+
+/// Canonical job postings for directory organizations (ingested server-side; UI reads from DB).
+model CompanyJob {
+  id String @id @default(cuid())
+
+  organizationId String @map("organization_id") @db.Uuid
+
+  sourceType CompanyJobSourceType @map("source_type")
+  sourceUrl  String?              @map("source_url") @db.Text
+  externalJobId String?           @map("external_job_id") @db.VarChar(256)
+
+  title      String  @db.Text
+  department String? @db.Text
+  team       String? @db.Text
+  location   String? @db.Text
+  locationType String? @map("location_type") @db.VarChar(32)
+  employmentType String? @map("employment_type") @db.VarChar(64)
+  postedAt DateTime? @map("posted_at") @db.Timestamptz(6)
+
+  applyUrl String @map("apply_url") @db.Text
+
+  descriptionSnippet String? @map("description_snippet") @db.Text
+  descriptionRaw     String? @map("description_raw") @db.Text
+
+  compensationText     String?  @map("compensation_text") @db.Text
+  compensationMin      Decimal? @map("compensation_min") @db.Decimal(18, 2)
+  compensationMax      Decimal? @map("compensation_max") @db.Decimal(18, 2)
+  compensationCurrency String?  @map("compensation_currency") @db.VarChar(8)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  firstSeenAt DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  dedupeKey String @map("dedupe_key") @db.VarChar(512)
+  rawJson   Json?  @map("raw_json")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, dedupeKey])
+  @@index([organizationId, isActive])
+  @@index([organizationId, lastSeenAt(sort: Desc)])
+  @@map("company_jobs")
+}
+
+enum CompanyJobSourceType {
+  WEBSITE
+  ASHBY
+  GREENHOUSE
+  LEVER
+
+  @@map("company_job_source_type")
+}
+
+model CompanyJobIngestionRun {
+  id String @id @default(cuid())
+
+  organizationId String @map("organization_id") @db.Uuid
+
+  startedAt  DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  status        String  @db.VarChar(24)
+  errorMessage  String? @map("error_message") @db.Text
+  jobsUpserted  Int     @default(0) @map("jobs_upserted")
+  jobsDeactivated Int   @default(0) @map("jobs_deactivated")
+
+  sourceDetectionJson Json? @map("source_detection_json")
+
+  @@index([organizationId, startedAt(sort: Desc)])
+  @@map("company_job_ingestion_runs")
+}
+
+model ExtractionLog {
+  id String @id @default(cuid())
+
+  run_id String?
+  run    IngestionRun? @relation(fields: [run_id], references: [id], onDelete: SetNull)
+
+  source_article_id String?
+  source_article    SourceArticle? @relation(fields: [source_article_id], references: [id], onDelete: SetNull)
+
+  funding_deal_id String?
+  funding_deal    FundingDeal? @relation(fields: [funding_deal_id], references: [id], onDelete: SetNull)
+
+  /// info | warn | error
+  level        String @db.VarChar(16)
+  message      String @db.Text
+  payload_json Json?
+
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([run_id])
+  @@index([source_article_id])
+  @@index([level])
+  @@map("extraction_logs")
 }

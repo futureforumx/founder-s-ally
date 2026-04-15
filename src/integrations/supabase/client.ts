@@ -33,8 +33,8 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
 }
 
 /**
- * `Authorization` value for Edge Functions: Clerk `supabase` template JWT when set, else publishable key.
- * Both are Supabase-valid JWTs; a default Clerk session token alone is rejected with 401 Invalid JWT.
+ * `Authorization` value for Edge Functions: Clerk session JWT (default) or `supabase` template JWT when used
+ * by {@link setSupabaseAccessTokenGetter}, else publishable key. Misconfigured JWTs are rejected (e.g. PGRST301).
  */
 export async function getSupabaseBearerForFunctions(): Promise<string | null> {
   const user = (await getSupabaseAccessToken())?.trim();
@@ -73,6 +73,24 @@ export const supabaseVcDirectory = hasSupabaseConfig
           console.warn("[SupabaseVcDirectory] accessToken failed", e);
           return null;
         }
+      },
+      ...sharedAuthOptions,
+    })
+  : mockSupabase;
+
+/**
+ * Public Network directory reads (`organizations`, `people`, `roles`, `operator_profiles`).
+ * Always uses the **publishable (anon) role** — no Clerk JWT on the wire.
+ *
+ * Why: PostgREST rejects unknown JWTs with `PGRST301` ("JWT cryptographic operation failed").
+ * `supabaseVcDirectory` forwards the Clerk template JWT for `vc_*` / firm flows; that same token
+ * must **not** be sent for tables that only have anon/public SELECT policies, or every query
+ * returns 401 and the UI shows empty grids.
+ */
+export const supabasePublicDirectory = hasSupabaseConfig
+  ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      global: {
+        fetch: (...args) => fetch(...args),
       },
       ...sharedAuthOptions,
     })

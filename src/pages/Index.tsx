@@ -29,6 +29,9 @@ const CompanyView = lazy(() => import("@/components/dashboard/CompanyView").then
 const CompetitiveView = lazy(() => import("@/components/dashboard/CompetitiveView").then((module) => ({ default: module.CompetitiveView })));
 const IndustryView = lazy(() => import("@/components/dashboard/IndustryView").then((module) => ({ default: module.IndustryView })));
 const CommunityView = lazy(() => import("@/components/dashboard/CommunityView").then((module) => ({ default: module.CommunityView })));
+const RecentFundingFeed = lazy(() =>
+  import("@/components/investor-match/RecentFundingFeed").then((module) => ({ default: module.RecentFundingFeed })),
+);
 const IntelligencePage = lazy(() => import("@/components/intelligence/IntelligencePage").then((module) => ({ default: module.IntelligencePage })));
 const MarketIntelligenceInvestors = lazy(() => import("@/components/market-intelligence/InvestorIntelligence").then((module) => ({ default: module.MarketIntelligenceInvestors })));
 
@@ -47,6 +50,7 @@ type ViewType =
   | "market-network"
   | "investors"
   | "investor-search"
+  | "investor-funding"
   | "network"
   | "directory"
   | "connections"
@@ -611,6 +615,10 @@ const Index = () => {
                 vcReviewBootstrap={vcReviewBootstrap}
                 onVcReviewBootstrapConsumed={() => setVcReviewBootstrap(null)}
               />
+            </DeferredSection>
+          ) : activeView === "investor-funding" ? (
+            <DeferredSection label="Loading funding feed…">
+              <RecentFundingFeed />
             </DeferredSection>
           ) : activeView === "sector" ? (
             <div className="space-y-6">

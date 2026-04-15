@@ -26,7 +26,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { useVCDirectory, type VCFirm, type VCPerson } from "@/hooks/useVCDirectory";
-import { useFounderProfiles, useCompanyDirectory, useOperatorProfiles, type FounderProfile } from "@/hooks/useProfile";
+import { useCommunityGridData } from "@/hooks/useCommunityGridData";
+import type { FounderProfile } from "@/hooks/useProfile";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { FounderCarousel } from "./FounderCarousel";
 import { InvestorSuggestedTrendingRails } from "./InvestorSuggestedTrendingRails";
@@ -118,11 +119,17 @@ interface DirectoryEntry {
   _firmId?: string | null;
   _vcFirmId?: string | null;
   _websiteUrl?: string | null;
+  _linkedinUrl?: string | null;
+  _twitterUrl?: string | null;
   _isTrending?: boolean;
   _isPopular?: boolean;
   _isRecent?: boolean;
   /** Deal velocity score (0–100) derived from recent deal count. */
   _dealVelocityScore?: number | null;
+  /** News-derived funding activity (0–100) when present on `firm_records` / `firm_investors`. */
+  _fundingIntelActivity?: number | null;
+  /** Company cards: e.g. VC-backed vs Bootstrapped (best-effort from org flags). */
+  _backingTypeLabel?: string | null;
   _investorEntityType?: "firm" | "person";
   _investorFirmName?: string | null;
   _personData?: VCPerson | null;
@@ -384,62 +391,7 @@ function AdminRecordEditDialog({
   );
 }
 
-// ── Mock data: Suggested ──
-const SUGGESTED_ENTRIES: DirectoryEntry[] = [
-// Founders (people)
-{ name: "Sarah Kim", sector: "Construction & Real Estate", stage: "Seed", description: "Technical co-founder building AI-powered project management tools for mid-size contractors. Ex-Google engineer.", location: "San Francisco, CA", model: "CEO & Co-founder", initial: "S", matchReason: null, category: "founder", _companyName: "NovaBuild", _websiteUrl: "novabuild.co" },
-{ name: "James Okoro", sector: "Climate & Energy", stage: "Series A", description: "Serial entrepreneur focused on smart grid optimization. Previously scaled an energy analytics startup to $8M ARR.", location: "Austin, TX", model: "Founder & CEO", initial: "J", matchReason: "Matches your stage", category: "founder", _companyName: "TerraFlow", _websiteUrl: "terraflow.energy" },
-{ name: "Priya Patel", sector: "Health & Biotech", stage: "Pre-Seed", description: "Biomedical engineer turned founder. Building decentralized health records with zero-knowledge proofs.", location: "Boston, MA", model: "Co-founder & CTO", initial: "P", matchReason: null, category: "founder", _companyName: "Synthara Bio", _websiteUrl: "synthara.bio" },
-{ name: "Alex Rivera", sector: "Consumer & Retail", stage: "Series B", description: "Second-time founder with a $45M exit in e-commerce. Now building AI visual merchandising for brands.", location: "New York, NY", model: "Founder & CEO", initial: "A", matchReason: "Matches your sector", category: "founder", _companyName: "NovaBuild", _websiteUrl: "novabuild.co" },
-// Investors
-{ name: "Sequoia Capital", sector: "Generalist", stage: "Seed–Growth", description: "Premier venture capital firm backing transformative companies from seed to IPO across technology sectors.", location: "Menlo Park, CA", model: "$1M–$50M", initial: "S", matchReason: "Matches your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 88, _headcount: "250+", _aum: "$85B", _dealVelocityScore: 92 },
-{ name: "Lux Capital", sector: "Deep Tech", stage: "Seed–Series B", description: "Invests in emerging science and technology ventures at the outermost edges of what's possible.", location: "New York, NY", model: "$1M–$25M", initial: "L", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 76, _headcount: "45", _aum: "$4B", _dealVelocityScore: 71 },
-{ name: "First Round Capital", sector: "Software & Consumer", stage: "Pre-Seed–Seed", description: "Seed-stage venture firm partnering with founders who are reimagining work, commerce, and daily life.", location: "San Francisco, CA", model: "$500K–$3M", initial: "F", matchReason: "Active in your stage", category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 92, _headcount: "55", _aum: "$1.5B", _dealVelocityScore: 85 },
-// Companies
-{ name: "NovaBuild", sector: "PropTech", stage: "Series A", description: "Modular construction OS that cuts project timelines by 35% through prefab coordination and real-time site analytics.", location: "Denver, CO", model: "B2B SaaS", initial: "N", matchReason: null, category: "company" },
-{ name: "Canopy Finance", sector: "Fintech", stage: "Seed", description: "Embedded lending infrastructure for vertical SaaS platforms. Enables any software company to offer credit products.", location: "Miami, FL", model: "B2B SaaS", initial: "C", matchReason: null, category: "company" },
-{ name: "Synthara Bio", sector: "Health & Biotech", stage: "Series B", description: "Synthetic biology platform engineering microbes for sustainable textile dyes, replacing petroleum-based chemicals.", location: "Cambridge, MA", model: "Licensing", initial: "S", matchReason: null, category: "company" },
-// Operators
-{ name: "Rachel Torres", sector: "B2B SaaS", stage: "Seed–Series A", description: "Fractional VP Engineering with 12 years scaling dev teams from 5 to 50. Previously CTO at a $200M exit in logistics tech.", location: "San Francisco, CA", model: "Fractional", initial: "R", matchReason: "Matches your stage", category: "operator" },
-{ name: "Marcus Chen", sector: "Fintech", stage: "Series A–B", description: "Operating partner and fractional CFO specializing in SaaS metrics, fundraising strategy, and financial modeling for growth-stage startups.", location: "New York, NY", model: "Advisory", initial: "M", matchReason: null, category: "operator" }];
-
-
-// ── Mock data: Trending ──
-const TRENDING_ENTRIES: DirectoryEntry[] = [
-// Founders (people)
-{ name: "Wei Zhang", sector: "Defense & GovTech", stage: "Seed", description: "Former DARPA researcher building dual-use drone swarm coordination software for search-and-rescue operations.", location: "Arlington, VA", model: "Founder & CEO", initial: "W", matchReason: null, category: "founder", _companyName: "ClearPath", _websiteUrl: "clearpath.ai" },
-{ name: "Leila Farouk", sector: "Deep Tech & Space", stage: "Series A", description: "Quantum physicist turned founder. Building compiler toolchains that reduce qubit error rates by 60%.", location: "Boulder, CO", model: "Co-founder & CTO", initial: "L", matchReason: null, category: "founder", _companyName: "StarLink", _websiteUrl: "starlink.com" },
-{ name: "Ryan Nakamura", sector: "Deep Tech & Space", stage: "Pre-Seed", description: "Ex-SpaceX engineer building autonomous satellite constellation management using multi-agent AI systems.", location: "Los Angeles, CA", model: "Founder & CEO", initial: "R", matchReason: null, category: "founder", _companyName: "OrbitOS", _websiteUrl: "orbitos.io" },
-// Investors
-{ name: "a16z", sector: "Software & Crypto", stage: "Seed–Growth", description: "Andreessen Horowitz is a venture capital firm that backs bold entrepreneurs building the future.", location: "Menlo Park, CA", model: "$500K–$100M", initial: "A", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 71, _headcount: "500+", _aum: "$42B", _isTrending: true, _dealVelocityScore: 88 },
-{ name: "Founders Fund", sector: "Frontier Tech", stage: "Seed–Growth", description: "Peter Thiel's fund investing in revolutionary companies that push the frontier of technology.", location: "San Francisco, CA", model: "$500K–$50M", initial: "F", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 65, _headcount: "50", _aum: "$11B", _isTrending: true, _dealVelocityScore: 62 },
-// Companies
-{ name: "ClearPath Logistics", sector: "Supply Chain", stage: "Seed", description: "End-to-end freight visibility platform. Uses IoT + ML to predict delays 72 hours in advance for last-mile carriers.", location: "Chicago, IL", model: "Usage-Based", initial: "C", matchReason: null, category: "company" },
-{ name: "Pepper Robotics", sector: "Industrial Automation", stage: "Series A", description: "Cobotic systems for food processing plants. 3x throughput increase with zero added safety incidents.", location: "Pittsburgh, PA", model: "Hardware + SaaS", initial: "P", matchReason: null, category: "company" },
-// Operators
-{ name: "Diana Okafor", sector: "Growth & Marketing", stage: "Pre-Seed–Seed", description: "Growth operator who scaled three startups from $0 to $5M ARR. Specializes in PLG motions and community-led growth.", location: "Austin, TX", model: "Fractional", initial: "D", matchReason: null, category: "operator" }];
-
-
-// ── Extended entries for grid ──
-const EXTRA_ENTRIES: DirectoryEntry[] = [
-{ name: "Elena Vasquez", sector: "Health & Biotech", stage: "Seed", description: "Former Mayo Clinic researcher building remote patient monitoring with wearable biosensors and predictive AI.", location: "Nashville, TN", model: "Founder & CEO", initial: "E", matchReason: null, category: "founder", _companyName: "VitalsAI", _websiteUrl: "vitals.ai" },
-{ name: "TerraFlow", sector: "Climate & Energy", stage: "Series A", description: "Carbon capture marketplace connecting industrial emitters with verified offset projects using blockchain verification.", location: "Portland, OR", model: "Marketplace", initial: "T", matchReason: "Matches your stage", category: "company", _websiteUrl: "terraflow.energy" },
-{ name: "CodeVault", sector: "Developer Tools", stage: "Pre-Seed", description: "AI-powered code review platform that detects security vulnerabilities and suggests fixes in real-time during PR reviews.", location: "Seattle, WA", model: "B2B SaaS", initial: "C", matchReason: null, category: "company", _websiteUrl: "codevault.io" },
-{ name: "FreshRoute", sector: "Supply Chain", stage: "Seed", description: "Cold chain logistics optimizer for perishable goods. Reduces food waste by 25% through dynamic routing and IoT monitoring.", location: "Atlanta, GA", model: "Usage-Based", initial: "F", matchReason: null, category: "company", _websiteUrl: "freshroute.com" },
-{ name: "Omar Hassan", sector: "Enterprise AI", stage: "Series B", description: "Third-time founder building enterprise knowledge graph platforms. Previous exit to Salesforce for $120M.", location: "San Jose, CA", model: "Founder & CEO", initial: "O", matchReason: null, category: "founder", _companyName: "GraphBase", _websiteUrl: "graphbase.ai" },
-{ name: "Maria Santos", sector: "EdTech", stage: "Seed", description: "Former teacher turned founder. Building adaptive learning platforms for workforce upskilling with competency mapping.", location: "Washington, DC", model: "Co-founder & CEO", initial: "M", matchReason: "Matches your sector", category: "founder", _companyName: "SkillMap", _websiteUrl: "skillmap.io" },
-{ name: "Kleiner Perkins", sector: "Software & Health", stage: "Seed–Growth", description: "Legendary venture firm investing in technology and life science companies driving positive impact.", location: "Menlo Park, CA", model: "$1M–$20M", initial: "K", matchReason: null, category: "investor", _firmType: "Institutional", _isActivelyDeploying: true, _founderSentimentScore: 82, _headcount: "80", _aum: "$18B", _dealVelocityScore: 76 },
-{ name: "Bessemer Venture Partners", sector: "Cloud & SaaS", stage: "Seed–Growth", description: "One of the oldest VC firms, pioneering cloud computing investments with a century of experience.", location: "San Francisco, CA", model: "$1M–$30M", initial: "B", matchReason: "Active in your sector", category: "investor", _firmType: "Institutional", _isActivelyDeploying: false, _founderSentimentScore: 79, _headcount: "100", _aum: "$22B", _dealVelocityScore: 44 },
-{ name: "AquaPure Tech", sector: "Climate & Energy", stage: "Series A", description: "Decentralized water purification systems powered by solar energy for off-grid communities and disaster relief.", location: "Phoenix, AZ", model: "Hardware + SaaS", initial: "A", matchReason: null, category: "company", _websiteUrl: "aquapure.tech" },
-{ name: "FleetMind", sector: "Mobility & Logistics", stage: "Pre-Seed", description: "Autonomous fleet management for last-mile delivery using computer vision and edge computing on existing vehicles.", location: "Detroit, MI", model: "Usage-Based", initial: "F", matchReason: null, category: "company", _websiteUrl: "fleetmind.ai" },
-{ name: "Nina Kapoor", sector: "LegalTech", stage: "Seed", description: "Former BigLaw partner building AI contract analysis tools. Identifies risk clauses and suggests negotiation strategies.", location: "Philadelphia, PA", model: "Founder & CEO", initial: "N", matchReason: null, category: "founder", _companyName: "LegalMind", _websiteUrl: "legalmind.ai" },
-{ name: "Bloom Finance", sector: "Fintech", stage: "Pre-Seed", description: "Micro-investment platform for Gen Z that rounds up purchases and invests in curated ESG-focused portfolios.", location: "Brooklyn, NY", model: "Consumer", initial: "B", matchReason: null, category: "company" },
-{ name: "Sanjay Mehta", sector: "Enterprise AI", stage: "Series A–B", description: "Former VP Product at Databricks. Advises startups on enterprise go-to-market, pricing strategy, and product-led sales.", location: "Palo Alto, CA", model: "Advisory", initial: "S", matchReason: "Matches your sector", category: "operator" },
-{ name: "Kat Williams", sector: "People & Culture", stage: "Seed–Series A", description: "Head of People operator. Built HR from zero at four venture-backed startups. Expert in early-stage culture design and comp frameworks.", location: "Denver, CO", model: "Fractional", initial: "K", matchReason: null, category: "operator" }];
-
-
-// ── All entries (combined) ──
-const ALL_ENTRIES: DirectoryEntry[] = [...SUGGESTED_ENTRIES, ...TRENDING_ENTRIES, ...EXTRA_ENTRIES];
+/** Legacy demo directory rows were removed — Network uses Supabase-backed hooks (`useCommunityGridData`). */
 
 function filterByScope(entries: DirectoryEntry[], scope: EntityScope): DirectoryEntry[] {
   if (scope === "all") return entries;
@@ -504,28 +456,12 @@ const normalizeWebsiteHost = (websiteUrl?: string | null) => {
   }
 };
 
-/** Match grid rows to mock “Trending Investors” seeds (badges when DB has no is_trending). */
-const MOCK_TRENDING_INVESTOR_KEYS = (() => {
-  const s = new Set<string>();
-  for (const e of TRENDING_ENTRIES) {
-    if (e.category !== "investor") continue;
-    const n = normalizeFirmName(e.name);
-    for (const k of getAliasKeys(n)) s.add(k);
-  }
-  return s;
-})();
-
-/** DB often stores is_trending: false — that must not wipe mock/seed trending for demo rails. */
 function isInvestorTrendingMerged(
   dbIsTrending: boolean | null | undefined,
   seedIsTrending: boolean,
-  firmName: string,
+  _firmName: string,
 ): boolean {
-  return (
-    dbIsTrending === true ||
-    seedIsTrending ||
-    MOCK_TRENDING_INVESTOR_KEYS.has(normalizeFirmName(firmName))
-  );
+  return dbIsTrending === true || seedIsTrending;
 }
 
 const deriveWebsiteUrlFromFirmId = (firmId?: string | null): string | null => {
@@ -734,6 +670,7 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
       inv.recent_deals ?? null,
       inv.is_actively_deploying ?? null,
     ),
+    _fundingIntelActivity: inv.funding_intel_activity_score ?? null,
   };
 }
 
@@ -797,13 +734,14 @@ const INVESTOR_CARD_DEPLOY_INACTIVE_BADGE =
 
 function investorSectorStageParts(entry: DirectoryEntry): { sector: string | null; stage: string | null } {
   const sector = safeTextTrim(entry.sector) || null;
-  const raw = safeTextTrim(entry.stage);
-  if (!raw) return { sector, stage: null };
 
   if (entry._stages && entry._stages.length > 0) {
     const collapsed = collapseStagesToRange(entry._stages.map((s) => String(s)));
-    return { sector, stage: collapsed ?? formatStageForDisplay(raw) };
+    return { sector, stage: collapsed ?? null };
   }
+
+  const raw = safeTextTrim(entry.stage);
+  if (!raw || raw === "—") return { sector, stage: null };
 
   if (raw.includes(",")) {
     const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
@@ -1348,6 +1286,48 @@ function OperatorHubCard({
   );
 }
 
+function formatCompanyHeadcountDisplay(n: number | null | undefined): string | null {
+  if (n == null || !Number.isFinite(n) || n < 0) return null;
+  return Math.round(n).toLocaleString();
+}
+
+function companyBackingTypeLabel(isYcBacked: boolean, ycBatch: string | null | undefined): string {
+  const cohort = typeof ycBatch === "string" ? ycBatch.trim() : "";
+  if (isYcBacked || cohort.length > 0) return "VC-backed";
+  return "Bootstrapped";
+}
+
+/** Network directory — company cards: labeled Stage / Sector / Type / Headcount / HQ. */
+function CompanyCardMetricsRow({ founder }: { founder: DirectoryEntry }) {
+  const { sector, stage } = investorSectorStageParts(founder);
+  const stageLine = safeTextTrim(stage) || "—";
+  const sectorLine = safeTextTrim(sector) || "—";
+  const typeLine = safeTextTrim(founder._backingTypeLabel) || "—";
+  const hcRaw = founder._headcount != null ? String(founder._headcount).trim() : "";
+  const headcountLine = hcRaw.length > 0 ? hcRaw : "—";
+  const hqLine = safeTextTrim(founder.location) || "—";
+
+  const cell = (label: string, value: string) => (
+    <div key={label} className="min-w-0 flex-1 basis-[46%] sm:basis-0 sm:min-w-[4.5rem]">
+      <div className="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/85">{label}</div>
+      <div className="text-[10px] font-medium text-foreground/90 truncate" title={value}>
+        {value}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex items-start justify-between gap-2 pt-1 border-t border-border/40 flex-wrap">
+      <div className="flex flex-1 flex-wrap gap-x-4 gap-y-2 min-w-0">{cell("Stage", stageLine)}{cell("Sector", sectorLine)}{cell("Type", typeLine)}{cell("Headcount", headcountLine)}{cell("HQ", hqLine)}</div>
+      {founder.matchReason ? (
+        <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0">
+          <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
 function FounderCard({
   founder,
   trending,
@@ -1468,27 +1448,31 @@ function FounderCard({
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed mt-1.5 line-clamp-2">{founder.description}</p>
         </div>
-        <div className="flex items-center justify-between pt-1 border-t border-border/40 flex-wrap gap-y-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            {founder.location &&
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                <MapPin className="h-2.5 w-2.5" /> {founder.location}
-              </span>
-            }
-            {(founderCardSector || founderCardStage) && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                {founderCardSector ? <span className="font-medium text-foreground/75">{founderCardSector}</span> : null}
-                {founderCardSector && founderCardStage ? <span className="text-muted-foreground/60">·</span> : null}
-                {founderCardStage ? <span>{founderCardStage}</span> : null}
-              </span>
+        {founder.category === "company" ? (
+          <CompanyCardMetricsRow founder={founder} />
+        ) : (
+          <div className="flex items-center justify-between pt-1 border-t border-border/40 flex-wrap gap-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              {founder.location && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <MapPin className="h-2.5 w-2.5" /> {founder.location}
+                </span>
+              )}
+              {(founderCardSector || founderCardStage) && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  {founderCardSector ? <span className="font-medium text-foreground/75">{founderCardSector}</span> : null}
+                  {founderCardSector && founderCardStage ? <span className="text-muted-foreground/60">·</span> : null}
+                  {founderCardStage ? <span>{founderCardStage}</span> : null}
+                </span>
+              )}
+            </div>
+            {founder.matchReason && (
+              <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
+              </Badge>
             )}
           </div>
-          {founder.matchReason &&
-          <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
-              <Sparkles className="h-2.5 w-2.5 mr-0.5" /> {founder.matchReason}
-            </Badge>
-          }
-        </div>
+        )}
       </CardContent>
     </Card>);
 }
@@ -1633,6 +1617,7 @@ function CohortFooterSparkline({
 
 const INVESTOR_SORT_OPTIONS = [
   { value: "recommended", label: "Recommended" },
+  { value: "funding_activity", label: "Funding activity (90d)" },
   { value: "name_az", label: "Name A–Z" },
   { value: "name_za", label: "Name Z–A" },
   { value: "sentiment", label: "Founder sentiment" },
@@ -1675,6 +1660,17 @@ function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: Inv
       if (db !== da) return db - da;
       break;
     }
+    case "funding_activity": {
+      const fa = a._fundingIntelActivity ?? null;
+      const fb = b._fundingIntelActivity ?? null;
+      if (fa == null && fb == null) {
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+      }
+      if (fa == null) return 1;
+      if (fb == null) return -1;
+      if (fb !== fa) return fb - fa;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    }
     case "recommended":
     default:
       break;
@@ -1715,6 +1711,7 @@ function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewMode
     _firmType: e._firmType,
     _aumBand: e._aumBand ?? null,
     _dealVelocityScore: e._dealVelocityScore ?? null,
+    _fundingIntelActivity: e._fundingIntelActivity ?? null,
   };
 }
 
@@ -1785,7 +1782,7 @@ function directoryEntryToCompanyPreview(e: DirectoryEntry): InvestorPreviewModel
     _isTrending: e._isTrending,
     _isPopular: e._isPopular,
     _isRecent: e._isRecent,
-    _headcount: null,
+    _headcount: e._headcount ?? null,
     _aum: null,
     _firmType: "Startup",
     _aumBand: null,
@@ -1878,14 +1875,15 @@ export function CommunityView({
     firmMap, getFirmById, getPartnersForFirm: getVCPartners, getFirmForPerson,
   } = useVCDirectory();
 
-  // Real founder profiles from people table
-  const { founders: realFounders, loading: foundersLoading } = useFounderProfiles();
+  const communityGrid = useCommunityGridData({
+    isInvestorSearch,
+    activeScope,
+    activeFilter,
+  });
 
-  // Real company profiles from organizations table
-  const { companies: realCompanies } = useCompanyDirectory(300);
-
-  // Real operator profiles from operator_profiles table
-  const { operators: realOperators } = useOperatorProfiles(200);
+  const realFounders = communityGrid.founders;
+  const realCompanies = communityGrid.companies;
+  const realOperators = communityGrid.operators;
 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
   const { data: dbInvestors } = useInvestorDirectory();
@@ -2009,6 +2007,8 @@ export function CommunityView({
           person.firm?.recent_deals ?? null,
           person.firm?.is_actively_deploying ?? null,
         ),
+        _fundingIntelActivity:
+          person.funding_intel_activity_score ?? person.firm?.funding_intel_activity_score ?? null,
         _investorEntityType: "person",
         _investorFirmName: firmName,
         _personData: personData,
@@ -2026,9 +2026,7 @@ export function CommunityView({
   // Merge VC JSON firms into the directory entries for grid display
   // Store the original VCFirm ref so we can do exact sector matching later
   const vcEntries = useMemo(() => {
-    const seedNames = new Set(
-      ALL_ENTRIES.filter((e) => e.category === "investor").map((e) => e.name.toLowerCase()),
-    );
+    const seedNames = new Set<string>();
     /** When mock investor cards are omitted, keep every MDM firm — otherwise a name collision hides the real row. */
     const investorMocksShown = !isInvestorSearch && activeScope !== "investors";
     return vcFirms
@@ -2072,6 +2070,7 @@ export function CommunityView({
             (dbMatch as any)?.recent_deals ?? null,
             (dbMatch as any)?.is_actively_deploying ?? null,
           ),
+          _fundingIntelActivity: dbMatch?.funding_intel_activity_score ?? null,
         };
       });
   }, [vcFirms, getDbMatch, isInvestorSearch, activeScope]);
@@ -2115,6 +2114,7 @@ export function CommunityView({
           inv.recent_deals ?? null,
           inv.is_actively_deploying ?? null,
         ),
+        _fundingIntelActivity: inv.funding_intel_activity_score ?? null,
       });
     }
     return out;
@@ -2138,32 +2138,40 @@ export function CommunityView({
       _companyName: f.company_name,
       _profileId: f.id,
       _logoUrl: f.avatar_url || null,
+      _websiteUrl: f.company_website ?? null,
+      _linkedinUrl: f.linkedin_url ?? null,
+      _twitterUrl: f.twitter_url ?? null,
       competitors: f.company_competitors || [],
     }));
   }, [realFounders]);
 
   // Convert real company profiles to DirectoryEntry format
   const realCompanyEntries: DirectoryEntry[] = useMemo(() => {
-    const mockNames = new Set(ALL_ENTRIES.filter(e => e.category === "company").map(e => e.name.toLowerCase()));
     return realCompanies
-      .filter(c => c.name && !mockNames.has(c.name.toLowerCase()))
-      .map(c => ({
-        name: c.name,
-        sector: c.sector || "—",
-        stage: c.yc_batch ? `YC ${c.yc_batch}` : "—",
-        description: c.description || `${c.name} is a startup company.`,
-        location: [c.city, c.country].filter(Boolean).join(", "),
-        model: c.is_yc_backed ? "YC-backed" : "Startup",
-        initial: c.name.charAt(0).toUpperCase(),
-        matchReason: null,
-        category: "company" as const,
-        _sectors: [] as string[],
-        _stages: [] as string[],
-        _isRealProfile: true,
-        _websiteUrl: c.website || null,
-        _logoUrl: c.logo_url || null,
-        _firmId: c.id,
-      }));
+      .filter((c) => c.name)
+      .map((c) => {
+        const yc = c.yc_batch && String(c.yc_batch).trim() ? String(c.yc_batch).trim() : "";
+        const cohortStages = yc.length > 0 ? [`YC ${yc}`] : [];
+        return {
+          name: c.name,
+          sector: c.sector || "—",
+          stage: "—",
+          description: c.description || `${c.name} is a startup company.`,
+          location: [c.city, c.country].filter(Boolean).join(", "),
+          model: c.is_yc_backed ? "YC-backed" : "Startup",
+          initial: c.name.charAt(0).toUpperCase(),
+          matchReason: null,
+          category: "company" as const,
+          _sectors: [] as string[],
+          _stages: cohortStages,
+          _isRealProfile: true,
+          _websiteUrl: c.website || null,
+          _logoUrl: c.logo_url || null,
+          _firmId: c.id,
+          _headcount: formatCompanyHeadcountDisplay(c.employee_count),
+          _backingTypeLabel: companyBackingTypeLabel(Boolean(c.is_yc_backed), c.yc_batch),
+        };
+      });
   }, [realCompanies]);
 
   // Convert real operator profiles to DirectoryEntry format
@@ -2187,91 +2195,21 @@ export function CommunityView({
       _isRealProfile: true,
       _profileId: op.id,
       _websiteUrl: null,
+      _linkedinUrl: op.linkedin_url ?? null,
+      _twitterUrl: op.x_url ?? null,
       _logoUrl: op.avatar_url || null,
     }));
   }, [realOperators]);
 
   const mergedEntries = useMemo(() => {
-    const hasRealFounders = realFounderEntries.length > 0;
-    const hasRealCompanies = realCompanyEntries.length > 0;
-    const hasRealOperators = realOperatorEntries.length > 0;
-
-    // Filter mock entries: replace categories where we have real data
-    const mockEntries = ALL_ENTRIES.filter(e => {
-      if (e.category === "investor" && (isInvestorSearch || activeScope === "investors")) return false;
-      if (e.category === "founder" && hasRealFounders) return false;
-      if (e.category === "company" && hasRealCompanies) return false;
-      if (e.category === "operator" && hasRealOperators) return false;
-      return true;
-    });
-
     return [
       ...realFounderEntries,
       ...realCompanyEntries,
       ...realOperatorEntries,
       ...dbOnlyFirmEntries,
-      ...mockEntries.map(e => {
-        if (e.category !== "investor") {
-          return {
-            ...e,
-            _sectors: [] as string[],
-            _stages: [] as string[],
-          };
-        }
-
-        const dbMatch = getDbMatch(e.name);
-        const vcMatch = getVCFirmMatch(e.name);
-        const fallbackWebsite = vcMatch?.website_url || deriveWebsiteUrlFromFirmId(vcMatch?.id);
-        const resolvedAum =
-          (dbMatch as any)?.aum ?? vcMatch?.aum ?? e._aum ?? null;
-
-        const seedTrending = (e as DirectoryEntry)._isTrending === true;
-
-        // DB values always win; static mock values are the last-resort fallback
-        return {
-          ...e,
-          _sectors: [] as string[],
-          _stages: [] as string[],
-          _aum: resolvedAum,
-          _aumBand: investorAumBandLabel(resolvedAum),
-          _isTrending: isInvestorTrendingMerged((dbMatch as any)?.is_trending, seedTrending, e.name),
-          _isPopular: (dbMatch as any)?.is_popular ?? (e._isPopular ?? false),
-          _isRecent: (dbMatch as any)?.is_recent ?? (e._isRecent ?? false),
-          _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? null,
-          _websiteUrl: (dbMatch as any)?.website_url ?? e._websiteUrl ?? fallbackWebsite ?? null,
-          _logoUrl: (dbMatch as any)?.logo_url ?? e._logoUrl ?? null,
-          // All investor-specific fields prefer live DB data over static mock values
-          _isActivelyDeploying: dbMatch
-            ? ((dbMatch as any)?.is_actively_deploying ?? true)
-            : (e._isActivelyDeploying ?? true),
-          _founderSentimentScore: dbMatch
-            ? ((dbMatch as any)?.founder_reputation_score ?? null)
-            : (e._founderSentimentScore ?? null),
-          _headcount: (dbMatch as any)?.headcount ?? e._headcount ?? null,
-          _firmType:
-            (dbMatch as any)?.firm_type ??
-            resolveDirectoryFirmTypeKey(e.name, typeof e._firmType === "string" ? e._firmType : null),
-          _dealVelocityScore: dbMatch
-            ? computeDealVelocityScore(
-                (dbMatch as any)?.recent_deals ?? null,
-                (dbMatch as any)?.is_actively_deploying ?? null,
-              )
-            : (e._dealVelocityScore ?? null),
-        };
-      }),
       ...vcEntries,
     ];
-  }, [
-    vcEntries,
-    dbOnlyFirmEntries,
-    realFounderEntries,
-    realCompanyEntries,
-    realOperatorEntries,
-    getDbMatch,
-    getVCFirmMatch,
-    isInvestorSearch,
-    activeScope,
-  ]);
+  }, [vcEntries, dbOnlyFirmEntries, realFounderEntries, realCompanyEntries, realOperatorEntries]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
   const investorDirectoryUnavailable =
@@ -2358,10 +2296,16 @@ export function CommunityView({
       ] as const;
     }
 
-    const localCount = ALL_ENTRIES.filter((e) => e.location.includes(userCity)).length;
-    const stageCount = ALL_ENTRIES.filter((e) => e.stage === userStage).length;
-    const founderCount = ALL_ENTRIES.filter((e) => e.category === "founder").length;
-    const matchCount = ALL_ENTRIES.filter((e) => e.matchReason).length;
+    const pool = mergedEntries.filter((e) => e.category !== "investor");
+    const userSectorNorm = safeTextTrim(companyData?.sector).toLowerCase();
+    const localCount = pool.filter((e) => safeTextTrim(e.location).toLowerCase().includes(userCity.toLowerCase())).length;
+    const stageCount = pool.filter((e) => safeTextTrim(e.stage).toLowerCase().includes(userStage.toLowerCase())).length;
+    const founderCount = pool.filter((e) => e.category === "founder").length;
+    const matchCount = pool.filter(
+      (e) =>
+        e.matchReason ||
+        (userSectorNorm.length > 0 && safeTextTrim(e.sector).toLowerCase().includes(userSectorNorm)),
+    ).length;
 
     return [
       {
@@ -2425,7 +2369,7 @@ export function CommunityView({
         isPrimary: false,
       },
     ] as const;
-  }, [companyData, mergedEntries, isOperatorHubLayout]);
+  }, [companyData, mergedEntries, isOperatorHubLayout, companyData?.sector]);
 
   // Cohort detail entries — filtered list shown inside the detail drawer
   const cohortDetailEntries = useMemo(() => {
@@ -2480,18 +2424,24 @@ export function CommunityView({
     setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
   }, [activeFilter, activeScope, activeInvestorTab, investorSort, isInvestorSearch]);
 
+  /** Founders / companies / operators come from `useCommunityGridData` (SQL filters) — skip duplicate chip pass. */
+  const directoryDbGrid = !isInvestorSearch && activeScope !== "investors";
+
   const scopedAll = filterByScope(mergedEntries, activeScope).filter(
     (e) => e.category !== "investor" || isInvestorSearch || activeScope === "investors",
   );
 
-  const filteredAll = scopedAll.filter((f) => {
-    const filterQ = safeTextTrim(activeFilter).toLowerCase();
-    if (!filterQ) return true;
-    const stage = (f.stage ?? "").toString().toLowerCase();
-    const sector = (f.sector ?? "").toString().toLowerCase();
-    const model = (f.model ?? "").toString().toLowerCase();
-    return stage.includes(filterQ) || sector.includes(filterQ) || model.includes(filterQ);
-  });
+  const filteredAll = useMemo(() => {
+    if (directoryDbGrid) return scopedAll;
+    return scopedAll.filter((f) => {
+      const filterQ = safeTextTrim(activeFilter).toLowerCase();
+      if (!filterQ) return true;
+      const stage = (f.stage ?? "").toString().toLowerCase();
+      const sector = (f.sector ?? "").toString().toLowerCase();
+      const model = (f.model ?? "").toString().toLowerCase();
+      return stage.includes(filterQ) || sector.includes(filterQ) || model.includes(filterQ);
+    });
+  }, [directoryDbGrid, scopedAll, activeFilter]);
 
   // ── Investor tab filtering & sorting ──
   // Company profile JSON can store stage/sector as numbers — never call string methods on raw values.
@@ -2651,8 +2601,13 @@ export function CommunityView({
     return list;
   }, [isInvestorSearch, isOperatorHubLayout, textFilteredEntries, investorSort]);
 
-  const hasMore = visibleCount < gridEntries.length;
-  const visibleFounders = gridEntries.slice(0, visibleCount);
+  const hasMore = directoryDbGrid ? communityGrid.hasMore : visibleCount < gridEntries.length;
+  const visibleGrid = useMemo(() => {
+    if (directoryDbGrid) return gridEntries;
+    return gridEntries.slice(0, visibleCount);
+  }, [directoryDbGrid, gridEntries, visibleCount]);
+
+  const gridLoadingMore = directoryDbGrid ? communityGrid.loadingMore : isLoadingMore;
 
   useLayoutEffect(() => {
     if (!isInvestorSearch || !investorScrollTo?.vcFirmId) return;
@@ -2738,49 +2693,65 @@ export function CommunityView({
     };
   }, [getDbMatch, getVCFirmMatch]);
 
-  // Strip mock investor *carousel* seeds only on Network directory + Investors tab (grid already lists investors).
-  // Do not strip when `investor-search`: that variant feeds `InvestorSuggestedTrendingRails` from these arrays;
-  // stripping there left both rails and carousel hidden (showInvestorRails false && !isInvestorSearch for carousels).
-  const hideMockInvestorCarouselSeeds = !isInvestorSearch && activeScope === "investors";
+  const networkDirectorySample = useMemo(() => {
+    const row: DirectoryEntry[] = [
+      ...realFounderEntries.slice(0, 5),
+      ...realCompanyEntries.slice(0, 5),
+      ...realOperatorEntries.slice(0, 5),
+    ];
+    return filterByScope(row, activeScope);
+  }, [realFounderEntries, realCompanyEntries, realOperatorEntries, activeScope]);
 
-  const scopedSuggested = filterByScope(SUGGESTED_ENTRIES, activeScope)
-    .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
-    .map(enrichInvestorSeedEntry);
-
-  const scopedTrending = filterByScope(TRENDING_ENTRIES, activeScope)
-    .filter(e => isInvestorSearch || e.category !== "investor")
-    .filter(e => !(e.category === "investor" && hideMockInvestorCarouselSeeds))
-    .map(enrichInvestorSeedEntry);
+  const investorCarouselPool = useMemo(() => {
+    return vcEntries.map((e) => enrichInvestorSeedEntry(e));
+  }, [vcEntries, enrichInvestorSeedEntry]);
 
   const investorRailSuggested = useMemo(
-    () => scopedSuggested.filter((e) => e.category === "investor"),
-    [scopedSuggested],
+    () => (isInvestorSearch ? investorCarouselPool.slice(0, 8) : []),
+    [isInvestorSearch, investorCarouselPool],
   );
   const investorRailTrending = useMemo(
-    () => scopedTrending.filter((e) => e.category === "investor"),
-    [scopedTrending],
+    () => (isInvestorSearch ? investorCarouselPool.slice(8, 16) : []),
+    [isInvestorSearch, investorCarouselPool],
   );
 
   const networkRailSuggested = useMemo(() => {
     if (isInvestorSearch) return [];
-    return [...scopedSuggested].sort((a, b) => {
+    return [...networkDirectorySample].sort((a, b) => {
       const ma = a.matchReason ? 1 : 0;
       const mb = b.matchReason ? 1 : 0;
       if (mb !== ma) return mb - ma;
       return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
-  }, [isInvestorSearch, scopedSuggested]);
+  }, [isInvestorSearch, networkDirectorySample]);
+
+  /** Same entity kinds as the Network rails — never reuse the investor-only carousel pool here. */
+  const networkRailTrendingPool = useMemo(() => {
+    if (isInvestorSearch) return [];
+    if (activeScope === "all") {
+      return mergedEntries.filter((e) => e.category !== "investor");
+    }
+    return filterByScope(mergedEntries, activeScope);
+  }, [isInvestorSearch, mergedEntries, activeScope]);
 
   const networkRailTrending = useMemo(() => {
     if (isInvestorSearch) return [];
-    return [...scopedTrending].sort((a, b) => {
+    const scoped = networkRailTrendingPool;
+    const trending = scoped.filter((e) => e._isTrending === true);
+    const pool = trending.length >= 4 ? trending : scoped;
+    return [...pool].slice(0, 10).sort((a, b) => {
       const ta = a._isTrending === true ? 1 : 0;
       const tb = b._isTrending === true ? 1 : 0;
       if (tb !== ta) return tb - ta;
+      const pa = a._isPopular === true ? 1 : 0;
+      const pb = b._isPopular === true ? 1 : 0;
+      if (pb !== pa) return pb - pa;
+      const ra = a._isRecent === true ? 1 : 0;
+      const rb = b._isRecent === true ? 1 : 0;
+      if (rb !== ra) return rb - ra;
       return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
-  }, [isInvestorSearch, scopedTrending]);
+  }, [isInvestorSearch, networkRailTrendingPool]);
 
   const networkRailSuggestedPreviews = useMemo(
     () => networkRailSuggested.map((e) => directoryEntryToNetworkRailPreview(e)),
@@ -2796,8 +2767,54 @@ export function CommunityView({
   const showNetworkRails =
     !isInvestorSearch && (networkRailSuggested.length > 0 || networkRailTrending.length > 0);
 
+  /** Legacy carousel fallback when the compact rails have nothing to show — keep in sync with rail pools. */
+  const scopedSuggested = networkRailSuggested;
+  const scopedTrending = networkRailTrending;
+
   const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
   const carouselTitles = CAROUSEL_TITLES[activeScope] ?? CAROUSEL_TITLES.all;
+
+  /**
+   * Network directory footer counts.
+   * For scope "all", a single `visible of sum(totals)` implied one mixed list vs. one grand total and read as a bug.
+   * Here we show per-entity loaded / directory totals (same numbers as the founders / companies / operators tabs).
+   */
+  const networkDirectoryFooterCountText = useMemo(() => {
+    if (!directoryDbGrid || isOperatorHubLayout) return null;
+    const fmt = (n: number | null | undefined) => (n == null ? "…" : n.toLocaleString());
+
+    if (activeScope === "all") {
+      if (communityGrid.loading && visibleGrid.length === 0) {
+        return "Loading mixed directory…";
+      }
+      let foundersShown = 0;
+      let companiesShown = 0;
+      let operatorsShown = 0;
+      for (const e of visibleGrid) {
+        if (e.category === "founder") foundersShown++;
+        else if (e.category === "company") companiesShown++;
+        else if (e.category === "operator") operatorsShown++;
+      }
+      const { founders: tf, companies: tc, operators: to } = communityGrid.totals;
+      return `Founders ${foundersShown}/${fmt(tf)} · Companies ${companiesShown}/${fmt(tc)} · Operators ${operatorsShown}/${fmt(to)}`;
+    }
+
+    if (communityGrid.totalForScope != null) {
+      return `${visibleGrid.length} of ${communityGrid.totalForScope} ${labels.plural}`;
+    }
+    return null;
+  }, [
+    activeScope,
+    communityGrid.loading,
+    communityGrid.totals.companies,
+    communityGrid.totals.founders,
+    communityGrid.totals.operators,
+    communityGrid.totalForScope,
+    directoryDbGrid,
+    isOperatorHubLayout,
+    labels.plural,
+    visibleGrid,
+  ]);
 
   const handleViewAll = useCallback(() => {
     // Scroll to the all grid section
@@ -2808,9 +2825,13 @@ export function CommunityView({
   }, []);
 
   const loadMore = useCallback(() => {
+    if (directoryDbGrid) {
+      if (!communityGrid.hasMore || communityGrid.loadingMore) return;
+      void communityGrid.loadMore();
+      return;
+    }
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
-    // Simulate network delay for smooth UX
     setTimeout(() => {
       setVisibleCount((prev) =>
         Math.min(
@@ -2820,7 +2841,16 @@ export function CommunityView({
       );
       setIsLoadingMore(false);
     }, 400);
-  }, [hasMore, isLoadingMore, textFilteredEntries.length, isInvestorSearch]);
+  }, [
+    directoryDbGrid,
+    communityGrid.hasMore,
+    communityGrid.loadingMore,
+    communityGrid.loadMore,
+    hasMore,
+    isLoadingMore,
+    textFilteredEntries.length,
+    isInvestorSearch,
+  ]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -3345,9 +3375,15 @@ export function CommunityView({
                 </Select>
               )}
               <span className="text-[10px] text-muted-foreground font-mono uppercase tabular-nums">
-                {`${visibleFounders.length} of ${gridEntries.length} ${
-                  isInvestorSearch ? "investors" : isOperatorHubLayout ? "operators" : labels.plural
-                }`}
+                {networkDirectoryFooterCountText != null
+                  ? networkDirectoryFooterCountText
+                  : directoryDbGrid && communityGrid.totalForScope != null
+                    ? `${visibleGrid.length} of ${communityGrid.totalForScope} ${
+                        isOperatorHubLayout ? "operators" : labels.plural
+                      }`
+                    : `${visibleGrid.length} of ${gridEntries.length} ${
+                        isInvestorSearch ? "investors" : isOperatorHubLayout ? "operators" : labels.plural
+                      }`}
               </span>
             </div>
           </div>
@@ -3377,7 +3413,13 @@ export function CommunityView({
                 <Layers className="h-4 w-4" /> Update Profile Sector
               </button>
             </div>
-          ) : visibleFounders.length > 0 ? (
+          ) : communityGrid.loading && directoryDbGrid ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <FounderCardSkeleton key={`dir-skel-${i}`} />
+              ))}
+            </div>
+          ) : visibleGrid.length > 0 ? (
             <AnimatePresence mode="wait">
               <motion.div
                 key={isOperatorHubLayout ? "operators-hub" : activeInvestorTab}
@@ -3387,7 +3429,7 @@ export function CommunityView({
                 transition={{ duration: 0.25 }}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {visibleFounders.map((founder, i) =>
+                  {visibleGrid.map((founder, i) =>
                     <FounderCard
                       key={`all-${founder.category === "investor" ? investorAnchorVcFirmId(founder) ?? founder.name : founder._profileId ?? founder.name}-${i}`}
                       founder={founder}
@@ -3399,20 +3441,20 @@ export function CommunityView({
                       onAdminEdit={() => setAdminEditRecord(getAdminEditableRecord(founder))}
                     />
                   )}
-                  {isLoadingMore &&
+                  {gridLoadingMore &&
                     Array.from({ length: 3 }).map((_, i) =>
                       <FounderCardSkeleton key={`loading-${i}`} />
                     )}
                 </div>
                 <div ref={sentinelRef} className="h-1" />
-                {hasMore && !isLoadingMore &&
+                {hasMore && !gridLoadingMore &&
                   <div className="flex justify-center pt-2">
                     <button onClick={loadMore} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-accent/30 shadow-sm hover:shadow-md transition-all">
                       Load more
                     </button>
                   </div>
                 }
-                {isLoadingMore &&
+                {gridLoadingMore &&
                   <div className="flex justify-center pt-2">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
@@ -3575,6 +3617,11 @@ export function CommunityView({
       <FounderDetailPanel
         founder={selectedFounder}
         companyName={companyData?.name}
+        organizationId={
+          selectedFounder?.category === "company" && isUuid(selectedFounder._firmId)
+            ? String(selectedFounder._firmId).trim()
+            : null
+        }
         onClose={() => setSelectedFounder(null)} />
       <InvestorDetailPanel
         investor={

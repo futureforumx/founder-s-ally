@@ -21,6 +21,7 @@ export type TopNavView =
   | "market-data-room"
   | "investors"
   | "investor-search"
+  | "investor-funding"
   | "network"
   | "directory"
   | "connections"

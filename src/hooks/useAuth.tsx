@@ -173,25 +173,45 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
     setSupabaseAccessTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       const gt = getTokenRef.current;
-      // Prefer the Clerk "supabase" JWT template (legacy, but still tried first for explicit opt-in setups).
-      // Fall back to the plain Clerk session token — accepted by Supabase when Clerk is configured as
-      // third-party auth (Supabase Dashboard → Authentication → Third-party auth → Clerk).
-      // This covers both PostgREST (direct DB with RLS) and the direct DB fallback path if edge functions fail.
-      try {
-        const templateJwt = await gt({ template: "supabase" });
-        if (templateJwt) return templateJwt;
-      } catch {
-        /* template not configured — fall through to session JWT */
-      }
-      try {
-        const s = clerkSessionRef.current;
-        const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
+      // Default: Clerk **session** JWT first — matches Supabase “Third-party auth → Clerk” (recommended in our .env.example).
+      // Legacy: JWT template named `supabase` first — set VITE_SUPABASE_JWT_TEMPLATE_FIRST=true if a misconfigured
+      // template previously shadowed a good session token, or you only trust the template.
+      const templateFirst = import.meta.env.VITE_SUPABASE_JWT_TEMPLATE_FIRST === "true";
+      const trySessionJwt = async (): Promise<string | null> => {
+        try {
+          const s = clerkSessionRef.current;
+          const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
+          return sessionJwt?.trim() ? sessionJwt : null;
+        } catch {
+          return null;
+        }
+      };
+      const tryTemplateJwt = async (): Promise<string | null> => {
+        try {
+          const templateJwt = await gt({ template: "supabase" });
+          return templateJwt?.trim() ? templateJwt : null;
+        } catch {
+          return null;
+        }
+      };
+      const sessionJwt = await trySessionJwt();
+      const templateJwt = await tryTemplateJwt();
+      if (import.meta.env.VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE === "true") {
         if (sessionJwt) return sessionJwt;
-      } catch {
-        /* no session token */
+        console.warn(
+          "[Supabase + Clerk] VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true but no session JWT — sign in again or fix Clerk session.",
+        );
+        return null;
+      }
+      if (templateFirst) {
+        if (templateJwt) return templateJwt;
+        if (sessionJwt) return sessionJwt;
+      } else {
+        if (sessionJwt) return sessionJwt;
+        if (templateJwt) return templateJwt;
       }
       console.warn(
-        "[Supabase + Clerk] No Supabase-compatible JWT. Configure Clerk as third-party auth in Supabase Dashboard → Authentication → Third-party auth. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
+        "[Supabase + Clerk] No Supabase-compatible JWT. Add Clerk in Supabase → Authentication → Third-party auth (session JWT), and/or a Clerk JWT template named `supabase`. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
       );
       return null;
     });

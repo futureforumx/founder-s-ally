@@ -30,6 +30,8 @@ export interface LiveInvestorEntry {
   website_url?: string | null;
   /** Array of recent portfolio company names — used to compute deal velocity. */
   recent_deals?: string[] | null;
+  /** News-derived funding intel (90d) when synced onto `firm_records`. */
+  funding_intel_activity_score?: number | null;
 }
 
 export interface LiveInvestorPersonEntry {
@@ -73,7 +75,10 @@ export interface LiveInvestorPersonEntry {
     is_popular: boolean | null;
     is_recent: boolean | null;
     recent_deals: string[] | null;
+    funding_intel_activity_score?: number | null;
   } | null;
+  /** Person-row intel when synced from Prisma → `firm_investors`. */
+  funding_intel_activity_score?: number | null;
 }
 
 /** Transform a `firm_records` row into the directory card shape (also used for RPC search hits). */
@@ -123,6 +128,8 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
     is_recent: row.is_recent ?? false,
     website_url: row.website_url ?? null,
     recent_deals: row.recent_deals ?? null,
+    funding_intel_activity_score:
+      typeof row.funding_intel_activity_score === "number" ? row.funding_intel_activity_score : null,
   };
 }
 
@@ -161,6 +168,7 @@ const DIRECTORY_COLUMNS = [
   "website_url",
   "linkedin_url",
   "recent_deals",
+  "funding_intel_activity_score",
   "stage_focus",
 ].join(",");
 
@@ -234,11 +242,12 @@ export function useInvestorPeopleDirectory(limit = 5000) {
             "check_size_min",
             "check_size_max",
             "sweet_spot",
+            "funding_intel_activity_score",
             "firm:firm_records!firm_investors_firm_id_fkey(",
             "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,entity_type,",
-            "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals",
+            "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals,funding_intel_activity_score",
             ")",
-          ].join(""),
+          ].join(","),
         )
         .is("deleted_at", null)
         .eq("ready_for_live", true)
@@ -322,8 +331,14 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                 is_popular: typeof row.firm.is_popular === "boolean" ? row.firm.is_popular : null,
                 is_recent: typeof row.firm.is_recent === "boolean" ? row.firm.is_recent : null,
                 recent_deals: Array.isArray(row.firm.recent_deals) ? row.firm.recent_deals.filter(Boolean) : null,
+                funding_intel_activity_score:
+                  typeof row.firm.funding_intel_activity_score === "number"
+                    ? row.firm.funding_intel_activity_score
+                    : null,
               }
             : null,
+          funding_intel_activity_score:
+            typeof row.funding_intel_activity_score === "number" ? row.funding_intel_activity_score : null,
         };
         });
     },

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { MapPin, DollarSign, Users, Zap } from "lucide-react";
+import { MapPin, DollarSign, Users, Zap, BarChart2 } from "lucide-react";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { Badge } from "@/components/ui/badge";
 import { VCBadgeContainer } from "@/components/investor-match/VCBadgeContainer";
@@ -32,6 +32,8 @@ export type InvestorPreviewModel = {
   _aumBand?: string | null;
   /** Deal velocity score (0–100): derived from recent deal count + active deployment status. */
   _dealVelocityScore?: number | null;
+  /** News-derived funding activity (0–100) when synced onto Supabase firm / partner rows. */
+  _fundingIntelActivity?: number | null;
   /** When set (e.g. Network “All” tab), rail rows use this instead of the parent `rowKind`. */
   _railRowKind?: "investor" | "operator" | "founder" | "company";
 };
@@ -134,6 +136,7 @@ export function InvestorPreviewRow({
     : velocityScore >= 60 ? "Active"
     : velocityScore >= 35 ? "Moderate"
     : "Slow";
+  const intelScore = model._fundingIntelActivity ?? null;
   const aumBand = model._aumBand ?? investorAumBandLabel(model._aum);
   const compact = density === "compact";
 
@@ -236,6 +239,21 @@ export function InvestorPreviewRow({
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[200px] bg-popover/95 p-2 text-[11px]">
                   Deal Velocity: {velocityLabel} — based on recent deal activity
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          {intelScore != null ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={cn("inline-flex items-center gap-0.5 font-semibold tabular-nums leading-none text-muted-foreground", compact ? "text-xs" : "text-sm")}>
+                    <BarChart2 className={cn("shrink-0", compact ? "h-2.5 w-2.5" : "h-3 w-3")} />
+                    {Math.round(intelScore)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px] bg-popover/95 p-2 text-[11px]">
+                  Funding news activity (90d, intel_v1): higher means more headline-linked round participation after recency weighting—not a quality judgment.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

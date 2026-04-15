@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, MapPin, Layers, Building2, Users, Sparkles,
   TrendingUp, Zap, MessageSquare, CheckCircle2, ArrowUpRight,
+  Globe, ExternalLink,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { QuickFact } from "./founder-detail/QuickFact";
@@ -10,23 +11,115 @@ import { StatusIndicator } from "./founder-detail/StatusIndicator";
 import { LatestActivity } from "./founder-detail/LatestActivity";
 import { SocialIcons } from "./founder-detail/SocialIcons";
 import { InvestorsTab } from "./founder-detail/InvestorsTab";
+import { JobsTab } from "./founder-detail/JobsTab";
+import { useCompanyJobs } from "@/hooks/useCompanyJobs";
 import { FounderInsightCard } from "./founder-detail/FounderInsightCard";
 import { TABS, type Tab, type FounderEntry } from "./founder-detail/types";
+
+function trimUrl(v: string | null | undefined): string | null {
+  const s = String(v ?? "").trim();
+  return s.length ? s : null;
+}
+
+function withHttps(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+
+function websiteHostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return url.replace(/^https?:\/\//i, "").split("/")[0] ?? url;
+  }
+}
+
+/** Google favicons API expects a host, not a full URL with path. */
+function domainForFavicon(raw: string | null | undefined): string | null {
+  const t = trimUrl(raw);
+  if (!t) return null;
+  try {
+    const u = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+    return new URL(u).hostname;
+  } catch {
+    const host = t.replace(/^https?:\/\//i, "").split("/")[0];
+    return host || null;
+  }
+}
 
 interface FounderDetailPanelProps {
   founder: FounderEntry | null;
   companyName?: string;
+  /** When set (directory company row), enables the Jobs tab and loads `company_jobs`. */
+  organizationId?: string | null;
   onClose: () => void;
   isOwner?: boolean;
 }
 
 export type { FounderEntry };
 
-export function FounderDetailPanel({ founder, companyName, onClose, isOwner = false }: FounderDetailPanelProps) {
+export function FounderDetailPanel({
+  founder,
+  companyName,
+  organizationId = null,
+  onClose,
+  isOwner = false,
+}: FounderDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
+
+  const tabList: Tab[] = useMemo(
+    () => (organizationId ? [...TABS] : TABS.filter((t) => t !== "Jobs")) as Tab[],
+    [organizationId],
+  );
+
+  const jobsQuery = useCompanyJobs(organizationId);
+
+  useEffect(() => {
+    if (!tabList.includes(activeTab)) {
+      setActiveTab("Overview");
+    }
+  }, [tabList, activeTab, founder?.name]);
+
+  const tabLabel = (tab: Tab) => {
+    if (tab === "Jobs" && organizationId && (jobsQuery.data?.jobs.length ?? 0) > 0) {
+      return `Jobs (${jobsQuery.data!.jobs.length})`;
+    }
+    return tab;
+  };
 
   const matchScore = founder?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
   const displayCompany = companyName || "your company";
+
+  const headerLinks = useMemo(() => {
+    if (!founder) {
+      return { websiteHref: null as string | null, websiteLabel: null as string | null, linkedinUrl: null as string | null, twitterUrl: null as string | null };
+    }
+    const rawSite = trimUrl(founder._websiteUrl ?? founder.companyWebsite);
+    const websiteHref = rawSite ? withHttps(rawSite) : null;
+    const websiteLabel = websiteHref ? websiteHostname(websiteHref) : null;
+    return {
+      websiteHref,
+      websiteLabel,
+      linkedinUrl: trimUrl(founder._linkedinUrl),
+      twitterUrl: trimUrl(founder._twitterUrl),
+    };
+  }, [founder]);
+
+  const orgDisplayName =
+    founder?.category === "company"
+      ? founder.name
+      : founder?._companyName ?? founder?.companyName;
+
+  /** Company rows use `name` as the title already — skip a duplicate “at {name}” subtitle. */
+  const showAtCompanySubtitle =
+    Boolean(orgDisplayName) &&
+    !(founder?.category === "company" && orgDisplayName === founder.name);
+
+  const faviconSource =
+    founder?.category === "company"
+      ? founder._websiteUrl ?? founder.companyWebsite
+      : founder?._websiteUrl ?? founder?.companyWebsite;
+  const faviconDomain = domainForFavicon(faviconSource);
 
   return (
     <AnimatePresence>
@@ -103,24 +196,50 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                     {/* Role at Company with Favicon */}
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       <span className="text-sm font-medium text-muted-foreground">{founder.model}</span>
-                      {((founder as any)._companyName || founder.companyName) && (
+                      {showAtCompanySubtitle ? (
                         <>
                           <span className="text-sm text-muted-foreground/50 italic">at</span>
                           <div className="flex items-center gap-1.5 text-accent/90">
-                            {((founder as any)._websiteUrl || founder.companyWebsite) ? (
-                              <img 
-                                src={`https://www.google.com/s2/favicons?domain=${(founder as any)._websiteUrl || founder.companyWebsite}&sz=32`} 
-                                alt="" 
-                                className="h-4 w-4 rounded-sm" 
+                            {faviconDomain ? (
+                              <img
+                                src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(faviconDomain)}&sz=32`}
+                                alt=""
+                                className="h-4 w-4 rounded-sm"
                               />
                             ) : (
                               <Building2 className="h-4 w-4" />
                             )}
-                            <span className="text-sm font-bold tracking-tight">{(founder as any)._companyName || founder.companyName}</span>
+                            <span className="text-sm font-bold tracking-tight">{orgDisplayName}</span>
                           </div>
                         </>
-                      )}
+                      ) : null}
                     </div>
+
+                    {(headerLinks.websiteHref ||
+                      headerLinks.linkedinUrl ||
+                      headerLinks.twitterUrl) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        {headerLinks.websiteHref && headerLinks.websiteLabel ? (
+                          <a
+                            href={headerLinks.websiteHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/90 hover:underline"
+                          >
+                            <Globe className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+                            <span className="truncate">{headerLinks.websiteLabel}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0 opacity-50" aria-hidden />
+                          </a>
+                        ) : null}
+                        <SocialIcons
+                          showHeading={false}
+                          compact
+                          websiteUrl={null}
+                          linkedinUrl={headerLinks.linkedinUrl}
+                          twitterUrl={headerLinks.twitterUrl}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Stage and Sector moved to the right */}
@@ -149,7 +268,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
               {/* ─── Pill Tabs ─── */}
               <div className="mx-6 mb-4 shrink-0">
                 <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
-                  {TABS.map((tab) => {
+                  {tabList.map((tab) => {
                     const isActive = activeTab === tab;
                     return (
                       <button
@@ -161,7 +280,7 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                             : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
                         }`}
                       >
-                        {tab}
+                        {tabLabel(tab)}
                       </button>
                     );
                   })}
@@ -212,7 +331,11 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       </div>
 
                       {/* Social Icons */}
-                      <SocialIcons />
+                      <SocialIcons
+                        websiteUrl={founder._websiteUrl ?? founder.companyWebsite}
+                        linkedinUrl={founder._linkedinUrl}
+                        twitterUrl={founder._twitterUrl}
+                      />
                     </motion.div>
                   )}
 
@@ -355,6 +478,18 @@ export function FounderDetailPanel({ founder, companyName, onClose, isOwner = fa
                       transition={{ duration: 0.15 }}
                     >
                       <InvestorsTab />
+                    </motion.div>
+                  )}
+
+                  {activeTab === "Jobs" && organizationId && (
+                    <motion.div
+                      key="jobs"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <JobsTab organizationId={organizationId} />
                     </motion.div>
                   )}
                 </AnimatePresence>
