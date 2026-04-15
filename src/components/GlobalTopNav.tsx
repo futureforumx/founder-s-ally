@@ -165,7 +165,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
-  connections: { section: "Nodes", label: "Connections" },
+  connections: { section: "Network", label: "Connection" },
   network: { section: "Network", label: "Overview" },
   groups: { section: "Community", label: "Groups", siblings: [
     { id: "network", label: "Overview" },

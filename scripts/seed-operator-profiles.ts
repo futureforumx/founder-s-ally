@@ -114,6 +114,14 @@ function safeStr(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
 
+function stageFromOrg(org: { investmentStage?: string | null; fundingStatus?: string | null } | null | undefined): string | null {
+  if (!org) return null;
+  const inv = safeStr(org.investmentStage);
+  if (inv) return inv;
+  const fs = safeStr(org.fundingStatus);
+  return fs || null;
+}
+
 /** PostgREST multi-row upsert requires a stable key set per row to avoid column/value drift. */
 function normalizeOperatorRow(r: Record<string, unknown>): Record<string, unknown> {
   const textArr = (v: unknown): string[] | null => {
@@ -144,6 +152,7 @@ function normalizeOperatorRow(r: Record<string, unknown>): Record<string, unknow
     stage_focus: r.stage_focus ?? null,
     expertise: textArr(r.expertise),
     prior_companies: textArr(r.prior_companies),
+    current_company_name: r.current_company_name ?? null,
     is_available: Boolean(r.is_available),
     source: r.source ?? null,
     source_id: r.source_id ?? null,
@@ -184,7 +193,7 @@ async function seedFromExecutiveRoles(): Promise<{ inserted: number; skipped: nu
           city,
           country
         ),
-        organization:organizations("canonicalName", industry, city, country)
+        organization:organizations("canonicalName", industry, city, country, "investmentStage", "fundingStatus")
       `,
       )
       .in("roleType", ["ceo", "cto", "coo"])
@@ -230,9 +239,10 @@ async function seedFromExecutiveRoles(): Promise<{ inserted: number; skipped: nu
         country: p.country || org?.country || null,
         engagement_type: engagementType(title, r.roleType),
         sector_focus: org?.industry ? [org.industry] : null,
-        stage_focus: null as string | null,
+        stage_focus: stageFromOrg(org),
         expertise: Array.isArray(p.expertise) && p.expertise.length ? p.expertise : null,
         prior_companies: org?.canonicalName ? [org.canonicalName] : null,
+        current_company_name: org?.canonicalName ?? null,
         people_id: p.id,
         source: "roles_executive",
         source_id: String(p.id),
@@ -292,7 +302,7 @@ async function seedFromPeopleTitles(): Promise<{ inserted: number; skipped: numb
       city,
       country,
       expertise,
-      roles:roles(title, "roleType", "isCurrent", organization:organizations("canonicalName", industry, city, country))
+      roles:roles(title, "roleType", "isCurrent", organization:organizations("canonicalName", industry, city, country, "investmentStage", "fundingStatus"))
     `,
     )
     .limit(Math.min(SEED_MAX, 5000));
@@ -346,9 +356,10 @@ async function seedFromPeopleTitles(): Promise<{ inserted: number; skipped: numb
       country: p.country || org?.country || null,
       engagement_type: engagementType(title, operatorRole?.roleType ?? null),
       sector_focus: org?.industry ? [org.industry] : null,
-      stage_focus: null as string | null,
+      stage_focus: stageFromOrg(org),
       expertise: Array.isArray(p.expertise) && p.expertise.length ? p.expertise : null,
       prior_companies: org?.canonicalName ? [org.canonicalName] : null,
+      current_company_name: org?.canonicalName ?? null,
       people_id: p.id,
       source: "yc_people",
       source_id: String(p.id),
@@ -450,6 +461,7 @@ async function seedFromFirmInvestors(): Promise<{ inserted: number; skipped: num
       stage_focus: inv.stage_focus || null,
       expertise: null,
       prior_companies: inv.firm?.firm_name ? [inv.firm.firm_name] : null,
+      current_company_name: inv.firm?.firm_name ?? null,
       people_id: null as string | null,
       source: "firm_investors",
       source_id: String(inv.id),

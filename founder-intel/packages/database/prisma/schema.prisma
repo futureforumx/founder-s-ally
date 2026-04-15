@@ -41,6 +41,13 @@ model Organization {
   ycId          String?  @unique
   ycRawJson     Json?    // full YC API payload stored verbatim
 
+  /// Coarse capital posture (bootstrapped, vc_backed, unknown, …) — mirrors Supabase `organizations.fundingStatus`.
+  fundingStatus   String?
+  /// Explicit VC equity; null = unknown.
+  vcBacked        Boolean?
+  /// Latest primary round label (not YC cohort) — mirrors `organizations.investmentStage`.
+  investmentStage String?
+
   sourceIds     String[] // SourceRecord.id references
 
   createdAt     DateTime @default(now())

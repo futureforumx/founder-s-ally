@@ -47,8 +47,10 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
+import { buildOperatorFooterMidDot } from "@/lib/operatorDirectoryDisplay";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import { displayFundingStatus, displayInvestmentStage } from "@/lib/organizationFundingEnums";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
@@ -128,8 +130,24 @@ interface DirectoryEntry {
   _dealVelocityScore?: number | null;
   /** News-derived funding activity (0–100) when present on `firm_records` / `firm_investors`. */
   _fundingIntelActivity?: number | null;
-  /** Company cards: e.g. VC-backed vs Bootstrapped (best-effort from org flags). */
-  _backingTypeLabel?: string | null;
+  /** Company — organizations.fundingStatus */
+  _fundingStatus?: string | null;
+  /** Company — organizations.vcBacked */
+  _vcBacked?: boolean | null;
+  /** Company — organizations.investmentStage (not YC cohort). */
+  _investmentStage?: string | null;
+  /** Company rows only — numeric employee count for directory sorting. */
+  _employeeCount?: number | null;
+  /** Operator hub — primary sector pill (from `sector_focus`, best-effort). */
+  _operatorPrimarySector?: string | null;
+  /** Operator hub — inferred function track (Product, Sales, …). */
+  _operatorFunctionLabel?: string | null;
+  /** Raw expertise tags from operator_profiles (footer fallbacks). */
+  _operatorExpertise?: string[] | null;
+  /** prior_companies from operator_profiles (excluding current employer when possible). */
+  _operatorPriorCompanies?: string[] | null;
+  /** current_company_name from operator_profiles (subtitle + footer). */
+  _operatorCurrentCompany?: string | null;
   _investorEntityType?: "firm" | "person";
   _investorFirmName?: string | null;
   _personData?: VCPerson | null;
@@ -1103,16 +1121,70 @@ function InvestorCard({
     </Card>);
 }
 
-function operatorRoleBadgeText(model: unknown): string {
-  const t = safeTextTrim(model);
-  if (!t) return "OPERATOR";
+function operatorPillBadgeText(raw: unknown): string {
+  const t = safeTextTrim(raw);
+  if (!t) return "—";
   const u = t.toUpperCase();
   return u.length <= 22 ? u : `${u.slice(0, 20).trimEnd()}…`;
 }
 
-function operatorEngagementTooltipText(engagement: unknown): string {
-  const t = safeTextTrim(engagement) || "this operator";
-  return `Typical engagement: ${t}. Describes how this profile works with founders (fractional, advisory, embedded, etc.).`;
+/** Prefer the longest non-empty sector string as a weak “deepest” signal. */
+function operatorPrimarySectorFromProfile(sectors: string[] | null | undefined): string | null {
+  const cleaned = (sectors ?? []).map((s) => safeTextTrim(s)).filter(Boolean);
+  if (!cleaned.length) return null;
+  return cleaned.reduce((a, b) => (b.length > a.length ? b : a), cleaned[0]);
+}
+
+const OPERATOR_FUNCTION_MATCHERS: Array<{ label: string; re: RegExp }> = [
+  { label: "Dev", re: /\b(engineer|engineering|developer|devops|\bdev\b|sre|software|backend|frontend|full[\s-]?stack|cto|tech lead|architecture|ml engineer|data engineer)\b/i },
+  { label: "Product", re: /\b(product manager|product|cpo|chief product|product lead|head of product)\b/i },
+  { label: "Sales", re: /\b(sales|revenue|biz dev|business development|\bae\b|\bsdr\b|\bbdr\b|account executive)\b/i },
+  { label: "Growth", re: /\b(growth|performance marketing|demand gen|acquisition)\b/i },
+  { label: "Marketing", re: /\b(marketing|brand|cmo|content strategy|communications)\b/i },
+  { label: "BizOps", re: /\b(bizops|business operations|chief of staff|corp strategy|corporate strategy|strategic ops)\b/i },
+  { label: "Finance", re: /\b(finance|cfo|fp&a|controller|accounting)\b/i },
+  { label: "People", re: /\b(people ops|people team|\bhr\b|human resources|talent|recruiting|chief people)\b/i },
+  { label: "Operations", re: /\b(operations|\bcoo\b|supply chain|logistics|warehouse)\b/i },
+  { label: "Legal", re: /\b(legal|general counsel|\bgc\b|counsel)\b/i },
+  { label: "Success", re: /\b(customer success|client success|account management)\b/i },
+];
+
+function stripCommonJobTitlePrefixes(s: string): string {
+  return s
+    .replace(/^(vice president|vp|svp|evp|cvp|director|head of|chief|lead|senior|staff|principal|associate)\s+/i, "")
+    .trim();
+}
+
+function fallbackOperatorTypeFromTitle(title: string | null | undefined): string | null {
+  const raw = safeTextTrim(title);
+  if (!raw) return null;
+  const t = stripCommonJobTitlePrefixes(raw);
+  if (!t) return null;
+  const words = t.split(/\s+/).filter(Boolean).slice(0, 3).join(" ");
+  if (!words) return null;
+  return words.length > 22 ? `${words.slice(0, 20).trimEnd()}…` : words;
+}
+
+function operatorPriorCompanyName(prior: string[] | null | undefined): string | null {
+  if (!prior?.length) return null;
+  const first = safeTextTrim(prior[0]);
+  return first || null;
+}
+
+function inferOperatorFunctionLabel(
+  title: string | null | undefined,
+  expertise: string[] | null | undefined,
+): string {
+  const expParts = (expertise ?? []).map((x) => safeTextTrim(x)).filter(Boolean);
+  const corpus = [safeTextTrim(title), ...expParts].join(" ");
+  if (corpus) {
+    for (const { label, re } of OPERATOR_FUNCTION_MATCHERS) {
+      if (re.test(corpus)) return label;
+    }
+  }
+  const firstExp = expParts[0];
+  if (firstExp) return firstExp.length > 24 ? `${firstExp.slice(0, 22).trimEnd()}…` : firstExp;
+  return fallbackOperatorTypeFromTitle(title) ?? "Operator";
 }
 
 /** Operators hub — mirrors InvestorCard chrome without fund-specific fields. */
@@ -1138,8 +1210,14 @@ function OperatorHubCard({
       : "text-muted-foreground";
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60);
   const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
-  const { sector: opSector, stage: opStage } = investorSectorStageParts(founder);
-  const roleBadge = operatorRoleBadgeText(founder.model);
+  const operatorFooterMid = buildOperatorFooterMidDot(founder);
+  const sectorPillSource =
+    safeTextTrim(founder._operatorPrimarySector) ||
+    (founder._sectors?.length ? safeTextTrim(founder._sectors[0]) : "") ||
+    safeTextTrim(founder.sector).split(",")[0]?.trim() ||
+    "";
+  const sectorPill = operatorPillBadgeText(sectorPillSource || "Generalist");
+  const typePill = operatorPillBadgeText(founder._operatorFunctionLabel ?? "Operator");
 
   return (
     <Card
@@ -1174,6 +1252,24 @@ function OperatorHubCard({
 
         <div>
           <h3 className="text-[15px] font-bold leading-tight text-foreground">{founder.name}</h3>
+          {(safeTextTrim(founder.model) || founder._companyName) && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {safeTextTrim(founder.model) && (
+                <span className="text-[11px] font-medium text-muted-foreground">{founder.model}</span>
+              )}
+              {founder._companyName ? (
+                <>
+                  {safeTextTrim(founder.model) ? (
+                    <span className="text-[11px] text-muted-foreground/50 italic">at</span>
+                  ) : null}
+                  <div className="flex min-w-0 max-w-full items-center gap-1 text-accent/90">
+                    <Building2 className="h-3 w-3 shrink-0" aria-hidden />
+                    <span className="truncate text-[11px] font-bold tracking-tight">{founder._companyName}</span>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          )}
           <div className="mt-1.5 flex items-end gap-5 border-t border-border/35 pt-1.5">
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -1223,21 +1319,14 @@ function OperatorHubCard({
         </div>
 
         <div className="flex items-center gap-2.5 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground flex-wrap">
-          {founder.location ? (
+          {operatorFooterMid ? (
+            <span className="inline-flex min-w-0 items-center gap-1 font-medium text-foreground/80">
+              {operatorFooterMid}
+            </span>
+          ) : null}
+          {safeTextTrim(founder.location) ? (
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-2.5 w-2.5 shrink-0" /> {founder.location}
-            </span>
-          ) : null}
-          {(opSector || opStage) ? (
-            <span className="inline-flex items-center gap-1">
-              {opSector ? <span className="font-medium text-foreground/75">{opSector}</span> : null}
-              {opSector && opStage ? <span className="text-muted-foreground/60">·</span> : null}
-              {opStage ? <span>{opStage}</span> : null}
-            </span>
-          ) : null}
-          {founder.model ? (
-            <span className="inline-flex items-center gap-1">
-              <Briefcase className="h-2.5 w-2.5 shrink-0" /> {founder.model}
             </span>
           ) : null}
           <div className="flex flex-wrap items-center gap-1">
@@ -1246,38 +1335,38 @@ function OperatorHubCard({
                 <TooltipTrigger asChild>
                   <Badge
                     variant="outline"
-                    className="h-5 min-h-5 cursor-help border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-                    aria-label="Operator profile"
+                    className="h-5 min-h-5 max-w-[9rem] cursor-help truncate border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                    aria-label={`Sector: ${sectorPillSource || "Generalist"}`}
                   >
-                    Operator
+                    {sectorPill}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
-                  <p className="text-xs font-bold text-foreground">Operator</p>
+                  <p className="text-xs font-bold text-foreground">Sector focus</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Fractional, advisory, or embedded leadership talent in the Vekta network—not a fund.
+                    Primary sector from this operator&apos;s profile (strongest match among their sector tags when
+                    multiple are listed).
                   </p>
                 </TooltipContent>
               </Tooltip>
-              {safeTextTrim(founder.model) ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge
-                      variant="outline"
-                      className="h-5 min-h-5 max-w-[9rem] cursor-help truncate border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-                      aria-label={`Engagement: ${safeTextTrim(founder.model)}`}
-                    >
-                      {roleBadge}
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
-                    <p className="text-xs font-bold text-foreground">Engagement</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      {operatorEngagementTooltipText(founder.model)}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className="h-5 min-h-5 max-w-[9rem] cursor-help truncate border-zinc-400/45 bg-transparent px-1.5 py-0 text-[7.5px] font-light uppercase tracking-[0.1em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                    aria-label={`Operator type: ${safeTextTrim(founder._operatorFunctionLabel) || "Operator"}`}
+                  >
+                    {typePill}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
+                  <p className="text-xs font-bold text-foreground">Operator type</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Inferred from their headline and expertise tags (e.g. Product, Sales, BizOps, Growth, Dev)—not
+                    engagement mode.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           </div>
         </div>
@@ -1291,18 +1380,21 @@ function formatCompanyHeadcountDisplay(n: number | null | undefined): string | n
   return Math.round(n).toLocaleString();
 }
 
-function companyBackingTypeLabel(isYcBacked: boolean, ycBatch: string | null | undefined): string {
-  const cohort = typeof ycBatch === "string" ? ycBatch.trim() : "";
-  if (isYcBacked || cohort.length > 0) return "VC-backed";
-  return "Bootstrapped";
+/** Type pill: DB fundingStatus + vcBacked, then YC cohort on card only if still unknown. */
+function companyTypeLine(entry: DirectoryEntry): string {
+  const base = displayFundingStatus(entry._fundingStatus, entry._vcBacked);
+  if (base !== "Unknown") return base;
+  if ((entry._stages ?? []).some((s) => /^yc\b/i.test(String(s)))) return "VC-backed";
+  return "Unknown";
 }
 
 /** Network directory — company cards: labeled Stage / Sector / Type / Headcount / HQ. */
 function CompanyCardMetricsRow({ founder }: { founder: DirectoryEntry }) {
   const { sector, stage } = investorSectorStageParts(founder);
-  const stageLine = safeTextTrim(stage) || "—";
+  const inst = safeTextTrim(founder._investmentStage);
+  const stageLine = inst ? displayInvestmentStage(inst) : safeTextTrim(stage) || "—";
   const sectorLine = safeTextTrim(sector) || "—";
-  const typeLine = safeTextTrim(founder._backingTypeLabel) || "—";
+  const typeLine = companyTypeLine(founder);
   const hcRaw = founder._headcount != null ? String(founder._headcount).trim() : "";
   const headcountLine = hcRaw.length > 0 ? hcRaw : "—";
   const hqLine = safeTextTrim(founder.location) || "—";
@@ -1369,6 +1461,7 @@ function FounderCard({
 
   const isPersonProfile = founder.category === "founder" && (founder._isRealProfile || founder.category === "founder");
   const { sector: founderCardSector, stage: founderCardStage } = investorSectorStageParts(founder);
+  const operatorFooterMid = founder.category === "operator" ? buildOperatorFooterMidDot(founder) : null;
 
   return (
     <Card
@@ -1458,13 +1551,17 @@ function FounderCard({
                   <MapPin className="h-2.5 w-2.5" /> {founder.location}
                 </span>
               )}
-              {(founderCardSector || founderCardStage) && (
+              {founder.category === "operator" && operatorFooterMid ? (
+                <span className="inline-flex min-w-0 max-w-[14rem] items-center gap-1 truncate text-[10px] font-medium text-foreground/80 sm:max-w-[18rem]">
+                  {operatorFooterMid}
+                </span>
+              ) : (founderCardSector || founderCardStage) ? (
                 <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                   {founderCardSector ? <span className="font-medium text-foreground/75">{founderCardSector}</span> : null}
                   {founderCardSector && founderCardStage ? <span className="text-muted-foreground/60">·</span> : null}
                   {founderCardStage ? <span>{founderCardStage}</span> : null}
                 </span>
-              )}
+              ) : null}
             </div>
             {founder.matchReason && (
               <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
@@ -1689,6 +1786,65 @@ function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: Inv
   return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
 }
 
+const NETWORK_DIRECTORY_SECTOR_ALL = "__all__";
+const NETWORK_DIRECTORY_STAGE_ALL = "__all__";
+
+const NETWORK_DIRECTORY_SORT_OPTIONS = [
+  { value: "default", label: "Default order" },
+  { value: "name_az", label: "Name A–Z" },
+  { value: "name_za", label: "Name Z–A" },
+  { value: "headcount_desc", label: "Headcount (high → low)" },
+  { value: "headcount_asc", label: "Headcount (low → high)" },
+] as const;
+
+type NetworkDirectorySortValue = (typeof NETWORK_DIRECTORY_SORT_OPTIONS)[number]["value"];
+
+function directoryEntryStageFilterKey(entry: DirectoryEntry): string | null {
+  const { stage } = investorSectorStageParts(entry);
+  const s = safeTextTrim(stage);
+  if (s) return s;
+  const raw = safeTextTrim(entry.stage);
+  if (!raw || raw === "—") return null;
+  return formatStageForDisplay(raw);
+}
+
+function directoryHeadcountSortKey(entry: DirectoryEntry): number | null {
+  if (entry.category !== "company") return null;
+  const n = entry._employeeCount;
+  if (n == null || !Number.isFinite(n)) return null;
+  return n;
+}
+
+/** Sort / filter pipeline for Network directory (founders / companies / operators — not investor search). */
+function compareNetworkDirectoryEntries(
+  a: DirectoryEntry,
+  b: DirectoryEntry,
+  sort: NetworkDirectorySortValue,
+): number {
+  const nameA = a.name ?? "";
+  const nameB = b.name ?? "";
+  switch (sort) {
+    case "name_az":
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    case "name_za":
+      return nameB.localeCompare(nameA, undefined, { sensitivity: "base" });
+    case "headcount_desc":
+    case "headcount_asc": {
+      const ka = directoryHeadcountSortKey(a);
+      const kb = directoryHeadcountSortKey(b);
+      if (ka == null && kb == null) break;
+      if (ka == null) return 1;
+      if (kb == null) return -1;
+      if (ka !== kb) return sort === "headcount_desc" ? kb - ka : ka - kb;
+      break;
+    }
+    case "default":
+    default:
+      return 0;
+  }
+  return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+}
+
 function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewModel {
   return {
     name: e.name,
@@ -1855,6 +2011,9 @@ export function CommunityView({
   const [investorSort, setInvestorSort] = useState<InvestorSortValue>(() =>
     variant === "investor-search" ? "name_az" : "recommended",
   );
+  const [networkDirectorySort, setNetworkDirectorySort] = useState<NetworkDirectorySortValue>("default");
+  const [networkDirectorySector, setNetworkDirectorySector] = useState<string>(NETWORK_DIRECTORY_SECTOR_ALL);
+  const [networkDirectoryStage, setNetworkDirectoryStage] = useState<string>(NETWORK_DIRECTORY_STAGE_ALL);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -2151,7 +2310,11 @@ export function CommunityView({
       .filter((c) => c.name)
       .map((c) => {
         const yc = c.yc_batch && String(c.yc_batch).trim() ? String(c.yc_batch).trim() : "";
-        const cohortStages = yc.length > 0 ? [`YC ${yc}`] : [];
+        const inv = c.investment_stage && String(c.investment_stage).trim() ? String(c.investment_stage).trim() : "";
+        const cohortStages = !inv && yc.length > 0 ? [`YC ${yc}`] : ([] as string[]);
+        const ec = c.employee_count;
+        const employeeCount =
+          ec != null && Number.isFinite(Number(ec)) ? Math.round(Number(ec)) : null;
         return {
           name: c.name,
           sector: c.sector || "—",
@@ -2169,36 +2332,58 @@ export function CommunityView({
           _logoUrl: c.logo_url || null,
           _firmId: c.id,
           _headcount: formatCompanyHeadcountDisplay(c.employee_count),
-          _backingTypeLabel: companyBackingTypeLabel(Boolean(c.is_yc_backed), c.yc_batch),
+          _employeeCount: employeeCount,
+          _fundingStatus: c.funding_status ?? null,
+          _vcBacked: c.vc_backed ?? null,
+          _investmentStage: c.investment_stage ?? null,
         };
       });
   }, [realCompanies]);
 
   // Convert real operator profiles to DirectoryEntry format
   const realOperatorEntries: DirectoryEntry[] = useMemo(() => {
-    return realOperators.map(op => ({
-      name: op.full_name,
-      sector: op.sector_focus?.slice(0, 2).join(", ") || "—",
-      stage: op.stage_focus || "—",
-      description: op.bio || (op.title ? `${op.title} — available for operator engagements.` : "Experienced operator."),
-      location: [op.city, op.state, op.country].filter(Boolean).join(", "),
-      model: (() => {
-        const et = safeTextTrim(op.engagement_type);
-        if (!et) return "Advisory";
-        return et.charAt(0).toUpperCase() + et.slice(1);
-      })(),
-      initial: op.full_name.charAt(0).toUpperCase(),
-      matchReason: null,
-      category: "operator" as const,
-      _sectors: [] as string[],
-      _stages: [] as string[],
-      _isRealProfile: true,
-      _profileId: op.id,
-      _websiteUrl: null,
-      _linkedinUrl: op.linkedin_url ?? null,
-      _twitterUrl: op.x_url ?? null,
-      _logoUrl: op.avatar_url || null,
-    }));
+    return realOperators.map((op) => {
+      const sectorList = Array.isArray(op.sector_focus)
+        ? op.sector_focus.map((s) => String(s)).map((s) => s.trim()).filter(Boolean)
+        : [];
+      const primarySector = operatorPrimarySectorFromProfile(sectorList);
+      const functionLabel = inferOperatorFunctionLabel(op.title, op.expertise);
+      const roleTitle = safeTextTrim(op.title);
+      const expertiseList = Array.isArray(op.expertise)
+        ? op.expertise.map((e) => String(e).trim()).filter(Boolean)
+        : [];
+      const priorList = Array.isArray(op.prior_companies)
+        ? op.prior_companies.map((p) => String(p).trim()).filter(Boolean)
+        : [];
+      const currentCo = safeTextTrim(op.current_company_name);
+      const displayCompany = currentCo || operatorPriorCompanyName(op.prior_companies);
+      return {
+        name: op.full_name,
+        sector: sectorList.slice(0, 2).join(", ") || "—",
+        stage: op.stage_focus || "—",
+        description: op.bio || (op.title ? `${op.title} — available for operator engagements.` : "Experienced operator."),
+        location: [op.city, op.state, op.country].filter(Boolean).join(", "),
+        /** Job title — shown under name like founders’ role (not engagement mode). */
+        model: roleTitle || "Operator",
+        initial: op.full_name.charAt(0).toUpperCase(),
+        matchReason: null,
+        category: "operator" as const,
+        _sectors: sectorList.length > 0 ? sectorList : ([] as string[]),
+        _stages: [] as string[],
+        _isRealProfile: true,
+        _profileId: op.id,
+        _websiteUrl: null,
+        _linkedinUrl: op.linkedin_url ?? null,
+        _twitterUrl: op.x_url ?? null,
+        _logoUrl: op.avatar_url || null,
+        _companyName: displayCompany || null,
+        _operatorPrimarySector: primarySector,
+        _operatorFunctionLabel: functionLabel,
+        _operatorExpertise: expertiseList.length > 0 ? expertiseList : null,
+        _operatorPriorCompanies: priorList.length > 0 ? priorList : null,
+        _operatorCurrentCompany: currentCo || null,
+      };
+    });
   }, [realOperators]);
 
   const mergedEntries = useMemo(() => {
@@ -2212,6 +2397,7 @@ export function CommunityView({
   }, [vcEntries, dbOnlyFirmEntries, realFounderEntries, realCompanyEntries, realOperatorEntries]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
+
   const investorDirectoryUnavailable =
     (isInvestorSearch || activeScope === "investors") && !vcLoading && vcFirms.length === 0;
 
@@ -2424,6 +2610,11 @@ export function CommunityView({
     setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
   }, [activeFilter, activeScope, activeInvestorTab, investorSort, isInvestorSearch]);
 
+  useEffect(() => {
+    setNetworkDirectorySector(NETWORK_DIRECTORY_SECTOR_ALL);
+    setNetworkDirectoryStage(NETWORK_DIRECTORY_STAGE_ALL);
+  }, [activeScope]);
+
   /** Founders / companies / operators come from `useCommunityGridData` (SQL filters) — skip duplicate chip pass. */
   const directoryDbGrid = !isInvestorSearch && activeScope !== "investors";
 
@@ -2594,12 +2785,99 @@ export function CommunityView({
     });
   }, [displayEntriesWithRpcFirms, investorListSearchQuery, isInvestorSearch]);
 
-  const gridEntries = useMemo(() => {
-    if (!isInvestorSearch && !isOperatorHubLayout) return textFilteredEntries;
-    const list = [...textFilteredEntries];
-    list.sort((a, b) => compareInvestorsForSort(a, b, investorSort));
+  const networkDirectoryFilterSource = useMemo(() => {
+    if (isInvestorSearch) return [];
+    return textFilteredEntries;
+  }, [isInvestorSearch, textFilteredEntries]);
+
+  const networkSectorOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of networkDirectoryFilterSource) {
+      const s = safeTextTrim(e.sector);
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [networkDirectoryFilterSource]);
+
+  const networkStageOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of networkDirectoryFilterSource) {
+      const k = directoryEntryStageFilterKey(e);
+      if (k) set.add(k);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [networkDirectoryFilterSource]);
+
+  useEffect(() => {
+    if (
+      networkDirectorySector !== NETWORK_DIRECTORY_SECTOR_ALL &&
+      !networkSectorOptions.includes(networkDirectorySector)
+    ) {
+      setNetworkDirectorySector(NETWORK_DIRECTORY_SECTOR_ALL);
+    }
+  }, [networkDirectorySector, networkSectorOptions]);
+
+  useEffect(() => {
+    if (
+      networkDirectoryStage !== NETWORK_DIRECTORY_STAGE_ALL &&
+      !networkStageOptions.includes(networkDirectoryStage)
+    ) {
+      setNetworkDirectoryStage(NETWORK_DIRECTORY_STAGE_ALL);
+    }
+  }, [networkDirectoryStage, networkStageOptions]);
+
+  const networkDirectorySortOptionsForUi = useMemo(
+    () =>
+      isOperatorHubLayout
+        ? NETWORK_DIRECTORY_SORT_OPTIONS.filter((o) => !String(o.value).startsWith("headcount"))
+        : [...NETWORK_DIRECTORY_SORT_OPTIONS],
+    [isOperatorHubLayout],
+  );
+
+  const effectiveNetworkDirectorySort = useMemo((): NetworkDirectorySortValue => {
+    return networkDirectorySortOptionsForUi.some((o) => o.value === networkDirectorySort)
+      ? networkDirectorySort
+      : "default";
+  }, [networkDirectorySort, networkDirectorySortOptionsForUi]);
+
+  const networkDirectoryGridEntries = useMemo(() => {
+    if (!directoryDbGrid) return textFilteredEntries;
+    let list = [...textFilteredEntries];
+    if (networkDirectorySector !== NETWORK_DIRECTORY_SECTOR_ALL) {
+      list = list.filter((e) => safeTextTrim(e.sector) === networkDirectorySector);
+    }
+    if (networkDirectoryStage !== NETWORK_DIRECTORY_STAGE_ALL) {
+      list = list.filter((e) => directoryEntryStageFilterKey(e) === networkDirectoryStage);
+    }
+    if (effectiveNetworkDirectorySort !== "default") {
+      list.sort((a, b) => compareNetworkDirectoryEntries(a, b, effectiveNetworkDirectorySort));
+    }
     return list;
-  }, [isInvestorSearch, isOperatorHubLayout, textFilteredEntries, investorSort]);
+  }, [
+    directoryDbGrid,
+    textFilteredEntries,
+    networkDirectorySector,
+    networkDirectoryStage,
+    effectiveNetworkDirectorySort,
+  ]);
+
+  const gridEntries = useMemo(() => {
+    if (directoryDbGrid) {
+      return networkDirectoryGridEntries;
+    }
+    const list = [...textFilteredEntries];
+    if (isInvestorSearch || isOperatorHubLayout) {
+      list.sort((a, b) => compareInvestorsForSort(a, b, investorSort));
+    }
+    return list;
+  }, [
+    directoryDbGrid,
+    networkDirectoryGridEntries,
+    textFilteredEntries,
+    investorSort,
+    isInvestorSearch,
+    isOperatorHubLayout,
+  ]);
 
   const hasMore = directoryDbGrid ? communityGrid.hasMore : visibleCount < gridEntries.length;
   const visibleGrid = useMemo(() => {
@@ -3353,13 +3631,13 @@ export function CommunityView({
               )}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-              {(isInvestorSearch || isOperatorHubLayout) && (
+              {isInvestorSearch && (
                 <Select
                   value={investorSort}
                   onValueChange={(v) => setInvestorSort(v as InvestorSortValue)}
                 >
                   <SelectTrigger
-                    aria-label={isOperatorHubLayout ? "Sort operators" : "Sort investors"}
+                    aria-label="Sort investors"
                     className="h-8 w-[min(100%,11.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[11.5rem]"
                   >
                     <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -3373,6 +3651,73 @@ export function CommunityView({
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+              {directoryDbGrid && !isInvestorSearch && (
+                <>
+                  <Select
+                    value={effectiveNetworkDirectorySort}
+                    onValueChange={(v) => setNetworkDirectorySort(v as NetworkDirectorySortValue)}
+                  >
+                    <SelectTrigger
+                      aria-label="Sort directory"
+                      className="h-8 w-[min(100%,12rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[12rem]"
+                    >
+                      <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[12rem]">
+                      {networkDirectorySortOptionsForUi.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={networkDirectorySector}
+                    onValueChange={setNetworkDirectorySector}
+                  >
+                    <SelectTrigger
+                      aria-label="Filter by sector"
+                      className="h-8 w-[min(100%,9.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[9.5rem]"
+                    >
+                      <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <SelectValue placeholder="Sector" />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[10rem] max-h-[min(22rem,var(--radix-select-content-available-height))]">
+                      <SelectItem value={NETWORK_DIRECTORY_SECTOR_ALL} className="text-xs">
+                        All sectors
+                      </SelectItem>
+                      {networkSectorOptions.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={networkDirectoryStage}
+                    onValueChange={setNetworkDirectoryStage}
+                  >
+                    <SelectTrigger
+                      aria-label="Filter by stage"
+                      className="h-8 w-[min(100%,9.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[9.5rem]"
+                    >
+                      <TrendingUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <SelectValue placeholder="Stage" />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[10rem] max-h-[min(22rem,var(--radix-select-content-available-height))]">
+                      <SelectItem value={NETWORK_DIRECTORY_STAGE_ALL} className="text-xs">
+                        All stages
+                      </SelectItem>
+                      {networkStageOptions.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               <span className="text-[10px] text-muted-foreground font-mono uppercase tabular-nums">
                 {networkDirectoryFooterCountText != null
