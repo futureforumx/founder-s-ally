@@ -3,7 +3,7 @@ import {
   appendPortfolioCompaniesJson,
   PORTFOLIO_COMPANIES_JSON_MARKER,
   splitBackgroundSummaryPortfolio,
-} from "../src/lib/investorBackgroundPortfolio";
+} from "../src/lib/investorBackgroundPortfolio.js";
 
 export type PersonWebsiteProfilePersistInput = {
   headshotUrl: string | null;
