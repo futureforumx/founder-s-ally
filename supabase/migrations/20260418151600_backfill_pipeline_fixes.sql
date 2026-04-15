@@ -40,8 +40,19 @@ ALTER TABLE public.firm_records DROP COLUMN IF EXISTS lead_behavior;
 -- Drop the CHECK constraint that referenced lead_behavior
 ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_lead_chk;
 
+-- Text-era CHECKs from backfill_pipeline (20260418151500) compare columns to text
+-- literals. If firm_records_intel (20260418150000) already created *_enum columns,
+-- those CHECKs make ALTER TYPE fail with: operator does not exist: enum = text.
+-- Drop them before any type change.
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_stage_cls_chk;
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_structure_cls_chk;
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_theme_cls_chk;
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_sector_cls_chk;
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_impact_chk;
+
 -- ─── Upgrade classification columns to ENUMs for stricter enforcement ───────
--- TEXT + CHECK was reliable but adding proper types makes TS + PostgREST happier.
+-- Columns may be TEXT (backfill-only DB) or *_enum (intel migration ran first).
+-- Canonical short enum names here; cast via text so any enum/text source works.
 
 DO $$ BEGIN
   CREATE TYPE public.stage_classification AS ENUM ('multi_stage','early_stage','growth','buyout');
@@ -63,20 +74,14 @@ DO $$ BEGIN
   CREATE TYPE public.impact_orientation AS ENUM ('primary','integrated','considered','none');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Migrate existing text columns to enum types
+-- Migrate to short enum names (no-op round-trip if already these types).
 ALTER TABLE public.firm_records
-  ALTER COLUMN stage_classification     TYPE public.stage_classification     USING stage_classification::public.stage_classification,
-  ALTER COLUMN structure_classification TYPE public.structure_classification USING structure_classification::public.structure_classification,
-  ALTER COLUMN theme_classification     TYPE public.theme_classification     USING theme_classification::public.theme_classification,
-  ALTER COLUMN sector_classification    TYPE public.sector_classification    USING sector_classification::public.sector_classification,
-  ALTER COLUMN impact_orientation       TYPE public.impact_orientation       USING impact_orientation::public.impact_orientation;
+  ALTER COLUMN stage_classification     TYPE public.stage_classification     USING stage_classification::text::public.stage_classification,
+  ALTER COLUMN structure_classification TYPE public.structure_classification USING structure_classification::text::public.structure_classification,
+  ALTER COLUMN theme_classification     TYPE public.theme_classification     USING theme_classification::text::public.theme_classification,
+  ALTER COLUMN sector_classification    TYPE public.sector_classification    USING sector_classification::text::public.sector_classification,
+  ALTER COLUMN impact_orientation       TYPE public.impact_orientation       USING impact_orientation::text::public.impact_orientation;
 
--- Drop now-redundant CHECK constraints (enum enforces validity)
-ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_stage_cls_chk;
-ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_structure_cls_chk;
-ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_theme_cls_chk;
-ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_sector_cls_chk;
-ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_impact_chk;
 ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_review_chk;
 
 -- ─── Missing indexes for scale ──────────────────────────────────────────────
