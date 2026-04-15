@@ -1,15 +1,34 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import {
   Users, Star, TrendingUp, MessageCircle, Mail, Clock,
   ArrowRight, ThumbsUp, ThumbsDown, Newspaper, MessagesSquare, Share2,
-  MessageSquare, Building2, Sparkles, Network
+  MessageSquare, Building2, Sparkles, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
+import type { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
 import { NetworkGraph } from "@/components/connections/NetworkGraph";
+
+const CommunityView = lazy(() =>
+  import("@/components/dashboard/CommunityView").then((m) => ({ default: m.CommunityView })),
+);
+
+const CONNECTIONS_PAGE_TABS = [
+  { id: "overview" as const, label: "Overview" },
+  { id: "networks" as const, label: "Networks" },
+];
+
+type ConnectionsPageTabId = (typeof CONNECTIONS_PAGE_TABS)[number]["id"];
+
+export interface ConnectionsPageProps {
+  companyData?: CompanyData | null;
+  analysisResult?: AnalysisResult | null;
+  onNavigateProfile?: () => void;
+}
 
 interface Connection {
   user_id: string;
@@ -58,8 +77,13 @@ const WHISPER_FEED = [
 
 type ReviewSort = "latest" | "earliest" | "highest" | "lowest";
 
-export function ConnectionsPage() {
+export function ConnectionsPage({
+  companyData,
+  analysisResult,
+  onNavigateProfile,
+}: ConnectionsPageProps = {}) {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<ConnectionsPageTabId>("overview");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
   const [votes, setVotes] = useState<Record<number, "up" | "down" | null>>({});
@@ -102,6 +126,46 @@ export function ConnectionsPage() {
         <p className="text-sm text-muted-foreground mt-1">Network intelligence, warm intros, and data pipelines</p>
       </motion.div>
 
+      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
+        {CONNECTIONS_PAGE_TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest rounded-md transition-all",
+                isActive
+                  ? "bg-accent/10 text-accent font-bold"
+                  : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30",
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === "networks" ? (
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+              Loading networks…
+            </div>
+          }
+        >
+          <CommunityView
+            key="connections-networks"
+            companyData={companyData ?? undefined}
+            analysisResult={analysisResult ?? undefined}
+            onNavigateProfile={onNavigateProfile}
+            variant="directory"
+          />
+        </Suspense>
+      ) : (
+        <>
       {/* Intro Pathfinder */}
       <IntroPathfinder investorName="your target investors" />
 
@@ -357,6 +421,8 @@ export function ConnectionsPage() {
             })}
         </div>
       </div>
+        </>
+      )}
     </motion.div>
   );
 }

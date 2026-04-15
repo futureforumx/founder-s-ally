@@ -281,6 +281,12 @@ export interface CompanyProfile {
   is_yc_backed: boolean;
   yc_batch: string | null;
   employee_count: number | null;
+  /** DB: fundingStatus — bootstrapped, vc_backed, unknown, etc. */
+  funding_status: string | null;
+  /** DB: vcBacked — explicit VC equity; null = unknown. */
+  vc_backed: boolean | null;
+  /** DB: investmentStage — Pre-seed, Seed, Series A (not YC cohort). */
+  investment_stage: string | null;
 }
 
 /** Fetch company profiles from organizations / yc_companies */
@@ -306,7 +312,10 @@ export function useCompanyDirectory(limit = 300) {
             "foundedYear",
             "isYcBacked",
             "ycBatch",
-            "employeeCount"
+            "employeeCount",
+            "fundingStatus",
+            "vcBacked",
+            "investmentStage"
           `)
           .not("description", "is", null)
           .eq("ready_for_live", true)
@@ -331,6 +340,9 @@ export function useCompanyDirectory(limit = 300) {
           is_yc_backed: o.isYcBacked ?? false,
           yc_batch: o.ycBatch,
           employee_count: o.employeeCount,
+          funding_status: typeof o.fundingStatus === "string" ? o.fundingStatus : null,
+          vc_backed: o.vcBacked === true ? true : o.vcBacked === false ? false : null,
+          investment_stage: typeof o.investmentStage === "string" ? o.investmentStage : null,
         })));
       } catch (err) {
         console.warn("Error loading company profiles:", err);
@@ -361,6 +373,8 @@ export interface OperatorProfile {
   stage_focus: string | null;
   expertise: string[] | null;
   prior_companies: string[] | null;
+  /** Enriched from roles → organizations (see backfill-operator-profiles-directory-fields). */
+  current_company_name?: string | null;
   is_available: boolean;
 }
 
@@ -375,7 +389,7 @@ export function useOperatorProfiles(limit = 200) {
       try {
         const { data, error } = await (supabasePublicDirectory as any)
           .from("operator_profiles")
-          .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available")
+          .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, current_company_name, is_available")
           .is("deleted_at", null)
           .eq("is_available", true)
           .eq("ready_for_live", true)

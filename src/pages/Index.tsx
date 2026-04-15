@@ -659,15 +659,13 @@ const Index = () => {
               />
             </DeferredSection>
           ) : activeView === "connections" ? (
-            <div className="space-y-4">
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">Connections</h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Network intelligence, warm intros, and founder experiences</p>
-              </div>
-              <DeferredSection label="Loading connections…">
-                <ConnectionsPage />
-              </DeferredSection>
-            </div>
+            <DeferredSection label="Loading connections…">
+              <ConnectionsPage
+                companyData={companyData}
+                analysisResult={analysisResult}
+                onNavigateProfile={() => setActiveView("company")}
+              />
+            </DeferredSection>
           ) : activeView === "groups" ? (
             <DeferredSection label="Loading groups…">
               <GroupsView />

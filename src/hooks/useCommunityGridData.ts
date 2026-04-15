@@ -49,7 +49,7 @@ export function useCommunityGridData({
     ? `canonicalName.ilike.%${qRaw}%,description.ilike.%${qRaw}%,industry.ilike.%${qRaw}%`
     : null;
   const orOperators = hasQ
-    ? `full_name.ilike.%${qRaw}%,bio.ilike.%${qRaw}%,title.ilike.%${qRaw}%,stage_focus.ilike.%${qRaw}%`
+    ? `full_name.ilike.%${qRaw}%,bio.ilike.%${qRaw}%,title.ilike.%${qRaw}%,stage_focus.ilike.%${qRaw}%,current_company_name.ilike.%${qRaw}%`
     : null;
 
   const [founders, setFounders] = useState<FounderProfile[]>([]);
@@ -234,7 +234,10 @@ export function useCommunityGridData({
             "foundedYear",
             "isYcBacked",
             "ycBatch",
-            "employeeCount"
+            "employeeCount",
+            "fundingStatus",
+            "vcBacked",
+            "investmentStage"
           `,
         )
         .not("description", "is", null)
@@ -260,6 +263,9 @@ export function useCommunityGridData({
         is_yc_backed: o.isYcBacked ?? false,
         yc_batch: o.ycBatch,
         employee_count: o.employeeCount,
+        funding_status: typeof o.fundingStatus === "string" ? o.fundingStatus : null,
+        vc_backed: o.vcBacked === true ? true : o.vcBacked === false ? false : null,
+        investment_stage: typeof o.investmentStage === "string" ? o.investmentStage : null,
       })) as CompanyProfile[];
     },
     [orOrganizations],
@@ -270,7 +276,7 @@ export function useCommunityGridData({
       let query = sb
         .from("operator_profiles")
         .select(
-          "id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available",
+          "id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, current_company_name, is_available",
         )
         .is("deleted_at", null)
         .eq("is_available", true)
