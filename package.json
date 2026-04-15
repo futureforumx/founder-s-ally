@@ -130,7 +130,17 @@
     "scrape:startups:crunchbase:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-crunchbase.ts",
     "scrape:startups:crunchbase:api": "CB_MODE=api tsx scripts/startup-scrapers/scrape-crunchbase.ts",
     "scrape:startups:tracxn": "tsx scripts/startup-scrapers/scrape-tracxn.ts",
-    "scrape:startups:tracxn:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-tracxn.ts"
+    "scrape:startups:tracxn:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-tracxn.ts",
+    "enrich:vc": "tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:dry": "ENRICH_DRY_RUN=1 tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:sample": "ENRICH_SAMPLE=20 tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:tracxn": "ENRICH_SOURCES=tracxn tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:tracxn:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=tracxn tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:cbi": "ENRICH_SOURCES=cb_insights tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:cbi:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=cb_insights tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:signal": "ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:signal:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:overnight": "tsx scripts/vc-enrichment/orchestrator.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
