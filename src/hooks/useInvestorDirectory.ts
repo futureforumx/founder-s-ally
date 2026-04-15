@@ -20,6 +20,12 @@ export interface LiveInvestorEntry {
   lastSynced: Date;
   logo_url?: string | null;
   firm_type?: string;
+  /** `firm_records` intel — drives directory “investment focus” pill. */
+  strategy_classifications?: string[] | null;
+  thesis_orientation?: string | null;
+  sector_scope?: string | null;
+  thesis_verticals?: string[] | null;
+  geo_focus?: string[] | null;
   is_actively_deploying?: boolean;
   founder_reputation_score?: number | null;
   headcount?: string | null;
@@ -63,6 +69,10 @@ export interface LiveInvestorPersonEntry {
     logo_url: string | null;
     website_url: string | null;
     thesis_verticals: string[];
+    strategy_classifications?: string[] | null;
+    thesis_orientation?: string | null;
+    sector_scope?: string | null;
+    geo_focus?: string[] | null;
     stage_focus: string[];
     location: string | null;
     firm_type: string | null;
@@ -119,6 +129,13 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
     firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type, row.entity_type),
+    strategy_classifications: Array.isArray(row.strategy_classifications)
+      ? row.strategy_classifications.filter(Boolean)
+      : null,
+    thesis_orientation: row.thesis_orientation ?? null,
+    sector_scope: row.sector_scope ?? null,
+    thesis_verticals: Array.isArray(row.thesis_verticals) ? row.thesis_verticals.filter(Boolean) : [],
+    geo_focus: Array.isArray(row.geo_focus) ? row.geo_focus.filter(Boolean) : null,
     is_actively_deploying: row.is_actively_deploying === true,
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
@@ -133,7 +150,7 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
   };
 }
 
-// Columns actually consumed by mapDbInvestor() — nothing more.
+// Columns consumed by mapDbInvestor() / directory intel pill — keep in sync with `LiveInvestorEntry`.
 // Excludes: sector_embedding (vector) and audit-only columns.
 const DIRECTORY_COLUMNS = [
   "id",
@@ -147,6 +164,7 @@ const DIRECTORY_COLUMNS = [
   "stage_max",
   "sector_scope",
   "thesis_orientation",
+  "strategy_classifications",
   "geo_focus",
   "hq_city",
   "hq_state",
@@ -244,7 +262,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
             "sweet_spot",
             "funding_intel_activity_score",
             "firm:firm_records!firm_investors_firm_id_fkey(",
-            "id,firm_name,logo_url,website_url,thesis_verticals,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,entity_type,",
+            "id,firm_name,logo_url,website_url,thesis_verticals,strategy_classifications,thesis_orientation,sector_scope,geo_focus,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,entity_type,",
             "is_actively_deploying,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals,funding_intel_activity_score",
             ")",
           ].join(","),
@@ -309,6 +327,12 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                 logo_url: row.firm.logo_url ?? null,
                 website_url: row.firm.website_url ?? null,
                 thesis_verticals: Array.isArray(row.firm.thesis_verticals) ? row.firm.thesis_verticals.filter(Boolean) : [],
+                strategy_classifications: Array.isArray(row.firm.strategy_classifications)
+                  ? row.firm.strategy_classifications.filter(Boolean)
+                  : null,
+                thesis_orientation: row.firm.thesis_orientation ?? null,
+                sector_scope: row.firm.sector_scope ?? null,
+                geo_focus: Array.isArray(row.firm.geo_focus) ? row.firm.geo_focus.filter(Boolean) : null,
                 stage_focus: Array.isArray(row.firm.stage_focus) ? row.firm.stage_focus.filter(Boolean) : [],
                 location:
                   resolveFirmDisplayLocation({

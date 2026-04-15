@@ -145,35 +145,35 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  investors: { section: "Investors", label: "ALL", siblings: [
+  investors: { section: "Intelligence", label: "ALL", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
-  "investor-search": { section: "Investors", label: "INVESTORS", siblings: [
+  "investor-search": { section: "Intelligence", label: "INVESTORS", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
-  "investor-funding": { section: "Investors", label: "FUNDING", siblings: [
+  "investor-funding": { section: "Intelligence", label: "FUNDING", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
   directory: { section: "Network", label: "Overview", siblings: [
-    { id: "network", label: "Overview" },
+    { id: "network", label: "Operators" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   connections: { section: "Network", label: "Connection" },
-  network: { section: "Network", label: "Overview" },
+  network: { section: "Intelligence", label: "Operators" },
   groups: { section: "Community", label: "Groups", siblings: [
-    { id: "network", label: "Overview" },
+    { id: "network", label: "Operators" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   events: { section: "Community", label: "Events", siblings: [
-    { id: "network", label: "Overview" },
+    { id: "network", label: "Operators" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
+import { safeTrim } from "@/lib/utils";
 
 interface FirmLogoProps {
   firmName: string;
@@ -200,16 +201,26 @@ function computeInitialTier(primaryLogoUrl?: string | null, domain?: string | nu
  */
 export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className = "", onClick }: FirmLogoProps) {
   const domain = resolveFirmDomain(websiteUrl, firmName);
+  const rawStored = safeTrim(logoUrl);
   const storedLogoUrl = sanitizeFirmLogoUrlForDisplay(logoUrl);
   const knownLogoUrl = resolveKnownVcLogoUrl(firmName, domain);
-  const primaryLogoUrl = storedLogoUrl ?? knownLogoUrl;
+  /**
+   * We normally strip favicon-proxy URLs so FirmLogo can use the fund’s own domain.
+   * If we have no domain (no website + not in curated name→domain map), dropping the URL
+   * leaves only initials — so keep the stored URL (even gstatic/clearbit) when it’s all we have.
+   */
+  const proxyOnlyFallback =
+    !storedLogoUrl && rawStored.length > 0 && !knownLogoUrl && !domain ? rawStored : null;
+  const primaryLogoUrl = storedLogoUrl ?? knownLogoUrl ?? proxyOnlyFallback;
   const [tier, setTier] = useState<Tier>(() => computeInitialTier(primaryLogoUrl, domain));
 
   // Re-sync when props change (e.g. async DB data arrives after mount)
   useEffect(() => {
+    const raw = safeTrim(logoUrl);
     const stored = sanitizeFirmLogoUrlForDisplay(logoUrl);
     const known = resolveKnownVcLogoUrl(firmName, domain);
-    setTier(computeInitialTier(stored ?? known, domain));
+    const fallback = !stored && raw.length > 0 && !known && !domain ? raw : null;
+    setTier(computeInitialTier(stored ?? known ?? fallback, domain));
   }, [logoUrl, domain, firmName]);
 
   const sizeClass = SIZE_MAP[size];
@@ -249,6 +260,9 @@ export function FirmLogo({ firmName, logoUrl, websiteUrl, size = "md", className
           src={currentSrc}
           alt={firmName}
           className="h-full w-full object-contain p-1"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
           onError={handleError}
         />
       ) : (

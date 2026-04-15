@@ -19,6 +19,9 @@
  *   --limit=N              Number of firms to process (default 100)
  *   --offset=N             Offset into firm list (default 0)
  *   --only-missing=BOOL    Only include firms with missing fields (default true)
+ *   --investment-focus-gaps=BOOL  Only firms with empty/incomplete focus intel
+ *                                 (strategy tags, verticals, orientation, scope).
+ *                                 Takes precedence over --only-missing.
  *   --headless=BOOL        Playwright headless mode (default true)
  *   --storage-state=PATH   Override storage-state path for auth sessions
  *   --freshness-days=N     Skip firms verified within last N days (default 30)
@@ -89,6 +92,8 @@ async function main(): Promise<void> {
     commit:         !dryRun,
     dry_run:        dryRun,
     only_missing:   args["only-missing"] === false ? false : true,
+    investment_focus_gaps:
+      args["investment-focus-gaps"] === true || args["investment-focus-gaps"] === "true",
     firm_id:        typeof args["firm-id"] === "string" ? (args["firm-id"] as string) : undefined,
     headless:       !(process.env.PLAYWRIGHT_HEADLESS === "false" || args.headless === false || args.headless === "false"),
     storage_state_path: (args["storage-state"] as string | undefined) ?? process.env.PLAYWRIGHT_STORAGE_STATE,

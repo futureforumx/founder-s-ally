@@ -131,8 +131,8 @@ export function useCommunityGridData({
   }, [orOperators]);
 
   const loadFounderBatch = useCallback(
-    async (reset: boolean) => {
-      const batch = 120;
+    async (reset: boolean, batchLimit = 120) => {
+      const batch = Math.min(120, Math.max(1, batchLimit));
       let qRoles = sb
         .from("roles")
         .select(
@@ -337,8 +337,9 @@ export function useCommunityGridData({
       setFoundersDone(false);
 
       try {
-        const needF = activeScope === "all" || activeScope === "founders";
-        const needC = activeScope === "all" || activeScope === "companies";
+        /** Include founders/companies when browsing Operators so Network tabs (All / Companies / Founders) and rails have data. */
+        const needF = activeScope === "all" || activeScope === "founders" || activeScope === "operators";
+        const needC = activeScope === "all" || activeScope === "companies" || activeScope === "operators";
         const needO = activeScope === "all" || activeScope === "operators";
 
         const [fc, cc, oc] = await Promise.all([
@@ -371,10 +372,22 @@ export function useCommunityGridData({
           setCompanies(c);
           companyOffsetRef.current = c.length;
         } else if (activeScope === "operators") {
-          const o = await loadOperatorPage(0, PAGE_SIZE);
+          const [fBatch, c, o] = await Promise.all([
+            loadFounderBatch(true, PAGE_SIZE_ALL_SLICE),
+            loadCompanyPage(0, PAGE_SIZE_ALL_SLICE),
+            loadOperatorPage(0, PAGE_SIZE),
+          ]);
           if (cancelled) return;
+          const f = fBatch.rows;
+          firstFounders = f.length;
+          firstCompanies = c.length;
           firstOperators = o.length;
+          setFounders(f);
+          /** Shallow preview only — full founder pagination starts when user opens Founders or All. */
+          setFoundersDone(true);
+          setCompanies(c);
           setOperators(o);
+          companyOffsetRef.current = c.length;
           operatorOffsetRef.current = o.length;
         } else if (activeScope === "all") {
           const [{ rows: f, exhausted: fEx }, c, o] = await Promise.all([

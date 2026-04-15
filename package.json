@@ -69,6 +69,8 @@
     "db:backfill:firm-portfolio-page:dry": "DRY_RUN=1 tsx scripts/backfill-firm-portfolio-page.ts",
     "db:backfill:firm-portfolio-page:all": "PORTFOLIO_PAGE_MAX=0 PORTFOLIO_PAGE_CONCURRENCY=8 tsx scripts/backfill-firm-portfolio-page.ts",
     "db:backfill:firm-portfolio-page:overwrite": "PORTFOLIO_PAGE_MAX=0 PORTFOLIO_PAGE_OVERWRITE=1 PORTFOLIO_PAGE_CONCURRENCY=8 tsx scripts/backfill-firm-portfolio-page.ts",
+    "db:backfill:investment-focus:loop": "tsx scripts/run-investment-focus-playwright-loop.ts",
+    "db:backfill:investment-focus:loop:dry": "COMMIT=false RUN_HOURS=0.5 BATCH_LIMIT=5 tsx scripts/run-investment-focus-playwright-loop.ts",
     "db:backfill:org-funding": "tsx scripts/backfill-organization-funding.ts",
     "db:backfill:org-funding:dry": "DRY_RUN=1 tsx scripts/backfill-organization-funding.ts",
     "enrich:firms-brandfetch": "tsx scripts/enrich-firms-brandfetch.ts",

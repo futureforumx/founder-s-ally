@@ -114,6 +114,12 @@ export const ExtractedProfile = z.object({
   stages:   z.array(z.string()).optional(),
   geographies: z.array(z.string()).optional(),
 
+  /** Populated by investment-intel step for `firm_records` (not scraped directly by most adapters). */
+  thesis_verticals: z.array(z.string()).optional(),
+  thesis_orientation: z.string().optional(),
+  sector_scope: z.string().optional(),
+  strategy_classifications: z.array(z.string()).optional(),
+
   // Raw evidence — kept for parsers + provenance
   raw_text:       z.string().optional(),
   raw_payload:    z.record(z.unknown()).optional(),
@@ -177,10 +183,12 @@ export interface BackfillConfig {
   commit: boolean;           // true → write to Supabase
   dry_run: boolean;          // alias inverse of commit, for safety
   only_missing: boolean;     // only include firms with missing fields
+  /** When true (and `only_missing` is false), only firms with weak investment-focus intel. */
+  investment_focus_gaps?: boolean;
   firm_id?: string;          // restrict to a single firm
   headless: boolean;
   storage_state_path?: string;
-  freshness_days: number;    // re-scrape if source_last_verified_at older than this
+  freshness_days: number;    // re-scrape if last_verified_at older than this
   concurrency: number;       // concurrent firms processed
   max_retries: number;
 }
