@@ -630,6 +630,7 @@ const Index = () => {
           ) : activeView === "network" ? (
             <DeferredSection label="Loading network view…">
               <CommunityView
+                key="cv-network"
                 companyData={companyData}
                 analysisResult={analysisResult}
                 onNavigateProfile={() => setActiveView("company")}
@@ -640,6 +641,7 @@ const Index = () => {
           ) : activeView === "directory" || activeView === "investor-search" ? (
             <DeferredSection label="Loading directory…">
               <CommunityView
+                key={activeView === "investor-search" ? "cv-investor-search" : "cv-directory"}
                 companyData={companyData}
                 analysisResult={analysisResult}
                 onNavigateProfile={() => setActiveView("company")}

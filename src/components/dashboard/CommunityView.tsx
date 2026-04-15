@@ -457,7 +457,7 @@ const SCOPE_LABELS: Record<EntityScope, {singular: string;plural: string;}> = {
 };
 
 const CAROUSEL_TITLES: Record<EntityScope, {suggested: string;trending: string;}> = {
-  all: { suggested: "Suggested for You", trending: "Trending Now" },
+  all: { suggested: "Suggested for You", trending: "Trending now" },
   founders: { suggested: "Suggested Founders", trending: "Trending Founders" },
   operators: { suggested: "Suggested Operators", trending: "Trending Operators" },
   investors: { suggested: "Suggested Investors", trending: "Trending Investors" },
@@ -1831,6 +1831,17 @@ export function CommunityView({
   const [activeScope, setActiveScope] = useState<EntityScope>(
     initialScope ?? (isInvestorSearch ? "investors" : "all"),
   );
+  /** When `initialScope` is set from the route (e.g. Network → operators), re-apply if the prop changes; do not fight in-tab scope changes while `initialScope` stays the same. */
+  const previousInitialScopeRef = useRef<EntityScope | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (initialScope === undefined) {
+      previousInitialScopeRef.current = undefined;
+      return;
+    }
+    if (previousInitialScopeRef.current === initialScope) return;
+    previousInitialScopeRef.current = initialScope;
+    setActiveScope(initialScope);
+  }, [initialScope]);
   const [visibleCount, setVisibleCount] = useState(() =>
     variant === "investor-search" ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE,
   );
