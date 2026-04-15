@@ -41,7 +41,7 @@ export function InvestorPersonAvatar({
   size?: "sm" | "md";
   loading?: "lazy" | "eager";
   fetchPriority?: "high" | "low" | "auto";
-  /** `no-referrer` often slows or breaks third-party CDNs; default is friendlier for headshots. */
+  /** Default sends referrers for most hosts; Licdn / LinkedIn / WordPress Photon use `no-referrer` automatically. */
   referrerPolicy?: HTMLImageElement["referrerPolicy"] | "";
 }) {
   const chain = useMemo(() => {
@@ -59,6 +59,12 @@ export function InvestorPersonAvatar({
   const [allFailed, setAllFailed] = useState(false);
   const src = chain[attempt] ?? null;
 
+  /** Hotlink-sensitive CDNs: full Referer from our app can yield 403/empty responses for staff photos. */
+  const preferNoReferrer = Boolean(
+    src &&
+      /licdn\.com|linkedin\.com|dms\.licdn\.com|i[0-9]\.wp\.com\/|\/\/i[0-9]\.wp\.com\//i.test(src),
+  );
+
   useEffect(() => {
     setAttempt(0);
     setAllFailed(false);
@@ -68,6 +74,12 @@ export function InvestorPersonAvatar({
   const iconSz = size === "sm" ? "h-4 w-4" : "h-5 w-5";
   const showImg = Boolean(src) && !allFailed;
   const letter = (safeTrim(initials).charAt(0) || "").toUpperCase();
+
+  const imgReferrerPolicy: HTMLImageElement["referrerPolicy"] | undefined = (() => {
+    if (referrerPolicy === "") return undefined;
+    if (preferNoReferrer) return "no-referrer";
+    return referrerPolicy || undefined;
+  })();
 
   return (
     <div
@@ -79,10 +91,10 @@ export function InvestorPersonAvatar({
     >
       {showImg ? (
         <img
-          key={src}
+          key={`${src}|${attempt}`}
           src={src}
           alt=""
-          {...(referrerPolicy ? { referrerPolicy } : {})}
+          {...(imgReferrerPolicy ? { referrerPolicy: imgReferrerPolicy } : {})}
           width={size === "sm" ? 64 : 80}
           height={size === "sm" ? 64 : 80}
           loading={loading}
