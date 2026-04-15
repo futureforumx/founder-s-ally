@@ -161,19 +161,19 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "investor-funding", label: "FUNDING" },
   ]},
   directory: { section: "Network", label: "Overview", siblings: [
-    { id: "network", label: "Operators" },
+    { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   connections: { section: "Network", label: "Connection" },
-  network: { section: "Intelligence", label: "Operators" },
+  network: { section: "Intelligence", label: "Market" },
   groups: { section: "Community", label: "Groups", siblings: [
-    { id: "network", label: "Operators" },
+    { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   events: { section: "Community", label: "Events", siblings: [
-    { id: "network", label: "Operators" },
+    { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
@@ -1264,7 +1264,7 @@ export function GlobalTopNav({
           )}
         </div>
 
-        {/* ── Investor directory segmented control (All / Investors only — no Operators on Network) ── */}
+        {/* ── Investor directory segmented control (All / Investors only — Market tab is separate) ── */}
         {!searchOpen && ["investors", "investor-search", "investor-funding"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
