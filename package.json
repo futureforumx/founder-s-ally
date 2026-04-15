@@ -128,7 +128,9 @@
     "scrape:startups:cbinsights:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-cbinsights.ts",
     "scrape:startups:crunchbase": "tsx scripts/startup-scrapers/scrape-crunchbase.ts",
     "scrape:startups:crunchbase:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-crunchbase.ts",
-    "scrape:startups:crunchbase:api": "CB_MODE=api tsx scripts/startup-scrapers/scrape-crunchbase.ts"
+    "scrape:startups:crunchbase:api": "CB_MODE=api tsx scripts/startup-scrapers/scrape-crunchbase.ts",
+    "scrape:startups:tracxn": "tsx scripts/startup-scrapers/scrape-tracxn.ts",
+    "scrape:startups:tracxn:dry": "DRY_RUN=1 tsx scripts/startup-scrapers/scrape-tracxn.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
