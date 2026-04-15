@@ -20,7 +20,11 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const SCRAPERS: Record<string, { script: string; requiresAuth: boolean; description: string }> = {
   yc: {
