@@ -8,6 +8,7 @@ import { resolveFirmWebsiteTeam } from "./api/_firmWebsiteTeam";
 import { resolvePersonWebsiteProfile } from "./api/_personWebsiteProfile";
 import { handleFirmWebsiteHqPost } from "./api/handleFirmWebsiteHqPost";
 import { mirrorFirmInvestorHeadshotsForFirm, supabaseAdminForMirror } from "./api/_mirrorFirmInvestorHeadshots";
+import { fetchProxiedExternalImage, parseProxyTargetUrl } from "./api/_proxyExternalImage";
 import { ensureFirmElevatorPitchSaved, supabaseAdminForElevatorPitch } from "./api/_ensureFirmElevatorPitch";
 
 /**
@@ -325,6 +326,62 @@ function firmWebsiteHqDevPlugin() {
   };
 }
 
+function proxyExternalImageDevPlugin() {
+  return {
+    name: "proxy-external-image-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/proxy-external-image", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+          });
+          res.end();
+          return;
+        }
+        if (req.method !== "GET") {
+          res.writeHead(405, { "Content-Type": "text/plain" });
+          res.end("Method not allowed");
+          return;
+        }
+        try {
+          const full = new URL(req.url ?? "", "http://dev.local");
+          const rawU = full.searchParams.get("u") ?? "";
+          let decoded: string;
+          try {
+            decoded = decodeURIComponent(rawU);
+          } catch {
+            res.writeHead(400, { "Content-Type": "text/plain" });
+            res.end("Bad u param");
+            return;
+          }
+          const target = parseProxyTargetUrl(decoded);
+          if (!target) {
+            res.writeHead(400, { "Content-Type": "text/plain" });
+            res.end("URL not allowed");
+            return;
+          }
+          const out = await fetchProxiedExternalImage(target);
+          if (!out.ok) {
+            res.writeHead(out.status, { "Content-Type": "text/plain" });
+            res.end(out.message);
+            return;
+          }
+          res.writeHead(200, {
+            "Content-Type": out.contentType,
+            "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+            "Access-Control-Allow-Origin": "*",
+          });
+          res.end(out.body);
+        } catch (error) {
+          res.writeHead(500, { "Content-Type": "text/plain" });
+          res.end(error instanceof Error ? error.message : "Proxy error");
+        }
+      });
+    },
+  };
+}
+
 function mirrorFirmInvestorHeadshotsDevPlugin() {
   return {
     name: "mirror-firm-investor-headshots-dev",
@@ -537,6 +594,7 @@ export default defineConfig(async ({ mode }) => {
     mode === "development" && firmWebsiteThemesDevPlugin(),
     mode === "development" && firmWebsiteTeamDevPlugin(),
     mode === "development" && firmWebsiteHqDevPlugin(),
+    mode === "development" && proxyExternalImageDevPlugin(),
     mode === "development" && mirrorFirmInvestorHeadshotsDevPlugin(),
     mode === "development" && ensureFirmElevatorPitchDevPlugin(),
     mode === "development" && personWebsiteProfileDevPlugin(),

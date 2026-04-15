@@ -32,6 +32,8 @@ export type InvestorPreviewModel = {
   _aumBand?: string | null;
   /** Deal velocity score (0–100): derived from recent deal count + active deployment status. */
   _dealVelocityScore?: number | null;
+  /** When set (e.g. Network “All” tab), rail rows use this instead of the parent `rowKind`. */
+  _railRowKind?: "investor" | "operator" | "founder" | "company";
 };
 
 function parseAumToMillions(raw: string | null | undefined): number | null {
