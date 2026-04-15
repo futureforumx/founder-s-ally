@@ -140,7 +140,7 @@ function main(): void {
       execFileSync("npx", ["tsx", scriptPath], {
         stdio: "inherit",
         env: { ...process.env },
-        timeout: 600_000, // 10 minute timeout per scraper
+        timeout: 3_600_000, // 60 minute timeout per scraper
         maxBuffer: 64 * 1024 * 1024,
       });
       const duration = (Date.now() - startTime) / 1000;
