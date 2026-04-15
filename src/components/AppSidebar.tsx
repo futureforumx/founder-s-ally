@@ -175,7 +175,10 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               </TooltipContent>
             </Tooltip>
           </div>
-          <div className="mt-3 ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2">
+          <div className="mt-3 px-2 pb-1 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+            INTELLIGENCE
+          </div>
+          <div className="ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2">
             <button
               type="button"
               onClick={() => goView("investors")}

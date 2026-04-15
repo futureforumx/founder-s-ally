@@ -8,7 +8,6 @@ import { cn, safeTrim } from "@/lib/utils";
 import type { AumBand } from "@prisma/client";
 import { resolveAumBandFromUsd } from "@/lib/aumBand";
 import { formatStageForDisplay } from "@/lib/stageUtils";
-import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
 
 export type InvestorPreviewModel = {
   name: string;
@@ -36,6 +35,9 @@ export type InvestorPreviewModel = {
   _fundingIntelActivity?: number | null;
   /** When set (e.g. Network “All” tab), rail rows use this instead of the parent `rowKind`. */
   _railRowKind?: "investor" | "operator" | "founder" | "company";
+  /** Directory “investment focus” pill (replaces generic firm-type chip when present). */
+  _focusPill?: string;
+  _focusTooltip?: string;
 };
 
 function parseAumToMillions(raw: string | null | undefined): number | null {
@@ -279,12 +281,22 @@ export function InvestorPreviewRow({
               {model._headcount}
             </span>
           )}
-          <Badge
-            variant="outline"
-            className="h-4 min-h-4 border-zinc-400/45 bg-transparent px-1 py-0 text-[7px] font-light uppercase tracking-[0.08em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-          >
-            {formatFirmTypeLabel(model._firmType || "INSTITUTIONAL") || "Institutional"}
-          </Badge>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="h-4 min-h-4 border-zinc-400/45 bg-transparent px-1 py-0 text-[7px] font-light uppercase tracking-[0.08em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
+                  aria-label={`Investment focus: ${model._focusPill ?? model._firmType ?? "INSTITUTIONAL"}`}
+                >
+                  {model._focusPill ?? String(model._firmType ?? "INSTITUTIONAL").toUpperCase()}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[240px] p-2 text-[10px]">
+                {model._focusTooltip ?? "Investment focus from firm intelligence fields."}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           {aumBand ? (
             <Badge
               variant="outline"

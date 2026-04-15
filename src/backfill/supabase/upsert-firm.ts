@@ -54,6 +54,10 @@ const WRITABLE_FIRM_COLUMNS = [
   "lead_or_follow",
   "is_actively_deploying",
   "geo_focus",
+  "thesis_verticals",
+  "thesis_orientation",
+  "sector_scope",
+  "strategy_classifications",
 ] as const;
 
 type WritableColumn = (typeof WRITABLE_FIRM_COLUMNS)[number];
@@ -149,6 +153,14 @@ export const DERIVED_CLASSIFICATION_KEYS: readonly WritableColumn[] = [
   "theme_classification",
   "sector_classification",
   "impact_orientation",
+] as const;
+
+/** Derived investment-focus fields — refreshed each successful backfill run. */
+export const INVESTMENT_FOCUS_KEYS: readonly WritableColumn[] = [
+  "thesis_verticals",
+  "thesis_orientation",
+  "sector_scope",
+  "strategy_classifications",
 ] as const;
 
 /**

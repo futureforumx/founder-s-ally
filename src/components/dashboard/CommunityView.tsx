@@ -49,7 +49,7 @@ import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/a
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
 import { buildOperatorFooterMidDot } from "@/lib/operatorDirectoryDisplay";
 import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
-import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import { investorFocusBadgeFromDirectoryFields } from "@/lib/investorFocusBadge";
 import { displayFundingStatus, displayInvestmentStage } from "@/lib/organizationFundingEnums";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
@@ -110,6 +110,14 @@ interface DirectoryEntry {
   _profileId?: string;
   /** Investor-specific enrichment fields */
   _firmType?: string;
+  /** `firm_records` — strategy tag array (Postgres enum values). */
+  _strategyClassifications?: string[] | null;
+  _thesisOrientation?: string | null;
+  _sectorScope?: string | null;
+  _thesisVerticals?: string[] | null;
+  _geoFocus?: string[] | null;
+  /** VC JSON sectors when no DB verticals (single sector → specialist pill). */
+  _seedSectors?: string[] | null;
   _isActivelyDeploying?: boolean;
   _founderSentimentScore?: number | null;
   _headcount?: string | null;
@@ -673,6 +681,12 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
     _sectors: [] as string[],
     _stages: [] as string[],
     _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
+    _strategyClassifications: inv.strategy_classifications ?? null,
+    _thesisOrientation: inv.thesis_orientation ?? null,
+    _sectorScope: inv.sector_scope ?? null,
+    _thesisVerticals: inv.thesis_verticals ?? [],
+    _geoFocus: inv.geo_focus ?? null,
+    _seedSectors: null,
     _isActivelyDeploying: inv.is_actively_deploying === true,
     _founderSentimentScore: inv.founder_reputation_score ?? null,
     _headcount: inv.headcount ?? null,
@@ -707,25 +721,6 @@ function aumBandBadgeTooltipText(cardLabel: string): string {
   const human = AUM_BAND_LABELS[key];
   const range = AUM_BAND_RANGES[key];
   return `${human}: ${range}. Derived from the largest AUM figure we parse on this profile.`;
-}
-
-function firmTypeBadgeTooltipText(firmType: string | number | null | undefined): string {
-  const t = String(firmType ?? "Institutional")
-    .trim()
-    .toLowerCase();
-  if (t === "cvc") {
-    return "Corporate venture (CVC): strategic or balance-sheet capital from an operating company—distinct from independent funds that primarily deploy third-party LP capital.";
-  }
-  if (t === "institutional") {
-    return "Professional fund or firm investing pooled third-party (LP) capital—typical venture partnerships, corporate venture arms, and similar vehicles.";
-  }
-  if (t === "angel" || t === "angel investor") {
-    return "Individual or small group investing personal or syndicated capital, often at earlier stages with smaller checks than institutional funds.";
-  }
-  if (t.includes("family")) {
-    return "Family office: deploys a single family’s wealth, often with a flexible mandate compared with traditional VC funds.";
-  }
-  return `How we classify this investor’s structure and capital source (${firmType}).`;
 }
 
 function firmLocationBadgeTooltipText(location: string): string {
@@ -807,8 +802,7 @@ function InvestorCard({
     founder._isActivelyDeploying === true &&
     (velocityScore == null || velocityScore >= MIN_DEPLOYING_VELOCITY_SCORE);
   const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
-  const firmTypeRaw = safeTextTrim(founder._firmType) || "INSTITUTIONAL";
-  const firmTypeBadgeLabel = formatFirmTypeLabel(firmTypeRaw) || "Institutional";
+  const focusBadge = investorFocusBadgeFromDirectoryFields(founder);
   const subtitle = isPerson
     ? [founder.model, founder._investorFirmName].filter(Boolean).join(" · ")
     : null;
@@ -834,6 +828,7 @@ function InvestorCard({
                   height={44}
                   loading="lazy"
                   decoding="async"
+                  referrerPolicy="no-referrer"
                   className="h-full w-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -1044,15 +1039,15 @@ function InvestorCard({
                   <Badge
                     variant="outline"
                     className={INVESTOR_CARD_META_BADGE}
-                    aria-label={`Firm type: ${firmTypeBadgeLabel}`}
+                    aria-label={`Investment focus: ${focusBadge.pill}`}
                   >
-                    {firmTypeBadgeLabel}
+                    {focusBadge.pill}
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[260px] border border-border bg-popover/95 p-3 shadow-lg backdrop-blur-md">
-                  <p className="text-xs font-bold text-foreground">Firm type</p>
+                  <p className="text-xs font-bold text-foreground">Investment focus</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    {firmTypeBadgeTooltipText(firmTypeRaw)}
+                    {focusBadge.tooltip}
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -1843,6 +1838,7 @@ function compareNetworkDirectoryEntries(
 }
 
 function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewModel {
+  const focus = investorFocusBadgeFromDirectoryFields(e);
   return {
     name: e.name,
     sector: e.sector,
@@ -1862,6 +1858,8 @@ function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewMode
     _headcount: e._headcount ?? null,
     _aum: e._aum ?? null,
     _firmType: e._firmType,
+    _focusPill: focus.pill,
+    _focusTooltip: focus.tooltip,
     _aumBand: e._aumBand ?? null,
     _dealVelocityScore: e._dealVelocityScore ?? null,
     _fundingIntelActivity: e._fundingIntelActivity ?? null,
@@ -2143,6 +2141,14 @@ export function CommunityView({
         _firmType:
           person.firm?.firm_type ??
           resolveDirectoryFirmTypeKey(firmName, null, person.firm?.entity_type ?? null),
+        _strategyClassifications: person.firm?.strategy_classifications ?? null,
+        _thesisOrientation: person.firm?.thesis_orientation ?? null,
+        _sectorScope: person.firm?.sector_scope ?? null,
+        _thesisVerticals: person.firm?.thesis_verticals?.length
+          ? person.firm.thesis_verticals
+          : sectorFocus,
+        _geoFocus: person.firm?.geo_focus ?? null,
+        _seedSectors: null,
         _isActivelyDeploying: person.firm?.is_actively_deploying === true,
         _founderSentimentScore: person.firm?.founder_reputation_score ?? null,
         _headcount: person.firm?.headcount ?? null,
@@ -2207,6 +2213,12 @@ export function CommunityView({
           _sectors: f.sectors || [] as string[],
           _stages: f.stages || [] as string[],
           _firmType: (dbMatch as any)?.firm_type ?? resolveDirectoryFirmTypeKey(displayName, null),
+          _strategyClassifications: (dbMatch as any)?.strategy_classifications ?? null,
+          _thesisOrientation: (dbMatch as any)?.thesis_orientation ?? null,
+          _sectorScope: (dbMatch as any)?.sector_scope ?? null,
+          _thesisVerticals: (dbMatch as any)?.thesis_verticals ?? [],
+          _geoFocus: (dbMatch as any)?.geo_focus ?? null,
+          _seedSectors: dbMatch ? null : (f.sectors || []).filter(Boolean),
           _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying === true,
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
@@ -2255,6 +2267,12 @@ export function CommunityView({
         _sectors: [] as string[],
         _stages: [] as string[],
         _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
+        _strategyClassifications: inv.strategy_classifications ?? null,
+        _thesisOrientation: inv.thesis_orientation ?? null,
+        _sectorScope: inv.sector_scope ?? null,
+        _thesisVerticals: inv.thesis_verticals ?? [],
+        _geoFocus: inv.geo_focus ?? null,
+        _seedSectors: null,
         _isActivelyDeploying: inv.is_actively_deploying === true,
         _founderSentimentScore: inv.founder_reputation_score ?? null,
         _headcount: inv.headcount ?? null,
@@ -2996,6 +3014,18 @@ export function CommunityView({
       _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? entry._firmId ?? null,
       _websiteUrl: (dbMatch as any)?.website_url ?? entry._websiteUrl ?? fallbackWebsite ?? null,
       _logoUrl: (dbMatch as any)?.logo_url ?? entry._logoUrl ?? null,
+      _strategyClassifications: (dbMatch as any)?.strategy_classifications ?? entry._strategyClassifications ?? null,
+      _thesisOrientation: (dbMatch as any)?.thesis_orientation ?? entry._thesisOrientation ?? null,
+      _sectorScope: (dbMatch as any)?.sector_scope ?? entry._sectorScope ?? null,
+      _thesisVerticals:
+        (dbMatch as any)?.thesis_verticals?.length > 0
+          ? (dbMatch as any).thesis_verticals
+          : entry._thesisVerticals ?? [],
+      _geoFocus: (dbMatch as any)?.geo_focus ?? entry._geoFocus ?? null,
+      _seedSectors:
+        dbMatch && (dbMatch as any)?.thesis_verticals?.length > 0
+          ? null
+          : entry._seedSectors ?? (entry._sectors?.length ? entry._sectors : null),
     };
   }, [getDbMatch, getVCFirmMatch]);
 

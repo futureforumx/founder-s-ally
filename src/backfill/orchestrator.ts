@@ -17,6 +17,7 @@ import type {
   AdapterContext,
   AdapterResult,
   BackfillConfig,
+  ExtractedProfile,
   FirmSeed,
   Logger,
   ProvenanceEntry,
@@ -29,7 +30,14 @@ import { RateLimiter } from "./browser/rate-limit";
 import { resolveStoragePaths } from "./browser/sessions";
 import { normalizeProfile } from "./normalizers";
 import { mergeAdapterResults } from "./merge";
-import { buildFirmPatch, profileToFirmPatch, upsertFirm, DERIVED_CLASSIFICATION_KEYS } from "./supabase/upsert-firm";
+import {
+  buildFirmPatch,
+  profileToFirmPatch,
+  upsertFirm,
+  DERIVED_CLASSIFICATION_KEYS,
+  INVESTMENT_FOCUS_KEYS,
+} from "./supabase/upsert-firm";
+import { applyInvestmentIntelToProfile, needsInvestmentFocus } from "./parsers/investment-intel";
 import { upsertProvenance } from "./supabase/upsert-provenance";
 import { upsertStageFocus } from "./supabase/upsert-stage-focus";
 import { upsertTags } from "./supabase/upsert-tags";
@@ -59,7 +67,12 @@ export interface FirmRow {
   hq_country?: string | null;
   founded_year?: number | null;
   stage_focus?: string[] | null;
-  source_last_verified_at?: string | null;
+  last_verified_at?: string | null;
+  thesis_verticals?: string[] | null;
+  thesis_orientation?: string | null;
+  sector_scope?: string | null;
+  strategy_classifications?: string[] | null;
+  geo_focus?: string[] | null;
 }
 
 /** Query firm_records for candidates matching the run config. */
@@ -74,13 +87,28 @@ export async function selectFirms(
     "openvc_url", "vcsheet_url", "startups_gallery_url", "angellist_url", "wellfound_url",
     "medium_url", "substack_url", "linkedin_url",
     "description", "hq_city", "hq_country", "founded_year", "stage_focus",
-    "source_last_verified_at",
+    "last_verified_at",
+    "thesis_verticals", "thesis_orientation", "sector_scope", "strategy_classifications", "geo_focus",
   ].join(",");
 
   let q = db.from("firm_records").select(selectCols).order("firm_name");
 
-  if (cfg.firm_id) q = q.eq("id", cfg.firm_id);
-  if (cfg.limit)   q = q.range(cfg.offset, cfg.offset + cfg.limit - 1);
+  if (cfg.firm_id) {
+    q = q.eq("id", cfg.firm_id);
+  } else {
+    // Skip individual-investor placeholders and require a website so adapters
+    // have something to work with. Removes 90s-per-firm dead-end searches.
+    q = q.not("firm_name", "ilike", "%(Individual)%")
+         .not("website_url", "is", null);
+  }
+  const want = Math.max(1, cfg.limit || 100);
+  if (cfg.investment_focus_gaps && !cfg.firm_id) {
+    // Scan a wider window then filter — sparse gaps otherwise return 0 rows from a tight range().
+    const scan = Math.min(2500, Math.max(want * 40, 400));
+    q = q.range(cfg.offset, cfg.offset + scan - 1);
+  } else if (cfg.limit) {
+    q = q.range(cfg.offset, cfg.offset + cfg.limit - 1);
+  }
 
   const { data, error } = await q;
   if (error) { logger.error("select.firms.failed", { err: error.message }); return []; }
@@ -88,13 +116,15 @@ export async function selectFirms(
 
   let rows = data as unknown as FirmRow[];
 
-  if (cfg.only_missing) {
+  if (cfg.investment_focus_gaps) {
+    rows = rows.filter(needsInvestmentFocus).slice(0, want);
+  } else if (cfg.only_missing) {
     rows = rows.filter(isFirmMissingFields);
   }
 
   if (cfg.freshness_days > 0) {
     const threshold = Date.now() - cfg.freshness_days * 86_400_000;
-    rows = rows.filter(f => !f.source_last_verified_at || new Date(f.source_last_verified_at).getTime() < threshold);
+    rows = rows.filter(f => !f.last_verified_at || new Date(f.last_verified_at).getTime() < threshold);
   }
 
   return rows;
@@ -270,7 +300,8 @@ async function processFirm(
   }
 
   // Merge classification fields into profile when firm_records value is null
-  const finalProfile = { ...merged.profile, ...derivedPatch };
+  const classified = { ...merged.profile, ...derivedPatch } as ExtractedProfile;
+  const finalProfile = applyInvestmentIntelToProfile(classified);
 
   // ── Fetch current row to avoid overwriting non-null fields ──
   const { data: existingRow } = await db
@@ -290,7 +321,7 @@ async function processFirm(
       // Classification fields are derived — allow later runs to update them
       // even when an existing value is present. Hard facts (URLs, HQ, etc.)
       // are still protected by the no-overwrite-non-null rule.
-      forceOverwriteKeys: [...DERIVED_CLASSIFICATION_KEYS],
+      forceOverwriteKeys: [...DERIVED_CLASSIFICATION_KEYS, ...INVESTMENT_FOCUS_KEYS],
     },
     { dryRun: cfg.dry_run, logger: firmLogger },
   );
