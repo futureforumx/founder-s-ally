@@ -173,6 +173,8 @@ export async function ensureCompanyWorkspace(
   const websiteUrl = website || null;
   const logoUrl = googleFaviconFromWebsite(website);
 
+  // Omit `claimed_by`: if the column is still uuid (migrations not applied), Clerk ids break the insert.
+  // `user_id` already identifies the owner after the text-id migration.
   const { error: compError } = await supabase.from("company_analyses").insert({
     id: newCompId,
     user_id: userId,
@@ -180,7 +182,6 @@ export async function ensureCompanyWorkspace(
     website_url: websiteUrl,
     logo_url: logoUrl,
     is_claimed: true,
-    claimed_by: userId,
   } as any);
 
   if (compError) {
