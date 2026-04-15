@@ -676,6 +676,7 @@ enum StartupDataSource {
   STARTUPS_GALLERY
   CB_INSIGHTS
   CRUNCHBASE
+  TRACXN
   MANUAL
   OTHER
 }

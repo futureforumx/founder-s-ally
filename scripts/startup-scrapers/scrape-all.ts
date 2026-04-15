@@ -64,8 +64,13 @@ const SCRAPERS: Record<string, { script: string; requiresAuth: boolean; descript
   },
   crunchbase: {
     script: "scrape-crunchbase.ts",
-    requiresAuth: false,
-    description: "Crunchbase (crunchbase.com) — API key recommended",
+    requiresAuth: true,
+    description: "Crunchbase (crunchbase.com) — requires CB_EMAIL + CB_PASSWORD",
+  },
+  tracxn: {
+    script: "scrape-tracxn.ts",
+    requiresAuth: true,
+    description: "Tracxn (tracxn.com) — requires TRACXN_EMAIL + TRACXN_PASSWORD",
   },
 };
 
@@ -118,7 +123,9 @@ function main(): void {
         source === "cbinsights"
           ? !!process.env.CBI_EMAIL && !!process.env.CBI_PASSWORD
           : source === "crunchbase"
-          ? !!process.env.CRUNCHBASE_API_KEY
+          ? !!process.env.CB_EMAIL && !!process.env.CB_PASSWORD
+          : source === "tracxn"
+          ? !!process.env.TRACXN_EMAIL && !!process.env.TRACXN_PASSWORD
           : true;
 
       if (!hasAuth) {

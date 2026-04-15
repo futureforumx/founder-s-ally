@@ -54,6 +54,8 @@ const MAX_ITEMS = parseInt(process.env.CB_MAX || "0", 10);
 const DELAY_MS = parseInt(process.env.CB_DELAY_MS || "1000", 10);
 const HEADLESS = process.env.HEADLESS !== "false";
 const API_KEY = process.env.CRUNCHBASE_API_KEY;
+const CB_EMAIL = process.env.CB_EMAIL;
+const CB_PASSWORD = process.env.CB_PASSWORD;
 const MODE = process.env.CB_MODE || (API_KEY ? "api" : "web");
 const API_BASE = "https://api.crunchbase.com/api/v4";
 
@@ -213,8 +215,48 @@ function mapCBStatus(status: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// Web Mode — Playwright scraping
+// Web Mode — Playwright scraping with login
 // ---------------------------------------------------------------------------
+
+async function webLogin(page: Page): Promise<void> {
+  if (!CB_EMAIL || !CB_PASSWORD) {
+    console.log("[crunchbase] No CB_EMAIL/CB_PASSWORD — proceeding without login (limited data)");
+    return;
+  }
+
+  console.log("[crunchbase] Logging in...");
+  await page.goto("https://www.crunchbase.com/login", { waitUntil: "networkidle", timeout: 30000 });
+  await sleep(2000);
+
+  const emailInput = await page.$(
+    "input[type='email'], input[name='email'], input[placeholder*='email'], #email"
+  );
+  const passInput = await page.$(
+    "input[type='password'], input[name='password'], #password"
+  );
+
+  if (emailInput && passInput) {
+    await emailInput.fill(CB_EMAIL);
+    await passInput.fill(CB_PASSWORD);
+    await sleep(500);
+    const submitBtn = await page.$(
+      "button[type='submit'], button:has-text('Log In'), button:has-text('Sign In')"
+    );
+    if (submitBtn) await submitBtn.click();
+    else await passInput.press("Enter");
+
+    await page.waitForNavigation({ waitUntil: "networkidle", timeout: 30000 }).catch(() => {});
+    await sleep(3000);
+
+    if (page.url().includes("/login")) {
+      console.warn("[crunchbase] Login may have failed — still on login page");
+    } else {
+      console.log("[crunchbase] Login successful");
+    }
+  } else {
+    console.warn("[crunchbase] Could not find login form — proceeding without auth");
+  }
+}
 
 async function webScrapeSearch(page: Page, query: string): Promise<Array<{ name: string; slug: string; description: string | null }>> {
   try {
@@ -417,6 +459,8 @@ async function scrapeViaWeb(stats: ScrapeStats, progress: ScrapeProgress): Promi
   const page = await context.newPage();
 
   try {
+    await webLogin(page);
+
     const allResults: Array<{ name: string; slug: string; description: string | null }> = [];
     const seen = new Set<string>();
 

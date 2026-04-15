@@ -15,6 +15,7 @@ import type { Prisma, PrismaClient, Startup } from "@prisma/client";
 
 export const STARTUP_SOURCE_PRIORITY: Record<string, number> = {
   crunchbase: 100,
+  tracxn: 95,
   cb_insights: 90,
   yc: 85,
   nextplay: 70,
@@ -281,6 +282,7 @@ export function mapDataSource(raw: string): string {
     startups_gallery: "STARTUPS_GALLERY",
     cb_insights: "CB_INSIGHTS",
     crunchbase: "CRUNCHBASE",
+    tracxn: "TRACXN",
     manual: "MANUAL",
   };
   return MAP[raw.toLowerCase()] ?? "OTHER";
