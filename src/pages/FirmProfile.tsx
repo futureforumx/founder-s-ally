@@ -153,8 +153,9 @@ const FirmProfile = () => {
               {isJwtKeyError ? (
                 <>
                   <p>
-                    Supabase rejected the token (often: Clerk’s <strong>default</strong> session JWT was sent). This app only sends the Clerk template named{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase</code>, which must match{" "}
+                    Supabase could not verify the JWT sent from the browser (PostgREST errors like <code className="text-xs">PGRST301</code> / “wrong key type”). The app sends the{" "}
+                    <strong>Clerk session token first</strong>, then the optional JWT template named{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">supabase</code>. Follow{" "}
                     <a
                       className="font-medium text-accent underline-offset-4 hover:underline"
                       href="https://supabase.com/docs/guides/auth/third-party/clerk"
@@ -163,10 +164,13 @@ const FirmProfile = () => {
                     >
                       Supabase’s Clerk guide
                     </a>
-                    .
+                    : Supabase → Authentication → Third-party auth → Clerk (domain + secret). Then sign out and sign in again.
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Clerk → Configure → JWT Templates → create <code className="rounded bg-muted px-1">supabase</code>. Supabase → Authentication → add Clerk as third-party provider. Then sign out and sign in again.
+                    If you use a legacy Clerk template instead, name it <code className="rounded bg-muted px-1">supabase</code> and set{" "}
+                    <code className="rounded bg-muted px-1 text-[11px]">VITE_SUPABASE_JWT_TEMPLATE_FIRST=true</code> in{" "}
+                    <code className="rounded bg-muted px-1 text-[11px]">.env.local</code> so it is tried before the session token. To never send the template, use{" "}
+                    <code className="rounded bg-muted px-1 text-[11px]">VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true</code>.
                   </p>
                 </>
               ) : (

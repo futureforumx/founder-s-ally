@@ -10,7 +10,13 @@ export interface FounderEntry {
   companyName?: string;
   companyWebsite?: string;
   competitors?: string[];
+  /** Directory row: company / org site (favicon + header link). */
+  _websiteUrl?: string | null;
+  _linkedinUrl?: string | null;
+  _twitterUrl?: string | null;
+  /** When set (network directory), drives org-name line for company cards. */
+  category?: "founder" | "investor" | "company" | "operator";
 }
 
-export const TABS = ["Overview", "Market Insights", "Connections", "Investors"] as const;
+export const TABS = ["Overview", "Market Insights", "Connections", "Investors", "Jobs"] as const;
 export type Tab = typeof TABS[number];

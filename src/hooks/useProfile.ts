@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { supabase, supabasePublicDirectory, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   normalizeProfileRowForRead,
@@ -29,6 +29,8 @@ export interface FounderProfile extends Profile {
   company_sector: string | null;
   company_stage: string | null;
   company_competitors: string[] | null;
+  /** Joined organization `website` when present (directory / roles join). */
+  company_website?: string | null;
 }
 
 export function useProfile() {
@@ -183,9 +185,9 @@ export function useFounderProfiles() {
       setLoading(true);
       try {
         // Step 1: get founder/ceo role → person + org in one join
-        // Uses supabaseVcDirectory (anon key only) — roles/people/organizations have no RLS;
+        // Uses supabasePublicDirectory (anon only — Clerk JWT would cause PGRST301 on these reads);
         // the main supabase client's accessToken getter fails in dev, which blocks these reads.
-        const { data: roles, error: rolesError } = await (supabaseVcDirectory as any)
+        const { data: roles, error: rolesError } = await (supabasePublicDirectory as any)
           .from("roles")
           .select(`
             title,
@@ -248,6 +250,7 @@ export function useFounderProfiles() {
             company_sector: org?.industry || null,
             company_stage: null,
             company_competitors: null,
+            company_website: org?.website ?? null,
           });
         }
 
@@ -289,7 +292,7 @@ export function useCompanyDirectory(limit = 300) {
     async function load() {
       setLoading(true);
       try {
-        const { data, error } = await (supabaseVcDirectory as any)
+        const { data, error } = await (supabasePublicDirectory as any)
           .from("organizations")
           .select(`
             id,
@@ -370,7 +373,7 @@ export function useOperatorProfiles(limit = 200) {
     async function load() {
       setLoading(true);
       try {
-        const { data, error } = await (supabaseVcDirectory as any)
+        const { data, error } = await (supabasePublicDirectory as any)
           .from("operator_profiles")
           .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available")
           .is("deleted_at", null)

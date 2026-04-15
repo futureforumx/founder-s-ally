@@ -17,6 +17,7 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const FirmProfile = lazy(() => import("./pages/FirmProfile.tsx"));
+const OrganizationProfile = lazy(() => import("./pages/OrganizationProfile.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -250,6 +251,16 @@ const App = () => (
               <Route path="/onboarding" element={<ProtectedRoute><AppOnboardingRoute /></ProtectedRoute>} />
               <Route path="/admin/intelligence" element={<ProtectedRoute><AdminRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading admin tools…" />}><AdminIntelligence /></Suspense></AdminRoute></ProtectedRoute>} />
               <Route path="/firms/:id" element={<ProtectedRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading firm profile…" />}><FirmProfile /></Suspense></ProtectedRoute>} />
+              <Route
+                path="/companies/:id"
+                element={
+                  <ProtectedRoute>
+                    <Suspense fallback={<RouteLoader fullscreen={false} label="Loading company…" />}>
+                      <OrganizationProfile />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
               <Route path="*" element={<Suspense fallback={<RouteLoader fullscreen={false} label="Loading page…" />}><NotFound /></Suspense>} />
             </Routes>
           </BackgroundProfileProvider>

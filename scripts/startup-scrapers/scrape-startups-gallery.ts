@@ -13,6 +13,10 @@
  *   5. Crawl category pages for more listings
  *   6. Dump diagnostics when 0 results found
  *
+ * For VC firm profiles (website, description, portfolio links on `firm_records` /
+ * `firm_recent_deals`), use `scripts/enrich-firms-from-startups-gallery.ts` which
+ * reads the gallery Framer search index + optional Playwright for "Visit Website".
+ *
  * Usage:
  *   npx tsx scripts/startup-scrapers/scrape-startups-gallery.ts
  *   DRY_RUN=1 npx tsx scripts/startup-scrapers/scrape-startups-gallery.ts

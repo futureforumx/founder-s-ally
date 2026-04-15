@@ -1,0 +1,36 @@
+# Scheduled company job ingestion (Prisma → Postgres). UI reads `company_jobs` via Supabase anon SELECT.
+#
+# Secrets: DATABASE_URL (required).
+
+name: Company jobs ingest
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright (SPA careers / ATS detection in job ingest)
+        run: npx playwright install --with-deps chromium
+
+      - name: Prisma migrate (idempotent)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Ingest company jobs
+        run: npm run company-jobs:ingest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

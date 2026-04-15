@@ -25,6 +25,7 @@ type ViewType =
   | "market-network"
   | "investors"
   | "investor-search"
+  | "investor-funding"
   | "network"
   | "directory"
   | "connections"
@@ -180,10 +181,10 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               onClick={() => goView("investors")}
               className={cn(
                 "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-                activeView === "investors" && "border",
+                (activeView === "investors" || activeView === "investor-search" || activeView === "investor-funding") && "border",
               )}
               style={
-                activeView === "investors"
+                activeView === "investors" || activeView === "investor-search" || activeView === "investor-funding"
                   ? {
                       backgroundColor: "#d1d5db",
                       borderColor: "#4b5563",
@@ -194,7 +195,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
               }
             >
               <Zap className="h-4 w-4 shrink-0" />
-              Network
+              Investors
             </button>
           </div>
           <div className="mt-3 px-2 pb-1 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">

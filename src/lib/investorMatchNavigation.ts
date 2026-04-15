@@ -1,4 +1,4 @@
-/** Fired when user should see InvestorMatch “ALL” (matches) subview — sidebar Network, top ALL, or routeView("investors"). */
+/** Fired when user should see InvestorMatch “ALL” (matches) subview — sidebar Investors, top ALL, or routeView("investors"). */
 export const VEKTA_INVESTORS_ALL_FOCUS_EVENT = "vekta-investors-all-focus";
 
 export function dispatchInvestorsAllFocus() {

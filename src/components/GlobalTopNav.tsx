@@ -63,6 +63,7 @@ type ViewType =
   | "market-data-room"
   | "investors"
   | "investor-search"
+  | "investor-funding"
   | "network"
   | "directory"
   | "connections"
@@ -147,10 +148,17 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   investors: { section: "Investors", label: "ALL", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
+    { id: "investor-funding", label: "FUNDING" },
   ]},
   "investor-search": { section: "Investors", label: "INVESTORS", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
+    { id: "investor-funding", label: "FUNDING" },
+  ]},
+  "investor-funding": { section: "Investors", label: "FUNDING", siblings: [
+    { id: "investors", label: "ALL" },
+    { id: "investor-search", label: "INVESTORS" },
+    { id: "investor-funding", label: "FUNDING" },
   ]},
   directory: { section: "Network", label: "Overview", siblings: [
     { id: "network", label: "Overview" },
@@ -196,6 +204,12 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         `Lead ${s} investors`,
         `Top ${s} funds actively deploying`,
         `Investors writing ${st} checks`,
+      ];
+    case "investor-funding":
+      return [
+        `${s} startups that raised this month`,
+        `Latest ${st} venture rounds`,
+        "Funds leading two deals in the same week",
       ];
     case "connections":
       return [
@@ -416,9 +430,10 @@ function useRotatingPulse(interval = 4000) {
   return PULSE_MESSAGES[idx];
 }
 
-const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search"; label: string }[] = [
+const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search" | "investor-funding"; label: string }[] = [
   { id: "investors", label: "All" },
   { id: "investor-search", label: "Investors" },
+  { id: "investor-funding", label: "Funding" },
 ];
 
 const MARKET_INTEL_SEGMENTS: { id: ViewType; label: string }[] = [
@@ -642,7 +657,7 @@ export function GlobalTopNav({
     (v: ViewType) => {
       const resolved = v === "data-room" ? ("market-data-room" as ViewType) : v;
       const intel = MARKET_INTEL_SEGMENT_IDS.has(resolved);
-      if (resolved === "investor-search") {
+      if (resolved === "investor-search" || resolved === "investor-funding") {
         onInvestorSearchChipChange?.("all");
         onInvestorSearchQueryChange?.("");
       } else if (resolved === "directory") {
@@ -703,7 +718,7 @@ export function GlobalTopNav({
     if (investorSearchChip) setActiveChip(investorSearchChip);
   }, [searchOpen, investorSearchChip]);
 
-  const isInvestorArea = ["investors", "investor-search"].includes(activeView);
+  const isInvestorArea = ["investors", "investor-search", "investor-funding"].includes(activeView);
   const { firms: vcFirms, people: vcPeople, firmMap } = useVCDirectory();
   const { data: liveFirmRecords } = useInvestorDirectory();
 
@@ -1250,15 +1265,15 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Investor directory segmented control (All / Investors only — no Operators on Network) ── */}
-        {!searchOpen && ["investors", "investor-search"].includes(activeView) && (
+        {!searchOpen && ["investors", "investor-search", "investor-funding"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
               <TopNavSegmentedControl
                 segments={INVESTOR_DIRECTORY_SEGMENTS}
-                activeId={activeView as "investors" | "investor-search"}
+                activeId={activeView as "investors" | "investor-search" | "investor-funding"}
                 onSelect={(v) => routeView(v)}
                 ariaLabel="Investor directory view"
-                widthClassName="w-[164px] sm:w-[172px]"
+                widthClassName="w-[248px] sm:w-[268px]"
               />
             </div>
 
@@ -1266,9 +1281,9 @@ export function GlobalTopNav({
             <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[9.5rem]")}>
+                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10.5rem]")}>
                     <span className="min-w-0 flex-1 truncate text-left uppercase">
-                      {activeView === "investors" ? "All" : "Investors"}
+                      {activeView === "investors" ? "All" : activeView === "investor-search" ? "Investors" : "Funding"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
@@ -1285,6 +1300,12 @@ export function GlobalTopNav({
                     className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
                   >
                     INVESTORS
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("investor-funding")}
+                    className={cn(activeView === "investor-funding" && "bg-accent/10 text-accent")}
+                  >
+                    FUNDING
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

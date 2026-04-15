@@ -7,8 +7,7 @@ type InvokeOptions = NonNullable<Parameters<typeof supabase.functions.invoke>[1]
 export type InvokeEdgeFunctionOptions = InvokeOptions & {
   /**
    * Use Clerk session JWT first (`sub` = `user_…`) so `user_roles` and other Clerk-keyed rows match.
-   * Default uses `getSupabaseBearerForFunctions()` which prefers the Clerk **supabase** template
-   * (often `sub` = Supabase UUID) — that breaks admin RBAC keyed by Clerk id.
+   * Default bearer follows `AuthProvider` (session JWT first unless `VITE_SUPABASE_JWT_TEMPLATE_FIRST=true`).
    */
   preferClerkSessionToken?: boolean;
 };
