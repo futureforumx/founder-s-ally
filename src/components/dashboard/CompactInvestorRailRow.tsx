@@ -27,7 +27,7 @@ function RailStatusSignal({
   model: InvestorPreviewModel;
   onDeployingClick?: () => void;
 }) {
-  const deploying = model._isActivelyDeploying !== false;
+  const deploying = model._isActivelyDeploying === true;
   if (deploying) {
     return (
       <TooltipProvider delayDuration={200}>

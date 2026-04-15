@@ -119,7 +119,7 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
     firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type, row.entity_type),
-    is_actively_deploying: row.is_actively_deploying ?? true,
+    is_actively_deploying: row.is_actively_deploying === true,
     founder_reputation_score: row.founder_reputation_score ?? null,
     headcount: row.headcount ?? null,
     aum: row.aum ?? null,

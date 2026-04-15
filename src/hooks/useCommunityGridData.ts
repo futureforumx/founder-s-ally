@@ -4,6 +4,16 @@ import type { CompanyProfile, FounderProfile, OperatorProfile } from "@/hooks/us
 
 const sb = supabasePublicDirectory as any;
 
+/** Matches `import.meta.env.DEV` in CommunityView network logging. */
+const logNetworkDirectory =
+  import.meta.env.DEV ||
+  (typeof import.meta.env.VITE_LOG_NETWORK_DIRECTORY === "string" &&
+    import.meta.env.VITE_LOG_NETWORK_DIRECTORY === "1");
+
+/** Columns that exist on all deployed DBs. Omit `current_company_name` until migration `20260416120000_operator_profiles_current_company_name.sql` is applied — otherwise PostgREST errors and returns zero rows. */
+const OPERATOR_PROFILE_SELECT =
+  "id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available";
+
 const PAGE_SIZE = 24;
 const PAGE_SIZE_ALL_SLICE = 8;
 
@@ -49,7 +59,7 @@ export function useCommunityGridData({
     ? `canonicalName.ilike.%${qRaw}%,description.ilike.%${qRaw}%,industry.ilike.%${qRaw}%`
     : null;
   const orOperators = hasQ
-    ? `full_name.ilike.%${qRaw}%,bio.ilike.%${qRaw}%,title.ilike.%${qRaw}%,stage_focus.ilike.%${qRaw}%,current_company_name.ilike.%${qRaw}%`
+    ? `full_name.ilike.%${qRaw}%,bio.ilike.%${qRaw}%,title.ilike.%${qRaw}%,stage_focus.ilike.%${qRaw}%`
     : null;
 
   const [founders, setFounders] = useState<FounderProfile[]>([]);
@@ -275,9 +285,7 @@ export function useCommunityGridData({
     async (offset: number, limit: number) => {
       let query = sb
         .from("operator_profiles")
-        .select(
-          "id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, current_company_name, is_available",
-        )
+        .select(OPERATOR_PROFILE_SELECT)
         .is("deleted_at", null)
         .eq("is_available", true)
         .eq("ready_for_live", true)
@@ -285,6 +293,15 @@ export function useCommunityGridData({
         .range(offset, offset + limit - 1);
       if (orOperators) query = query.or(orOperators);
       const { data, error: err } = await query;
+      if (logNetworkDirectory) {
+        console.info("[useCommunityGridData] operator_profiles query", {
+          offset,
+          limit,
+          rawRowCount: (data ?? []).length,
+          error: err?.message ?? null,
+          code: (err as { code?: string } | null)?.code ?? null,
+        });
+      }
       if (err) {
         console.warn("[useCommunityGridData] operator_profiles:", err.message);
         return [] as OperatorProfile[];

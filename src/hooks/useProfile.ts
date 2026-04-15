@@ -389,7 +389,9 @@ export function useOperatorProfiles(limit = 200) {
       try {
         const { data, error } = await (supabasePublicDirectory as any)
           .from("operator_profiles")
-          .select("id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, current_company_name, is_available")
+          .select(
+            "id, full_name, title, bio, avatar_url, linkedin_url, x_url, city, state, country, engagement_type, sector_focus, stage_focus, expertise, prior_companies, is_available",
+          )
           .is("deleted_at", null)
           .eq("is_available", true)
           .eq("ready_for_live", true)

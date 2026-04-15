@@ -673,7 +673,7 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
     _sectors: [] as string[],
     _stages: [] as string[],
     _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
-    _isActivelyDeploying: inv.is_actively_deploying ?? true,
+    _isActivelyDeploying: inv.is_actively_deploying === true,
     _founderSentimentScore: inv.founder_reputation_score ?? null,
     _headcount: inv.headcount ?? null,
     _aum: inv.aum ?? null,
@@ -802,8 +802,9 @@ function InvestorCard({
   const velocityColor = velocityScore != null ? (velocityScore >= 70 ? "text-success" : velocityScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const velocityLabel = velocityScore == null ? null : velocityScore >= 80 ? "Hot" : velocityScore >= 60 ? "Active" : velocityScore >= 35 ? "Moderate" : "Slow";
   const MIN_DEPLOYING_VELOCITY_SCORE = 35;
+  /** Only treat as deploying when the firm record explicitly says so (never default unknown/null to true). */
   const showAsActivelyDeploying =
-    founder._isActivelyDeploying !== false &&
+    founder._isActivelyDeploying === true &&
     (velocityScore == null || velocityScore >= MIN_DEPLOYING_VELOCITY_SCORE);
   const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
   const firmTypeRaw = safeTextTrim(founder._firmType) || "INSTITUTIONAL";
@@ -878,39 +879,35 @@ function InvestorCard({
                 </Tooltip>
               </TooltipProvider>
             ) : null}
-            <div
-              className={
-                founder._isActivelyDeploying !== false
-                  ? "-mr-1.5"
-                  : "invisible pointer-events-none -mr-1.5"
-              }
-            >
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeployingClick?.();
-                      }}
-                      aria-label="Actively deploying"
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-success"
-                    >
-                      <span className="relative flex h-2 w-2 shrink-0">
-                        <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                      </span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[240px] bg-popover/95 backdrop-blur-md p-2.5">
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      <span className="font-semibold text-foreground">Actively Deploying</span> — This fund is currently writing checks and evaluating new deals. Click to view their recent activity.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            {showAsActivelyDeploying ? (
+              <div className="-mr-1.5">
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeployingClick?.();
+                        }}
+                        aria-label="Actively deploying"
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-success"
+                      >
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[240px] bg-popover/95 backdrop-blur-md p-2.5">
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        <span className="font-semibold text-foreground">Actively Deploying</span> — This fund is currently writing checks and evaluating new deals. Click to view their recent activity.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            ) : null}
             <VCBadgeContainer
               iconOnly
               vc_firm={{
@@ -1934,7 +1931,7 @@ function directoryEntryToCompanyPreview(e: DirectoryEntry): InvestorPreviewModel
     _websiteUrl: e._websiteUrl ?? null,
     _founderSentimentScore: e._founderSentimentScore ?? null,
     _matchScore: e._matchScore ?? null,
-    _isActivelyDeploying: e._isActivelyDeploying ?? true,
+    _isActivelyDeploying: e._isActivelyDeploying === true,
     _isTrending: e._isTrending,
     _isPopular: e._isPopular,
     _isRecent: e._isRecent,
@@ -2146,7 +2143,7 @@ export function CommunityView({
         _firmType:
           person.firm?.firm_type ??
           resolveDirectoryFirmTypeKey(firmName, null, person.firm?.entity_type ?? null),
-        _isActivelyDeploying: person.firm?.is_actively_deploying ?? true,
+        _isActivelyDeploying: person.firm?.is_actively_deploying === true,
         _founderSentimentScore: person.firm?.founder_reputation_score ?? null,
         _headcount: person.firm?.headcount ?? null,
         _aum: person.firm?.aum ?? null,
@@ -2210,7 +2207,7 @@ export function CommunityView({
           _sectors: f.sectors || [] as string[],
           _stages: f.stages || [] as string[],
           _firmType: (dbMatch as any)?.firm_type ?? resolveDirectoryFirmTypeKey(displayName, null),
-          _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying ?? true,
+          _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying === true,
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: resolvedAum,
@@ -2258,7 +2255,7 @@ export function CommunityView({
         _sectors: [] as string[],
         _stages: [] as string[],
         _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
-        _isActivelyDeploying: inv.is_actively_deploying ?? true,
+        _isActivelyDeploying: inv.is_actively_deploying === true,
         _founderSentimentScore: inv.founder_reputation_score ?? null,
         _headcount: inv.headcount ?? null,
         _aum: inv.aum ?? null,
@@ -2647,7 +2644,7 @@ export function CommunityView({
 
     switch (activeInvestorTab) {
       case "matches": {
-        return investors.filter((e) => e.matchReason || e._isActivelyDeploying !== false);
+        return investors.filter((e) => e.matchReason || e._isActivelyDeploying === true);
       }
       case "stage": {
         if (!userStage) return investors;
@@ -2884,6 +2881,37 @@ export function CommunityView({
     if (directoryDbGrid) return gridEntries;
     return gridEntries.slice(0, visibleCount);
   }, [directoryDbGrid, gridEntries, visibleCount]);
+
+  useEffect(() => {
+    const logNetwork =
+      import.meta.env.DEV ||
+      (typeof import.meta.env.VITE_LOG_NETWORK_DIRECTORY === "string" &&
+        import.meta.env.VITE_LOG_NETWORK_DIRECTORY === "1");
+    if (!logNetwork || isInvestorSearch || activeScope !== "operators") return;
+
+    const scoped = filterByScope(mergedEntries, "operators");
+    const badCategory = realOperatorEntries.find((e) => e.category !== "operator");
+    if (badCategory) {
+      console.warn("[CommunityView] operator map missing category operator", badCategory.name);
+    }
+
+    console.info("[CommunityView] operator-only trace", {
+      supabaseHookOperators: communityGrid.operators.length,
+      mappedDirectoryEntries: realOperatorEntries.length,
+      afterFilterByScope: scoped.length,
+      renderedOperatorCards: visibleGrid.filter((e) => e.category === "operator").length,
+      visibleGridLength: visibleGrid.length,
+      gridEntriesLength: gridEntries.length,
+    });
+  }, [
+    activeScope,
+    isInvestorSearch,
+    communityGrid.operators.length,
+    realOperatorEntries,
+    mergedEntries,
+    visibleGrid,
+    gridEntries.length,
+  ]);
 
   const gridLoadingMore = directoryDbGrid ? communityGrid.loadingMore : isLoadingMore;
 

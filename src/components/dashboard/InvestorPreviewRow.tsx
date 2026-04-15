@@ -175,41 +175,41 @@ export function InvestorPreviewRow({
             </p>
           </div>
           <div className="flex shrink-0 flex-row items-center gap-1">
-            <div
-              className={model._isActivelyDeploying !== false ? undefined : "invisible pointer-events-none"}
-            >
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeployingClick?.();
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
+            {model._isActivelyDeploying === true ? (
+              <div>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
                           e.stopPropagation();
                           onDeployingClick?.();
-                        }
-                      }}
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-success"
-                      aria-label="Actively deploying"
-                    >
-                      <span className="relative flex h-1.5 w-1.5 shrink-0">
-                        <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success opacity-75" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDeployingClick?.();
+                          }
+                        }}
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-success"
+                        aria-label="Actively deploying"
+                      >
+                        <span className="relative flex h-1.5 w-1.5 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-pulse rounded-full bg-success opacity-75" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
+                        </span>
                       </span>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px] bg-popover/95 p-2 text-[11px]">
-                    Actively deploying — click for recent activity.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[220px] bg-popover/95 p-2 text-[11px]">
+                      Actively deploying — click for recent activity.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            ) : null}
             <VCBadgeContainer
               iconOnly
               vc_firm={{
