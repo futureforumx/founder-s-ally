@@ -134,6 +134,9 @@ importers:
       '@types/three':
         specifier: ^0.170.0
         version: 0.170.0
+      '@vercel/speed-insights':
+        specifier: ^2.0.0
+        version: 2.0.0(react@18.3.1)
       canvas-confetti:
         specifier: ^1.9.0
         version: 1.9.4
@@ -2691,6 +2694,32 @@ packages:
 
   '@vercel/python-analysis@0.11.0':
     resolution: {integrity: sha512-gsoj+nscmNm0xDh+tRhECRhit2VlAVaD7jc9h93sN6rDEBDxPo7eLEgIJFzVDaAItxERZ9Od2IK/04fB9vFy+g==}
+
+  '@vercel/speed-insights@2.0.0':
+    resolution: {integrity: sha512-jwkNcrTeafWxjmWq4AHBaptSqZiJkYU5adLC9QBSqeim0GcqDMgN5Ievh8OG1rJ6W3A4l1oiP7qr9CWxGuzu3w==}
+    peerDependencies:
+      '@sveltejs/kit': ^1 || ^2
+      next: '>= 13'
+      nuxt: '>= 3'
+      react: ^18 || ^19 || ^19.0.0-rc
+      svelte: '>= 4'
+      vue: ^3
+      vue-router: ^4
+    peerDependenciesMeta:
+      '@sveltejs/kit':
+        optional: true
+      next:
+        optional: true
+      nuxt:
+        optional: true
+      react:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+      vue-router:
+        optional: true
 
   '@vercel/static-config@3.2.0':
     resolution: {integrity: sha512-UpOEIgWxWx0M+mDe1IMdHS6JuWM/L5nNIJ4ixX8v9JgBAejymo88OkgnmfLCNMem0Wd+b5vcQPWLdZybCndlsA==}
@@ -7827,6 +7856,10 @@ snapshots:
       minimatch: 10.1.1
       smol-toml: 1.5.2
       zod: 3.22.4
+
+  '@vercel/speed-insights@2.0.0(react@18.3.1)':
+    optionalDependencies:
+      react: 18.3.1
 
   '@vercel/static-config@3.2.0':
     dependencies:
