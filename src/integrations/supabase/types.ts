@@ -237,6 +237,7 @@ export type Database = {
           health_score: number | null
           id: string
           is_claimed: boolean | null
+          logo_url: string | null
           ltv: string | null
           mrr: string | null
           raw_ai_response: Json | null
@@ -262,6 +263,7 @@ export type Database = {
           health_score?: number | null
           id?: string
           is_claimed?: boolean | null
+          logo_url?: string | null
           ltv?: string | null
           mrr?: string | null
           raw_ai_response?: Json | null
@@ -287,6 +289,7 @@ export type Database = {
           health_score?: number | null
           id?: string
           is_claimed?: boolean | null
+          logo_url?: string | null
           ltv?: string | null
           mrr?: string | null
           raw_ai_response?: Json | null
