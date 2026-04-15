@@ -16,8 +16,6 @@
  */
 
 import { chromium } from "@playwright/test";
-import { PrismaClient } from "@prisma/client";
-import { loadDatabaseUrl } from "../lib/loadDatabaseUrl";
 import {
   upsertStartup,
   normalizeDomain,
@@ -27,8 +25,9 @@ import {
   type StartupIngestPayload,
 } from "../lib/startupScraper";
 
-loadDatabaseUrl();
-const prisma = new PrismaClient();
+// Supabase client (REST API — no DATABASE_URL needed)
+import { initSupabase } from "../lib/startupScraper";
+const sb = initSupabase();
 
 const DRY_RUN = process.env.DRY_RUN === "1";
 const MAX_ITEMS = parseInt(process.env.SEEDTABLE_MAX || "0", 10);
@@ -253,7 +252,7 @@ async function scrape(): Promise<void> {
         stats.recordSkip();
       } else {
         try {
-          const result = await upsertStartup(prisma, payload);
+          const result = await upsertStartup(sb, payload);
           stats.record(result);
           progress.markDone(company.name);
           if ((stats.created + stats.updated) % 25 === 0) {
@@ -277,4 +276,4 @@ scrape()
     console.error("[seedtable] Fatal:", err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  // done;
