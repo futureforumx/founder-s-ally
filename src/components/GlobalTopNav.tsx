@@ -147,27 +147,25 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   investors: { section: "Investors", label: "ALL", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
-    { id: "directory", label: "OPERATORS" },
   ]},
   "investor-search": { section: "Investors", label: "INVESTORS", siblings: [
     { id: "investors", label: "ALL" },
     { id: "investor-search", label: "INVESTORS" },
-    { id: "directory", label: "OPERATORS" },
   ]},
-  directory: { section: "Investors", label: "OPERATORS", siblings: [
-    { id: "investors", label: "ALL" },
-    { id: "investor-search", label: "INVESTORS" },
-    { id: "directory", label: "OPERATORS" },
+  directory: { section: "Network", label: "Overview", siblings: [
+    { id: "network", label: "Overview" },
+    { id: "groups", label: "Groups" },
+    { id: "events", label: "Events" },
   ]},
   connections: { section: "Nodes", label: "Connections" },
   network: { section: "Network", label: "Overview" },
   groups: { section: "Community", label: "Groups", siblings: [
-    { id: "directory", label: "OPERATORS" },
+    { id: "network", label: "Overview" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
   events: { section: "Community", label: "Events", siblings: [
-    { id: "directory", label: "OPERATORS" },
+    { id: "network", label: "Overview" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
@@ -194,7 +192,6 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
   switch (view) {
     case "investor-search":
     case "investors":
-    case "directory":
       return [
         `Lead ${s} investors`,
         `Top ${s} funds actively deploying`,
@@ -207,6 +204,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         "Recently connected funds",
       ];
     case "network":
+    case "directory":
       return [
         `${s} founders near me`,
         "Second-time founders raising now",
@@ -418,10 +416,9 @@ function useRotatingPulse(interval = 4000) {
   return PULSE_MESSAGES[idx];
 }
 
-const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search" | "directory"; label: string }[] = [
+const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search"; label: string }[] = [
   { id: "investors", label: "All" },
   { id: "investor-search", label: "Investors" },
-  { id: "directory", label: "Operators" },
 ];
 
 const MARKET_INTEL_SEGMENTS: { id: ViewType; label: string }[] = [
@@ -706,7 +703,7 @@ export function GlobalTopNav({
     if (investorSearchChip) setActiveChip(investorSearchChip);
   }, [searchOpen, investorSearchChip]);
 
-  const isInvestorArea = ["investors", "investor-search", "directory"].includes(activeView);
+  const isInvestorArea = ["investors", "investor-search"].includes(activeView);
   const { firms: vcFirms, people: vcPeople, firmMap } = useVCDirectory();
   const { data: liveFirmRecords } = useInvestorDirectory();
 
@@ -1252,16 +1249,16 @@ export function GlobalTopNav({
           )}
         </div>
 
-        {/* ── Investor directory segmented control (visible when search collapsed) ── */}
-        {!searchOpen && ["investors", "investor-search", "directory"].includes(activeView) && (
+        {/* ── Investor directory segmented control (All / Investors only — no Operators on Network) ── */}
+        {!searchOpen && ["investors", "investor-search"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
               <TopNavSegmentedControl
                 segments={INVESTOR_DIRECTORY_SEGMENTS}
-                activeId={activeView as "investors" | "investor-search" | "directory"}
+                activeId={activeView as "investors" | "investor-search"}
                 onSelect={(v) => routeView(v)}
                 ariaLabel="Investor directory view"
-                widthClassName="w-[236px] sm:w-[244px]"
+                widthClassName="w-[164px] sm:w-[172px]"
               />
             </div>
 
@@ -1271,11 +1268,7 @@ export function GlobalTopNav({
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[9.5rem]")}>
                     <span className="min-w-0 flex-1 truncate text-left uppercase">
-                      {activeView === "investors"
-                        ? "All"
-                        : activeView === "investor-search"
-                          ? "Investors"
-                          : "Operators"}
+                      {activeView === "investors" ? "All" : "Investors"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
@@ -1293,12 +1286,6 @@ export function GlobalTopNav({
                   >
                     INVESTORS
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("directory")}
-                    className={cn(activeView === "directory" && "bg-accent/10 text-accent")}
-                  >
-                    OPERATORS
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1306,12 +1293,12 @@ export function GlobalTopNav({
         )}
 
         {/* ── Community (Network) — same segmented chrome as investor directory ── */}
-        {!searchOpen && ["network", "groups", "events"].includes(activeView) && (
+        {!searchOpen && ["network", "groups", "events", "directory"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
               <TopNavSegmentedControl
                 segments={COMMUNITY_SEGMENTS}
-                activeId={activeView}
+                activeId={activeView === "directory" ? "network" : activeView}
                 onSelect={(id) => routeView(id)}
                 ariaLabel="Community view"
                 widthClassName="w-[248px] sm:w-[264px]"
@@ -1323,7 +1310,11 @@ export function GlobalTopNav({
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10rem]")}>
                     <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
-                      {activeView === "network" ? "Overview" : activeView === "groups" ? "Groups" : "Events"}
+                      {activeView === "network" || activeView === "directory"
+                        ? "Overview"
+                        : activeView === "groups"
+                          ? "Groups"
+                          : "Events"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
@@ -1331,7 +1322,9 @@ export function GlobalTopNav({
                 <DropdownMenuContent align="start" className="w-40">
                   <DropdownMenuItem
                     onClick={() => routeView("network")}
-                    className={cn(activeView === "network" && "bg-accent/10 text-accent")}
+                    className={cn(
+                      (activeView === "network" || activeView === "directory") && "bg-accent/10 text-accent",
+                    )}
                   >
                     Overview
                   </DropdownMenuItem>

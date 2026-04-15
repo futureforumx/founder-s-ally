@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { User } from "lucide-react";
 import { cn, safeTrim } from "@/lib/utils";
+import { expandHeadshotDisplayUrls, shouldProxyHeadshotHostname } from "@/lib/headshotProxyHost";
 import {
   investorAvatarUrlCandidates,
   investorPrimaryAvatarUrl,
@@ -49,8 +50,10 @@ export function InvestorPersonAvatar({
     const primary = safeTrim(imageUrl);
     const dedup: string[] = [];
     for (const u of [primary, ...fromProp]) {
-      if (!u || dedup.includes(u)) continue;
-      dedup.push(u);
+      if (!u) continue;
+      for (const display of expandHeadshotDisplayUrls(u)) {
+        if (display && !dedup.includes(display)) dedup.push(display);
+      }
     }
     return dedup;
   }, [imageUrl, imageUrls]);
@@ -59,11 +62,17 @@ export function InvestorPersonAvatar({
   const [allFailed, setAllFailed] = useState(false);
   const src = chain[attempt] ?? null;
 
-  /** Hotlink-sensitive CDNs: full Referer from our app can yield 403/empty responses for staff photos. */
-  const preferNoReferrer = Boolean(
-    src &&
-      /licdn\.com|linkedin\.com|dms\.licdn\.com|i[0-9]\.wp\.com\/|\/\/i[0-9]\.wp\.com\//i.test(src),
-  );
+  /** Use the *request* URL’s hostname only — never substring-match (proxy URLs embed licdn in query). */
+  const srcHostname = useMemo(() => {
+    if (!src) return null;
+    try {
+      return new URL(src, typeof window !== "undefined" ? window.location.origin : "http://localhost").hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }, [src]);
+
+  const preferNoReferrer = Boolean(srcHostname && shouldProxyHeadshotHostname(srcHostname));
 
   useEffect(() => {
     setAttempt(0);

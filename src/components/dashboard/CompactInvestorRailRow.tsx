@@ -96,7 +96,7 @@ export function CompactInvestorRailRow({
   onDeployingClick?: () => void;
   /** Subtle emphasis for the trending rail */
   trendingColumn?: boolean;
-  rowKind?: "investor" | "operator";
+  rowKind?: "investor" | "operator" | "founder" | "company";
 }) {
   const websiteUrl = model._websiteUrl || null;
   const logoUrl = model._logoUrl || null;
@@ -127,8 +127,9 @@ export function CompactInvestorRailRow({
       }}
       className={cn(
         "flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left outline-none transition-colors",
-        "hover:bg-muted/30 focus-visible:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset",
-        trendingColumn && model._isTrending === true && "bg-warning/[0.04]",
+        "focus-visible:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset",
+        trendingColumn && "bg-warning/[0.04] hover:bg-warning/[0.06]",
+        !trendingColumn && "hover:bg-muted/30",
       )}
     >
       <FirmLogo
@@ -144,7 +145,7 @@ export function CompactInvestorRailRow({
       />
 
       <div className="min-w-0 flex-1 leading-none">
-        <p className="truncate text-[12px] font-semibold tracking-tight text-foreground">
+        <p className="min-w-0 truncate text-[12px] font-semibold tracking-tight text-foreground">
           {model.name}
           {meta ? (
             <span className="font-normal text-muted-foreground"> · {meta}</span>
@@ -158,8 +159,11 @@ export function CompactInvestorRailRow({
             <TooltipTrigger asChild>
               <span className={cn("cursor-help text-xs font-bold tabular-nums", matchColor)}>{matchScore}%</span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              {rowKind === "operator" ? "Operator fit" : "Match score"}
+            <TooltipContent side="top" className="max-w-[240px] space-y-1 text-xs">
+              <p className="font-semibold text-foreground">Match score</p>
+              <p className="text-muted-foreground leading-snug">
+                Based on your company profile—sector, stage, and fit.
+              </p>
             </TooltipContent>
           </Tooltip>
           <span className="text-[10px] text-border/80" aria-hidden>
@@ -171,11 +175,19 @@ export function CompactInvestorRailRow({
                 {sentimentScore != null ? `${sentimentScore}%` : "—"}
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
-              {rowKind === "operator" ? "Peer rating" : "Founder reputation"}
+            <TooltipContent side="top" className="max-w-[240px] space-y-1 text-xs">
+              <p className="font-semibold text-foreground">Founder reputation</p>
+              <p className="text-muted-foreground leading-snug">
+                {sentimentScore != null
+                  ? "How founders in the directory engage with opportunities like this—based on your profile."
+                  : "Signals from your profile and peer activity; add more company detail if this shows as —."}
+              </p>
             </TooltipContent>
           </Tooltip>
-          <RailStatusSignal model={model} onDeployingClick={onDeployingClick} />
+          <RailStatusSignal
+            model={model}
+            onDeployingClick={rowKind === "investor" ? onDeployingClick : undefined}
+          />
         </div>
       </TooltipProvider>
     </div>
