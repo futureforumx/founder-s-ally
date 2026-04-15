@@ -20,8 +20,6 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { PrismaClient } from "@prisma/client";
-import { loadDatabaseUrl } from "../lib/loadDatabaseUrl";
 import {
   upsertStartup,
   normalizeDomain,
@@ -32,8 +30,9 @@ import {
   type FounderIngestPayload,
 } from "../lib/startupScraper";
 
-loadDatabaseUrl();
-const prisma = new PrismaClient();
+// Supabase client (REST API — no DATABASE_URL needed)
+import { initSupabase } from "../lib/startupScraper";
+const sb = initSupabase();
 
 const DRY_RUN = process.env.DRY_RUN === "1";
 const MAX_ITEMS = parseInt(process.env.YC_COMPANIES_MAX || "0", 10);
@@ -280,7 +279,7 @@ async function scrape(): Promise<void> {
           console.log(`[yc] [DRY] Would upsert: ${company.name} (${slug})`);
           stats.recordSkip();
         } else {
-          const result = await upsertStartup(prisma, payload);
+          const result = await upsertStartup(sb, payload);
           stats.record(result);
           progress.markDone(slug);
         }
@@ -314,4 +313,4 @@ scrape()
     console.error("[yc] Fatal:", err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  // done;

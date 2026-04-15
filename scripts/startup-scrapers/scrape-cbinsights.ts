@@ -26,8 +26,6 @@
  */
 
 import { chromium, type Page, type BrowserContext } from "@playwright/test";
-import { PrismaClient } from "@prisma/client";
-import { loadDatabaseUrl } from "../lib/loadDatabaseUrl";
 import {
   upsertStartup,
   normalizeDomain,
@@ -39,8 +37,9 @@ import {
   type FundingRoundIngestPayload,
 } from "../lib/startupScraper";
 
-loadDatabaseUrl();
-const prisma = new PrismaClient();
+// Supabase client (REST API — no DATABASE_URL needed)
+import { initSupabase } from "../lib/startupScraper";
+const sb = initSupabase();
 
 const DRY_RUN = process.env.DRY_RUN === "1";
 const MAX_ITEMS = parseInt(process.env.CBI_MAX || "0", 10);
@@ -402,7 +401,7 @@ async function scrape(): Promise<void> {
         stats.recordSkip();
       } else {
         try {
-          const result = await upsertStartup(prisma, payload);
+          const result = await upsertStartup(sb, payload);
           stats.record(result);
           progress.markDone(company.name);
           if ((stats.created + stats.updated) % 10 === 0) {
@@ -426,4 +425,4 @@ scrape()
     console.error("[cbinsights] Fatal:", err);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  // done;
