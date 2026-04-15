@@ -66,6 +66,11 @@ scripts/cb-insights-scraper/scraper-results.json
 data/signal-nfx-investor-lists.json
 # Startup scraper progress files (resume state, not source data)
 data/scraper-progress-*.json
+# VC enrichment scraper runtime data
+data/enrichment-logs/
+data/enrichment-evidence/
+data/tracxn-auth.json
+data/cbi-auth.json
 .aidesigner/*
 !.aidesigner/.gitkeep
 

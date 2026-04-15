@@ -148,7 +148,17 @@
     "intel:funding:sync-supabase": "tsx scripts/funding-intel/sync-intel-to-supabase.ts",
     "intel:funding:measure-person": "tsx scripts/funding-intel/measure-person-intel.ts",
     "intel:funding:bridge-stats": "tsx scripts/funding-intel/print-bridge-stats.ts",
-    "intel:funding:samples": "tsx scripts/funding-intel/print-intel-samples.ts"
+    "intel:funding:samples": "tsx scripts/funding-intel/print-intel-samples.ts",
+    "enrich:vc": "tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:dry": "ENRICH_DRY_RUN=1 tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:sample": "ENRICH_SAMPLE=20 tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:tracxn": "ENRICH_SOURCES=tracxn tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:tracxn:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=tracxn tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:cbi": "ENRICH_SOURCES=cb_insights tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:cbi:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=cb_insights tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:signal": "ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:signal:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:vc:overnight": "tsx scripts/vc-enrichment/orchestrator.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
