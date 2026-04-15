@@ -1,0 +1,6 @@
+{"t":"2026-04-15T21:47:51.640Z","level":"info","msg":"cli.start","pid":84221,"cfg":{"sources":["website","crunchbase","openvc"],"limit":10,"offset":0,"commit":false,"dry_run":true,"only_missing":true,"investment_focus_gaps":false,"headless":false,"freshness_days":30,"concurrency":1,"max_retries":2}}
+{"t":"2026-04-15T21:47:51.872Z","level":"error","msg":"select.firms.failed","pid":84221,"err":"column firm_records.strategy_classifications does not exist"}
+{"t":"2026-04-15T21:47:51.872Z","level":"info","msg":"backfill.selected","pid":84221,"count":0}
+{"t":"2026-04-15T21:47:52.759Z","level":"info","msg":"browser.started","pid":84221,"headless":false}
+{"t":"2026-04-15T21:47:52.825Z","level":"info","msg":"backfill.done","pid":84221,"processed":0,"updated":0,"failed":0}
+{"t":"2026-04-15T21:47:52.825Z","level":"info","msg":"cli.done","pid":84221,"processed":0,"updated":0,"failed":0}
