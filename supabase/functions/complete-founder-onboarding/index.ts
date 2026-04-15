@@ -12,6 +12,7 @@ const corsHeaders = {
 const COMPANY_ANALYSIS_KEYS = new Set([
   "company_name",
   "website_url",
+  "logo_url",
   "deck_text",
   "stage",
   "sector",
