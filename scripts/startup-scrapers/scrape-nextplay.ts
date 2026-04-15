@@ -200,6 +200,65 @@ async function scrape(): Promise<void> {
       allCompanies = domCompanies;
     }
 
+    // If still 0, try embedded JSON in script tags
+    if (allCompanies.length === 0) {
+      const embeddedData = await page.evaluate(() => {
+        const scripts = document.querySelectorAll("script:not([src])");
+        for (const script of scripts) {
+          const text = script.textContent || "";
+          if (text.length < 100 || text.length > 5_000_000 || !text.includes('"name"')) continue;
+          try {
+            const startIdx = text.indexOf("[");
+            if (startIdx === -1) continue;
+            let depth = 0, endIdx = startIdx;
+            for (let i = startIdx; i < text.length; i++) {
+              if (text[i] === "[") depth++;
+              else if (text[i] === "]") { depth--; if (depth === 0) { endIdx = i + 1; break; } }
+            }
+            const parsed = JSON.parse(text.slice(startIdx, endIdx));
+            if (Array.isArray(parsed) && parsed.length > 2 && (parsed[0]?.name || parsed[0]?.company_name)) return parsed;
+          } catch { /* not valid JSON */ }
+        }
+        return null;
+      });
+      if (embeddedData) {
+        console.log(`[nextplay] Got ${embeddedData.length} companies from embedded JSON`);
+        allCompanies = embeddedData.map((d: any) => ({
+          name: d.name || d.company_name || "",
+          url: d.website || d.url || null,
+          description: d.description || d.tagline || null,
+          location: d.location || d.hq || null,
+          headcount: String(d.headcount || d.employee_count || ""),
+          funding: String(d.funding || d.total_raised || ""),
+          stage: d.stage || null,
+          industry: d.industry || d.sector || null,
+          foundedYear: String(d.founded_year || d.founded || ""),
+          logoUrl: d.logo_url || d.logo || null,
+        }));
+      }
+    }
+
+    // If still 0, dump diagnostics
+    if (allCompanies.length === 0) {
+      const diag = await page.evaluate(() => ({
+        title: document.title,
+        h1: document.querySelector("h1")?.textContent?.trim() || "(no h1)",
+        links: document.querySelectorAll("a[href]").length,
+        imgs: document.querySelectorAll("img").length,
+        iframes: Array.from(document.querySelectorAll("iframe")).map(f => f.src).slice(0, 5),
+        bodyChildren: Array.from(document.body?.children || []).slice(0, 10).map(
+          el => `<${el.tagName.toLowerCase()} class="${el.className?.toString().slice(0, 60)}">`
+        ),
+        bodyText: document.body?.textContent?.slice(0, 300) || "",
+      }));
+      console.log(`[nextplay] WARNING: 0 companies found — diagnostics:`);
+      console.log(`  Title: ${diag.title}, H1: ${diag.h1}`);
+      console.log(`  Links: ${diag.links}, Imgs: ${diag.imgs}`);
+      if (diag.iframes.length > 0) console.log(`  Iframes: ${diag.iframes.join(", ")}`);
+      console.log(`  Body children: ${diag.bodyChildren.join(", ")}`);
+      console.log(`  Body text: ${diag.bodyText.slice(0, 200)}...`);
+    }
+
     // Deduplicate
     const seen = new Set<string>();
     const unique = allCompanies.filter((c) => {
