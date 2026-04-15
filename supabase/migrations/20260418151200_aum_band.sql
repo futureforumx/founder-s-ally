@@ -5,14 +5,12 @@ BEGIN
     RAISE NOTICE 'Skipping AumBand migration: public.vc_firms and public.vc_funds are not present';
     RETURN;
   END IF;
-END;
-$$;
 
-DO $$
-BEGIN
-  CREATE TYPE "AumBand" AS ENUM ('NANO', 'MICRO', 'SMALL', 'MID_SIZE', 'LARGE', 'MEGA_FUND');
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  BEGIN
+    CREATE TYPE "AumBand" AS ENUM ('NANO', 'MICRO', 'SMALL', 'MID_SIZE', 'LARGE', 'MEGA_FUND');
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+  END;
 END;
 $$;
 
