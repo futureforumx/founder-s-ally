@@ -86,57 +86,99 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
     await route.fulfill({ response });
   });
 
-  // Verify auth
-  await page.goto(`${SIGNAL_BASE}/`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await sleep(2000);
+  // Verify auth — navigate to investors page, wait for JS redirects
+  log("  Verifying Signal NFX session...");
+  try {
+    await page.goto(`${SIGNAL_BASE}/investors`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await sleep(3000);
+  } catch { log("  Navigation timeout on initial load"); }
 
-  const needsLogin = page.url().includes("/login") || page.url().includes("/sign");
-  if (needsLogin) {
-    const loginEmail = EMAIL || "joinfutureforum@gmail.com";
-    const loginPass = PASSWORD || "RADIO123radio";
-    log(`  Auth expired, re-authenticating as ${loginEmail}...`);
-    await loginToSignal(page);
-    const state = await context.storageState();
-    ensureDir(join(process.cwd(), "data"));
-    writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2));
-    log(`  Auth saved to ${AUTH_FILE}`);
+  const currentUrl = page.url();
+  const onLogin = currentUrl.includes("/login");
+  const hasContent = !onLogin && (await page.locator('a[href^="/investors/"]').count()) > 0;
+
+  if (!onLogin && hasContent) {
+    log(`  Session active: ${currentUrl}`);
   } else {
-    log("  Signal NFX auth valid");
+    log("  Session expired — attempting re-auth...");
+
+    // Step 1: Try Auth0 silent refresh
+    log("  Trying Auth0 silent refresh...");
+    try {
+      await page.goto(`${SIGNAL_BASE}/login`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await sleep(3000);
+      if (!page.url().includes("/login")) {
+        log(`  Auth0 silent refresh succeeded: ${page.url()}`);
+        await context.storageState({ path: AUTH_FILE });
+      } else {
+        // Step 2: Programmatic login
+        const ok = await loginToSignal(page);
+        if (ok) {
+          await context.storageState({ path: AUTH_FILE });
+          log(`  Auth saved to ${AUTH_FILE}`);
+        } else {
+          log("  All login attempts failed — Signal NFX scraping will be limited");
+        }
+      }
+    } catch (err: any) {
+      log(`  Auth error: ${err.message}`);
+    }
   }
 
   return { browser, context, page };
 }
 
-async function loginToSignal(page: Page): Promise<void> {
+async function loginToSignal(page: Page): Promise<boolean> {
   const loginEmail = EMAIL || "joinfutureforum@gmail.com";
   const loginPass = PASSWORD || "RADIO123radio";
-  log("  Logging in to Signal NFX...");
-  await page.goto(`${SIGNAL_BASE}/login`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await sleep(2000);
-
-  const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i]').first();
-  await emailInput.waitFor({ state: "visible", timeout: 15_000 });
-  await emailInput.fill(loginEmail);
-  await sleep(500);
-
-  const pwdInput = page.locator('input[type="password"]').first();
-  await pwdInput.waitFor({ state: "visible", timeout: 15_000 });
-  await pwdInput.fill(loginPass);
-  await sleep(500);
-
-  const submit = page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first();
-  await submit.click();
-
+  log(`  Attempting login as ${loginEmail}...`);
   try {
-    await page.waitForURL(u => !u.pathname.includes("/login"), { timeout: 30_000 });
-  } catch {
-    if (!HEADLESS) {
-      log("  Pausing 30s for manual auth...");
-      await sleep(30_000);
-    }
-  }
+    await page.goto(`${SIGNAL_BASE}/login`, { waitUntil: "networkidle", timeout: 30_000 });
+    await sleep(2000);
 
-  log(`  Signal NFX logged in at: ${page.url()}`);
+    // Try to find email input (may not exist if Auth0 redirect handles it)
+    const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i]').first();
+    if (await emailInput.count() === 0) {
+      log("  No email input found — login page may use OAuth/SSO");
+      // Check if Auth0 already redirected us
+      if (!page.url().includes("/login")) {
+        log(`  Auth0 silent refresh succeeded: ${page.url()}`);
+        return true;
+      }
+      return false;
+    }
+    await emailInput.fill(loginEmail);
+
+    // Find "Continue" or submit button (Auth0 2-step flow)
+    const continueBtn = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
+    if (await continueBtn.count() > 0) {
+      await continueBtn.click();
+      await sleep(1500);
+    }
+
+    // Fill password
+    const passInput = page.locator('input[type="password"]').first();
+    if (await passInput.count() > 0) {
+      await passInput.fill(loginPass);
+      const loginBtn = page.locator('button[type="submit"], button:has-text("Log In"), button:has-text("Sign In")').first();
+      if (await loginBtn.count() > 0) {
+        await loginBtn.click();
+      }
+    }
+
+    // Wait for redirect away from /login
+    try {
+      await page.waitForURL(u => !u.toString().includes("/login"), { timeout: 20_000 });
+      log(`  Login succeeded: ${page.url()}`);
+      return true;
+    } catch {
+      log("  Login redirect timed out");
+      return false;
+    }
+  } catch (err: any) {
+    log(`  Login error: ${err.message}`);
+    return false;
+  }
 }
 
 // ── Firm profile extraction ──────────────────────────────────────────────────
