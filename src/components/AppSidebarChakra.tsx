@@ -92,7 +92,7 @@ export function AppSidebarChakra({ activeView, onViewChange }: AppSidebarChakraP
           display="block"
           width="100%"
         >
-          <BrandLogo variant="white" className="w-[112px]" />
+          <BrandLogo variant="white" className="w-[68px]" />
         </Box>
       </Box>
 
