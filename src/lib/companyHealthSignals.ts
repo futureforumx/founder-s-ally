@@ -22,6 +22,7 @@ export type TopNavView =
   | "investors"
   | "investor-search"
   | "investor-funding"
+  | "network-workspace"
   | "network"
   | "directory"
   | "connections"

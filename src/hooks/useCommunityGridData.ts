@@ -383,8 +383,11 @@ export function useCommunityGridData({
           firstCompanies = c.length;
           firstOperators = o.length;
           setFounders(f);
-          /** Shallow preview only — full founder pagination starts when user opens Founders or All. */
-          setFoundersDone(true);
+          /**
+           * Operator hub: founder/company rows are a *preview* only. Never derive global founder
+           * exhaustion from this slice (short batches can look "exhausted"; founder RPC totals may be null).
+           */
+          setFoundersDone(false);
           setCompanies(c);
           setOperators(o);
           companyOffsetRef.current = c.length;
@@ -476,7 +479,7 @@ export function useCommunityGridData({
           loadOperatorPage(operatorOffsetRef.current, PAGE_SIZE_ALL_SLICE),
         ]);
         if (fNext.length) setFounders((prev) => [...prev, ...fNext]);
-        if (fEx) setFoundersDone(true);
+        setFoundersDone(fEx);
         if (cNext.length) {
           companyOffsetRef.current += cNext.length;
           setCompanies((prev) => [...prev, ...cNext]);
@@ -524,7 +527,12 @@ export function useCommunityGridData({
 
   const hasMore = useMemo(() => {
     if (!enabled) return false;
-    if (totalForScope != null && loadedCount >= totalForScope) return false;
+    /**
+     * For `all`, `loadedCount` is founders+companies+operators lengths summed — it must not be
+     * compared to `totalForScope` (sum of three totals). If `totals.founders` is null (RPC miss),
+     * `totalForScope` is understated and we would stop pagination while founders still paginate.
+     */
+    if (activeScope !== "all" && totalForScope != null && loadedCount >= totalForScope) return false;
     if (activeScope === "founders") return !foundersDone;
     if (activeScope === "companies") {
       if (totals.companies != null) return companies.length < totals.companies;

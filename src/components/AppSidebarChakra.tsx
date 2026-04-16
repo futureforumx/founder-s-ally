@@ -18,6 +18,7 @@ import { FileText, Settings, Handshake, Gauge, Users, UsersRound, LogOut, UserCo
 import { BrandLogo } from "@/components/BrandLogo";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
+import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 
 type ViewType = "home" | "company" | "dashboard" | "audit" | "benchmarks" | "investors" | "investor-search" | "directory" | "connections" | "messages" | "events" | "competitors" | "sector" | "groups" | "settings";
 
@@ -118,7 +119,7 @@ export function AppSidebarChakra({ activeView, onViewChange }: AppSidebarChakraP
 
         {/* Network */}
         <NavButton
-          item={{ id: "directory", label: "Network", icon: Users }}
+          item={{ id: "directory", label: NETWORK_SURFACE_DISPLAY_NAME, icon: Users }}
           isActive={activeView === "directory" || activeView === "groups" || activeView === "events"}
         />
       </VStack>
