@@ -101,6 +101,7 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
     log(`  Session active: ${currentUrl}`);
   } else {
     log("  Session expired — attempting re-auth...");
+    let authOk = false;
 
     // Step 1: Try Auth0 silent refresh
     log("  Trying Auth0 silent refresh...");
@@ -110,18 +111,25 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
       if (!page.url().includes("/login")) {
         log(`  Auth0 silent refresh succeeded: ${page.url()}`);
         await context.storageState({ path: AUTH_FILE });
-      } else {
-        // Step 2: Programmatic login
-        const ok = await loginToSignal(page);
-        if (ok) {
-          await context.storageState({ path: AUTH_FILE });
-          log(`  Auth saved to ${AUTH_FILE}`);
-        } else {
-          log("  All login attempts failed — Signal NFX scraping will be limited");
-        }
+        authOk = true;
       }
-    } catch (err: any) {
-      log(`  Auth error: ${err.message}`);
+    } catch { /* continue */ }
+
+    // Step 2: Programmatic login
+    if (!authOk) {
+      const ok = await loginToSignal(page);
+      if (ok) {
+        await context.storageState({ path: AUTH_FILE });
+        log(`  Auth saved to ${AUTH_FILE}`);
+        authOk = true;
+      }
+    }
+
+    if (!authOk) {
+      log("  AUTH FAILED — run 'SIGNAL_PHASE=auth npm run scrape:signal-nfx' to login manually first");
+      log("  Skipping Signal NFX scraping.");
+      await browser.close();
+      return stats;
     }
   }
 
