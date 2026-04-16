@@ -7,6 +7,7 @@ import {
 } from "@/lib/companyLinkedDataSources";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import type { CompanyData } from "@/components/company-profile/types";
+import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
 
 export function CompanyHealthDataSourcesPanel({
@@ -78,7 +79,7 @@ export function CompanyHealthDataSourcesPanel({
           <p className="text-sm text-muted-foreground">
             No linked sources yet. Add a website or socials under{" "}
             <span className="font-medium text-foreground">Settings → Company</span>, or connect tools under{" "}
-            <span className="font-medium text-foreground">Settings → Network</span>.
+            <span className="font-medium text-foreground">Settings → {NETWORK_SURFACE_DISPLAY_NAME}</span>.
           </p>
         </div>
       ) : (

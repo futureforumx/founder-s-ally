@@ -44,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
@@ -3353,7 +3354,7 @@ export function CommunityView({
         {variant !== "investor-search" && !isOperatorHubLayout && (
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Network
+              {NETWORK_SURFACE_DISPLAY_NAME}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
           </div>
@@ -3825,7 +3826,7 @@ export function CommunityView({
           ) : visibleGrid.length > 0 ? (
             <AnimatePresence mode="wait">
               <motion.div
-                key={isOperatorHubLayout ? "operators-hub" : activeInvestorTab}
+                key={`network-directory-${activeScope}`}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}

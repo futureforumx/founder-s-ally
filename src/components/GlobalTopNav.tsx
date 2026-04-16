@@ -30,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
 import type { AnalysisResult } from "@/components/company-profile/types";
@@ -64,6 +65,7 @@ type ViewType =
   | "investors"
   | "investor-search"
   | "investor-funding"
+  | "network-workspace"
   | "network"
   | "directory"
   | "connections"
@@ -160,13 +162,14 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
-  directory: { section: "Network", label: "Overview", siblings: [
+  "network-workspace": { section: "Network", label: "Workspace" },
+  directory: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Overview", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Events" },
   ]},
-  connections: { section: "Network", label: "Connection" },
-  network: { section: "Intelligence", label: "Market" },
+  connections: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Connection" },
+  network: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Market" },
   groups: { section: "Community", label: "Groups", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
@@ -216,6 +219,12 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         "Warm intros through shared investors",
         `${s} investors in my network`,
         "Recently connected funds",
+      ];
+    case "network-workspace":
+      return [
+        "Who should I ask for a warm intro this week?",
+        "Strongest 2-hop paths to Seed funds in my space",
+        "Which signals mean I should move now vs wait",
       ];
     case "network":
     case "directory":
@@ -1711,7 +1720,7 @@ export function GlobalTopNav({
               {([
                 { key: "personal", label: "Personal", icon: User, tab: "account" },
                 { key: "company", label: "Company", icon: Building2, tab: "company" },
-                { key: "network", label: "Network", icon: Radio, tab: "network" },
+                { key: "network", label: NETWORK_SURFACE_DISPLAY_NAME, icon: Radio, tab: "network" },
                 { key: "preferences", label: "Preferences", icon: SlidersHorizontal, tab: "notifications" },
                 { key: "subscription", label: "Subscription", icon: CreditCard, tab: "subscription" },
                 { key: "acct", label: "Account", icon: Settings2, tab: "security" },

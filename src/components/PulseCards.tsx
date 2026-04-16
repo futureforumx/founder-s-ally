@@ -8,6 +8,7 @@ import {
   getCachedCompanyHealthSignals,
   type CompanyHealthSnapshot,
 } from "@/lib/companyHealthSignals";
+import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 
 const communityUpdates = [
   { text: "3 founders just closed Seed rounds this week", time: "2h ago", type: "milestone" as const },
@@ -99,7 +100,7 @@ export function PulseCards({ sector }: PulseCardsProps) {
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10">
               <Users className="h-3.5 w-3.5 text-accent" />
             </div>
-            Network Pulse
+            {NETWORK_SURFACE_DISPLAY_NAME} Pulse
             {healthSnapshot && (
               <span
                 className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold tabular-nums ${

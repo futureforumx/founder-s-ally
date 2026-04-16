@@ -34,6 +34,9 @@ const RecentFundingFeed = lazy(() =>
 );
 const IntelligencePage = lazy(() => import("@/components/intelligence/IntelligencePage").then((module) => ({ default: module.IntelligencePage })));
 const MarketIntelligenceInvestors = lazy(() => import("@/components/market-intelligence/InvestorIntelligence").then((module) => ({ default: module.MarketIntelligenceInvestors })));
+const NetworkWorkspacePage = lazy(() =>
+  import("@/components/network-workspace/NetworkWorkspacePage").then((m) => ({ default: m.NetworkWorkspacePage })),
+);
 
 type ViewType =
   | "home"
@@ -51,6 +54,7 @@ type ViewType =
   | "investors"
   | "investor-search"
   | "investor-funding"
+  | "network-workspace"
   | "network"
   | "directory"
   | "connections"
@@ -635,6 +639,10 @@ const Index = () => {
                 />
               </DeferredSection>
             </div>
+          ) : activeView === "network-workspace" ? (
+            <DeferredSection label="Loading network workspace…">
+              <NetworkWorkspacePage />
+            </DeferredSection>
           ) : activeView === "network" ? (
             <DeferredSection label="Loading network view…">
               <CommunityView
