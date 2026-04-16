@@ -8,7 +8,7 @@ interface BrandLogoProps {
 
 const LOGO_SRC = {
   black: "/brand/vekta-black.svg",
-  white: "/brand/vekta-white.svg",
+  white: "/brand/vekta-white.png",
 } as const;
 
 export function BrandLogo({
