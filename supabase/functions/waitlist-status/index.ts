@@ -7,6 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const WAITLIST_BASE_URL =
+  Deno.env.get("WAITLIST_BASE_URL") || "https://vekta.app";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -67,7 +70,12 @@ serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify(data), {
+    const result = {
+      ...data,
+      referral_link: `${WAITLIST_BASE_URL}?ref=${data.referral_code}`,
+    };
+
+    return new Response(JSON.stringify(result), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

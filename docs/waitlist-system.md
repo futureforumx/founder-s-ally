@@ -229,10 +229,23 @@ VALUES (50, 'vip', 'VIP Status', 'Lifetime VIP membership');
 
 ---
 
+## Configuration
+
+Set the `WAITLIST_BASE_URL` env var on your Supabase Edge Functions to control the referral link domain:
+
+```
+WAITLIST_BASE_URL=https://vekta.app
+```
+
+If unset, defaults to `https://vekta.app`.
+
+---
+
 ## Security
 
 - RLS is enabled on all waitlist tables
 - No direct `anon` access to tables — all public interaction goes through `SECURITY DEFINER` RPC functions
-- Authenticated users (internal admin) can read and update waitlist data
+- Only users with `admin` or `god` role in `user_roles` can read/update waitlist tables directly (uses `is_admin_or_above`)
+- Internal helper functions (`generate_waitlist_referral_code`, scoring functions, `recalculate_*`) have EXECUTE revoked from PUBLIC/anon/authenticated — only callable from within SECURITY DEFINER RPCs
 - Service role bypasses RLS for admin operations
 - Edge Functions use `SUPABASE_SERVICE_ROLE_KEY` to call RPCs

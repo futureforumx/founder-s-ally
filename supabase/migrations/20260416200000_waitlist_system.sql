@@ -64,10 +64,9 @@ CREATE TABLE IF NOT EXISTS public.waitlist_milestones (
 
 --------------------------------------------------------------------------------
 -- 2. INDEXES
+-- (email and referral_code already have implicit indexes from UNIQUE constraints)
 --------------------------------------------------------------------------------
 
-CREATE INDEX IF NOT EXISTS idx_waitlist_users_referral_code   ON public.waitlist_users (referral_code);
-CREATE INDEX IF NOT EXISTS idx_waitlist_users_email           ON public.waitlist_users (email);
 CREATE INDEX IF NOT EXISTS idx_waitlist_users_total_score     ON public.waitlist_users (total_score DESC);
 CREATE INDEX IF NOT EXISTS idx_waitlist_users_position        ON public.waitlist_users (waitlist_position ASC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_waitlist_users_created_at      ON public.waitlist_users (created_at);
@@ -80,16 +79,8 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_events_user_id        ON public.waitlist
 CREATE INDEX IF NOT EXISTS idx_waitlist_events_type           ON public.waitlist_events (event_type);
 
 --------------------------------------------------------------------------------
--- 3. UPDATED_AT TRIGGER (reuse existing set_updated_at if available)
+-- 3. UPDATED_AT TRIGGER (reuses existing public.set_updated_at from prior migration)
 --------------------------------------------------------------------------------
-
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_waitlist_users_updated_at ON public.waitlist_users;
 CREATE TRIGGER trg_waitlist_users_updated_at
@@ -308,7 +299,6 @@ DECLARE
   v_ref_score       integer;
   v_qual_score      integer;
   v_total           integer;
-  v_base_url        text := 'https://vekta.app';
 BEGIN
   -- Normalize email
   v_email := lower(trim(p_email));
@@ -353,7 +343,10 @@ BEGIN
       END IF;
     END IF;
 
-    -- Re-read to get latest
+    -- Recalculate positions (referrer scores may have changed)
+    PERFORM public.recalculate_waitlist_positions();
+
+    -- Re-read to get updated scores and position
     SELECT * INTO v_existing FROM public.waitlist_users WHERE email = v_email;
 
     RETURN jsonb_build_object(
@@ -363,8 +356,7 @@ BEGIN
       'referral_code', v_existing.referral_code,
       'referral_count', v_existing.referral_count,
       'total_score', v_existing.total_score,
-      'waitlist_position', v_existing.waitlist_position,
-      'referral_link', v_base_url || '?ref=' || v_existing.referral_code
+      'waitlist_position', v_existing.waitlist_position
     );
   END IF;
 
@@ -440,8 +432,7 @@ BEGIN
     'referral_code', v_new_user.referral_code,
     'referral_count', v_new_user.referral_count,
     'total_score', v_new_user.total_score,
-    'waitlist_position', v_new_user.waitlist_position,
-    'referral_link', v_base_url || '?ref=' || v_new_user.referral_code
+    'waitlist_position', v_new_user.waitlist_position
   );
 END;
 $$;
@@ -463,7 +454,6 @@ DECLARE
   v_user   record;
   v_total  bigint;
   v_milestones jsonb;
-  v_base_url text := 'https://vekta.app';
 BEGIN
   IF p_email IS NOT NULL THEN
     SELECT * INTO v_user FROM public.waitlist_users WHERE email = lower(trim(p_email));
@@ -500,7 +490,6 @@ BEGIN
     'waitlist_position', v_user.waitlist_position,
     'total_waitlist_size', v_total,
     'status', v_user.status,
-    'referral_link', v_base_url || '?ref=' || v_user.referral_code,
     'milestones', COALESCE(v_milestones, '[]'::jsonb)
   );
 END;
@@ -529,36 +518,36 @@ ALTER TABLE public.waitlist_milestones ENABLE ROW LEVEL SECURITY;
 -- Service role bypasses RLS automatically.
 -- RPC functions use SECURITY DEFINER so they bypass RLS.
 
--- Anon / public: no direct table access (signup goes through RPC)
--- Authenticated (internal admin): full read on waitlist tables
+-- Anon / public: no direct table access (signup goes through SECURITY DEFINER RPCs)
+-- Authenticated: only admins (via user_roles) can read/update waitlist tables directly
 DROP POLICY IF EXISTS "Admin read waitlist_users" ON public.waitlist_users;
 CREATE POLICY "Admin read waitlist_users"
   ON public.waitlist_users
   FOR SELECT
   TO authenticated
-  USING (true);
+  USING (public.is_admin_or_above((auth.jwt()->>'sub')));
 
 DROP POLICY IF EXISTS "Admin update waitlist_users" ON public.waitlist_users;
 CREATE POLICY "Admin update waitlist_users"
   ON public.waitlist_users
   FOR UPDATE
   TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  USING (public.is_admin_or_above((auth.jwt()->>'sub')))
+  WITH CHECK (public.is_admin_or_above((auth.jwt()->>'sub')));
 
 DROP POLICY IF EXISTS "Admin read waitlist_referrals" ON public.waitlist_referrals;
 CREATE POLICY "Admin read waitlist_referrals"
   ON public.waitlist_referrals
   FOR SELECT
   TO authenticated
-  USING (true);
+  USING (public.is_admin_or_above((auth.jwt()->>'sub')));
 
 DROP POLICY IF EXISTS "Admin read waitlist_events" ON public.waitlist_events;
 CREATE POLICY "Admin read waitlist_events"
   ON public.waitlist_events
   FOR SELECT
   TO authenticated
-  USING (true);
+  USING (public.is_admin_or_above((auth.jwt()->>'sub')));
 
 -- Milestones: readable by anyone (public content)
 DROP POLICY IF EXISTS "Public read waitlist_milestones" ON public.waitlist_milestones;
@@ -573,8 +562,8 @@ CREATE POLICY "Admin manage waitlist_milestones"
   ON public.waitlist_milestones
   FOR ALL
   TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  USING (public.is_admin_or_above((auth.jwt()->>'sub')))
+  WITH CHECK (public.is_admin_or_above((auth.jwt()->>'sub')));
 
 --------------------------------------------------------------------------------
 -- 11. ADMIN VIEW
@@ -610,6 +599,15 @@ FROM public.waitlist_users wu
 LEFT JOIN public.waitlist_users ref ON wu.referred_by_user_id = ref.id
 ORDER BY wu.waitlist_position ASC NULLS LAST, wu.created_at ASC;
 
--- Grant anon access to RPC functions (they are SECURITY DEFINER, so safe)
+-- Grant anon access to public-facing RPC functions (they are SECURITY DEFINER, so safe)
 GRANT EXECUTE ON FUNCTION public.waitlist_signup TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.waitlist_get_status TO anon, authenticated;
+
+-- Revoke all external access to internal helper functions.
+-- SECURITY DEFINER RPCs run as the function owner, so they can still call these.
+REVOKE ALL ON FUNCTION public.generate_waitlist_referral_code() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.calc_waitlist_referral_score(integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.calc_waitlist_qualification_score(text, text, text, text[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.calc_waitlist_total_score(integer, integer, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.recalculate_waitlist_user_scores(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.recalculate_waitlist_positions() FROM PUBLIC, anon, authenticated;
