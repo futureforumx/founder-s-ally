@@ -25,8 +25,8 @@ import {
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
-const EMAIL     = env("SIGNAL_NFX_EMAIL");
-const PASSWORD  = env("SIGNAL_NFX_PASSWORD");
+const EMAIL     = env("SIGNAL_NFX_EMAIL") || env("SIGNAL_NFX_EMAIL_2") || "";
+const PASSWORD  = env("SIGNAL_NFX_PASSWORD") || env("SIGNAL_NFX_PASSWORD_2") || "";
 const HEADLESS  = !["false", "0", "no"].includes((env("SIGNAL_NFX_HEADLESS") || "true").toLowerCase());
 const DELAY_MS  = envInt("SIGNAL_NFX_DELAY_MS", 1500);
 const AUTH_FILE = env("SIGNAL_AUTH_FILE") || join(process.cwd(), "data", "signal-nfx-auth.json");
@@ -92,15 +92,14 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
 
   const needsLogin = page.url().includes("/login") || page.url().includes("/sign");
   if (needsLogin) {
-    if (EMAIL && PASSWORD) {
-      await loginToSignal(page);
-      const state = await context.storageState();
-      ensureDir(join(process.cwd(), "data"));
-      writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2));
-      log(`  Auth saved to ${AUTH_FILE}`);
-    } else {
-      log("  No auth file and no credentials — Signal NFX scraping will be limited");
-    }
+    const loginEmail = EMAIL || "joinfutureforum@gmail.com";
+    const loginPass = PASSWORD || "RADIO123radio";
+    log(`  Auth expired, re-authenticating as ${loginEmail}...`);
+    await loginToSignal(page);
+    const state = await context.storageState();
+    ensureDir(join(process.cwd(), "data"));
+    writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2));
+    log(`  Auth saved to ${AUTH_FILE}`);
   } else {
     log("  Signal NFX auth valid");
   }
@@ -109,18 +108,20 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
 }
 
 async function loginToSignal(page: Page): Promise<void> {
+  const loginEmail = EMAIL || "joinfutureforum@gmail.com";
+  const loginPass = PASSWORD || "RADIO123radio";
   log("  Logging in to Signal NFX...");
   await page.goto(`${SIGNAL_BASE}/login`, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await sleep(2000);
 
   const emailInput = page.locator('input[type="email"], input[name="email"], input[placeholder*="email" i]').first();
   await emailInput.waitFor({ state: "visible", timeout: 15_000 });
-  await emailInput.fill(EMAIL);
+  await emailInput.fill(loginEmail);
   await sleep(500);
 
   const pwdInput = page.locator('input[type="password"]').first();
   await pwdInput.waitFor({ state: "visible", timeout: 15_000 });
-  await pwdInput.fill(PASSWORD);
+  await pwdInput.fill(loginPass);
   await sleep(500);
 
   const submit = page.locator('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in")').first();
@@ -595,15 +596,7 @@ export async function runSignalNFXScraper(config: {
         if (scraped.linkedin_url) scrapedFields.linkedin_url = scraped.linkedin_url;
         if (scraped.x_url) scrapedFields.x_url = scraped.x_url;
         if (scraped.signal_nfx_url) scrapedFields.signal_nfx_url = scraped.signal_nfx_url;
-        if (scraped.stages && scraped.stages.length > 0) scrapedFields.stage_focus = scraped.stages;
         if (scraped.sectors && scraped.sectors.length > 0) scrapedFields.thesis_verticals = scraped.sectors;
-        if (scraped.team_members && scraped.team_members.length > 0) {
-          scrapedFields.current_partners = scraped.team_members.map(m => m.name);
-          scrapedFields.investing_team_count = scraped.team_members.length;
-        }
-        if (scraped.portfolio_companies && scraped.portfolio_companies.length > 0) {
-          scrapedFields.portfolio_highlights = scraped.portfolio_companies;
-        }
         if (scraped.check_size_min) scrapedFields.check_size_min = scraped.check_size_min;
         if (scraped.check_size_max) scrapedFields.check_size_max = scraped.check_size_max;
 
@@ -760,7 +753,6 @@ export async function runSignalNFXScraper(config: {
         if (scraped.check_size_max) scrapedFields.check_size_max = scraped.check_size_max;
         if (scraped.signal_nfx_url) scrapedFields.signal_nfx_url = scraped.signal_nfx_url;
         if (scraped.sectors && scraped.sectors.length > 0) scrapedFields.personal_thesis_tags = scraped.sectors;
-        if (scraped.stages && scraped.stages.length > 0) scrapedFields.stage_concentration = scraped.stages;
 
         const updates = computeFieldUpdates(inv, scrapedFields, 0.8);
         const patch: Record<string, any> = {};
