@@ -487,12 +487,7 @@ export async function runTracxnScraper(config: {
         if (scraped.x_url) scrapedFields.x_url = scraped.x_url;
         if (scraped.website_url) scrapedFields.website_url = scraped.website_url;
         if (scraped.team_members) scrapedFields.total_headcount = scraped.team_members;
-        if (scraped.portfolio_count) scrapedFields.active_portfolio_count = scraped.portfolio_count;
         if (scraped.tracxn_url) scrapedFields.tracxn_url = scraped.tracxn_url;
-        if (scraped.key_people && scraped.key_people.length > 0) scrapedFields.current_partners = scraped.key_people;
-        if (scraped.portfolio_companies && scraped.portfolio_companies.length > 0) {
-          scrapedFields.portfolio_highlights = scraped.portfolio_companies;
-        }
 
         // Compute merge
         const updates = computeFieldUpdates(firm, scrapedFields, 0.75);

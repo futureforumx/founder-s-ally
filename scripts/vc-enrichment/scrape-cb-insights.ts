@@ -613,10 +613,6 @@ export async function runCBInsightsScraper(config: {
         if (scraped.logo_url) scrapedFields.logo_url = scraped.logo_url;
         if (scraped.cb_insights_url) scrapedFields.cb_insights_url = scraped.cb_insights_url;
         if (scraped.industries && scraped.industries.length > 0) scrapedFields.thesis_verticals = scraped.industries;
-        if (scraped.themes && scraped.themes.length > 0) scrapedFields.investment_themes = scraped.themes;
-        if (scraped.people && scraped.people.length > 0) {
-          scrapedFields.current_partners = scraped.people.map((p: any) => p.name);
-        }
 
         // Email — only if clearly public
         if (scraped.email && scraped.email.includes("@") && !scraped.email.includes("cbinsights")) {
