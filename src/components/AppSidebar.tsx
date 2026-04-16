@@ -135,7 +135,7 @@ export function AppSidebar({ activeView, onViewChange, onAgentClick }: AppSideba
           >
             <BrandLogo
               variant="white"
-              className="w-[112px]"
+              className="w-[68px]"
             />
           </button>
         </div>
