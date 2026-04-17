@@ -54,7 +54,20 @@ export interface ReachablePerson {
   lastSignalAt?: string | null;
   /** 0–100 when graph service ranks thesis / stage / sector fit (optional). */
   fitRelevance?: number | null;
+  /** 0–100 relationship warmth from signals + recency (optional). */
+  warmth?: number | null;
 }
+
+/** Primary action for detail panel — from graph readiness rules. */
+export type NetworkReadinessAction = "request_intro" | "strengthen_relationship" | "find_connector";
+
+export type NetworkQuickFilter =
+  | "warmest"
+  | "investors"
+  | "customers"
+  | "one_hop"
+  | "high_confidence"
+  | "recent_active";
 
 /** Top-level tabs inside the Network (relationship execution) workspace. */
 export type NetworkWorkspaceTabId =

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 const BRAND_ICONS: Record<string, string> = {
   google: "https://cdn.simpleicons.org/google/4285F4",
   linkedin: "https://cdn.simpleicons.org/linkedin/0A66C2",
@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
   Shield, RefreshCw, Sparkles, AlertCircle,
-  Database, Users, Network, TrendingUp, BarChart3, X as XIcon,
+  Users, Network, TrendingUp, BarChart3, X as XIcon,
   Settings2, Activity, Check, CreditCard, BookOpen, FileText,
   MessageSquare, Contact, Layers, Video, MonitorSmartphone, Hash,
   Camera, Facebook as FacebookIcon, Music2, PhoneCall,
@@ -52,6 +52,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import { requestAppNavigate } from "@/lib/appShellNavigate";
+import {
+  buildLiveOpportunities,
+  buildNetworkIntelligenceHeader,
+  buildUnlockAccessCards,
+  getIntegrationOutcomePresentation,
+  NETWORK_INTELLIGENCE_COPY,
+} from "@/lib/networkIntelligenceViewModel";
+import { NetworkIntelligenceHeader } from "@/components/connections/network-intelligence/NetworkIntelligenceHeader";
+import { LiveOpportunitiesPanel } from "@/components/connections/network-intelligence/LiveOpportunitiesPanel";
+import { NetworkMapPreview } from "@/components/connections/network-intelligence/NetworkMapPreview";
+import { UnlockMoreAccessSection } from "@/components/connections/network-intelligence/UnlockMoreAccessSection";
 
 // ── Types ──
 export type SourceKey =
@@ -504,9 +516,9 @@ export function getConnectedSensorIntegrations(): { key: SourceKey; label: strin
 }
 
 const SECTIONS: { key: SensorSection; label: string; sub: string }[] = [
-  { key: "recommended", label: "RECOMMENDED", sub: "Connect these first — highest impact on your matches" },
-  { key: "power", label: "POWER SENSORS", sub: "For founders actively fundraising" },
-  { key: "signal", label: "SIGNAL SOURCES", sub: "Social and market intelligence" },
+  { key: "recommended", label: "RECOMMENDED", sub: "Highest-impact sources for intro intelligence" },
+  { key: "power", label: "DEEP INTEGRATIONS", sub: "CRM, meetings, and revenue signals" },
+  { key: "signal", label: "MARKET & SOCIAL", sub: "Timing and narrative signals across channels" },
 ];
 
 async function simulateSync(key: SourceKey, onProgress: (p: number, m: string) => void) {
@@ -629,6 +641,31 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
     setDisconnectTarget(null);
   };
 
+  const intelligenceFlags = useMemo(
+    () => ({
+      totalConnected: connectedCount,
+      google: connected.google,
+      linkedin: connected.linkedin,
+      notion: connected.notion,
+    }),
+    [connected, connectedCount],
+  );
+
+  const headerModel = useMemo(() => buildNetworkIntelligenceHeader(intelligenceFlags), [intelligenceFlags]);
+
+  const liveOpportunities = useMemo(() => buildLiveOpportunities(intelligenceFlags), [intelligenceFlags]);
+
+  const unlockCardsResolved = useMemo(
+    () =>
+      buildUnlockAccessCards(connected as Record<string, boolean>).map((c) => ({
+        ...c,
+        iconUrl: SOURCES.find((s) => s.key === (c.key as SourceKey))?.customIcon,
+        onConnect: () => handleConnect(c.key as SourceKey),
+        disabled: activeConnect !== null,
+      })),
+    [connected, activeConnect, handleConnect],
+  );
+
   function formatLastSynced(iso: string | null): string {
     if (!iso) return "Never";
     const diff = Date.now() - new Date(iso).getTime();
@@ -657,6 +694,14 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
     const isConnected = connected[source.key];
     const sync = syncStates[source.key];
     const isSyncing = sync.syncing;
+    const outcomePresentation =
+      isConnected && !isSyncing
+        ? getIntegrationOutcomePresentation(
+            source.key,
+            source.connectedStats,
+            syncDetails[source.key]?.lastSynced ?? null,
+          )
+        : null;
     const isHovered = hoveredCard === source.key;
     const [iconLoadFailed, setIconLoadFailed] = useState(false);
     const isGoogleSensor = sensorId === "google_workspace" || sensorName?.toLowerCase().includes("google");
@@ -841,20 +886,41 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
 
           {isConnected && !isSyncing && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <SparklinePulse />
-                <span className="text-[10px] text-success/80 font-mono">{source.liveStats}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {source.connectedStats.map(stat => (
-                  <div key={stat.label} className="rounded-lg bg-secondary/60 border border-border p-2.5">
-                    <p className="text-lg font-bold text-foreground font-mono tracking-tight">{stat.value}</p>
-                    <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
+              {outcomePresentation ? (
+                <div className="space-y-2">
+                  <ul className="space-y-1.5">
+                    {outcomePresentation.outcomeLines.map((line) => (
+                      <li key={line.text} className="text-[13px] font-medium leading-snug text-foreground">
+                        {line.text}
+                      </li>
+                    ))}
+                  </ul>
+                  {outcomePresentation.lastInteractionLine ? (
+                    <p className="text-[11px] text-muted-foreground">{outcomePresentation.lastInteractionLine}</p>
+                  ) : syncDetails[source.key]?.lastSynced ? (
+                    <p className="text-[10px] text-muted-foreground/60 font-mono">
+                      Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <SparklinePulse />
+                    <span className="text-[10px] text-success/80 font-mono">{source.liveStats}</span>
                   </div>
-                ))}
-              </div>
-              {syncDetails[source.key]?.lastSynced && (
-                <p className="text-[10px] text-muted-foreground/50 font-mono mt-2">Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {source.connectedStats.map((stat) => (
+                      <div key={stat.label} className="rounded-lg bg-secondary/60 border border-border p-2.5">
+                        <p className="text-lg font-bold text-foreground font-mono tracking-tight">{stat.value}</p>
+                        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider font-medium mt-0.5">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {syncDetails[source.key]?.lastSynced && (
+                    <p className="text-[10px] text-muted-foreground/50 font-mono mt-2">Last synced: {formatLastSynced(syncDetails[source.key].lastSynced)}</p>
+                  )}
+                </>
               )}
             </motion.div>
           )}
@@ -895,12 +961,36 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               </div>
             )}
             {isConnected && !isSyncing && (
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => handleResync(source.key)} disabled={activeConnect !== null}>
+              <div
+                className={`flex w-full flex-col gap-2 sm:flex-row sm:items-center ${
+                  outcomePresentation ? "sm:justify-between" : "sm:justify-end"
+                }`}
+              >
+                {outcomePresentation ? (
+                  <Button
+                    size="sm"
+                    className="h-9 rounded-lg text-xs font-semibold shadow-sm"
+                    onClick={() => requestAppNavigate(outcomePresentation.primaryCta.navigate)}
+                  >
+                    {outcomePresentation.primaryCta.label}
+                  </Button>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-lg text-[11px] h-7 px-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    onClick={() => handleResync(source.key)}
+                    disabled={activeConnect !== null}
+                  >
                     <RefreshCw className="h-3 w-3 mr-1" /> Re-sync
                   </Button>
-                  <Button size="sm" variant="ghost" className="rounded-lg text-[11px] h-7 px-2.5 text-destructive/50 hover:text-destructive hover:bg-destructive/5" onClick={() => setDisconnectTarget(source.key)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-lg text-[11px] h-7 px-2.5 text-destructive/50 hover:text-destructive hover:bg-destructive/5"
+                    onClick={() => setDisconnectTarget(source.key)}
+                  >
                     Disconnect
                   </Button>
                 </div>
@@ -963,39 +1053,12 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
       </AnimatePresence>
 
       <div className="space-y-6">
-        {/* Header KPI */}
+        {/* Intelligence header + live opportunities */}
         {showHeader && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10 border border-success/20">
-                  <Database className="h-4 w-4 text-success" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">{connectedCount}/9 sensors active</h2>
-                  <p className="text-xs text-muted-foreground">More connections = richer intelligence</p>
-                </div>
-              </div>
-              {connectedCount >= 3 && (
-                <div className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-success" /><span className="text-xs font-semibold text-success">Full Intelligence</span></div>
-              )}
-            </div>
-            <div className="h-2 w-full rounded-full bg-secondary overflow-hidden mb-2">
-              <motion.div
-                className="h-full bg-gradient-to-r from-success to-success/80 rounded-full"
-                animate={{ width: `${(connectedCount / 9) * 100}%` }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground/60 font-mono">
-              {connectedCount} connected · Investor matches improve with each sensor
-            </p>
-          </motion.div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_min(360px,100%)] xl:items-stretch">
+            <NetworkIntelligenceHeader model={headerModel} />
+            <LiveOpportunitiesPanel opportunities={liveOpportunities} />
+          </div>
         )}
 
         {/* Empty State */}
@@ -1009,9 +1072,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20 mb-4">
               <Sparkles className="h-7 w-7 text-accent" />
             </div>
-            <h3 className="text-lg font-bold text-foreground mb-1">Your Intelligence Engine is waiting</h3>
+            <h3 className="text-lg font-bold text-foreground mb-1">Unlock intro intelligence</h3>
             <p className="text-sm text-muted-foreground max-w-xs mb-6">
-              Connect Gmail or Notion to get your first investor recommendations
+              Connect Gmail or LinkedIn first — we map relationships and warm paths from your real activity.
             </p>
             <Button
               size="sm"
@@ -1019,7 +1082,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
               disabled={activeConnect !== null}
               className="rounded-lg text-sm font-semibold h-10 px-6 bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
             >
-              Connect Gmail →
+              Connect Google
             </Button>
           </motion.div>
         )}
@@ -1035,7 +1098,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Find an integration..."
+                  placeholder="Find a data source…"
                   className="w-full h-8 rounded-lg border border-input bg-background pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
                 />
               </div>
@@ -1082,9 +1145,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             {/* RECOMMENDED section — always visible when not searching */}
             {!searchQuery && (
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-3.5 w-3.5 text-accent" />
-                  <h2 className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted-foreground font-semibold">Recommended</h2>
+                <div className="mb-1">
+                  <h2 className="text-sm font-semibold tracking-tight text-foreground">{NETWORK_INTELLIGENCE_COPY.dataSourcesTitle}</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 max-w-2xl leading-relaxed">{NETWORK_INTELLIGENCE_COPY.dataSourcesSubtitle}</p>
                 </div>
                 <div className={compact ? "space-y-2.5" : "grid grid-cols-1 md:grid-cols-2 gap-3"}>
                   {SOURCES.filter(s => s.filterCategories.includes("recommended")).map((source, i) => {
@@ -1174,12 +1237,19 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           </>
         )}
 
+        {showHeader && (
+          <div className="space-y-5">
+            <UnlockMoreAccessSection cards={unlockCardsResolved} />
+            <NetworkMapPreview />
+          </div>
+        )}
+
         {/* Live Traffic Terminal */}
         {showTerminal && connectedCount >= 1 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-border bg-card p-5 overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
               <motion.div className="h-2 w-2 rounded-full bg-success" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Live Traffic</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Live pipeline</span>
             </div>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {TERMINAL_LOGS.map((log, i) => (

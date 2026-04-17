@@ -13,6 +13,7 @@ import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
+import { VEKTA_APP_NAVIGATE_EVENT, type NavigateableAppView } from "@/lib/appShellNavigate";
 
 const ConnectionsPage = lazy(() => import("@/components/ConnectionsPage").then((module) => ({ default: module.ConnectionsPage })));
 const SettingsPage = lazy(() => import("@/components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
@@ -204,6 +205,17 @@ const Index = () => {
     };
     window.addEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
     return () => window.removeEventListener(VEKTA_OPEN_VC_REVIEW_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const v = (e as CustomEvent<{ view: NavigateableAppView }>).detail?.view;
+      if (v === "connections" || v === "network" || v === "network-workspace" || v === "investor-search") {
+        setActiveView(v as ViewType);
+      }
+    };
+    window.addEventListener(VEKTA_APP_NAVIGATE_EVENT, handler);
+    return () => window.removeEventListener(VEKTA_APP_NAVIGATE_EVENT, handler);
   }, []);
   const [companyData, setCompanyData] = useState<CompanyData | null>(() => {
     try {
@@ -651,7 +663,6 @@ const Index = () => {
                 analysisResult={analysisResult}
                 onNavigateProfile={() => setActiveView("company")}
                 variant="directory"
-                initialScope="operators"
               />
             </DeferredSection>
           ) : activeView === "directory" || activeView === "investor-search" ? (

@@ -11,7 +11,7 @@ const catLabel: Record<string, string> = {
 
 export function NetworkIntroducerCard({ introducer }: { introducer: IntroducerProfile }) {
   return (
-    <div className="rounded-2xl border border-border/50 bg-card/60 px-4 py-3.5">
+    <div className="rounded-lg border border-border/45 bg-muted/10 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{introducer.fullName}</p>
@@ -27,7 +27,7 @@ export function NetworkIntroducerCard({ introducer }: { introducer: IntroducerPr
       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{introducer.recentActivitySummary}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {introducer.strongestCategories.map((c) => (
-          <span key={c} className="rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground/90">
+          <span key={c} className="rounded border border-border/50 bg-muted/25 px-1.5 py-0.5 text-[10px] font-medium text-foreground/85">
             {catLabel[c] ?? c}
           </span>
         ))}

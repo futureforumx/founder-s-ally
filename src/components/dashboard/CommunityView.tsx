@@ -1793,6 +1793,13 @@ const NETWORK_DIRECTORY_SORT_OPTIONS = [
 type NetworkDirectorySortValue = (typeof NETWORK_DIRECTORY_SORT_OPTIONS)[number]["value"];
 
 function directoryEntryStageFilterKey(entry: DirectoryEntry): string | null {
+  if (entry.category === "company") {
+    const inst = safeTextTrim(entry._investmentStage);
+    if (inst) {
+      const shown = displayInvestmentStage(inst);
+      if (shown && shown !== "Unknown") return shown;
+    }
+  }
   const { stage } = investorSectorStageParts(entry);
   const s = safeTextTrim(stage);
   if (s) return s;
@@ -2481,7 +2488,7 @@ export function CommunityView({
           isPrimary: false,
         },
         {
-          id: "founders",
+          id: "bench-depth",
           value: benchCount || 6,
           label: "Bench depth",
           icon: Users,
@@ -2594,8 +2601,9 @@ export function CommunityView({
           }
           return safeTextTrim(e.stage) === userStage;
         });
+      case "bench-depth":
+        return isOperatorHubLayout ? base : [];
       case "founders":
-        if (isOperatorHubLayout) return base;
         return mergedEntries.filter((e) => e.category === "founder");
       default:
         return [];
@@ -2626,9 +2634,12 @@ export function CommunityView({
     setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
   }, [activeFilter, activeScope, activeInvestorTab, investorSort, isInvestorSearch]);
 
-  useEffect(() => {
+  /** Run before paint so directory filters never carry across All / Companies / Founders / Operators. */
+  useLayoutEffect(() => {
     setNetworkDirectorySector(NETWORK_DIRECTORY_SECTOR_ALL);
     setNetworkDirectoryStage(NETWORK_DIRECTORY_STAGE_ALL);
+    setNetworkDirectorySort("default");
+    setActiveCohortId(null);
   }, [activeScope]);
 
   /** Founders / companies / operators come from `useCommunityGridData` (SQL filters) — skip duplicate chip pass. */
@@ -3542,7 +3553,12 @@ export function CommunityView({
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => {
+                setNetworkDirectorySector(NETWORK_DIRECTORY_SECTOR_ALL);
+                setNetworkDirectoryStage(NETWORK_DIRECTORY_STAGE_ALL);
+                setNetworkDirectorySort("default");
+                setActiveCohortId(null);
                 setActiveScope(tab.id);
               }}
               className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all ${

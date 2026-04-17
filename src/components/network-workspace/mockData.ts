@@ -61,6 +61,7 @@ export const mockReachablePeople: ReachablePerson[] = [
     recentSignalSummary: "Sarah commented on Jordan’s LinkedIn post last week.",
     lastSignalAt: new Date(Date.now() - 3 * 86400000).toISOString(),
     fitRelevance: 91,
+    warmth: 84,
   },
   {
     id: "p-2",
@@ -80,6 +81,7 @@ export const mockReachablePeople: ReachablePerson[] = [
     evidenceLines: ["You met at Founder Summit — follow-up thread open."],
     lastSignalAt: new Date(Date.now() - 86400000).toISOString(),
     fitRelevance: 88,
+    warmth: 96,
   },
   {
     id: "p-3",
@@ -101,6 +103,7 @@ export const mockReachablePeople: ReachablePerson[] = [
     recentSignalSummary: "Casey shared a cap table template Riley authored.",
     lastSignalAt: new Date(Date.now() - 10 * 86400000).toISOString(),
     fitRelevance: 62,
+    warmth: 52,
   },
   {
     id: "p-4",
@@ -115,6 +118,47 @@ export const mockReachablePeople: ReachablePerson[] = [
       ["Pilotworks–Orbit vendor relationship", "Warm Slack intro"],
     ),
     fitRelevance: 74,
+    warmth: 68,
+  },
+  {
+    id: "p-5",
+    fullName: "Priya Shah",
+    role: "VP Sales",
+    firmName: "Lattice Dynamics",
+    category: "customer",
+    hop: "direct",
+    bestPath: path(
+      [{ name: "You", role: "Founder" }, { name: "Priya Shah", role: "VP Sales", firm: "Lattice Dynamics" }],
+      81,
+      ["Recent meeting", "Pilot expansion discussed", "Slack intro available"],
+    ),
+    evidenceLines: ["Met twice in Q1 — budget cycle aligns with your roadmap."],
+    recentSignalSummary: "Opened your deck link twice this week.",
+    lastSignalAt: new Date(Date.now() - 12 * 3600000).toISOString(),
+    fitRelevance: 77,
+    warmth: 88,
+  },
+  {
+    id: "p-6",
+    fullName: "Elena Voss",
+    role: "Partner",
+    firmName: "Signal Peak",
+    category: "investor",
+    hop: "3-hop",
+    bestPath: path(
+      [
+        { name: "You" },
+        { name: "Marcus Cole", firm: "Benchworks" },
+        { name: "Priya Shah", firm: "Lattice Dynamics" },
+        { name: "Elena Voss", role: "Partner", firm: "Signal Peak" },
+      ],
+      54,
+      ["Weak intermediary signal", "Stage drift vs. thesis"],
+    ),
+    recentSignalSummary: "No material touchpoints in 90 days.",
+    lastSignalAt: new Date(Date.now() - 88 * 86400000).toISOString(),
+    fitRelevance: 41,
+    warmth: 34,
   },
 ];
 

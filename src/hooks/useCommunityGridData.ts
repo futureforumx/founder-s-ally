@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabasePublicDirectory } from "@/integrations/supabase/client";
 import type { CompanyProfile, FounderProfile, OperatorProfile } from "@/hooks/useProfile";
+import {
+  NETWORK_DIRECTORY_DEMO_COMPANIES,
+  NETWORK_DIRECTORY_DEMO_FOUNDERS,
+  NETWORK_DIRECTORY_DEMO_OPERATORS,
+} from "@/lib/networkDirectoryFallbackData";
 
 const sb = supabasePublicDirectory as any;
 
@@ -27,6 +32,59 @@ function escapeIlike(s: string): string {
 }
 
 export type CommunityGridScope = "all" | "founders" | "companies" | "operators" | "investors";
+
+function withDirectoryFallback(
+  scope: CommunityGridScope,
+  f: FounderProfile[],
+  c: CompanyProfile[],
+  o: OperatorProfile[],
+): {
+  founders: FounderProfile[];
+  companies: CompanyProfile[];
+  operators: OperatorProfile[];
+  usedDemo: boolean;
+} {
+  let founders = f;
+  let companies = c;
+  let operators = o;
+  let usedDemo = false;
+
+  if (scope === "founders" && founders.length === 0) {
+    founders = NETWORK_DIRECTORY_DEMO_FOUNDERS;
+    usedDemo = true;
+  } else if (scope === "companies" && companies.length === 0) {
+    companies = NETWORK_DIRECTORY_DEMO_COMPANIES;
+    usedDemo = true;
+  } else if (scope === "operators") {
+    if (operators.length === 0) {
+      operators = NETWORK_DIRECTORY_DEMO_OPERATORS;
+      usedDemo = true;
+    }
+    if (founders.length === 0) {
+      founders = NETWORK_DIRECTORY_DEMO_FOUNDERS.slice(0, 2);
+      usedDemo = true;
+    }
+    if (companies.length === 0) {
+      companies = NETWORK_DIRECTORY_DEMO_COMPANIES.slice(0, 2);
+      usedDemo = true;
+    }
+  } else if (scope === "all") {
+    if (founders.length === 0) {
+      founders = NETWORK_DIRECTORY_DEMO_FOUNDERS;
+      usedDemo = true;
+    }
+    if (companies.length === 0) {
+      companies = NETWORK_DIRECTORY_DEMO_COMPANIES;
+      usedDemo = true;
+    }
+    if (operators.length === 0) {
+      operators = NETWORK_DIRECTORY_DEMO_OPERATORS;
+      usedDemo = true;
+    }
+  }
+
+  return { founders, companies, operators, usedDemo };
+}
 
 export interface CommunityGridTotals {
   founders: number | null;
@@ -163,7 +221,7 @@ export function useCommunityGridData({
         )
         .in("roleType", ["founder", "cofounder", "ceo"])
         .eq("isCurrent", true)
-        .not("person", "is", null)
+        .not("personId", "is", null)
         .order("personId", { ascending: true })
         .limit(batch);
 
@@ -331,11 +389,14 @@ export function useCommunityGridData({
       founderCursorRef.current = null;
       companyOffsetRef.current = 0;
       operatorOffsetRef.current = 0;
-      setFounders([]);
-      setCompanies([]);
-      setOperators([]);
       setFoundersDone(false);
-
+      /**
+       * Do not blanket-clear founders/companies/operators here — while requests are in flight,
+       * `CommunityView` builds `mergedEntries` from these arrays and strips investors for Network.
+       * Clearing everything produced an empty grid for All / Companies / Founders until every fetch
+       * finished. Instead: keep prior rows until this scope's fetch completes; drop unrelated
+       * entity types at the start of single-entity scopes only.
+       */
       try {
         /** Include founders/companies when browsing Operators so Network tabs (All / Companies / Founders) and rails have data. */
         const needF = activeScope === "all" || activeScope === "founders" || activeScope === "operators";
@@ -360,17 +421,23 @@ export function useCommunityGridData({
         let firstOperators = 0;
 
         if (activeScope === "founders") {
+          setCompanies([]);
+          setOperators([]);
           const { rows, exhausted } = await loadFounderBatch(true);
           if (cancelled) return;
-          firstFounders = rows.length;
-          setFounders(rows);
-          setFoundersDone(exhausted);
+          const fb = withDirectoryFallback("founders", rows, [], []);
+          firstFounders = fb.founders.length;
+          setFounders(fb.founders);
+          setFoundersDone(rows.length === 0 ? true : exhausted);
         } else if (activeScope === "companies") {
+          setFounders([]);
+          setOperators([]);
           const c = await loadCompanyPage(0, PAGE_SIZE);
           if (cancelled) return;
-          firstCompanies = c.length;
-          setCompanies(c);
-          companyOffsetRef.current = c.length;
+          const fb = withDirectoryFallback("companies", [], c, []);
+          firstCompanies = fb.companies.length;
+          setCompanies(fb.companies);
+          companyOffsetRef.current = fb.companies.length;
         } else if (activeScope === "operators") {
           const [fBatch, c, o] = await Promise.all([
             loadFounderBatch(true, PAGE_SIZE_ALL_SLICE),
@@ -379,19 +446,20 @@ export function useCommunityGridData({
           ]);
           if (cancelled) return;
           const f = fBatch.rows;
-          firstFounders = f.length;
-          firstCompanies = c.length;
-          firstOperators = o.length;
-          setFounders(f);
+          const fb = withDirectoryFallback("operators", f, c, o);
+          firstFounders = fb.founders.length;
+          firstCompanies = fb.companies.length;
+          firstOperators = fb.operators.length;
+          setFounders(fb.founders);
           /**
            * Operator hub: founder/company rows are a *preview* only. Never derive global founder
            * exhaustion from this slice (short batches can look "exhausted"; founder RPC totals may be null).
            */
           setFoundersDone(false);
-          setCompanies(c);
-          setOperators(o);
-          companyOffsetRef.current = c.length;
-          operatorOffsetRef.current = o.length;
+          setCompanies(fb.companies);
+          setOperators(fb.operators);
+          companyOffsetRef.current = fb.companies.length;
+          operatorOffsetRef.current = fb.operators.length;
         } else if (activeScope === "all") {
           const [{ rows: f, exhausted: fEx }, c, o] = await Promise.all([
             loadFounderBatch(true),
@@ -399,15 +467,16 @@ export function useCommunityGridData({
             loadOperatorPage(0, PAGE_SIZE_ALL_SLICE),
           ]);
           if (cancelled) return;
-          firstFounders = f.length;
-          firstCompanies = c.length;
-          firstOperators = o.length;
-          setFounders(f);
-          setFoundersDone(fEx);
-          setCompanies(c);
-          setOperators(o);
-          companyOffsetRef.current = c.length;
-          operatorOffsetRef.current = o.length;
+          const fb = withDirectoryFallback("all", f, c, o);
+          firstFounders = fb.founders.length;
+          firstCompanies = fb.companies.length;
+          firstOperators = fb.operators.length;
+          setFounders(fb.founders);
+          setFoundersDone(f.length === 0 ? true : fEx);
+          setCompanies(fb.companies);
+          setOperators(fb.operators);
+          companyOffsetRef.current = fb.companies.length;
+          operatorOffsetRef.current = fb.operators.length;
         }
 
         const logNetwork =

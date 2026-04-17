@@ -5,7 +5,8 @@ import { Link } from "react-router-dom";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useCompanyDirectory } from "@/hooks/useProfile";
 import { useVCDirectory, type VCFirm } from "@/hooks/useVCDirectory";
-import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
+import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
+import { type RecentFundingRound } from "@/lib/recentFundingSeed";
 import { cn } from "@/lib/utils";
 
 const GALLERY_URL = "https://startups.gallery/news";
@@ -310,59 +311,106 @@ function FundingCardMobile({
 export function RecentFundingFeed({ className }: { className?: string }) {
   const vcFirmIdByKey = useVcFirmIdByMatchKey();
   const orgMaps = useOrganizationIdLookupMaps();
+  const { rows, dataSource, isLoading, isFetching, error, ingestEmpty } = useRecentFundingFeed();
 
   return (
     <div className={cn("space-y-4", className)}>
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Recent funding</h1>
         <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-          Newly funded early-stage companies with sector, stage, round size, lead, co-investors, and primary press link — same shape as{" "}
-          <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
-            startups.gallery/news
-          </a>
-          .
+          {dataSource === "ingest" ? (
+            <>
+              Live deals from the daily ingest pipeline (TechCrunch Venture, AlleyWatch funding, GeekWire fundings, and{" "}
+              <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+                startups.gallery
+              </a>{" "}
+              news), normalized for this table. Refreshes on a short interval after the server has new rows.
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {error ? (
+                <span className="text-amber-700 dark:text-amber-400/90">
+                  Could not load ingested deals; showing static examples.{" "}
+                  {(error as { code?: string })?.code === "PGRST202" ||
+                  String((error as Error)?.message ?? "").includes("Could not find the function") ? (
+                    <span className="block mt-1 font-normal">
+                      The RPC is missing on the database. From the repo root run{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>{" "}
+                      with <code className="rounded bg-muted px-1 py-0.5 text-[10px]">SUPABASE_DB_URL</code> in{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">.env.local</code>, or use{" "}
+                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:db:push:direct</code>{" "}
+                      if you prefer the full migration set (bypasses Supabase CLI 403).
+                    </span>
+                  ) : null}
+                </span>
+              ) : ingestEmpty ? (
+                <>
+                  No ingested deals in the database yet (run the funding ingest job against the same Postgres as Supabase). Showing static examples in the same shape as{" "}
+                </>
+              ) : (
+                <>Examples in the same shape as </>
+              )}
+              <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+                startups.gallery/news
+              </a>
+              .
+            </span>
+          )}
         </p>
+        {isFetching && !isLoading ? (
+          <p className="text-[10px] text-muted-foreground mt-1" aria-live="polite">
+            Refreshing…
+          </p>
+        ) : null}
       </div>
 
-      <div className="hidden md:block rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border/60 bg-muted/30">
-                <th className="py-2.5 pr-3 pl-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Company</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold min-w-[100px]">Sector</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Stage</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Round size</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Lead investor</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Co-investors</th>
-                <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Date</th>
-                <th className="py-2.5 pl-2 pr-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold text-right">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {RECENT_FUNDING_ROUNDS.map((row) => (
-                <FundingRowDesktop
-                  key={row.id}
-                  row={row}
-                  vcFirmIdByKey={vcFirmIdByKey}
-                  organizationId={resolveOrganizationId(row, orgMaps)}
-                />
-              ))}
-            </tbody>
-          </table>
+      {isLoading ? (
+        <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-10 text-center text-sm text-muted-foreground">
+          Loading latest funding rounds…
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="hidden md:block rounded-xl border border-border/60 bg-card/50 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1000px] text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/30">
+                    <th className="py-2.5 pr-3 pl-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Company</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold min-w-[100px]">Sector</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Stage</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Round size</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Lead investor</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Co-investors</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Date</th>
+                    <th className="py-2.5 pl-2 pr-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold text-right">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <FundingRowDesktop
+                      key={row.id}
+                      row={row}
+                      vcFirmIdByKey={vcFirmIdByKey}
+                      organizationId={resolveOrganizationId(row, orgMaps)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="md:hidden space-y-3">
-        {RECENT_FUNDING_ROUNDS.map((row) => (
-          <FundingCardMobile
-            key={row.id}
-            row={row}
-            vcFirmIdByKey={vcFirmIdByKey}
-            organizationId={resolveOrganizationId(row, orgMaps)}
-          />
-        ))}
-      </div>
+          <div className="md:hidden space-y-3">
+            {rows.map((row) => (
+              <FundingCardMobile
+                key={row.id}
+                row={row}
+                vcFirmIdByKey={vcFirmIdByKey}
+                organizationId={resolveOrganizationId(row, orgMaps)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
         Coverage is curated from public announcements for in-product context; verify terms in the original source before relying on it for decisions.
