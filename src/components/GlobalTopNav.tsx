@@ -1037,12 +1037,16 @@ export function GlobalTopNav({
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-2 transition-all duration-300",
+        "fixed top-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-2",
         scrolled
           ? "bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm"
           : "bg-transparent border-b border-transparent"
       )}
-      style={{ left: "200px" }}
+      style={{
+        left: "var(--app-sidebar-width, 216px)",
+        transition:
+          "left 320ms cubic-bezier(0.16, 1, 0.3, 1), background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, backdrop-filter 300ms ease",
+      }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* ── Left: Pulse ── */}

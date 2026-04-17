@@ -1,5 +1,6 @@
 import { useState, useRef, type KeyboardEvent } from "react";
 import { ArrowUp, TrendingUp, Users, Swords, Zap } from "lucide-react";
+import { AnimatedPlaceholderInput } from "@/components/AnimatedPlaceholderInput";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,12 +31,14 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
-const SUGGESTED_PROMPTS = [
-  "Who are the top Series A investors in B2B SaaS right now?",
+/** Typewriter overlay + chip suggestions */
+const HERO_PROMPT_SUGGESTIONS = [
   "What's the average check size for my stage?",
   "Show me recent funding rounds in my sector",
-  "Which firms lead deals in my space?",
-];
+  "Which investors are active in AI right now?",
+  "Find founders similar to me",
+  "Who should I reach out to this week?",
+] as const;
 
 export function HomeView({ onViewChange, companyName }: HomeViewProps) {
   const [query, setQuery] = useState("");
@@ -61,7 +64,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
   function handleSubmit() {
     const trimmed = query.trim();
     if (!trimmed) return;
-    // For now navigate to the investor Network view; Vyta will intercept later
+    // For now navigate to the investor Network view; VEX will intercept later
     onViewChange("investors");
   }
 
@@ -78,7 +81,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
       <div className="relative mb-8 flex items-center justify-center">
         {/* Blurred aura behind the mark — mirrors the Linear screenshot */}
         <div
-          className="absolute h-32 w-32 rounded-full"
+          className="absolute h-32 w-32 rounded-full animate-home-vyta-mark-aura-pulse"
           style={{
             background:
               "radial-gradient(circle, rgba(166,103,255,0.28) 0%, rgba(166,103,255,0.08) 55%, transparent 80%)",
@@ -111,22 +114,23 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
             : "border-border shadow-sm",
         )}
       >
-        <textarea
+        <AnimatedPlaceholderInput
           ref={inputRef}
           rows={1}
           value={query}
+          phrases={[...HERO_PROMPT_SUGGESTIONS]}
+          staticPlaceholder="Ask VEX anything…"
+          aria-label="Ask VEX a question"
           onChange={(e) => {
             setQuery(e.target.value);
-            // Auto-resize
             e.target.style.height = "auto";
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask Vyta anything…"
           className={cn(
-            "block w-full resize-none rounded-2xl bg-transparent px-4 pt-4 pb-12 text-sm text-foreground",
+            "w-full resize-none rounded-2xl px-4 pt-4 pb-12 text-sm text-foreground",
             "placeholder:text-muted-foreground/60 focus:outline-none",
             "max-h-48 overflow-y-auto",
           )}
@@ -141,7 +145,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
               className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
               <Zap className="h-3 w-3" />
-              Vyta
+              VEX
             </button>
           </div>
           <button
@@ -163,7 +167,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
 
       {/* ── Suggested prompts ─────────────────────────────────────────── */}
       <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {SUGGESTED_PROMPTS.map((prompt) => (
+        {HERO_PROMPT_SUGGESTIONS.map((prompt) => (
           <button
             key={prompt}
             type="button"

@@ -2409,6 +2409,22 @@ export type Database = {
           peer_save_count: number
         }[]
       }
+      get_recent_funding_feed: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+          company_name: string
+          website_url: string
+          sector: string
+          round_kind: string
+          amount_label: string
+          announced_at: string
+          lead_investor: string
+          lead_website_url: string | null
+          co_investors: string[] | null
+          source_url: string
+        }[]
+      }
       get_sector_save_rates: {
         Args: { _sector: string }
         Returns: {
