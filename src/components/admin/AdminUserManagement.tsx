@@ -29,7 +29,7 @@ interface EnrichedUser {
 const PERMISSION_COLORS: Record<string, { bg: string; text: string }> = {
   user: { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.5)" },
   manager: { bg: "rgba(59,130,246,0.12)", text: "#3b82f6" },
-  admin: { bg: "rgba(57,255,20,0.1)", text: "#39FF14" },
+  admin: { bg: "rgba(46,230,166,0.1)", text: "#2EE6A6" },
   god: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b" },
 };
 
@@ -143,7 +143,7 @@ export function AdminUserManagement() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#39FF14" }} />
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
         </div>
       ) : (
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
@@ -229,8 +229,8 @@ export function AdminUserManagement() {
                   variant="outline"
                   className="w-fit border-none text-[9px] font-semibold uppercase"
                   style={{
-                    background: user.user_type === "founder" ? "rgba(139,92,246,0.1)" : user.user_type === "investor" ? "rgba(34,197,94,0.1)" : "rgba(59,130,246,0.1)",
-                    color: user.user_type === "founder" ? "#a78bfa" : user.user_type === "investor" ? "#22c55e" : "#60a5fa",
+                    background: user.user_type === "founder" ? "rgba(91,92,255,0.1)" : user.user_type === "investor" ? "rgba(46,230,166,0.1)" : "rgba(59,130,246,0.1)",
+                    color: user.user_type === "founder" ? "#a78bfa" : user.user_type === "investor" ? "#2EE6A6" : "#60a5fa",
                   }}
                 >
                   {user.user_type}

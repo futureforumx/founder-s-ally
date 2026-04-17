@@ -15,7 +15,7 @@ const badgeVariants = cva(
         secondary: "h-6 px-2.5 rounded-lg border border-secondary/40 bg-secondary/10 text-secondary-foreground hover:bg-secondary/15",
         
         // Semantic - Success
-        success: "h-6 px-2.5 rounded-lg border border-success/35 bg-success/10 text-success hover:bg-success/15",
+        success: "h-6 px-2.5 rounded-lg border border-success/35 bg-success/10 text-success-foreground hover:bg-success/15",
         
         // Semantic - Warning
         warning: "h-6 px-2.5 rounded-lg border border-warning/40 bg-warning/10 text-warning hover:bg-warning/15",
@@ -35,7 +35,7 @@ const badgeVariants = cva(
         // Compact variants (20px height)
         "default-sm": "h-5 px-2 rounded-lg border border-primary/30 bg-primary/8 text-primary text-[11px] hover:bg-primary/12",
         "secondary-sm": "h-5 px-2 rounded-lg border border-secondary/40 bg-secondary/10 text-secondary-foreground text-[11px] hover:bg-secondary/15",
-        "success-sm": "h-5 px-2 rounded-lg border border-success/35 bg-success/10 text-success text-[11px] hover:bg-success/15",
+        "success-sm": "h-5 px-2 rounded-lg border border-success/35 bg-success/10 text-success-foreground text-[11px] hover:bg-success/15",
         "warning-sm": "h-5 px-2 rounded-lg border border-warning/40 bg-warning/10 text-warning text-[11px] hover:bg-warning/15",
         "destructive-sm": "h-5 px-2 rounded-lg border border-destructive/35 bg-destructive/10 text-destructive text-[11px] hover:bg-destructive/15",
         "accent-sm": "h-5 px-2 rounded-lg border border-accent/35 bg-accent/10 text-accent text-[11px] hover:bg-accent/15",

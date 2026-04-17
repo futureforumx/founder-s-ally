@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { buildHealthTrendDataset, type HealthTimeframe } from "@/lib/healthScoreTrendModel";
 
-const ACCENT = "hsl(217, 91%, 55%)";
+const ACCENT = "hsl(239, 100%, 68%)";
 const MUTED_LINE = "hsl(215, 16%, 47%, 0.35)";
 
 const TIMEFRAMES: { id: HealthTimeframe; label: string }[] = [
@@ -238,7 +238,7 @@ export function HealthScoreTrendDropdown({ currentScore, seedKey, children }: He
                       <ReferenceLine
                         key={`${a.t}-${a.label}`}
                         x={a.t}
-                        stroke="hsl(217, 91%, 60%, 0.22)"
+                        stroke="hsl(239 100% 68% / 0.22)"
                         strokeDasharray="3 6"
                         label={{
                           value: a.label,

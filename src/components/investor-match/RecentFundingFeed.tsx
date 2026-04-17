@@ -345,7 +345,21 @@ export function RecentFundingFeed({ className }: { className?: string }) {
                 </span>
               ) : ingestEmpty ? (
                 <>
-                  No ingested deals in the database yet (run the funding ingest job against the same Postgres as Supabase). Showing static examples in the same shape as{" "}
+                  <span className="block font-medium text-foreground/90">
+                    The funding RPC returned no rows yet.
+                  </span>
+                  <span className="block mt-1.5 font-normal">
+                    Live rows come from <code className="rounded bg-muted px-1 py-0.5 text-[10px]">funding_deals</code> on the{" "}
+                    <strong>same Postgres</strong> as this Supabase project: apply the Prisma funding schema to that DB (
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run funding:schema:apply</code> with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">DATABASE_URL</code>
+                    ), install the RPC (
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>
+                    ), then run the ingest job (
+                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">INGEST_SKIP_PACIFIC_GUARD=1 npx tsx scripts/funding-ingest/run.ts</code>
+                    — see <code className="rounded bg-muted px-1 py-0.5 text-[10px]">scripts/funding-ingest/README.md</code>
+                    ). Showing static examples in the same shape as{" "}
+                  </span>
                 </>
               ) : (
                 <>Examples in the same shape as </>

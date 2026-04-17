@@ -121,7 +121,7 @@ export function AdminRecordUpdates() {
         type="button"
         onClick={() => toggleSort(col)}
         className="inline-flex items-center gap-1 font-mono transition-colors hover:text-white/70"
-        style={{ color: active ? "#39FF14" : "rgba(255,255,255,0.35)" }}
+        style={{ color: active ? "#2EE6A6" : "rgba(255,255,255,0.35)" }}
       >
         {children}
         {active ? (
@@ -179,7 +179,7 @@ export function AdminRecordUpdates() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#39FF14" }} />
+          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
         </div>
       ) : (
         <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
@@ -203,7 +203,7 @@ export function AdminRecordUpdates() {
               className="grid items-center gap-2 border-t px-4 py-2.5 transition-colors hover:bg-white/[0.02]"
               style={{ borderColor: "rgba(255,255,255,0.04)", gridTemplateColumns: "1.1fr 2fr 1.5fr 1fr" }}
             >
-              <span className="font-mono text-[11px]" style={{ color: "#39FF14" }}>
+              <span className="font-mono text-[11px]" style={{ color: "#2EE6A6" }}>
                 {KIND_LABEL[r.kind]}
               </span>
               <div className="min-w-0">

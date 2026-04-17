@@ -240,8 +240,8 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4 md:p-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/20 px-3 py-1.5 backdrop-blur-sm">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/70" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
           </span>
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
             Live founder signal

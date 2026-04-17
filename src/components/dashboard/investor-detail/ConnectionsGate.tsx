@@ -278,7 +278,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                           isComplete ? "bg-white/[0.06] border border-white/10" : "bg-white/[0.03] border border-white/[0.06]"
                         }`}>
                           {isComplete ? (
-                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-400" />
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
                           ) : (
                             <Icon className="h-4.5 w-4.5 text-white/40" />
                           )}
@@ -296,8 +296,8 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                           <span className="text-[15px] font-semibold text-white">{source.label}</span>
                           {isComplete && (
                             <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5">
-                              <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                              <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+                              <motion.div className="h-1.5 w-1.5 rounded-full bg-emerald-500" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                              <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider">Live</span>
                             </div>
                           )}
                         </div>
@@ -334,7 +334,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
                     {isComplete && (
                       <div className="shrink-0">
-                        <span className="text-[10px] text-emerald-400/60 font-mono">
+                        <span className="text-[10px] text-emerald-500/60 font-mono">
                           {source.liveMsg}
                         </span>
                       </div>
@@ -354,7 +354,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                         <div className="mt-3 space-y-1.5">
                           <div className="h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
                             <motion.div
-                              className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 rounded-full"
+                              className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full"
                               initial={{ width: 0 }}
                               animate={{ width: `${status.progress}%` }}
                               transition={{ duration: 0.5, ease: "easeOut" }}
@@ -382,7 +382,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                         transition={{ duration: 0.2, delay: 0.1 }}
                         className="overflow-hidden"
                       >
-                        <p className="text-[11px] text-emerald-400/50 font-mono mt-2 pl-12">
+                        <p className="text-[11px] text-emerald-500/50 font-mono mt-2 pl-12">
                           {status.stats}
                         </p>
                       </motion.div>
@@ -425,7 +425,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
           {completedCount > 0 && (
             <div className="h-[2px] bg-white/[0.04]">
               <motion.div
-                className="h-full bg-gradient-to-r from-blue-500 to-emerald-400"
+                className="h-full bg-gradient-to-r from-blue-500 to-emerald-500"
                 initial={{ width: 0 }}
                 animate={{ width: `${(completedCount / SOURCES.length) * 100}%` }}
                 transition={{ duration: 0.5 }}

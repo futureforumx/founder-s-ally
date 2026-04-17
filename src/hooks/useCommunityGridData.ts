@@ -103,8 +103,7 @@ export function useCommunityGridData({
     let query = sb
       .from("organizations")
       .select("id", { count: "exact", head: true })
-      .not("description", "is", null)
-      .eq("ready_for_live", true);
+      .not("description", "is", null);
     if (orOrganizations) query = query.or(orOrganizations);
     const { count, error: cErr } = await query;
     if (cErr) {
@@ -172,8 +171,12 @@ export function useCommunityGridData({
       }
 
       const { data: roles, error: rolesError } = await qRoles;
-      if (rolesError || !roles?.length) {
-        if (rolesError) console.warn("[useCommunityGridData] roles:", rolesError.message);
+      if (rolesError) {
+        console.warn("[useCommunityGridData] roles:", rolesError.message);
+        setError(rolesError.message);
+        return { rows: [] as FounderProfile[], exhausted: true };
+      }
+      if (!roles?.length) {
         return { rows: [] as FounderProfile[], exhausted: true };
       }
 
@@ -224,7 +227,7 @@ export function useCommunityGridData({
       const exhausted = (roles as any[]).length < batch;
       return { rows: out, exhausted };
     },
-    [hasQ, qLower],
+    [hasQ, qLower, setError],
   );
 
   const loadCompanyPage = useCallback(
@@ -244,20 +247,17 @@ export function useCommunityGridData({
             "foundedYear",
             "isYcBacked",
             "ycBatch",
-            "employeeCount",
-            "fundingStatus",
-            "vcBacked",
-            "investmentStage"
+            "employeeCount"
           `,
         )
         .not("description", "is", null)
-        .eq("ready_for_live", true)
         .order("canonicalName", { ascending: true })
         .range(offset, offset + limit - 1);
       if (orOrganizations) query = query.or(orOrganizations);
       const { data, error: err } = await query;
       if (err) {
         console.warn("[useCommunityGridData] organizations:", err.message);
+        setError(err.message);
         return [] as CompanyProfile[];
       }
       return ((data as any[]) ?? []).map((o) => ({
@@ -273,12 +273,12 @@ export function useCommunityGridData({
         is_yc_backed: o.isYcBacked ?? false,
         yc_batch: o.ycBatch,
         employee_count: o.employeeCount,
-        funding_status: typeof o.fundingStatus === "string" ? o.fundingStatus : null,
-        vc_backed: o.vcBacked === true ? true : o.vcBacked === false ? false : null,
-        investment_stage: typeof o.investmentStage === "string" ? o.investmentStage : null,
+        funding_status: null,
+        vc_backed: null,
+        investment_stage: null,
       })) as CompanyProfile[];
     },
-    [orOrganizations],
+    [orOrganizations, setError],
   );
 
   const loadOperatorPage = useCallback(

@@ -18,6 +18,7 @@ const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const FirmProfile = lazy(() => import("./pages/FirmProfile.tsx"));
 const OrganizationProfile = lazy(() => import("./pages/OrganizationProfile.tsx"));
+const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -246,6 +247,14 @@ const App = () => (
             <MixpanelPageViewTracker />
             <Routes>
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route
+                path="/access"
+                element={
+                  <Suspense fallback={<RouteLoader label="Loading…" />}>
+                    <AccessRequest />
+                  </Suspense>
+                }
+              />
               <Route path="/" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/intelligence" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><AppOnboardingRoute /></ProtectedRoute>} />

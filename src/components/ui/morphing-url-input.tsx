@@ -215,7 +215,7 @@ export function MorphingUrlInput({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="flex items-center gap-0.5 text-[10px] font-medium"
-                style={{ color: "hsl(var(--success, 142 76% 36%))" }}
+                style={{ color: "hsl(var(--success, 159 79% 54%))" }}
               >
                 <motion.div
                   animate={{ scale: [1, 1.15, 1] }}

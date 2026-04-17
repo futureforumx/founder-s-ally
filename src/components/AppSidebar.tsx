@@ -248,7 +248,14 @@ export function AppSidebar({
               collapsed ? "flex w-full justify-center" : "block flex-1 pt-0.5",
             )}
           >
-            <BrandLogo variant="white" className={cn(collapsed ? "w-10" : "w-[68px]")} />
+            <BrandLogo
+              variant="white"
+              sidebarMode={collapsed ? "collapsed" : "expanded"}
+              className={cn(
+                "object-contain",
+                collapsed ? "max-h-14 w-auto max-w-full" : "max-h-20 w-auto max-w-full",
+              )}
+            />
           </button>
         </div>
 
@@ -447,7 +454,7 @@ export function AppSidebar({
                 onPointerLeave={scheduleAgentPopoverClose}
                 onClick={onAgentClick}
                 className={cn(
-                  "group flex w-full flex-row items-center justify-center gap-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-[0_0_15px_-5px_rgba(139,92,246,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple",
+                  "group flex w-full flex-row items-center justify-center gap-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-[0_0_15px_-5px_rgba(91,92,255,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple",
                   collapsed && "px-1.5",
                 )}
               >

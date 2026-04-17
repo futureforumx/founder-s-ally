@@ -7,7 +7,7 @@ interface RadialScoreProps {
 }
 
 function getScoreColor(score: number) {
-  if (score >= 80) return { text: "text-emerald-500", stroke: "#10b981", pulse: false };
+  if (score >= 80) return { text: "text-emerald-500", stroke: "#2EE6A6", pulse: false };
   if (score >= 50) return { text: "text-amber-500", stroke: "#f59e0b", pulse: true };
   return { text: "text-rose-600", stroke: "#e11d48", pulse: true };
 }

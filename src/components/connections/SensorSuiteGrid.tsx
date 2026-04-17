@@ -146,7 +146,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "google", label: "Google", icon: Mail, customIcon: BRAND_ICONS.google, section: "recommended",
     categoryTag: "INTELLIGENCE PIPELINE", filterCategories: ["recommended"],
-    glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.35)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.35)]", glowHsl: "bg-indigo-500",
     description: "Gmail + Calendar — unified workspace sync",
     liveStats: "142 threads analyzed",
     connectedStats: [{ label: "Threads Analyzed", value: "142" }, { label: "VC Contacts", value: "47" }, { label: "Signals Found", value: "12" }],
@@ -176,7 +176,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "stripe", label: "Stripe", icon: CreditCard, customIcon: BRAND_ICONS.stripe, section: "recommended",
     categoryTag: "TRACTION SIGNALS", filterCategories: ["recommended", "finance"],
-    glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-violet-500",
     description: "Real-time MRR, churn, and growth signals",
     liveStats: "MRR: $12.4K · +18% MoM",
     connectedStats: [{ label: "MRR", value: "$12.4K" }, { label: "Growth", value: "+18%" }, { label: "Churn", value: "2.1%" }],
@@ -187,7 +187,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "attio", label: "Attio", icon: Layers, customIcon: BRAND_ICONS.attio, section: "power",
     categoryTag: "VC-NATIVE CRM", filterCategories: ["crm"],
-    glowColor: "shadow-[0_0_24px_rgba(168,85,247,0.3)]", glowHsl: "bg-purple-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-purple-500",
     description: "Sync your VC-native relationship CRM",
     liveStats: "89 people synced · 4 lists imported",
     connectedStats: [{ label: "People Synced", value: "89" }, { label: "Lists Imported", value: "4" }, { label: "Relationships", value: "234" }],
@@ -299,7 +299,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "microsoftteams", label: "Microsoft Teams", icon: MonitorSmartphone, customIcon: BRAND_ICONS.microsoftteams, section: "power",
     categoryTag: "VIDEO MEETINGS", filterCategories: ["meetings"],
-    glowColor: "shadow-[0_0_24px_rgba(98,100,167,0.3)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-indigo-500",
     description: "Sync Teams calls, chats, and meeting notes",
     liveStats: "6 calls synced · 2 action items",
     connectedStats: [{ label: "Calls Synced", value: "6" }, { label: "Action Items", value: "2" }, { label: "Chats", value: "14" }],
@@ -310,7 +310,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "slack", label: "Slack", icon: Hash, customIcon: BRAND_ICONS.slack, section: "signal",
     categoryTag: "TEAM COMMS", filterCategories: ["messaging"],
-    glowColor: "shadow-[0_0_24px_rgba(74,21,75,0.3)]", glowHsl: "bg-purple-700",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-purple-700",
     description: "Surface investor mentions and deal chatter",
     liveStats: "42 channels monitored · 3 investor mentions",
     connectedStats: [{ label: "Channels", value: "42" }, { label: "Investor Mentions", value: "3" }, { label: "Alerts", value: "7" }],
@@ -330,7 +330,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "discord", label: "Discord", icon: MessageSquare, customIcon: BRAND_ICONS.discord, section: "signal",
     categoryTag: "COMMUNITY", filterCategories: ["messaging"],
-    glowColor: "shadow-[0_0_24px_rgba(88,101,242,0.3)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-indigo-500",
     description: "Monitor community channels and investor discussions",
     liveStats: "5 servers · 12 relevant threads",
     connectedStats: [{ label: "Servers", value: "5" }, { label: "Threads", value: "12" }, { label: "Signals", value: "4" }],
@@ -371,7 +371,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "polar", label: "Polar", icon: DollarSign, customIcon: BRAND_ICONS.polar, section: "power",
     categoryTag: "MONETIZATION", filterCategories: ["finance"],
-    glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.3)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-indigo-500",
     description: "Open-source funding and subscription metrics",
     liveStats: "$1.8K MRR · 24 subscribers",
     connectedStats: [{ label: "MRR", value: "$1.8K" }, { label: "Subscribers", value: "24" }, { label: "Growth", value: "+8%" }],
@@ -402,7 +402,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "relay", label: "Relay.app", icon: GitBranch, customIcon: BRAND_ICONS.relay, section: "power",
     categoryTag: "AUTOMATION", filterCategories: ["workflows"],
-    glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.3)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-indigo-500",
     description: "Human-in-the-loop workflow automations",
     liveStats: "6 workflows · 89 runs this month",
     connectedStats: [{ label: "Workflows", value: "6" }, { label: "Runs", value: "89" }, { label: "Approvals", value: "23" }],
@@ -412,7 +412,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "gumloop", label: "Gumloop", icon: Workflow, customIcon: BRAND_ICONS.gumloop, section: "power",
     categoryTag: "AI WORKFLOWS", filterCategories: ["workflows"],
-    glowColor: "shadow-[0_0_24px_rgba(139,92,246,0.3)]", glowHsl: "bg-violet-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-violet-500",
     description: "AI-powered pipeline automations",
     liveStats: "4 loops · 56 executions",
     connectedStats: [{ label: "Loops", value: "4" }, { label: "Executions", value: "56" }, { label: "Saved", value: "3h" }],
@@ -432,7 +432,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "make", label: "Make", icon: Workflow, customIcon: BRAND_ICONS.make, section: "power",
     categoryTag: "VISUAL AUTOMATION", filterCategories: ["workflows"],
-    glowColor: "shadow-[0_0_24px_rgba(109,0,204,0.3)]", glowHsl: "bg-purple-600",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-purple-600",
     description: "Visual automation scenarios for operations",
     liveStats: "5 scenarios · 200 operations/mo",
     connectedStats: [{ label: "Scenarios", value: "5" }, { label: "Operations", value: "200" }, { label: "Saved", value: "4h" }],
@@ -494,7 +494,7 @@ const SOURCES: SourceConfig[] = [
   {
     key: "clerk", label: "Clerk", icon: UserCheck, customIcon: BRAND_ICONS.clerk, section: "signal",
     categoryTag: "AUTH & USERS", filterCategories: ["analytics"],
-    glowColor: "shadow-[0_0_24px_rgba(99,102,241,0.3)]", glowHsl: "bg-indigo-500",
+    glowColor: "shadow-[0_0_24px_rgba(91,92,255,0.3)]", glowHsl: "bg-indigo-500",
     description: "User signups, auth events, and growth metrics",
     liveStats: "890 users · 12 signups today",
     connectedStats: [{ label: "Total Users", value: "890" }, { label: "Signups Today", value: "12" }, { label: "DAU", value: "234" }],
@@ -611,7 +611,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
     setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 100, message: "" } }));
     setActiveConnect(null);
 
-    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ["#6366f1", "#34d399", "#818cf8"] });
+    confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ["#5B5CFF", "#2EE6A6", "#8788ff"] });
     const source = SOURCES.find(s => s.key === key)!;
     toast.success("Intelligence Pipeline Established", { description: source.unlockToast });
   }, [activeConnect, connected, syncDetails]);
@@ -738,7 +738,7 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   {displayIcon && iconLoadFailed && isGoogleSensor ? (
                     <div
                       className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
-                      style={{ backgroundColor: "hsl(217 89% 61%)", color: "hsl(0 0% 100%)" }}
+                      style={{ backgroundColor: "hsl(239 100% 68%)", color: "hsl(0 0% 100%)" }}
                     >
                       G
                     </div>
@@ -829,13 +829,13 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                       {displayIcon && iconLoadFailed && isGoogleSensor ? (
                         <div
                           className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
-                          style={{ backgroundColor: "hsl(217 89% 61%)", color: "hsl(0 0% 100%)" }}
+                          style={{ backgroundColor: "hsl(239 100% 68%)", color: "hsl(0 0% 100%)" }}
                         >
                           G
                         </div>
                       ) : null}
                       {(!displayIcon || (iconLoadFailed && !isGoogleSensor)) ? (
-                        <Icon className={isGoogleSensor ? "h-4 w-4 text-[hsl(217_89%_61%)]" : "h-4 w-4 text-muted-foreground"} />
+                        <Icon className={isGoogleSensor ? "h-4 w-4 text-[hsl(239_100%_68%)]" : "h-4 w-4 text-muted-foreground"} />
                       ) : null}
                     </>
                   )}

@@ -1815,7 +1815,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                   >
                                     <CheckCircle2
                                       className="h-4 w-4 text-green-500"
-                                      style={{ filter: "drop-shadow(0 0 8px rgba(34,197,94,0.4))" }}
+                                      style={{ filter: "drop-shadow(0 0 8px rgba(46,230,166,0.4))" }}
                                     />
                                   </motion.span>
                                 </TooltipTrigger>

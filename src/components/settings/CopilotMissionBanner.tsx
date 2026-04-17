@@ -126,7 +126,7 @@ function RadialProgress({
         particleCount: 40,
         spread: 60,
         origin: { x, y },
-        colors: ["#22c55e", "#3b82f6", "#a855f7"],
+        colors: ["#2EE6A6", "#3b82f6", "#a855f7"],
         scalar: 0.7,
         gravity: 1.2,
         ticks: 80,

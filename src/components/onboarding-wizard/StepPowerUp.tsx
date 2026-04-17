@@ -46,7 +46,7 @@ const SENSORS: SensorConfig[] = [
   {
     id: "google", name: "Google Workspace", icon: Mail, type: "pipeline",
     typeLabel: "Intelligence Pipeline", desc: "Gmail + Calendar — unified workspace sync",
-    glowColor: "rgba(99,102,241,0.35)", glowHsl: "bg-indigo-500",
+    glowColor: "rgba(91,92,255,0.35)", glowHsl: "bg-indigo-500",
     telemetry: "Scan Status: Active · Signals: 142 found",
     stat: { label: "Threads Analyzed", value: "142" },
     buttonLabel: "Sync Google Workspace", tier: "recommended",
@@ -64,7 +64,7 @@ const SENSORS: SensorConfig[] = [
   {
     id: "notion", name: "Notion", icon: FileText, type: "pipeline",
     typeLabel: "Intelligence Pipeline", desc: "Syncs your fundraising pipeline & docs",
-    glowColor: "rgba(99,102,241,0.25)", glowHsl: "bg-indigo-400",
+    glowColor: "rgba(91,92,255,0.25)", glowHsl: "bg-indigo-400",
     telemetry: "Pipeline synced · 8 active deal pages",
     stat: { label: "Pages Synced", value: "8" },
     buttonLabel: "Sync Pipeline", tier: "recommended",
@@ -100,7 +100,7 @@ const SENSORS: SensorConfig[] = [
   {
     id: "attio", name: "Attio", icon: Database, type: "pipeline",
     typeLabel: "Intelligence Pipeline", desc: "Relationship intelligence",
-    glowColor: "rgba(168,85,247,0.25)", glowHsl: "bg-purple-500",
+    glowColor: "rgba(91,92,255,0.25)", glowHsl: "bg-purple-500",
     telemetry: "Relationship graph: 89 nodes active",
     stat: { label: "Relationships", value: "89" },
     buttonLabel: "Sync Pipeline", tier: "power",
@@ -124,7 +124,7 @@ function SparklinePulse() {
       {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.3].map((h, i) => (
         <motion.div
           key={i}
-          className="w-[2px] rounded-full bg-emerald-400/70"
+          className="w-[2px] rounded-full bg-emerald-500/70"
           animate={{ height: [`${h * 12}px`, `${h * 5}px`, `${h * 12}px`] }}
           transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1, ease: "easeInOut" }}
         />
@@ -141,7 +141,7 @@ function GoogleSafeBrandIcon({ displayIcon, sensorName, isGoogleSensor, Fallback
   if (failed && isGoogleSensor) {
     return (
       <div className="flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-black"
-        style={{ backgroundColor: "hsl(217 89% 61%)", color: "white" }}>G</div>
+        style={{ backgroundColor: "#5B5CFF", color: "white" }}>G</div>
     );
   }
   if (failed) return <FallbackIcon className="h-3.5 w-3.5 text-white/40" />;
@@ -205,7 +205,7 @@ function SensorCard({
             connected ? "border-white/10 bg-white/[0.06]" : "border-white/[0.06] bg-white/[0.03]"
           )}>
             {connected
-              ? <Check className="h-3.5 w-3.5 text-emerald-400" />
+              ? <Check className="h-3.5 w-3.5 text-emerald-500" />
               : syncing
               ? <Loader2 className="h-3.5 w-3.5 text-white/40 animate-spin" />
               : (() => {
@@ -242,8 +242,8 @@ function SensorCard({
             <h3 className="text-[13px] font-semibold text-white tracking-tight truncate">{sensor.name}</h3>
             {connected && !syncing && (
               <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 shrink-0">
-                <motion.div className="h-1 w-1 rounded-full bg-emerald-400" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-                <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+                <motion.div className="h-1 w-1 rounded-full bg-emerald-500" animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+                <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-wider">Live</span>
               </div>
             )}
             {syncing && (
@@ -256,7 +256,7 @@ function SensorCard({
           <p className="text-[10px] text-white/25 mt-0.5 truncate">{sensor.desc}</p>
           {syncing && <p className="text-[9px] text-indigo-400 font-mono mt-1">{syncMessage}</p>}
           {connected && !syncing && (
-            <p className="text-[9px] text-emerald-400/70 font-mono mt-1 truncate">{sensor.telemetry}</p>
+            <p className="text-[9px] text-emerald-500/70 font-mono mt-1 truncate">{sensor.telemetry}</p>
           )}
         </div>
 
@@ -324,7 +324,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
         const y = rect.top / window.innerHeight;
         confetti({
           particleCount: 60, spread: 50, origin: { x, y },
-          colors: ["#6366f1", "#34d399", "#818cf8", "#fbbf24"],
+          colors: ["#5B5CFF", "#2EE6A6", "#8788ff", "#fbbf24"],
         });
       }
       setPrevCount(connected.length);
@@ -406,8 +406,8 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
                 className={cn(
                   "h-full rounded-full",
                   meter === 100
-                    ? "bg-gradient-to-r from-emerald-400 to-emerald-300"
-                    : "bg-gradient-to-r from-indigo-500 to-emerald-400"
+                    ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+                    : "bg-gradient-to-r from-indigo-500 to-emerald-500"
                 )}
                 animate={{ width: `${meter}%` }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
@@ -418,7 +418,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="flex items-center justify-center gap-1.5 mt-2 text-emerald-400"
+                  className="flex items-center justify-center gap-1.5 mt-2 text-emerald-500"
                 >
                   <Sparkles className="h-3 w-3" />
                   <span className="text-[10px] font-semibold font-mono">Analysis Complete</span>
@@ -457,7 +457,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
                         isActive ? "bg-emerald-500/10" : "bg-white/[0.03]"
                       )}>
                         {isActive
-                          ? <Check className="h-3 w-3 text-emerald-400" />
+                          ? <Check className="h-3 w-3 text-emerald-500" />
                           : <Lock className="h-3 w-3 text-white/20" />
                         }
                       </div>
@@ -474,7 +474,7 @@ export function StepPowerUp({ state, update, onNext, onBack }: StepPowerUpProps)
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
-                              className="text-[9px] text-emerald-400/60 font-mono mt-0.5"
+                              className="text-[9px] text-emerald-500/60 font-mono mt-0.5"
                             >
                               {item.detail}
                             </motion.p>

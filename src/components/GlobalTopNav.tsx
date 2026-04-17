@@ -424,7 +424,7 @@ const PULSE_MESSAGES: readonly {
   color: string;
   nav: PulseNav;
 }[] = [
-  { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-400", nav: { kind: "intel", view: "market-funding" } },
+  { text: "12 New Seed Rounds Today", icon: Zap, color: "text-emerald-500", nav: { kind: "intel", view: "market-funding" } },
   { text: "3 Funds Actively Deploying", icon: Activity, color: "text-sky-400", nav: { kind: "investor", chip: "matches", scrollCohorts: true } },
   { text: "AI Sector +18% This Week", icon: TrendingUp, color: "text-amber-400", nav: { kind: "intel", view: "market-category" } },
   { text: "8 New Investors Added", icon: Radio, color: "text-violet-400", nav: { kind: "investor", chip: "recent", scrollCohorts: true } },
@@ -1065,8 +1065,8 @@ export function GlobalTopNav({
             >
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 </span>
                 <PulseIcon className={cn("h-3 w-3 shrink-0", pulse.color)} />
                 <span className="hidden truncate text-muted-foreground xl:inline">{pulse.text}</span>
@@ -1219,8 +1219,8 @@ export function GlobalTopNav({
                 ) : (
                   <>
                     <div className="flex items-center gap-1.5 px-1 pb-2">
-                      <Sparkles className="h-3 w-3 text-emerald-400" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
+                      <Sparkles className="h-3 w-3 text-emerald-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500/80">
                         AI Suggestions
                       </span>
                     </div>

@@ -6,7 +6,14 @@
  */
 import { createHash } from "node:crypto";
 import { PrismaClient, type FundingIngestSourceKey, type Prisma } from "@prisma/client";
-import { extractDeterministic, investorRowsFromExtracted, stripHtml } from "./extract.js";
+import {
+  extractDeterministic,
+  investorRowsFromExtracted,
+  stripHtml,
+  isLikelyVcFundVehicleHeadline,
+  sanitizeInvestorList,
+  inferSectorFromDealCopy,
+} from "./extract.js";
 import { extractWithOpenAI } from "./openaiExtract.js";
 import { canonicalizeArticleUrl } from "./url.js";
 import { normalizeCompanyName, normalizeRound, normalizeSector, parseMoneyToUsdMinorUnits } from "./normalize.js";
@@ -86,6 +93,14 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required");
   }
+
+  let dbHost = "unknown";
+  try {
+    dbHost = new URL(process.env.DATABASE_URL).hostname;
+  } catch {
+    /* ignore */
+  }
+  log(`starting (dry=${DRY}, max_per_source=${MAX_PER_SOURCE}, db_host=${dbHost})`);
 
   const summary: RunSummary = {
     articlesFetched: 0,
@@ -212,14 +227,29 @@ async function main() {
           }
 
           ex.round_type_normalized = normalizeRound(ex.round_type_raw);
+          const inferredSector = inferSectorFromDealCopy(item.title, plain);
+          if (inferredSector) {
+            ex.sector_raw = inferredSector;
+          }
           ex.sector_normalized = normalizeSector(ex.sector_raw) ?? ex.sector_normalized;
+
+          ex.lead_investors = sanitizeInvestorList(ex.lead_investors);
+          ex.participating_investors = sanitizeInvestorList(ex.participating_investors);
+          ex.existing_investors_mentioned = sanitizeInvestorList(ex.existing_investors_mentioned);
 
           const company = ex.company_name?.trim() || item.title.split(/raises|secures|lands/i)[0]?.trim() || item.title;
           const company_name_normalized = normalizeCompanyName(company);
+          const vcFundVehicle = isLikelyVcFundVehicleHeadline(item.title, plain);
           const needsReview =
+            vcFundVehicle ||
             !ex.company_name ||
             ex.extraction_confidence < 0.45 ||
             (!ex.amount_raw && !ex.round_type_raw && ex.lead_investors.length === 0);
+          const reviewReason = needsReview
+            ? vcFundVehicle
+              ? "likely_vc_fund_raise_not_portfolio"
+              : "missing_core_fields_or_low_confidence"
+            : null;
 
           if (!DRY) {
             const existing = await prisma.sourceArticle.findUnique({ where: { canonical_url: canonical } });
@@ -301,7 +331,7 @@ async function main() {
                 extraction_method: ex.extraction_method,
                 raw_extraction_json: ex as unknown as Prisma.InputJsonValue,
                 needs_review: needsReview,
-                review_reason: needsReview ? "missing_core_fields_or_low_confidence" : null,
+                review_reason: reviewReason,
               },
               update: {
                 company_name: company,
@@ -323,7 +353,7 @@ async function main() {
                 extraction_method: ex.extraction_method,
                 raw_extraction_json: ex as unknown as Prisma.InputJsonValue,
                 needs_review: needsReview,
-                review_reason: needsReview ? "missing_core_fields_or_low_confidence" : null,
+                review_reason: reviewReason,
               },
             });
             summary.dealsUpserted += 1;
@@ -335,7 +365,9 @@ async function main() {
                 source_article_id: article.id,
                 funding_deal_id: deal.id,
                 level: "warn",
-                message: "needs_review — missing_core_fields_or_low_confidence",
+                message: vcFundVehicle
+                  ? "needs_review — likely VC fund vehicle (not portfolio company round)"
+                  : "needs_review — missing_core_fields_or_low_confidence",
                 payload_json: {
                   extraction_confidence: ex.extraction_confidence,
                   company_name: company,
