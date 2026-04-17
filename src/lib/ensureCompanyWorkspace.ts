@@ -1,6 +1,6 @@
 import { FunctionsFetchError, FunctionsRelayError } from "@supabase/supabase-js";
 import type { CompanyData } from "@/components/CompanyProfile";
-import { supabase, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { supabase, supabasePublicDirectory, getSupabaseAccessToken, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { ensureManagerMembership } from "@/lib/ensureManagerMembership";
 import { isFunctionsHttpError, readFunctionsHttpErrorMessage } from "@/lib/supabaseFunctionErrors";
@@ -138,7 +138,10 @@ export async function ensureCompanyWorkspace(
   // RPC fallback: SECURITY DEFINER function bypasses RLS entirely — works even when Clerk is not
   // configured as a Supabase third-party auth provider (anon role, auth.jwt()->>'sub' is null).
   if (isSupabaseConfigured) {
-    const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
+    // Use the anon-only client — the main supabase client sends the Clerk JWT which Supabase
+    // rejects with PGRST301 when Clerk isn't configured as third-party auth, killing the RPC
+    // before it reaches the function. supabasePublicDirectory uses only the publishable key.
+    const { data: rpcData, error: rpcError } = await (supabasePublicDirectory as any).rpc(
       "create_company_workspace",
       { p_user_id: userId, p_company_name: name, p_website_url: website || null },
     );
