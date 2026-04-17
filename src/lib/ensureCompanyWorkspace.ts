@@ -137,10 +137,8 @@ export async function ensureCompanyWorkspace(
 
   // RPC fallback: SECURITY DEFINER function bypasses RLS entirely — works even when Clerk is not
   // configured as a Supabase third-party auth provider (anon role, auth.jwt()->>'sub' is null).
+  // Uses the anon-only client so the Clerk JWT is never sent (avoids PGRST301 rejection).
   if (isSupabaseConfigured) {
-    // Use the anon-only client — the main supabase client sends the Clerk JWT which Supabase
-    // rejects with PGRST301 when Clerk isn't configured as third-party auth, killing the RPC
-    // before it reaches the function. supabasePublicDirectory uses only the publishable key.
     const { data: rpcData, error: rpcError } = await (supabasePublicDirectory as any).rpc(
       "create_company_workspace",
       { p_user_id: userId, p_company_name: name, p_website_url: website || null },
@@ -149,12 +147,9 @@ export async function ensureCompanyWorkspace(
     if (!rpcError && rpc?.success && rpc?.companyId) {
       return { ok: true, companyId: rpc.companyId };
     }
-    if (!rpcError && rpc?.error) {
-      return { ok: false, error: rpc.error };
-    }
-    if (rpcError) {
-      console.warn("[ensureCompanyWorkspace] create_company_workspace RPC:", rpcError.message, "— trying direct DB.");
-    }
+    // Return any failure directly — do not fall through to the RLS-blocked direct DB path.
+    const rpcErrMsg = rpcError?.message ?? rpc?.error ?? "create_company_workspace RPC returned no result";
+    return { ok: false, error: `Workspace setup failed: ${rpcErrMsg}` };
   }
 
   const { data: existingMem } = await sb
