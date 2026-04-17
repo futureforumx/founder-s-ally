@@ -3130,6 +3130,12 @@ export function CommunityView({
   const networkDirectoryFooterCountText = useMemo(() => {
     if (!directoryDbGrid || isOperatorHubLayout) return null;
     const fmt = (n: number | null | undefined) => (n == null ? "…" : n.toLocaleString());
+    /** Avoid `3/0` when count RPC is 0 under RLS but rows are visible. */
+    const fmtTotalVsShown = (shown: number, t: number | null | undefined) => {
+      if (t == null) return "…";
+      if (t === 0 && shown > 0) return "…";
+      return t.toLocaleString();
+    };
 
     if (activeScope === "all") {
       if (communityGrid.loading && visibleGrid.length === 0) {
@@ -3144,7 +3150,7 @@ export function CommunityView({
         else if (e.category === "operator") operatorsShown++;
       }
       const { founders: tf, companies: tc, operators: to } = communityGrid.totals;
-      return `Founders ${foundersShown}/${fmt(tf)} · Companies ${companiesShown}/${fmt(tc)} · Operators ${operatorsShown}/${fmt(to)}`;
+      return `Founders ${foundersShown}/${fmtTotalVsShown(foundersShown, tf)} · Companies ${companiesShown}/${fmtTotalVsShown(companiesShown, tc)} · Operators ${operatorsShown}/${fmtTotalVsShown(operatorsShown, to)}`;
     }
 
     if (communityGrid.totalForScope != null) {
