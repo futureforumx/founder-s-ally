@@ -516,6 +516,128 @@ function normalizeStage(raw: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Match + email helpers (file-scope so handler can call them)
+// ---------------------------------------------------------------------------
+
+interface MatchResult {
+  name: string;
+  firm?: string;
+}
+
+function classifySignup(signup: { role: string | null; stage: string | null }): "investor" | "founder" | "other" {
+  const role = (signup.role ?? "").toLowerCase();
+  const stage = (signup.stage ?? "").toLowerCase();
+  if (role.includes("investor")) return "investor";
+  if (role.includes("founder")) return "founder";
+  return "other";
+}
+
+async function generateMatches(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  classification: "investor" | "founder" | "other",
+): Promise<MatchResult[]> {
+  try {
+    if (classification === "founder") {
+      // Founders want to find investors → query firm_investors + firm_records
+      const { data, error } = await supabase
+        .from("firm_investors")
+        .select("full_name, firm_records(firm_name)")
+        .is("deleted_at", null)
+        .limit(5);
+      if (error) {
+        console.warn("[waitlist-signup] generateMatches firm_investors error:", error.message);
+        return [];
+      }
+      return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+        name: (r.full_name as string) ?? "Unknown",
+        firm: (r.firm_records as Record<string, unknown> | null)?.firm_name as string | undefined,
+      }));
+    }
+
+    if (classification === "investor") {
+      // Investors want to find founders/operators → query operator_profiles
+      const { data, error } = await supabase
+        .from("operator_profiles")
+        .select("full_name, current_company_name")
+        .is("deleted_at", null)
+        .limit(5);
+      if (error) {
+        console.warn("[waitlist-signup] generateMatches operator_profiles error:", error.message);
+        return [];
+      }
+      return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+        name: (r.full_name as string) ?? "Unknown",
+        firm: (r.current_company_name as string | null) ?? undefined,
+      }));
+    }
+
+    return [];
+  } catch (err) {
+    console.warn("[waitlist-signup] generateMatches unexpected error:", err);
+    return [];
+  }
+}
+
+async function sendMatchEmail(opts: {
+  email: string;
+  classification: "investor" | "founder" | "other";
+  matches: MatchResult[];
+}): Promise<void> {
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendKey) {
+    console.warn("[waitlist-signup] RESEND_API_KEY not set — skipping match email");
+    return;
+  }
+  if (opts.classification === "other") {
+    console.log("[waitlist-signup] classification=other — skipping match email");
+    return;
+  }
+  if (opts.matches.length === 0) {
+    console.log("[waitlist-signup] no matches found — skipping match email");
+    return;
+  }
+
+  const label = opts.classification === "founder" ? "investors" : "founders";
+  const rows = opts.matches
+    .map((m) => `<li>${m.name}${m.firm ? ` — <em>${m.firm}</em>` : ""}</li>`)
+    .join("\n");
+
+  const html = `
+<p>Hi,</p>
+<p>You've joined the Vekta waitlist. Here are some ${label} you might want to connect with:</p>
+<ul>
+${rows}
+</ul>
+<p>We'll be in touch soon.<br/>— The Vekta Team</p>
+`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Vekta <hello@vekta.app>",
+        to: [opts.email],
+        subject: `Your Vekta matches are ready`,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn("[waitlist-signup] Resend API error:", res.status, body);
+    } else {
+      console.log("[waitlist-signup] match email sent to", opts.email);
+    }
+  } catch (err) {
+    console.warn("[waitlist-signup] sendMatchEmail fetch error:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Direct JSON parser (unchanged)
 // ---------------------------------------------------------------------------
 
@@ -617,6 +739,33 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    // ===== MATCH + EMAIL TRIGGER =====
+if (email) {
+  try {
+    const signup = {
+      email,
+      role: parsed.role,
+      stage: parsed.stage,
+    };
+
+    const classification = classifySignup(signup);
+    const matches = await generateMatches(supabase, classification);
+
+    await sendMatchEmail({
+      email,
+      classification,
+      matches,
+    });
+
+    console.log("[waitlist-signup] match + email sent", {
+      email,
+      classification,
+      matchCount: matches.length,
+    });
+  } catch (err) {
+    console.error("[waitlist-signup] match/email error", err);
+  }
+}
 
     const result = {
       ...data,
