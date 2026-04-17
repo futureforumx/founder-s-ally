@@ -135,6 +135,25 @@ export async function ensureCompanyWorkspace(
     }
   }
 
+  // RPC fallback: SECURITY DEFINER function bypasses RLS entirely — works even when Clerk is not
+  // configured as a Supabase third-party auth provider (anon role, auth.jwt()->>'sub' is null).
+  if (isSupabaseConfigured) {
+    const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
+      "create_company_workspace",
+      { p_user_id: userId, p_company_name: name, p_website_url: website || null },
+    );
+    const rpc = rpcData as { success?: boolean; companyId?: string; error?: string } | null;
+    if (!rpcError && rpc?.success && rpc?.companyId) {
+      return { ok: true, companyId: rpc.companyId };
+    }
+    if (!rpcError && rpc?.error) {
+      return { ok: false, error: rpc.error };
+    }
+    if (rpcError) {
+      console.warn("[ensureCompanyWorkspace] create_company_workspace RPC:", rpcError.message, "— trying direct DB.");
+    }
+  }
+
   const { data: existingMem } = await sb
     .from("company_members")
     .select("company_id")
