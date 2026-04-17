@@ -1,15 +1,56 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-/** Mirrors `prisma.vCFirm.findUnique({ include: { ... } })` via PostgREST (same Postgres as Prisma). */
 const FIRM_DETAIL_SELECT = `
-  *,
-  vc_funds (*),
-  vc_people (*),
-  vc_investments (*),
-  vc_signals (*),
-  vc_source_links (*),
-  vc_score_snapshots (*)
+  id, firm_name, legal_name, slug, aliases,
+  firm_type, entity_type, status, verification_status,
+  logo_url, website_url, domain, founded_year,
+  hq_location, hq_city, hq_state, hq_country, hq_region, hq_zip_code, location,
+  description, short_description, elevator_pitch, portfolio_summary, notable_portfolio_companies,
+  stage_focus, investment_stages, sectors, thesis_verticals, themes,
+  geography_focus, geo_focus, check_size_min, check_size_max, min_check_size, max_check_size,
+  lead_or_follow, strategy_classifications, thesis_orientation,
+  aum, aum_usd, is_actively_deploying,
+  linkedin_url, x_url, crunchbase_url, angellist_url, signal_nfx_url, openvc_url,
+  vcsheet_url, medium_url, substack_url,
+  match_score, reputation_score, responsiveness_score, value_add_score,
+  network_strength, industry_reputation, founder_reputation_score,
+  data_confidence_score, data_completeness_score,
+  firm_render_ready, is_trending, is_popular, is_recent,
+  funding_intel_activity_score, funding_intel_momentum_score, funding_intel_pace_label,
+  funding_intel_focus_json, funding_intel_metrics_json, funding_intel_recent_investments_json,
+  funding_intel_summary, funding_intel_last_deal_at,
+  team_size, total_headcount, total_investors, total_partners,
+  general_partner_count, partner_names, general_partner_names,
+  source_urls_json, field_source_json, field_confidence_json,
+  last_enriched_at, last_verified_at, next_update_scheduled_at, created_at, updated_at,
+  prisma_firm_id,
+  vc_funds (
+    id, fund_name, fund_number, vintage_year, status, fund_type,
+    size_usd, aum_usd, aum_band, currency,
+    stage_focus, sector_focus, geography_focus, themes,
+    actively_deploying, avg_check_size_min, avg_check_size_max,
+    investments_last_12m, last_investment_date, deleted_at
+  ),
+  vc_people (
+    id, first_name, last_name, title, role, bio, avatar_url,
+    linkedin_url, x_url, stage_focus, sector_focus,
+    is_actively_investing, warm_intro_preferred, deleted_at
+  ),
+  vc_investments (
+    id, company_name, company_url, round_stage, announced_at, deleted_at
+  ),
+  vc_signals (
+    id, signal_type, signal_date, summary, deleted_at
+  ),
+  vc_source_links (
+    id, source_type, url, label, deleted_at
+  ),
+  vc_score_snapshots (
+    id, match_score, reputation_score, founder_sentiment,
+    responsiveness_score, value_add_ability, network_strength,
+    active_deployment, computed_at, model_version, deleted_at
+  )
 `.trim();
 
 export type VcFundRow = Record<string, unknown> & { id: string; deleted_at?: string | null };

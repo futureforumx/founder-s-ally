@@ -744,6 +744,24 @@ export type Database = {
           website_url: string | null
           x_url: string | null
           youtube_url: string | null
+          // --- canonical schema standardization (migration 20260420150000) ---
+          domain: string | null
+          short_description: string | null
+          portfolio_summary: string | null
+          notable_portfolio_companies: string[] | null
+          hq_location: string | null
+          investment_stages: string[] | null
+          sectors: string[] | null
+          themes: string[] | null
+          geography_focus: string[] | null
+          check_size_min: number | null
+          check_size_max: number | null
+          team_size: number | null
+          data_completeness_score: number | null
+          firm_render_ready: boolean
+          source_urls_json: Record<string, unknown> | null
+          field_source_json: Record<string, unknown> | null
+          field_confidence_json: Record<string, unknown> | null
         }
         Insert: {
           address?: string | null
@@ -851,6 +869,23 @@ export type Database = {
           website_url?: string | null
           x_url?: string | null
           youtube_url?: string | null
+          domain?: string | null
+          short_description?: string | null
+          portfolio_summary?: string | null
+          notable_portfolio_companies?: string[] | null
+          hq_location?: string | null
+          investment_stages?: string[] | null
+          sectors?: string[] | null
+          themes?: string[] | null
+          geography_focus?: string[] | null
+          check_size_min?: number | null
+          check_size_max?: number | null
+          team_size?: number | null
+          data_completeness_score?: number | null
+          firm_render_ready?: boolean
+          source_urls_json?: Record<string, unknown> | null
+          field_source_json?: Record<string, unknown> | null
+          field_confidence_json?: Record<string, unknown> | null
         }
         Update: {
           address?: string | null
@@ -957,6 +992,23 @@ export type Database = {
           website_url?: string | null
           x_url?: string | null
           youtube_url?: string | null
+          domain?: string | null
+          short_description?: string | null
+          portfolio_summary?: string | null
+          notable_portfolio_companies?: string[] | null
+          hq_location?: string | null
+          investment_stages?: string[] | null
+          sectors?: string[] | null
+          themes?: string[] | null
+          geography_focus?: string[] | null
+          check_size_min?: number | null
+          check_size_max?: number | null
+          team_size?: number | null
+          data_completeness_score?: number | null
+          firm_render_ready?: boolean
+          source_urls_json?: Record<string, unknown> | null
+          field_source_json?: Record<string, unknown> | null
+          field_confidence_json?: Record<string, unknown> | null
         }
         Relationships: []
       }
@@ -1076,6 +1128,26 @@ export type Database = {
           website_url: string | null
           x_url: string | null
           youtube_url: string | null
+          // --- canonical schema standardization (migration 20260420150000) ---
+          person_id: string | null
+          role_type: string | null
+          is_partner: boolean
+          short_bio: string | null
+          location: string | null
+          personal_website_url: string | null
+          crunchbase_url: string | null
+          signal_url: string | null
+          github_url: string | null
+          education: Record<string, unknown>[] | null
+          prior_companies: string[] | null
+          investment_stages: string[] | null
+          sector_focus_canonical: string[] | null
+          check_size_focus: string | null
+          data_completeness_score: number | null
+          investor_render_ready: boolean
+          source_urls_json: Record<string, unknown> | null
+          field_source_json: Record<string, unknown> | null
+          field_confidence_json: Record<string, unknown> | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1139,6 +1211,25 @@ export type Database = {
           website_url?: string | null
           x_url?: string | null
           youtube_url?: string | null
+          person_id?: string | null
+          role_type?: string | null
+          is_partner?: boolean
+          short_bio?: string | null
+          location?: string | null
+          personal_website_url?: string | null
+          crunchbase_url?: string | null
+          signal_url?: string | null
+          github_url?: string | null
+          education?: Record<string, unknown>[] | null
+          prior_companies?: string[] | null
+          investment_stages?: string[] | null
+          sector_focus_canonical?: string[] | null
+          check_size_focus?: string | null
+          data_completeness_score?: number | null
+          investor_render_ready?: boolean
+          source_urls_json?: Record<string, unknown> | null
+          field_source_json?: Record<string, unknown> | null
+          field_confidence_json?: Record<string, unknown> | null
         }
         Update: {
           avatar_url?: string | null
@@ -1202,6 +1293,25 @@ export type Database = {
           website_url?: string | null
           x_url?: string | null
           youtube_url?: string | null
+          person_id?: string | null
+          role_type?: string | null
+          is_partner?: boolean
+          short_bio?: string | null
+          location?: string | null
+          personal_website_url?: string | null
+          crunchbase_url?: string | null
+          signal_url?: string | null
+          github_url?: string | null
+          education?: Record<string, unknown>[] | null
+          prior_companies?: string[] | null
+          investment_stages?: string[] | null
+          sector_focus_canonical?: string[] | null
+          check_size_focus?: string | null
+          data_completeness_score?: number | null
+          investor_render_ready?: boolean
+          source_urls_json?: Record<string, unknown> | null
+          field_source_json?: Record<string, unknown> | null
+          field_confidence_json?: Record<string, unknown> | null
         }
         Relationships: [
           {
