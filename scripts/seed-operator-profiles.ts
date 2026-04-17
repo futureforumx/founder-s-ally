@@ -18,7 +18,7 @@
  *
  * Requires: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
  * DB: unique indexes operator_profiles_people_id_unique and operator_profiles_source_source_id_unique
- *     (migration 20260415200000_operator_profiles_upsert_uniques.sql)
+ *     (migration 20260415180500_operator_profiles_upsert_uniques.sql)
  */
 
 import { existsSync, readFileSync } from "node:fs";

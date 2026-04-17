@@ -524,11 +524,47 @@ interface MatchResult {
   firm?: string;
 }
 
-function classifySignup(signup: { role: string | null; stage: string | null }): "investor" | "founder" | "other" {
+function classifySignup(signup: {
+  role: string | null;
+  stage: string | null;
+  intent?: string[];
+  urgency?: string | null;
+}): "investor" | "founder" | "other" {
   const role = (signup.role ?? "").toLowerCase();
   const stage = (signup.stage ?? "").toLowerCase();
-  if (role.includes("investor")) return "investor";
-  if (role.includes("founder")) return "founder";
+  const urgency = (signup.urgency ?? "").toLowerCase();
+  const intentStr = (signup.intent ?? []).join(" ").toLowerCase();
+
+  // Investor keyword set (role)
+  const INVESTOR_ROLE = ["investor", "vc", "venture", "angel", "fund", "capital", "partner"];
+  // Founder keyword set (role)
+  const FOUNDER_ROLE = ["founder", "ceo", "cofounder", "co-founder", "entrepreneur", "startup"];
+  // Deploying signals (stage / urgency)
+  const DEPLOYING_STAGE = ["deploy", "investing", "active", "capital"];
+  // Raising signals (stage / urgency)
+  const RAISING_STAGE = ["raising", "fundraising", "fundraise", "pitching"];
+
+  const isInvestorRole = INVESTOR_ROLE.some((kw) => role.includes(kw));
+  const isFounderRole  = FOUNDER_ROLE.some((kw) => role.includes(kw));
+  const isDeploying    = DEPLOYING_STAGE.some((kw) => stage.includes(kw) || urgency.includes(kw));
+  const isRaising      = RAISING_STAGE.some((kw) => stage.includes(kw) || urgency.includes(kw));
+
+  // Primary: role is unambiguous
+  if (isInvestorRole && !isFounderRole) return "investor";
+  if (isFounderRole && !isInvestorRole) return "founder";
+
+  // Secondary: role is ambiguous / missing — use stage/urgency signals
+  if (isDeploying) return "investor";
+  if (isRaising)   return "founder";
+
+  // Tertiary: intent fallback
+  if (intentStr.includes("source_deals") || intentStr.includes("find_founders") || intentStr.includes("monitor_market")) return "investor";
+  if (intentStr.includes("find_investors") || intentStr.includes("get_warm_intros")) return "founder";
+
+  // Final: if at least one role keyword matched, use it
+  if (isInvestorRole) return "investor";
+  if (isFounderRole)  return "founder";
+
   return "other";
 }
 
@@ -620,7 +656,7 @@ ${rows}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Vekta <hello@vekta.app>",
+        from: Deno.env.get("RESEND_FROM") || "Vekta <hello@tryvekta.com>",
         to: [opts.email],
         subject: `Your Vekta matches are ready`,
         html,
@@ -742,10 +778,19 @@ serve(async (req) => {
     // ===== MATCH + EMAIL TRIGGER =====
 if (email) {
   try {
+    console.log("[waitlist-signup] classify input", {
+      role: parsed.role,
+      stage: parsed.stage,
+      urgency: parsed.urgency,
+      intent: parsed.intent,
+    });
+
     const signup = {
       email,
       role: parsed.role,
       stage: parsed.stage,
+      intent: parsed.intent,
+      urgency: parsed.urgency,
     };
 
     const classification = classifySignup(signup);

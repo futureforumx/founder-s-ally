@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, type CSSProperties } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
@@ -143,6 +143,16 @@ function DeferredSection({
   return <Suspense fallback={<SectionLoader label={label} />}>{children}</Suspense>;
 }
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "vekta-app-sidebar-collapsed";
+
+function readSidebarCollapsedFromStorage(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const Index = () => {
   const { user: authUser } = useAuth();
   const [searchParams] = useSearchParams();
@@ -179,6 +189,26 @@ const Index = () => {
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
   const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsedFromStorage);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, sidebarCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "b" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSidebarCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (location.pathname === "/intelligence") {
@@ -498,8 +528,12 @@ const Index = () => {
     if (q.trim()) setActiveView("investor-search");
   }, []);
 
+  const shellStyle = {
+    "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "11rem",
+  } as CSSProperties;
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden" style={shellStyle}>
       {showOnboarding && !profileComplete && (
         <DeferredSection label="Loading onboarding…">
           <OnboardingStepper
@@ -518,7 +552,12 @@ const Index = () => {
         </DeferredSection>
       )}
 
-      <AppSidebar activeView={activeView} onViewChange={setActiveView} />
+      <AppSidebar
+        activeView={activeView}
+        onViewChange={setActiveView}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+      />
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
           companyName={companyData?.name}

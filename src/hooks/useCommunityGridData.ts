@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabasePublicDirectory } from "@/integrations/supabase/client";
 import type { CompanyProfile, FounderProfile, OperatorProfile } from "@/hooks/useProfile";
-import {
-  NETWORK_DIRECTORY_DEMO_COMPANIES,
-  NETWORK_DIRECTORY_DEMO_FOUNDERS,
-  NETWORK_DIRECTORY_DEMO_OPERATORS,
-} from "@/lib/networkDirectoryFallbackData";
 
 const sb = supabasePublicDirectory as any;
 
@@ -32,59 +27,6 @@ function escapeIlike(s: string): string {
 }
 
 export type CommunityGridScope = "all" | "founders" | "companies" | "operators" | "investors";
-
-function withDirectoryFallback(
-  scope: CommunityGridScope,
-  f: FounderProfile[],
-  c: CompanyProfile[],
-  o: OperatorProfile[],
-): {
-  founders: FounderProfile[];
-  companies: CompanyProfile[];
-  operators: OperatorProfile[];
-  usedDemo: boolean;
-} {
-  let founders = f;
-  let companies = c;
-  let operators = o;
-  let usedDemo = false;
-
-  if (scope === "founders" && founders.length === 0) {
-    founders = NETWORK_DIRECTORY_DEMO_FOUNDERS;
-    usedDemo = true;
-  } else if (scope === "companies" && companies.length === 0) {
-    companies = NETWORK_DIRECTORY_DEMO_COMPANIES;
-    usedDemo = true;
-  } else if (scope === "operators") {
-    if (operators.length === 0) {
-      operators = NETWORK_DIRECTORY_DEMO_OPERATORS;
-      usedDemo = true;
-    }
-    if (founders.length === 0) {
-      founders = NETWORK_DIRECTORY_DEMO_FOUNDERS.slice(0, 2);
-      usedDemo = true;
-    }
-    if (companies.length === 0) {
-      companies = NETWORK_DIRECTORY_DEMO_COMPANIES.slice(0, 2);
-      usedDemo = true;
-    }
-  } else if (scope === "all") {
-    if (founders.length === 0) {
-      founders = NETWORK_DIRECTORY_DEMO_FOUNDERS;
-      usedDemo = true;
-    }
-    if (companies.length === 0) {
-      companies = NETWORK_DIRECTORY_DEMO_COMPANIES;
-      usedDemo = true;
-    }
-    if (operators.length === 0) {
-      operators = NETWORK_DIRECTORY_DEMO_OPERATORS;
-      usedDemo = true;
-    }
-  }
-
-  return { founders, companies, operators, usedDemo };
-}
 
 export interface CommunityGridTotals {
   founders: number | null;
@@ -425,19 +367,17 @@ export function useCommunityGridData({
           setOperators([]);
           const { rows, exhausted } = await loadFounderBatch(true);
           if (cancelled) return;
-          const fb = withDirectoryFallback("founders", rows, [], []);
-          firstFounders = fb.founders.length;
-          setFounders(fb.founders);
+          firstFounders = rows.length;
+          setFounders(rows);
           setFoundersDone(rows.length === 0 ? true : exhausted);
         } else if (activeScope === "companies") {
           setFounders([]);
           setOperators([]);
           const c = await loadCompanyPage(0, PAGE_SIZE);
           if (cancelled) return;
-          const fb = withDirectoryFallback("companies", [], c, []);
-          firstCompanies = fb.companies.length;
-          setCompanies(fb.companies);
-          companyOffsetRef.current = fb.companies.length;
+          firstCompanies = c.length;
+          setCompanies(c);
+          companyOffsetRef.current = c.length;
         } else if (activeScope === "operators") {
           const [fBatch, c, o] = await Promise.all([
             loadFounderBatch(true, PAGE_SIZE_ALL_SLICE),
@@ -446,20 +386,19 @@ export function useCommunityGridData({
           ]);
           if (cancelled) return;
           const f = fBatch.rows;
-          const fb = withDirectoryFallback("operators", f, c, o);
-          firstFounders = fb.founders.length;
-          firstCompanies = fb.companies.length;
-          firstOperators = fb.operators.length;
-          setFounders(fb.founders);
+          firstFounders = f.length;
+          firstCompanies = c.length;
+          firstOperators = o.length;
+          setFounders(f);
           /**
            * Operator hub: founder/company rows are a *preview* only. Never derive global founder
            * exhaustion from this slice (short batches can look "exhausted"; founder RPC totals may be null).
            */
           setFoundersDone(false);
-          setCompanies(fb.companies);
-          setOperators(fb.operators);
-          companyOffsetRef.current = fb.companies.length;
-          operatorOffsetRef.current = fb.operators.length;
+          setCompanies(c);
+          setOperators(o);
+          companyOffsetRef.current = c.length;
+          operatorOffsetRef.current = o.length;
         } else if (activeScope === "all") {
           const [{ rows: f, exhausted: fEx }, c, o] = await Promise.all([
             loadFounderBatch(true),
@@ -467,16 +406,15 @@ export function useCommunityGridData({
             loadOperatorPage(0, PAGE_SIZE_ALL_SLICE),
           ]);
           if (cancelled) return;
-          const fb = withDirectoryFallback("all", f, c, o);
-          firstFounders = fb.founders.length;
-          firstCompanies = fb.companies.length;
-          firstOperators = fb.operators.length;
-          setFounders(fb.founders);
+          firstFounders = f.length;
+          firstCompanies = c.length;
+          firstOperators = o.length;
+          setFounders(f);
           setFoundersDone(f.length === 0 ? true : fEx);
-          setCompanies(fb.companies);
-          setOperators(fb.operators);
-          companyOffsetRef.current = fb.companies.length;
-          operatorOffsetRef.current = fb.operators.length;
+          setCompanies(c);
+          setOperators(o);
+          companyOffsetRef.current = c.length;
+          operatorOffsetRef.current = o.length;
         }
 
         const logNetwork =
@@ -576,15 +514,43 @@ export function useCommunityGridData({
 
   const totalForScope = useMemo(() => {
     if (!enabled) return null;
-    if (activeScope === "founders") return totals.founders;
-    if (activeScope === "companies") return totals.companies;
-    if (activeScope === "operators") return totals.operators;
+    /**
+     * Postgres count RPCs can return 0 under RLS / mis-deploy while rows still load (or demo fills).
+     * Exposing `0` as the total makes the UI show "3 of 0 founders". Treat 0 with loaded rows as unknown.
+     */
+    if (activeScope === "founders") {
+      const t = totals.founders;
+      if (t === 0 && founders.length > 0) return null;
+      return t;
+    }
+    if (activeScope === "companies") {
+      const t = totals.companies;
+      if (t === 0 && companies.length > 0) return null;
+      return t;
+    }
+    if (activeScope === "operators") {
+      const t = totals.operators;
+      if (t === 0 && operators.length > 0) return null;
+      return t;
+    }
     if (activeScope === "all") {
       if (totals.founders == null && totals.companies == null && totals.operators == null) return null;
-      return (totals.founders ?? 0) + (totals.companies ?? 0) + (totals.operators ?? 0);
+      const sum = (totals.founders ?? 0) + (totals.companies ?? 0) + (totals.operators ?? 0);
+      const loaded = founders.length + companies.length + operators.length;
+      if (sum === 0 && loaded > 0) return null;
+      return sum;
     }
     return null;
-  }, [activeScope, enabled, totals.companies, totals.founders, totals.operators]);
+  }, [
+    activeScope,
+    enabled,
+    totals.companies,
+    totals.founders,
+    totals.operators,
+    founders.length,
+    companies.length,
+    operators.length,
+  ]);
 
   const loadedCount = useMemo(() => {
     if (activeScope === "founders") return founders.length;
