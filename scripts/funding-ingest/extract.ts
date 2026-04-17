@@ -27,6 +27,83 @@ function extractUrls(text: string): string[] {
   return out;
 }
 
+/**
+ * Headlines about **GPs raising LP vehicles** (e.g. "Accel raises $5B to back…", "… raises $95M fund…")
+ * are not portfolio-company financings. We flag them so the public feed can hide them (`needs_review`).
+ */
+export function isLikelyVcFundVehicleHeadline(title: string, bodyPlain: string): boolean {
+  const t = title.toLowerCase();
+  const b = bodyPlain.slice(0, 3000).toLowerCase();
+  const blob = `${t}\n${b}`;
+  // GP raising to deploy (classic TechCrunch VC fund close headline)
+  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,160}\bto back\b/.test(t)) return true;
+  // "… raises $XM fund …" / new fund (not "seed round" alone — require word "fund")
+  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\s+fund\b/.test(t)) return true;
+  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\b(new|latest|inaugural)\s+fund\b/.test(t)) return true;
+  if (/\bcloses\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,160}\bfund\b/.test(blob)) return true;
+  if (/\bfinal\s+close\b[^.]{0,120}\bfund\b/.test(blob)) return true;
+  if (/\blp\s+commitments?\b/.test(blob) && /\bfund\b/.test(blob) && /\$\s*[\d,.]+[kmb]?\b/.test(blob)) return true;
+  return false;
+}
+
+/** Site bylines often end up inside "led by …" capture groups; strip them from investor tokens. */
+const PUBLICATION_INVESTOR = /^(techcrunch|geekwire|alleywatch|business\s*wire|pr\s*newswire|axios|the\s+information|recode|wired|forbes|bloomberg|cnbc|the\s+verge)$/i;
+
+export function splitInvestorPhrases(s: string): string[] {
+  return s
+    .split(/\s*\|\s*|\s*,\s*|\s+and\s+|\s*&\s+/i)
+    .map((x) => x.replace(/^[\s"'“]+|[\s"'”]+$/g, "").trim())
+    .filter(Boolean);
+}
+
+export function isPublicationInvestorName(name: string): boolean {
+  const t = name.replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (PUBLICATION_INVESTOR.test(t)) return true;
+  if (/tech\s*crunch|geek\s*wire|business\s*wire/i.test(t)) return true;
+  return false;
+}
+
+/** Drop publication chunks and de-dupe; keeps first meaningful lead (e.g. "a16z | TechCrunch" → "a16z"). */
+export function sanitizeInvestorList(names: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of names) {
+    for (const piece of splitInvestorPhrases(raw)) {
+      if (isPublicationInvestorName(piece)) continue;
+      const key = piece.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(piece);
+    }
+  }
+  return out;
+}
+
+/** Strong vertical signals first so generic "AI" in TechCrunch boilerplate does not win over fintech. */
+export function inferSectorFromDealCopy(title: string, bodyPlain: string): string | null {
+  const head = `${title}\n${bodyPlain.slice(0, 6000)}`.toLowerCase();
+  const rules: [RegExp, string][] = [
+    [
+      /\b(fintech|financial risk|financial platform|risk management|embedded finance|payment(s)?\s+infrastructure|transaction data|merchant intelligence|card issuing|lending platform|fraud\s+(prevention|detection)|bnpl|open banking|wealth\s+tech|spend management)\b/,
+      "fintech",
+    ],
+    [/\b(healthtech|healthcare software|digital health|clinical|medical devices?)\b/, "healthtech"],
+    [/\b(cybersecurity|infosec|endpoint security|zero trust)\b/, "cybersecurity"],
+    [/\b(climate tech|carbon accounting|clean energy|decarbon)\b/, "climate"],
+    [/\b(biotech|therapeutics|genomics)\b/, "biotech"],
+    [/\b(enterprise saas|b2b saas|workflow automation)\b/, "enterprise SaaS"],
+    [/\b(d2c|consumer brand|consumer app)\b/, "consumer"],
+    [/\b(devtools|developer tools|ci\/cd|observability platform)\b/, "devtools"],
+    [/\b(artificial intelligence|machine learning|\bllm\b|generative ai)\b/, "ai"],
+    [/\bai-native\b|\bai powered\b|\busing ai\b/, "ai"],
+  ];
+  for (const [re, label] of rules) {
+    if (re.test(head)) return label;
+  }
+  return null;
+}
+
 function pickCompanyWebsite(urls: string[], companyNorm: string | null): string | null {
   if (!companyNorm) return urls[0] ?? null;
   const short = companyNorm.replace(/\s+/g, "");
@@ -73,17 +150,15 @@ export function extractDeterministic(title: string, bodyHtml: string): Extracted
   const round_type_raw = roundMatch ? roundMatch[0]!.trim() : null;
   const round_type_normalized = normalizeRound(round_type_raw);
 
-  const led = body.match(/\bled\s+by\s+([^.\n]+)/i) || body.match(/\bled\s+([^.\n]+)/i);
+  const led =
+    body.match(/\bled\s+by\s+([^|\n]+)/i) ||
+    body.match(/\bled\s+([^|\n]+)/i);
   const participation =
     body.match(/participation\s+from\s+([^.\n]+)/i) ||
     body.match(/(?:also\s+)?participating(?:\s+investors?)?[:\s]+([^.\n]+)/i) ||
     body.match(/investors?\s+include\s+([^.\n]+)/i);
 
-  const splitInvestors = (s: string) =>
-    s
-      .split(/,| and |&/i)
-      .map((x) => x.replace(/^[\s"'“]+|[\s"'”]+$/g, "").trim())
-      .filter(Boolean);
+  const splitInvestors = (s: string) => sanitizeInvestorList(splitInvestorPhrases(s));
 
   const lead_investors = led ? splitInvestors(led[1]!) : [];
   const participating_investors = participation ? splitInvestors(participation[1]!) : [];
@@ -109,8 +184,7 @@ export function extractDeterministic(title: string, bodyHtml: string): Extracted
   const companyNorm = company_name ? normalizeCompanyName(company_name) : null;
   const company_website = pickCompanyWebsite(urls, companyNorm);
 
-  const sector_raw =
-    body.match(/\b(fintech|AI|healthtech|enterprise SaaS|consumer|climate|cybersecurity|devtools|biotech)\b/i)?.[1] ?? null;
+  const sector_raw = inferSectorFromDealCopy(title, body);
 
   let confidence = 0.35;
   if (company_name) confidence += 0.2;

@@ -1,8 +1,8 @@
 import { Wifi, ScrollText, Brain, ArrowRight, History, Users } from "lucide-react";
 
 const STATS = [
-  { label: "Active Integrations", value: "7/7", color: "#39FF14" },
-  { label: "Sync Success Rate", value: "98.4%", color: "#39FF14" },
+  { label: "Active Integrations", value: "7/7", color: "#2EE6A6" },
+  { label: "Sync Success Rate", value: "98.4%", color: "#2EE6A6" },
   { label: "AI Snippets Today", value: "142", color: "#00D4FF" },
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
@@ -56,10 +56,10 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
             className="group flex flex-col items-start rounded-xl border p-5 text-left transition-colors hover:border-emerald-500/20"
             style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a0a0a" }}
           >
-            <card.icon className="h-5 w-5 mb-3" style={{ color: "#39FF14" }} />
+            <card.icon className="h-5 w-5 mb-3" style={{ color: "#2EE6A6" }} />
             <span className="text-sm font-semibold text-white/80">{card.title}</span>
             <span className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{card.desc}</span>
-            <div className="mt-3 flex items-center gap-1 text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#39FF14" }}>
+            <div className="mt-3 flex items-center gap-1 text-[11px] font-medium opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: "#2EE6A6" }}>
               Open <ArrowRight className="h-3 w-3" />
             </div>
           </button>

@@ -30,7 +30,7 @@ export default function AdminIntelligence() {
   if (loading || adminLoading) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
       </div>
     );
   }
@@ -46,7 +46,7 @@ export default function AdminIntelligence() {
         style={{ borderColor: "rgba(255,255,255,0.06)", background: "#080808" }}
       >
         <div className="mb-8 px-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: "#39FF14" }}>
+          <span className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: "#2EE6A6" }}>
             admin console
           </span>
           <div className="mt-1 flex items-center gap-2">
@@ -68,8 +68,8 @@ export default function AdminIntelligence() {
                 onClick={() => setActiveView(item.key)}
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
                 style={{
-                  background: isActive ? "rgba(57, 255, 20, 0.08)" : "transparent",
-                  color: isActive ? "#39FF14" : "rgba(255,255,255,0.45)",
+                  background: isActive ? "rgba(46, 230, 166, 0.08)" : "transparent",
+                  color: isActive ? "#2EE6A6" : "rgba(255,255,255,0.45)",
                 }}
               >
                 <item.icon className="h-4 w-4" />
@@ -80,12 +80,12 @@ export default function AdminIntelligence() {
         </nav>
 
         <div className="mt-auto px-3">
-          <div className="rounded-lg border p-3" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(57,255,20,0.03)" }}>
+          <div className="rounded-lg border p-3" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(46,230,166,0.03)" }}>
             <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>
               System
             </span>
             <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "#39FF14", boxShadow: "0 0 8px rgba(57,255,20,0.5)" }} />
+              <div className="h-2 w-2 rounded-full animate-pulse" style={{ background: "#2EE6A6", boxShadow: "0 0 8px rgba(46,230,166,0.5)" }} />
               <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>All systems nominal</span>
             </div>
           </div>

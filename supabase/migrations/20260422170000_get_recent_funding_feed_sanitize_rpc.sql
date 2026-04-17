@@ -1,10 +1,10 @@
--- Public read of ingested funding deals for the in-app Recent funding tab.
--- When prisma/funding tables are not on this Postgres yet, install a no-op RPC so db push does not fail.
+-- UI reads via get_recent_funding_feed; sanitize lead names + sector at read time so fixes apply
+-- without relying on one-off data migrates or re-ingest.
 
 DO $migration$
 BEGIN
-  IF to_regclass('public.funding_deals') IS NULL THEN
-    EXECUTE $stub$
+  IF to_regclass('public.funding_deals') IS NOT NULL THEN
+    EXECUTE $fn$
 CREATE OR REPLACE FUNCTION public.get_recent_funding_feed(p_limit integer DEFAULT 80)
 RETURNS TABLE (
   id text,
@@ -23,43 +23,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $fn$
-  SELECT
-    NULL::text AS id,
-    NULL::text AS company_name,
-    ''::text AS website_url,
-    'Unknown'::text AS sector,
-    'Unknown'::text AS round_kind,
-    '—'::text AS amount_label,
-    NULL::text AS announced_at,
-    'Unknown'::text AS lead_investor,
-    NULL::text AS lead_website_url,
-    ARRAY[]::text[] AS co_investors,
-    NULL::text AS source_url
-  WHERE false;
-$fn$;
-    $stub$;
-  ELSE
-    EXECUTE $full$
-CREATE OR REPLACE FUNCTION public.get_recent_funding_feed(p_limit integer DEFAULT 80)
-RETURNS TABLE (
-  id text,
-  company_name text,
-  website_url text,
-  sector text,
-  round_kind text,
-  amount_label text,
-  announced_at text,
-  lead_investor text,
-  lead_website_url text,
-  co_investors text[],
-  source_url text
-)
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $fn$
+AS $body$
   WITH lim AS (
     SELECT LEAST(GREATEST(COALESCE(p_limit, 80), 1), 200)::integer AS n
   )
@@ -68,6 +32,16 @@ AS $fn$
     fd.company_name::text,
     COALESCE(NULLIF(btrim(fd.company_website), ''), '')::text AS website_url,
     COALESCE(
+      CASE
+        WHEN (
+          lower(coalesce(nullif(btrim(fd.sector_normalized), ''), '')) = 'ai'
+          OR lower(coalesce(nullif(btrim(fd.sector_raw), ''), '')) = 'ai'
+        )
+        AND lower(coalesce(sa.title, '') || ' ' || coalesce(left(sa.raw_text, 8000), ''))
+          ~ 'fintech|financial risk|transaction data|merchant intelligence|payment|embedded finance|lending|risk management'
+        THEN 'fintech'::text
+        ELSE NULL
+      END,
       NULLIF(btrim(fd.sector_normalized), ''),
       NULLIF(btrim(fd.sector_raw), ''),
       'Unknown'
@@ -90,7 +64,21 @@ AS $fn$
       (sa.published_at AT TIME ZONE 'UTC')::date::text,
       (fd.created_at AT TIME ZONE 'UTC')::date::text
     )::text AS announced_at,
-    COALESCE(lead_row.name_raw, 'Unknown'::text) AS lead_investor,
+    COALESCE(
+      NULLIF(
+        trim(
+          both ' '
+          FROM regexp_replace(
+            regexp_replace(coalesce(lead_row.name_raw, ''), '\s*\|\s*(TechCrunch|GeekWire|AlleyWatch)\s*', '', 'ig'),
+            '\s+',
+            ' ',
+            'g'
+          )
+        ),
+        ''
+      ),
+      'Unknown'::text
+    ) AS lead_investor,
     NULL::text AS lead_website_url,
     COALESCE(part_rows.names, ARRAY[]::text[]) AS co_investors,
     sa.article_url::text AS source_url
@@ -105,10 +93,36 @@ AS $fn$
     LIMIT 1
   ) lead_row ON true
   LEFT JOIN LATERAL (
-    SELECT array_agg(fdi.name_raw ORDER BY fdi.sort_order ASC, fdi.id ASC) AS names
+    SELECT
+      coalesce(
+        array_agg(
+          trim(
+            both ' '
+            FROM regexp_replace(
+              regexp_replace(fdi.name_raw, '\s*\|\s*(TechCrunch|GeekWire|AlleyWatch)\s*', '', 'ig'),
+              '\s+',
+              ' ',
+              'g'
+            )
+          )
+          ORDER BY fdi.sort_order ASC, fdi.id ASC
+        ),
+        ARRAY[]::text[]
+      ) AS names
     FROM public.funding_deal_investors fdi
     WHERE fdi.funding_deal_id = fd.id
       AND fdi.role = 'PARTICIPANT'::"FundingDealInvestorRole"
+      AND length(
+            trim(
+              both ' '
+              FROM regexp_replace(
+                regexp_replace(fdi.name_raw, '\s*\|\s*(TechCrunch|GeekWire|AlleyWatch)\s*', '', 'ig'),
+                '\s+',
+                ' ',
+                'g'
+              )
+            )
+          ) > 0
   ) part_rows ON true
   CROSS JOIN lim
   WHERE fd.duplicate_of_deal_id IS NULL
@@ -117,13 +131,13 @@ AS $fn$
     COALESCE(fd.announced_date, sa.published_at::date, fd.created_at::date) DESC NULLS LAST,
     fd.updated_at DESC
   LIMIT (SELECT n FROM lim);
-$fn$;
-    $full$;
+$body$;
+    $fn$;
+
+COMMENT ON FUNCTION public.get_recent_funding_feed(integer) IS
+  'Latest funding_deals for UI; excludes needs_review; strips publication bylines from investors; promotes fintech when stored sector is ai but article copy is clearly fintech.';
+
+GRANT EXECUTE ON FUNCTION public.get_recent_funding_feed(integer) TO anon, authenticated, service_role;
   END IF;
 END
 $migration$;
-
-COMMENT ON FUNCTION public.get_recent_funding_feed(integer) IS
-  'Latest normalized funding_deals for UI; excludes duplicates and needs_review. Stub returns no rows when funding_deals is missing.';
-
-GRANT EXECUTE ON FUNCTION public.get_recent_funding_feed(integer) TO anon, authenticated, service_role;

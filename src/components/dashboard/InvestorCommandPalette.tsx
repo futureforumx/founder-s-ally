@@ -270,7 +270,7 @@ export function InvestorCommandPalette({
             {/* AI Suggestions (only when no query) */}
             {!query.trim() && (
               <CommandGroup heading={
-                <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-400/80">
+                <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-500/80">
                   <Sparkles className="h-3 w-3" /> AI Suggestions
                 </span>
               }>
@@ -281,7 +281,7 @@ export function InvestorCommandPalette({
                     className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-zinc-300 hover:bg-zinc-800 aria-selected:bg-zinc-800 aria-selected:text-zinc-100"
                   >
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 shrink-0">
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
                     </div>
                     <span className="text-sm">{suggestion}</span>
                     <span className="ml-auto text-[10px] text-zinc-600 italic">try this</span>

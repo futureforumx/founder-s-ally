@@ -52,7 +52,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
 
     playCompletionChime();
 
-    const colors = ["#39FF14", "#00FF88", "#88FFB8", "#FFFFFF"];
+    const colors = ["#2EE6A6", "#22D4A0", "#6eedcc", "#FFFFFF"];
     const end = Date.now() + 600;
 
     const frame = () => {
@@ -134,8 +134,8 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
             className="w-full max-w-2xl mx-4 rounded-2xl overflow-hidden"
             style={{
               background: "#0e0e0e",
-              boxShadow: "0 0 80px rgba(57, 255, 20, 0.08), 0 25px 60px rgba(0, 0, 0, 0.6)",
-              border: "1px solid rgba(57, 255, 20, 0.1)",
+              boxShadow: "0 0 80px rgba(46, 230, 166, 0.08), 0 25px 60px rgba(0, 0, 0, 0.6)",
+              border: "1px solid rgba(46, 230, 166, 0.1)",
             }}
           >
             {/* Header */}
@@ -164,7 +164,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                   <circle
                     cx="90" cy="90" r={radius}
                     fill="none"
-                    stroke="#39FF14"
+                    stroke="#2EE6A6"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeDasharray={circumference}
@@ -172,7 +172,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                     transform="rotate(-90 90 90)"
                     style={{
                       transition: "stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
-                      filter: "drop-shadow(0 0 6px rgba(57, 255, 20, 0.4))",
+                      filter: "drop-shadow(0 0 6px rgba(46, 230, 166, 0.4))",
                     }}
                   />
                 </svg>
@@ -181,7 +181,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span
                     className="font-mono text-3xl font-bold tabular-nums"
-                    style={{ color: "#39FF14", textShadow: "0 0 20px rgba(57, 255, 20, 0.3)" }}
+                    style={{ color: "#2EE6A6", textShadow: "0 0 20px rgba(46, 230, 166, 0.3)" }}
                   >
                     {Math.round(progress)}%
                   </span>
@@ -209,17 +209,17 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                       transition={{ duration: 0.3, delay: i * 0.05 }}
                       className="flex items-center gap-3 px-3 py-1.5 rounded-lg"
                       style={{
-                        background: isActive ? "rgba(57, 255, 20, 0.04)" : "transparent",
+                        background: isActive ? "rgba(46, 230, 166, 0.04)" : "transparent",
                       }}
                     >
                       {/* Status indicator */}
                       <div className="w-5 flex justify-center shrink-0">
                         {isCompleted ? (
-                          <span style={{ color: "#39FF14" }} className="text-sm">✓</span>
+                          <span style={{ color: "#2EE6A6" }} className="text-sm">✓</span>
                         ) : isActive ? (
                           <div
                             className="h-2 w-2 rounded-full animate-pulse"
-                            style={{ background: "#39FF14", boxShadow: "0 0 8px rgba(57, 255, 20, 0.6)" }}
+                            style={{ background: "#2EE6A6", boxShadow: "0 0 8px rgba(46, 230, 166, 0.6)" }}
                           />
                         ) : (
                           <div className="h-1.5 w-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
@@ -230,8 +230,8 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                       <span
                         className="font-mono text-[11px] font-bold shrink-0 w-14"
                         style={{
-                          color: isCompleted ? "rgba(57, 255, 20, 0.5)"
-                            : isActive ? "#39FF14"
+                          color: isCompleted ? "rgba(46, 230, 166, 0.5)"
+                            : isActive ? "#2EE6A6"
                             : "rgba(255,255,255,0.15)",
                         }}
                       >
@@ -257,9 +257,9 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
                           animate={{ opacity: 1, scale: 1 }}
                           className="font-mono text-[9px] px-2 py-0.5 rounded-full shrink-0"
                           style={{
-                            background: "rgba(57, 255, 20, 0.08)",
-                            color: "rgba(57, 255, 20, 0.5)",
-                            border: "1px solid rgba(57, 255, 20, 0.1)",
+                            background: "rgba(46, 230, 166, 0.08)",
+                            color: "rgba(46, 230, 166, 0.5)",
+                            border: "1px solid rgba(46, 230, 166, 0.1)",
                           }}
                         >
                           {step.stat}
@@ -275,7 +275,7 @@ export function AnalysisOverlay({ open, onComplete, companyName }: AnalysisOverl
             <div className="flex items-center justify-center gap-2 px-5 py-3 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
               <div
                 className="h-1.5 w-1.5 rounded-full animate-pulse"
-                style={{ background: "#39FF14", boxShadow: "0 0 6px rgba(57, 255, 20, 0.5)" }}
+                style={{ background: "#2EE6A6", boxShadow: "0 0 6px rgba(46, 230, 166, 0.5)" }}
               />
               <span className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                 Triple-source triangulation active

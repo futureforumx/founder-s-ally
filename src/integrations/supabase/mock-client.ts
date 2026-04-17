@@ -189,6 +189,23 @@ class MockSupabaseClient {
           error: null,
         };
       }
+      if (name === "waitlist-signup") {
+        const body = payload?.body ?? {};
+        const email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : "you@example.com";
+        return {
+          data: {
+            status: "created" as const,
+            id: "00000000-0000-4000-8000-00000000ca11",
+            email,
+            total_score: 120,
+            referral_code: "MOCK1REF",
+            referral_count: 0,
+            waitlist_position: 42,
+            referral_link: "https://vekta.so?ref=MOCK1REF",
+          },
+          error: null,
+        };
+      }
       return { data: { success: true }, error: null };
     }
   };

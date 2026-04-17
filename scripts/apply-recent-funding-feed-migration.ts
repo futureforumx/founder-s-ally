@@ -1,6 +1,6 @@
 /**
- * Applies supabase/migrations/20260419100000_get_recent_funding_feed.sql over a direct
- * Postgres connection — bypasses the Supabase management API (fixes CLI 403 login role).
+ * Applies the latest get_recent_funding_feed RPC migration over a direct Postgres connection
+ * (bypasses Supabase management API / CLI login issues).
  *
  * Set in .env.local (same pattern as scripts/apply-image-migration.ts):
  *   SUPABASE_DB_URL=postgresql://postgres:[PASSWORD]@db.zmnlsdohtwztneamvwaq.supabase.co:5432/postgres
@@ -31,7 +31,10 @@ Dashboard: Settings → Database → Connection string → URI (use Direct, port
   process.exit(1);
 }
 
-const MIGRATION_PATH = join(process.cwd(), "supabase/migrations/20260419100000_get_recent_funding_feed.sql");
+const MIGRATION_PATH = join(
+  process.cwd(),
+  "supabase/migrations/20260422170000_get_recent_funding_feed_sanitize_rpc.sql",
+);
 
 if (!existsSync(MIGRATION_PATH)) {
   console.error(`Migration file not found: ${MIGRATION_PATH}`);

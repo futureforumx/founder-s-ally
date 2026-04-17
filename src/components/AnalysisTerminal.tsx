@@ -51,7 +51,7 @@ const TAG_STYLES: Record<string, { color: string; glow: string }> = {
   INIT: { color: "#60a5fa", glow: "0 0 8px rgba(96,165,250,0.5)" },
   WEB: { color: "#22d3ee", glow: "0 0 8px rgba(34,211,238,0.5)" },
   PDF: { color: "#c084fc", glow: "0 0 8px rgba(192,132,252,0.5)" },
-  AI: { color: "#34d399", glow: "0 0 8px rgba(52,211,153,0.5)" },
+  AI: { color: "#2EE6A6", glow: "0 0 8px rgba(46,230,166,0.5)" },
   MATCH: { color: "#fbbf24", glow: "0 0 8px rgba(251,191,36,0.5)" },
   SEARCH: { color: "#fb923c", glow: "0 0 8px rgba(251,146,60,0.5)" },
   OK: { color: "#4ade80", glow: "0 0 10px rgba(74,222,128,0.6)" },
@@ -332,7 +332,7 @@ export function AnalysisTerminal({ companyName, onComplete }: AnalysisTerminalPr
                 {/* Progress */}
                 <div className="space-y-2">
                   <div className="relative h-9 rounded-lg overflow-hidden font-mono text-[11px] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(148,163,184,0.08)" }}>
-                    <div className="absolute inset-0 transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: complete ? "rgba(34,197,94,0.25)" : "linear-gradient(90deg, rgba(56,130,246,0.15), rgba(34,211,238,0.25))" }} />
+                    <div className="absolute inset-0 transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: complete ? "rgba(46,230,166,0.25)" : "linear-gradient(90deg, rgba(56,130,246,0.15), rgba(34,211,238,0.25))" }} />
                     <span className="relative z-10 tracking-wide" style={{ color: complete ? "rgba(74,222,128,0.9)" : "rgba(148,163,184,0.7)" }}>
                       {complete ? "✓ Analysis Complete" : `${progressLabel} — ${Math.round(progress)}%`}
                     </span>

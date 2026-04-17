@@ -5,12 +5,24 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [[ -f .env.local ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env.local
-  set +a
-fi
+# Do not `source` the whole file: a stray line (e.g. a bare sbp_ token without KEY=)
+# makes bash try to run it as a command. Only export valid KEY=value lines.
+load_env_safely() {
+  local env_file="$1"
+  [[ -f "$env_file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "${line//[[:space:]]}" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    if [[ "$line" =~ ^[[:space:]]*export[[:space:]]+(.+)$ ]]; then
+      line="${BASH_REMATCH[1]}"
+    fi
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      export "${BASH_REMATCH[1]}=${BASH_REMATCH[2]}"
+    fi
+  done <"$env_file"
+}
+
+load_env_safely ".env.local"
 
 if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
   echo "Missing SUPABASE_ACCESS_TOKEN."
@@ -35,5 +47,8 @@ echo "Deploying to project ref: $REF"
 npx supabase@latest functions deploy create-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy claim-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy complete-founder-onboarding --project-ref "$REF" --no-verify-jwt --use-api
+# Public waitlist: browser uses sb_publishable_… (not a JWT); gateway must not require JWT verification.
+npx supabase@latest functions deploy waitlist-signup --project-ref "$REF" --no-verify-jwt --use-api
+npx supabase@latest functions deploy waitlist-status --project-ref "$REF" --no-verify-jwt --use-api
 
 echo "Done."

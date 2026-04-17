@@ -62,7 +62,7 @@ export function ProfileStrength({
           angle: 60 + Math.random() * 60,
           spread: 55,
           origin: { x: Math.random(), y: 0.6 },
-          colors: ["#10b981", "#34d399", "#6ee7b7", "#fbbf24", "#818cf8"],
+          colors: ["#2EE6A6", "#4de9b8", "#6eedcc", "#fbbf24", "#5B5CFF"],
         });
         if (Date.now() < end) requestAnimationFrame(frame);
       };

@@ -22,7 +22,7 @@ const PROVIDERS: Provider[] = [
 ];
 
 const STATUS_CONFIG = {
-  live: { label: "Live", color: "#39FF14", bg: "rgba(57,255,20,0.08)", shadow: "0 0 8px rgba(57,255,20,0.4)" },
+  live: { label: "Live", color: "#2EE6A6", bg: "rgba(46,230,166,0.08)", shadow: "0 0 8px rgba(46,230,166,0.4)" },
   degraded: { label: "Degraded", color: "#FFB800", bg: "rgba(255,184,0,0.08)", shadow: "0 0 8px rgba(255,184,0,0.4)" },
   down: { label: "Down", color: "#FF4444", bg: "rgba(255,68,68,0.08)", shadow: "0 0 8px rgba(255,68,68,0.4)" },
 };
@@ -48,7 +48,7 @@ export function AdminApiHealth() {
           </p>
         </div>
         <div className="flex items-center gap-2 font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-          <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "#39FF14" }} />
+          <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "#2EE6A6" }} />
           Auto-refresh: 30s
         </div>
       </div>

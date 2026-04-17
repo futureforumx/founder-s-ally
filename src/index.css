@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap");
 @import url("https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap");
@@ -18,8 +19,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 12%;
 
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    /* Brand primary purple #5B5CFF */
+    --primary: 239 100% 68%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 95%;
     --secondary-foreground: 215 25% 12%;
@@ -27,21 +29,22 @@
     --muted: 210 20% 95%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 217 91% 60%;
+    --accent: 239 100% 68%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 44%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
+    /* Brand green accent #2EE6A6 */
+    --success: 159 79% 54%;
+    --success-foreground: 165 90% 11%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
     --border: 210 20% 92%;
     --input: 210 20% 92%;
-    --ring: 217 91% 60%;
+    --ring: 239 100% 68%;
 
     --radius: 0.75rem;
 
@@ -52,25 +55,25 @@
     /* #222222 — app rail */
     --sidebar-background: 0 0% 13.33%;
     --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary: 239 100% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 200 12% 25%;
     --sidebar-accent-foreground: 200 15% 92%;
     --sidebar-border: 200 10% 26%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-ring: 239 100% 68%;
 
     /* App shell: sidebar width (AppSidebar updates on collapse; GlobalTopNav offsets from this). */
     --app-sidebar-width: 216px;
 
     --heat-0: 210 20% 95%;
-    --heat-1: 213 60% 82%;
-    --heat-2: 217 70% 60%;
-    --heat-3: 220 75% 45%;
-    --heat-4: 222 80% 25%;
+    --heat-1: 239 55% 88%;
+    --heat-2: 239 85% 72%;
+    --heat-3: 239 100% 58%;
+    --heat-4: 239 70% 32%;
 
-    --ai-pending: 270 60% 78%;
-    --ai-pending-foreground: 270 50% 30%;
-    --ai-approved: 270 55% 50%;
+    --ai-pending: 239 55% 88%;
+    --ai-pending-foreground: 239 45% 32%;
+    --ai-approved: 239 90% 58%;
     --ai-approved-foreground: 0 0% 100%;
 
     /* Typography - Font Stack */
@@ -167,12 +170,12 @@
 
 @keyframes pulse-glow-purple {
   0%, 100% {
-    border-color: rgba(139, 92, 246, 0.2);
-    box-shadow: 0 0 15px -5px rgba(139, 92, 246, 0.3);
+    border-color: rgba(91, 92, 255, 0.22);
+    box-shadow: 0 0 15px -5px rgba(91, 92, 255, 0.32);
   }
   50% {
-    border-color: rgba(139, 92, 246, 0.6);
-    box-shadow: 0 0 25px -2px rgba(139, 92, 246, 0.5);
+    border-color: rgba(91, 92, 255, 0.55);
+    box-shadow: 0 0 25px -2px rgba(91, 92, 255, 0.48);
   }
 }
 
@@ -370,8 +373,8 @@
   }
 
   @keyframes ai-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 hsl(270 60% 78% / 0.4); }
-    50% { box-shadow: 0 0 0 4px hsl(270 60% 78% / 0); }
+    0%, 100% { box-shadow: 0 0 0 0 hsl(239 55% 88% / 0.45); }
+    50% { box-shadow: 0 0 0 4px hsl(239 55% 88% / 0); }
   }
 
   @keyframes gauge-fill {
@@ -401,9 +404,9 @@
     background: conic-gradient(
       from 0deg,
       transparent 0deg,
-      hsl(217 91% 60% / 0.6) 60deg,
-      hsl(217 91% 60% / 0.9) 90deg,
-      hsl(217 91% 60% / 0.6) 120deg,
+      hsl(239 100% 68% / 0.6) 60deg,
+      hsl(239 100% 68% / 0.9) 90deg,
+      hsl(239 100% 68% / 0.6) 120deg,
       transparent 180deg,
       transparent 360deg
     );
@@ -436,7 +439,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, transparent, hsl(217 91% 60% / 0.5), hsl(217 91% 60% / 0.8), hsl(217 91% 60% / 0.5), transparent);
+    background: linear-gradient(90deg, transparent, hsl(239 100% 68% / 0.5), hsl(239 100% 68% / 0.8), hsl(239 100% 68% / 0.5), transparent);
     animation: scan-horizontal 2s ease-in-out infinite;
     z-index: 10;
   }
@@ -472,8 +475,8 @@
 
   /* Center-stage terminal glow pulse */
   @keyframes terminal-glow-pulse {
-    0%, 100% { box-shadow: 0 0 20px hsl(217 91% 60% / 0.15), 0 0 40px hsl(217 91% 60% / 0.08); }
-    50% { box-shadow: 0 0 30px hsl(217 91% 60% / 0.25), 0 0 60px hsl(217 91% 60% / 0.12); }
+    0%, 100% { box-shadow: 0 0 20px hsl(239 100% 68% / 0.15), 0 0 40px hsl(239 100% 68% / 0.08); }
+    50% { box-shadow: 0 0 30px hsl(239 100% 68% / 0.25), 0 0 60px hsl(239 100% 68% / 0.12); }
   }
 
   .terminal-glow {
@@ -502,13 +505,13 @@
   }
 
   @keyframes glow-pulse {
-    0%, 100% { box-shadow: 0 0 10px 2px rgba(52,211,153,0.2); }
-    50% { box-shadow: 0 0 18px 4px rgba(52,211,153,0.4); }
+    0%, 100% { box-shadow: 0 0 10px 2px rgba(46, 230, 166, 0.22); }
+    50% { box-shadow: 0 0 18px 4px rgba(46, 230, 166, 0.42); }
   }
 
   @keyframes text-glow-pulse {
-    0%, 100% { text-shadow: 0 0 16px hsl(142 71% 45% / 0.4), 0 0 32px hsl(142 71% 45% / 0.15); }
-    50% { text-shadow: 0 0 24px hsl(142 71% 45% / 0.6), 0 0 48px hsl(142 71% 45% / 0.3); }
+    0%, 100% { text-shadow: 0 0 16px hsl(159 79% 54% / 0.4), 0 0 32px hsl(159 79% 54% / 0.15); }
+    50% { text-shadow: 0 0 24px hsl(159 79% 54% / 0.6), 0 0 48px hsl(159 79% 54% / 0.3); }
   }
 
   .animate-glow-pulse {

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
 
 const DENSITY_DATA = [
-  { category: "Pricing", count: 342, color: "#39FF14" },
+  { category: "Pricing", count: 342, color: "#2EE6A6" },
   { category: "GTM", count: 287, color: "#00D4FF" },
   { category: "Engineering", count: 198, color: "#A855F7" },
   { category: "Fundraising", count: 456, color: "#FFB800" },
@@ -24,7 +24,7 @@ const SNIPPETS = [
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Pricing: "#39FF14",
+  Pricing: "#2EE6A6",
   GTM: "#00D4FF",
   Engineering: "#A855F7",
   Fundraising: "#FFB800",
@@ -67,7 +67,7 @@ export function AdminAiDebugger() {
         {/* Vector Density Chart */}
         <div className="col-span-2 rounded-xl border p-5" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0a0a0a" }}>
           <div className="mb-4 flex items-center gap-2">
-            <Brain className="h-4 w-4" style={{ color: "#39FF14" }} />
+            <Brain className="h-4 w-4" style={{ color: "#2EE6A6" }} />
             <span className="text-sm font-semibold text-white/80">Vector Density</span>
           </div>
           <p className="mb-4 font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>

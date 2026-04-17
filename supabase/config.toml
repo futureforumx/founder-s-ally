@@ -61,3 +61,9 @@ verify_jwt = false
 
 [functions.kb-agent-actions]
 verify_jwt = false
+
+[functions.waitlist-signup]
+verify_jwt = false
+
+[functions.waitlist-status]
+verify_jwt = false

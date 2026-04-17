@@ -378,11 +378,11 @@ export function CompanyHealthHeader({
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          className="flex w-fit max-w-full cursor-help items-center gap-1.5 rounded-sm text-left text-[9px] font-medium leading-none tabular-nums text-emerald-600 outline-none ring-offset-background transition-colors hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-400 dark:hover:text-emerald-300"
+                          className="flex w-fit max-w-full cursor-help items-center gap-1.5 rounded-sm text-left text-[9px] font-medium leading-none tabular-nums text-emerald-600 outline-none ring-offset-background transition-colors hover:text-emerald-700 focus-visible:ring-2 focus-visible:ring-ring dark:text-emerald-500 dark:hover:text-emerald-400"
                           aria-label={`${metadataLine}. Hover or focus for which signals are included.`}
                         >
                           <span className="relative inline-flex h-2 w-2 shrink-0 items-center justify-center" aria-hidden>
-                            <span className="health-live-dot-pulse absolute h-1.5 w-1.5 rounded-full bg-emerald-500 opacity-90 dark:bg-emerald-400" />
+                            <span className="health-live-dot-pulse absolute h-1.5 w-1.5 rounded-full bg-emerald-500 opacity-90 dark:bg-emerald-500" />
                           </span>
                           {metadataLine}
                         </button>

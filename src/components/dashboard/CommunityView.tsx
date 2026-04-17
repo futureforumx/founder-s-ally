@@ -22,6 +22,7 @@ import {
   type LiveInvestorEntry,
 } from "@/hooks/useInvestorDirectory";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyData, AnalysisResult } from "@/components/company-profile/types";
@@ -2048,8 +2049,9 @@ export function CommunityView({
   const realOperators = communityGrid.operators;
 
   // DB-backed investor data for enrichment (firm_type, deploying status, sentiment, headcount)
-  const { data: dbInvestors } = useInvestorDirectory();
-  const { data: liveInvestorPeople } = useInvestorPeopleDirectory();
+  const { data: dbInvestors, isPending: dbInvestorsPending } = useInvestorDirectory();
+  const { data: liveInvestorPeople, isPending: liveInvestorPeoplePending } =
+    useInvestorPeopleDirectory();
 
   // Build lookup maps with normalized keys and aliases
   const dbInvestorMap = useMemo(() => {
@@ -2187,6 +2189,133 @@ export function CommunityView({
     });
   }, [liveInvestorPeople, getVCFirmMatch]);
 
+  /**
+   * MDM / Supabase `vc_people` partners that are not already represented in `firm_investors`.
+   * Without this, thousands of JSON-backed individuals never appear in the investor grid.
+   */
+  const vcJsonPersonDirectoryEntries = useMemo<DirectoryEntry[]>(() => {
+    if (!isInvestorSearch || !vcPeople.length) return [];
+
+    const liveKeys = new Set(
+      (liveInvestorPeople ?? []).map((p) => {
+        const fn = p.firm?.firm_name ?? "Unknown Firm";
+        return `${normalizeFirmName(p.full_name)}|${normalizeFirmName(fn)}`;
+      }),
+    );
+
+    const now = new Date();
+    const out: DirectoryEntry[] = [];
+    const seenVcPersonIds = new Set<string>();
+
+    for (const person of vcPeople) {
+      if (person.is_active === false) continue;
+      if (!safeTextTrim(person.full_name)) continue;
+      if (person.affiliation_end_date && new Date(person.affiliation_end_date) < now) continue;
+
+      const vcFirm = getFirmById(person.firm_id);
+      const firmName =
+        safeTextTrim(vcFirm?.name) ||
+        safeTextTrim(person.primary_firm_name) ||
+        "Unknown Firm";
+
+      const dedupeKey = `${normalizeFirmName(person.full_name)}|${normalizeFirmName(firmName)}`;
+      if (liveKeys.has(dedupeKey)) continue;
+      if (seenVcPersonIds.has(person.id)) continue;
+      seenVcPersonIds.add(person.id);
+
+      const stageFromPerson = person.stage_focus?.filter(Boolean) ?? [];
+      const sectorFromPerson = person.sector_focus?.filter(Boolean) ?? [];
+      const stageFromFirm = vcFirm?.stages?.filter(Boolean) ?? [];
+      const sectorFromFirm = vcFirm?.sectors?.filter(Boolean) ?? [];
+      const stageFocus = [...new Set([...stageFromPerson, ...stageFromFirm].map((s) => String(s).trim()).filter(Boolean))];
+      const sectorFocus = [...new Set([...sectorFromPerson, ...sectorFromFirm].map((s) => String(s).trim()).filter(Boolean))];
+
+      const title = safeTextTrim(person.title) || "Investor";
+      const location = [person.city, person.state, person.country].filter(Boolean).join(", ") || "";
+      const dbMatch = getDbMatch(firmName);
+      const vcFirmMatch = getVCFirmMatch(firmName);
+
+      const personFirm: VCFirm = {
+        id: vcFirm?.id ?? person.firm_id,
+        name: firmName,
+        x_url: vcFirm?.x_url ?? null,
+        description: vcFirm?.description ?? (sectorFocus.length ? sectorFocus.join(", ") : null),
+        aum: vcFirm?.aum ?? null,
+        aum_band: vcFirm?.aum_band ?? null,
+        sweet_spot: vcFirm?.sweet_spot ?? null,
+        stages: stageFocus.length ? stageFocus : vcFirm?.stages ?? [],
+        sectors: sectorFocus.length ? sectorFocus : vcFirm?.sectors ?? [],
+        logo_url: vcFirm?.logo_url ?? null,
+        website_url: vcFirm?.website_url ?? person.website_url ?? deriveWebsiteUrlFromFirmId(person.firm_id),
+        aliases: vcFirm?.aliases ?? null,
+      };
+
+      out.push({
+        name: person.full_name,
+        sector: sectorFocus.slice(0, 2).join(", ") || "Generalist",
+        stage: collapseStagesToRange(stageFocus) || stageFocus.slice(0, 2).join(", ") || "Multi-stage",
+        description:
+          safeTextTrim(person.bio) ||
+          safeTextTrim(person.background_summary) ||
+          `${title} at ${firmName}`,
+        location,
+        model: title,
+        initial: person.full_name.charAt(0).toUpperCase(),
+        matchReason: null,
+        category: "investor" as const,
+        _sectors: sectorFocus,
+        _stages: stageFocus,
+        _firmType:
+          (dbMatch as any)?.firm_type ??
+          resolveDirectoryFirmTypeKey(firmName, null, (dbMatch as any)?.entity_type ?? null),
+        _strategyClassifications: (dbMatch as any)?.strategy_classifications ?? null,
+        _thesisOrientation: (dbMatch as any)?.thesis_orientation ?? null,
+        _sectorScope: (dbMatch as any)?.sector_scope ?? null,
+        _thesisVerticals: (dbMatch as any)?.thesis_verticals?.length
+          ? (dbMatch as any).thesis_verticals
+          : sectorFocus,
+        _geoFocus: (dbMatch as any)?.geo_focus ?? null,
+        _seedSectors: null,
+        _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying === true,
+        _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
+        _headcount: (dbMatch as any)?.headcount ?? null,
+        _aum: (dbMatch as any)?.aum ?? vcFirm?.aum ?? null,
+        _aumBand: investorAumBandLabel((dbMatch as any)?.aum ?? vcFirm?.aum ?? null),
+        _logoUrl:
+          investorPrimaryAvatarUrl({
+            avatar_url: person.avatar_url,
+            profile_image_url: person.profile_image_url,
+          }) ||
+          vcFirm?.logo_url ||
+          null,
+        _isTrending: isInvestorTrendingMerged((dbMatch as any)?.is_trending, false, firmName),
+        _isPopular: (dbMatch as any)?.is_popular ?? false,
+        _isRecent: (dbMatch as any)?.is_recent ?? false,
+        _firmId: (dbMatch as any)?.id || person.firm_id,
+        _vcFirmId: vcFirmMatch?.id ?? vcFirm?.id ?? null,
+        _websiteUrl: (dbMatch as any)?.website_url || person.website_url || vcFirm?.website_url || null,
+        _dealVelocityScore: computeDealVelocityScore(
+          (dbMatch as any)?.recent_deals ?? null,
+          (dbMatch as any)?.is_actively_deploying ?? null,
+        ),
+        _fundingIntelActivity: (dbMatch as any)?.funding_intel_activity_score ?? null,
+        _investorEntityType: "person",
+        _investorFirmName: firmName,
+        _personData: person,
+        _personFirm: vcFirmMatch ?? personFirm,
+      });
+    }
+
+    return out;
+  }, [
+    isInvestorSearch,
+    vcPeople,
+    liveInvestorPeople,
+    getFirmById,
+    getDbMatch,
+    getVCFirmMatch,
+  ]);
+
   const investorAnchorVcFirmId = useCallback(
     (e: DirectoryEntry) =>
       e.category === "investor" ? e._vcFirmId ?? getVCFirmMatch(e.name)?.id ?? e._firmId ?? null : null,
@@ -2247,6 +2376,7 @@ export function CommunityView({
             (dbMatch as any)?.is_actively_deploying ?? null,
           ),
           _fundingIntelActivity: dbMatch?.funding_intel_activity_score ?? null,
+          _investorEntityType: "firm" as const,
         };
       });
   }, [vcFirms, getDbMatch, isInvestorSearch, activeScope]);
@@ -2297,6 +2427,7 @@ export function CommunityView({
           inv.is_actively_deploying ?? null,
         ),
         _fundingIntelActivity: inv.funding_intel_activity_score ?? null,
+        _investorEntityType: "firm" as const,
       });
     }
     return out;
@@ -2410,19 +2541,40 @@ export function CommunityView({
   }, [realOperators]);
 
   const mergedEntries = useMemo(() => {
-    return [
+    const base: DirectoryEntry[] = [
       ...realFounderEntries,
       ...realCompanyEntries,
       ...realOperatorEntries,
       ...dbOnlyFirmEntries,
       ...vcEntries,
     ];
-  }, [vcEntries, dbOnlyFirmEntries, realFounderEntries, realCompanyEntries, realOperatorEntries]);
+    /** `firm_investors` rows + MDM `vc_people` not in DB — investor directory must list both firms and people. */
+    if (!isInvestorSearch) return base;
+    return [...base, ...liveInvestorPersonEntries, ...vcJsonPersonDirectoryEntries];
+  }, [
+    vcEntries,
+    dbOnlyFirmEntries,
+    realFounderEntries,
+    realCompanyEntries,
+    realOperatorEntries,
+    liveInvestorPersonEntries,
+    vcJsonPersonDirectoryEntries,
+    isInvestorSearch,
+  ]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
 
+  const investorDirectoryStillLoading =
+    vcLoading || dbInvestorsPending || liveInvestorPeoplePending;
+  const investorDirectoryHasAnySource =
+    vcFirms.length > 0 ||
+    vcPeople.length > 0 ||
+    (dbInvestors?.length ?? 0) > 0 ||
+    (liveInvestorPeople?.length ?? 0) > 0;
   const investorDirectoryUnavailable =
-    (isInvestorSearch || activeScope === "investors") && !vcLoading && vcFirms.length === 0;
+    (isInvestorSearch || activeScope === "investors") &&
+    !investorDirectoryStillLoading &&
+    !investorDirectoryHasAnySource;
 
   const hasProfile = !!companyData?.name;
 
@@ -2674,7 +2826,41 @@ export function CommunityView({
 
     switch (activeInvestorTab) {
       case "matches": {
-        return investors.filter((e) => e.matchReason || e._isActivelyDeploying === true);
+        return investors.filter((e) => {
+          if (e.matchReason || e._isActivelyDeploying === true) return true;
+          if (!userSector && !userStage) return false;
+          if (userSector) {
+            const userSectors = [userSector];
+            const subs = companyData?.subsectors;
+            if (Array.isArray(subs)) {
+              for (const s of subs) {
+                const t = safeTextTrim(s);
+                if (t) userSectors.push(t);
+              }
+            }
+            if (Array.isArray(e._sectors) && e._sectors.length > 0) {
+              if (e._sectors.some((s) => userSectors.includes(safeTextTrim(s)))) return true;
+            }
+            const sectorNorm = userSector.toLowerCase();
+            const entrySector = (e.sector ?? "").toString().toLowerCase();
+            const entryDesc = (e.description ?? "").toString().toLowerCase();
+            if (entrySector.includes(sectorNorm) || entryDesc.includes(sectorNorm)) return true;
+          }
+          if (userStage) {
+            if (Array.isArray(e._stages) && e._stages.length > 0) {
+              if (e._stages.some((s) => safeTextTrim(s) === userStage)) return true;
+            }
+            const stageNorm = userStage.toLowerCase();
+            const entryStage = (e.stage ?? "").toString().toLowerCase();
+            if (
+              entryStage.includes(stageNorm) ||
+              entryStage.split("–").some((s) => s.trim().toLowerCase().includes(stageNorm))
+            ) {
+              return true;
+            }
+          }
+          return false;
+        });
       }
       case "stage": {
         if (!userStage) return investors;
@@ -2737,12 +2923,12 @@ export function CommunityView({
       const rows = await rpcSearchFirmRecords(investorSearchQueryTrim, 60, true, supabaseVcDirectory);
       return rows.map((row) => mapDbInvestor(row));
     },
-    enabled: isInvestorSearch && investorSearchQueryTrim.length >= 2 && isSupabaseConfigured,
+    enabled: isInvestorSearch && investorSearchQueryTrim.length >= 1 && isSupabaseConfigured,
     staleTime: 45_000,
   });
 
   const displayEntriesWithRpcFirms = useMemo(() => {
-    if (!isInvestorSearch || investorSearchQueryTrim.length < 2) return displayEntries;
+    if (!isInvestorSearch || investorSearchQueryTrim.length < 1) return displayEntries;
     const seenFirmId = new Set<string>();
     const seenFirmNameKey = new Set<string>();
     for (const e of displayEntries) {
@@ -3839,6 +4025,13 @@ export function CommunityView({
                 <Layers className="h-4 w-4" /> Update Profile Sector
               </button>
             </div>
+          ) : directoryDbGrid && communityGrid.error ? (
+            <Alert variant="destructive" className="text-left">
+              <AlertTitle>Directory data could not load</AlertTitle>
+              <AlertDescription className="font-mono text-xs break-words">
+                {communityGrid.error}
+              </AlertDescription>
+            </Alert>
           ) : communityGrid.loading && directoryDbGrid ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -3904,7 +4097,9 @@ export function CommunityView({
                   ? "Update your company profile to unlock AI-driven investor matching."
                   : isOperatorHubLayout
                     ? "No operators match your current filters. Try another tab or widen your search."
-                    : `No ${isInvestorSearch ? "investors" : labels.plural} match your current criteria. Try adjusting your filters.`}
+                    : directoryDbGrid && isSupabaseConfigured
+                      ? `No ${labels.plural} returned for this tab. If SQL shows rows but the grid is empty, apply pending Supabase migrations (Network directory RLS) and ensure roles use current founder/CEO types.`
+                      : `No ${isInvestorSearch ? "investors" : labels.plural} match your current criteria. Try adjusting your filters.`}
               </p>
               {isInvestorSearch && (
                 <button

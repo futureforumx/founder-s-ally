@@ -1,5 +1,33 @@
 import type { Config } from "tailwindcss";
 
+/** Site-wide brand purple #5B5CFF — extends purple / violet / indigo utilities */
+/** Brand green accent #2EE6A6 — extends green / emerald utilities */
+const brandGreen = {
+  50: "#ecfdf9",
+  100: "#d0faf0",
+  200: "#a3f5e0",
+  300: "#6eedcc",
+  400: "#4de9b8",
+  500: "#2EE6A6",
+  600: "#22ba88",
+  700: "#1c9570",
+  800: "#17725a",
+  900: "#135448",
+};
+
+const brandPurple = {
+  50: "#f5f5ff",
+  100: "#ebebff",
+  200: "#d6d6ff",
+  300: "#b0b1ff",
+  400: "#8788ff",
+  500: "#5B5CFF",
+  600: "#4748e8",
+  700: "#3a3ac0",
+  800: "#2d2d97",
+  900: "#22226f",
+};
+
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
@@ -16,6 +44,7 @@ export default {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
+        spaceGrotesk: ['"Space Grotesk"', "ui-sans-serif", "system-ui", "sans-serif"],
       },
       fontSize: {
         "2xs": ["0.75rem", { lineHeight: "1rem", fontWeight: "500" }],      /* 12px */
@@ -107,30 +136,11 @@ export default {
           800: "#1E40AF",
           900: "#1E3A8A",
         },
-        purple: {
-          50: "#F5F3FF",
-          100: "#EDE9FE",
-          200: "#DDD6FE",
-          300: "#C4B5FD",
-          400: "#A78BFA",
-          500: "#8B5CF6",
-          600: "#7C3AED",
-          700: "#6D28D9",
-          800: "#5B21B6",
-          900: "#4C1D95",
-        },
-        green: {
-          50: "#ECFDF5",
-          100: "#D1FAE5",
-          200: "#A7F3D0",
-          300: "#6EE7B7",
-          400: "#34D399",
-          500: "#10B981",
-          600: "#059669",
-          700: "#047857",
-          800: "#065F46",
-          900: "#064E3B",
-        },
+        purple: brandPurple,
+        violet: brandPurple,
+        indigo: brandPurple,
+        green: brandGreen,
+        emerald: brandGreen,
         orange: {
           50: "#FFF7ED",
           100: "#FFEDD5",
@@ -276,12 +286,22 @@ export default {
         "aurora-text-pulse": {
           "0%, 100%": {
             color: "rgba(255, 255, 255, 0.66)",
-            textShadow: "0 0 6px rgba(196, 176, 232, 0.22), 0 0 14px rgba(166, 103, 255, 0.1)",
+            textShadow: "0 0 6px rgba(91, 92, 255, 0.28), 0 0 14px rgba(91, 92, 255, 0.14)",
           },
           "50%": {
             color: "rgba(255, 255, 255, 0.88)",
-            textShadow:
-              "0 0 8px rgba(196, 176, 232, 0.32), 0 0 18px rgba(166, 103, 255, 0.22)",
+            textShadow: "0 0 8px rgba(91, 92, 255, 0.38), 0 0 18px rgba(91, 92, 255, 0.22)",
+          },
+        },
+        /** /access header mark — soft breathing glow (brand purple #5B5CFF, matches page gradients) */
+        "access-mark-glow": {
+          "0%, 100%": {
+            filter:
+              "drop-shadow(0 0 4px rgba(91, 92, 255, 0.45)) drop-shadow(0 0 12px rgba(91, 92, 255, 0.22)) drop-shadow(0 0 22px rgba(91, 92, 255, 0.1))",
+          },
+          "50%": {
+            filter:
+              "drop-shadow(0 0 7px rgba(91, 92, 255, 0.65)) drop-shadow(0 0 16px rgba(91, 92, 255, 0.35)) drop-shadow(0 0 28px rgba(91, 92, 255, 0.16))",
           },
         },
       },
@@ -302,6 +322,7 @@ export default {
         "shimmer": "shimmer 2.5s linear infinite",
         "aurora-icon-pulse": "aurora-icon-pulse 5.5s ease-in-out infinite",
         "aurora-text-pulse": "aurora-text-pulse 5.5s ease-in-out 0.25s infinite",
+        "access-mark-glow": "access-mark-glow 3.8s ease-in-out infinite",
       },
     },
   },

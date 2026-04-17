@@ -123,13 +123,13 @@ export function AdminSyncLogs() {
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold"
                     style={{
-                      background: log.status === "SUCCESS" ? "rgba(57,255,20,0.08)" : "rgba(255,68,68,0.1)",
-                      color: log.status === "SUCCESS" ? "#39FF14" : "#FF4444",
+                      background: log.status === "SUCCESS" ? "rgba(46,230,166,0.08)" : "rgba(255,68,68,0.1)",
+                      color: log.status === "SUCCESS" ? "#2EE6A6" : "#FF4444",
                     }}
                   >
                     <div
                       className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: log.status === "SUCCESS" ? "#39FF14" : "#FF4444" }}
+                      style={{ background: log.status === "SUCCESS" ? "#2EE6A6" : "#FF4444" }}
                     />
                     {log.status}
                   </span>

@@ -35,7 +35,7 @@ interface GraphEdge {
 // ── Color system ──
 const TYPE_COLORS: Record<ConnectionType, string> = {
   founder: "#3B82F6",
-  "co-investor": "#8B5CF6",
+  "co-investor": "#5B5CFF",
   portfolio: "#10B981",
   lp: "#F59E0B",
 };
