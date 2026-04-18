@@ -5,15 +5,18 @@ This rollout keeps `public.firm_records` as the canonical firm identity model, a
 **Schema**
 
 - `public.vc_funds` is the canonical fund table keyed by `firm_record_id + normalized_name + vintage_year` via `normalized_key`.
+  - Verified freshness fields now live here too: `verification_status`, `last_verified_at`, `freshness_synced_at`, `latest_source_published_at`.
 - `public.vc_fund_sources` stores append-only provenance per source artifact.
 - `public.vc_fund_people` links inferred partners to a fund through `firm_investors` when possible, with a fallback `canonical_person_key`.
 - `public.vc_fund_signals` is the domain event stream for fund activity and can be mirrored into `intelligence_events`.
 - `public.candidate_capital_events` is the low-cost staging/cluster table for weak or early capital signals.
 - `public.candidate_capital_event_evidence` stores append-only evidence URLs and raw payloads per candidate cluster.
 - `public.firm_records` gets derived capital fields: `last_fund_announcement_date`, `latest_fund_size_usd`, `has_fresh_capital`, `active_fund_vintage`, `last_capital_signal_at`, `fresh_capital_priority_score`, `estimated_check_range_json`, `active_fund_count`.
+- `public.firm_records` is also the canonical firm freshness surface: `likely_actively_deploying`, `capital_freshness_boost_score`, `freshness_synced_at`, `freshness_verified_at`, `latest_verified_vc_fund_id`, `recent_capital_signal_count`.
 - `public.firm_records.likely_actively_deploying` and `public.firm_records.capital_freshness_boost_score` are ranking-ready backend inputs.
 - `public.firm_investors.capital_freshness_boost_score` and `public.firm_investors.last_capital_signal_at` expose investor-level capital freshness inputs for later ranking work.
-- `public.fund_records.canonical_vc_fund_id` provides a compatibility bridge for legacy reads.
+- `public.fund_records.canonical_vc_fund_id` provides a compatibility bridge for legacy reads, with mirrored `verification_status`, `last_verified_at`, and `canonical_freshness_synced_at`.
+- `public.vc_fund_sync_runs` is the lightweight ops log for detect / verify / promote / rederive / mirror / daily jobs, and `public.vc_fund_sync_latest_runs` exposes the latest run per phase.
 
 **Sync Flow**
 
@@ -23,8 +26,9 @@ This rollout keeps `public.firm_records` as the canonical firm identity model, a
 4. Candidate scoring assigns deterministic confidence plus corroboration/conflict signals.
 5. Clustering rolls repeated sightings into `candidate_capital_events` and preserves append-only evidence in `candidate_capital_event_evidence`.
 6. Selective verification re-fetches only escalated clusters, refines parsed fields, and either verifies, keeps escalated, routes to review, or rejects.
-7. Promotion takes verified clusters, plus strict official-source exceptions, upserts `vc_funds`, attaches `vc_fund_sources`, links people, emits `vc_fund_signals`, refreshes firm derivations, and mirrors a subset into `fund_records`.
-8. Mirroring pushes `vc_fund_signals` into `intelligence_events` with stable dedupe keys and entity links.
+7. Promotion takes verified clusters, plus strict official-source exceptions, upserts `vc_funds`, stamps canonical verification/freshness metadata, attaches `vc_fund_sources`, links people, emits `vc_fund_signals`, refreshes firm derivations, and mirrors a subset into `fund_records`.
+8. Re-derive refreshes canonical firm freshness on `firm_records` and investor ranking inputs on `firm_investors`.
+9. Mirroring pushes `vc_fund_signals` into `intelligence_events` with stable dedupe keys and entity links.
 
 **Source Priority**
 
@@ -63,7 +67,7 @@ Field-specific overrides favor filings for `vintageYear`, `targetSizeUsd`, `fina
 **Jobs**
 
 - `scripts/vc-fund-sync/backfill.ts`: historical catch-up
-- `scripts/vc-fund-sync/daily.ts`: daily incremental sync
+- `scripts/vc-fund-sync/daily.ts`: daily incremental sync (`detect -> verify -> promote -> rederive -> mirror`)
 - `scripts/vc-fund-sync/detect.ts`: candidate detection and staging only
 - `scripts/vc-fund-sync/verify.ts`: selective verification for escalated candidate clusters
 - `scripts/vc-fund-sync/promote.ts`: promote staged candidates into canonical funds and signals
@@ -73,6 +77,7 @@ Field-specific overrides favor filings for `vintageYear`, `targetSizeUsd`, `fina
 - `scripts/vc-fund-sync/rederive.ts`: refresh firm-level freshness flags and scoring
 
 All jobs are idempotent because writes are keyed on `normalized_key`, source URLs/content hashes, and signal `dedupe_key`.
+Run observability is append-only in `vc_fund_sync_runs`, keyed by phase + timestamp rather than mutable singleton state.
 
 **RPCs**
 
@@ -87,6 +92,7 @@ All jobs are idempotent because writes are keyed on `normalized_key`, source URL
 - `get_firms_with_fresh_capital_backend`
 
 These support stage, sector, geography, fund-size, firm-type, and recency filters for Investors, Research, Market, and ranking use cases.
+Public/backend freshness RPCs now read only from canonical `vc_funds` rows whose `verification_status` is verified/manual-reviewed/official-source-promoted.
 
 **Assumptions**
 

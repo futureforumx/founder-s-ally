@@ -1,6 +1,14 @@
 import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 
 /**
+ * Canonical public Fresh Capital feed source:
+ * - RPC: `public.get_new_vc_funds(...)`
+ * - Canonical tables behind it: `vc_funds` + derived freshness on `firm_records`
+ * - Not candidate staging (`candidate_capital_events*`)
+ * - Not `fund_records` except legacy compatibility elsewhere
+ */
+
+/**
  * Demo/sample rows: **non-production only**, gated by `VITE_FRESH_CAPITAL_DEMO=true`.
  * Never used when `import.meta.env.PROD` is true.
  */
@@ -284,9 +292,20 @@ function normalizeHeatmapRpcRows(data: unknown): HeatmapBucket[] | null {
   for (const raw of data) {
     if (!raw || typeof raw !== "object") continue;
     const r = raw as Record<string, unknown>;
+    const dimensionKind = readString(r.dimension_kind);
+    if (dimensionKind && dimensionKind !== "sector") continue;
     const label =
-      readString(r.label) ?? readString(r.sector) ?? readString(r.bucket) ?? readString(r.name) ?? readString(r.sector_name);
-    const countNum = readFiniteNumber(r.count) ?? readFiniteNumber(r.fund_count) ?? readFiniteNumber(r.n);
+      readString(r.dimension_value) ??
+      readString(r.label) ??
+      readString(r.sector) ??
+      readString(r.bucket) ??
+      readString(r.name) ??
+      readString(r.sector_name);
+    const countNum =
+      readFiniteNumber(r.signal_count) ??
+      readFiniteNumber(r.count) ??
+      readFiniteNumber(r.fund_count) ??
+      readFiniteNumber(r.n);
     const count = countNum != null && countNum > 0 ? Math.round(countNum) : 1;
     if (!label) continue;
     const act = (readString(r.activity) ?? readString(r.tier) ?? "").toLowerCase();
@@ -344,7 +363,7 @@ export async function fetchFreshCapitalLive(input: {
 
   const [fundsRes, heatmapRes] = await Promise.all([
     rpc<unknown[]>("get_new_vc_funds", fundArgs),
-    rpc<unknown>("get_capital_heatmap_backend", { p_days: input.fundDays ?? 150 }),
+    rpc<unknown>("get_capital_heatmap_backend", { p_window_days: input.fundDays ?? 150 }),
   ]);
 
   if (fundsRes.error) {
@@ -353,13 +372,36 @@ export async function fetchFreshCapitalLive(input: {
   }
 
   const parsed = (fundsRes.data ?? []).map(parseFreshCapitalFundRow).filter((x): x is FreshCapitalFundRow => Boolean(x));
-  const funds = sortFreshCapitalRows(parsed);
+  const funds = sortFreshCapitalRows(
+    parsed.filter((row) => {
+      // Canonical verified funds should usually have one of these dates; drop rows that cannot
+      // be placed on the timeline instead of rendering a misleading “live” undated item.
+      return Boolean(row.announced_date || row.close_date);
+    }),
+  );
 
   const heatErr = heatmapRes.error;
   if (heatErr) {
     console.warn("[FreshCapital] get_capital_heatmap_backend", heatErr.message);
   }
   const heatBuckets = !heatmapRes.error ? normalizeHeatmapRpcRows(heatmapRes.data) : null;
+
+  if (import.meta.env.DEV) {
+    const outcome =
+      heatBuckets && heatBuckets.length > 0
+        ? `used_rpc_rows(count=${heatBuckets.length})`
+        : heatErr
+          ? `rpc_error(${heatErr.message})`
+          : heatmapRes.data == null
+            ? "rpc_null_body"
+            : !Array.isArray(heatmapRes.data)
+              ? "rpc_non_array_shape"
+              : heatmapRes.data.length === 0
+                ? "rpc_empty_array"
+                : "rpc_unparsed_rows";
+    // grep: [FreshCapital] heatmap_rpc — distinguishes heatmap data path per fetch (feed still loads if RPC fails).
+    console.info(`[FreshCapital] heatmap_rpc ${outcome}`);
+  }
 
   return {
     funds,

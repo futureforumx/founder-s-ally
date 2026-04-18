@@ -57,6 +57,7 @@ export default function FreshCapitalPage() {
   const sectorChoices = data?.sectorChoices ?? [];
   const demo = data?.usingDemoData ?? false;
   const misconfigured = isError && error instanceof FreshCapitalMisconfiguredError;
+  const rpcFailed = isError && !misconfigured;
 
   const onStageChange = useCallback((next: FreshCapitalStageFilter) => {
     setStage((prev) => {
@@ -87,8 +88,9 @@ export default function FreshCapitalPage() {
         id={FEED_ANCHOR}
         rows={funds}
         loading={isPending}
-        error={isError}
+        rpcFailed={rpcFailed}
         misconfigured={misconfigured}
+        isProductionBuild={import.meta.env.PROD}
         stage={stage}
         onStageChange={onStageChange}
         sector={sector}
@@ -107,7 +109,7 @@ export default function FreshCapitalPage() {
           <Link
             to={signupHref}
             className="font-medium text-zinc-700 underline-offset-2 hover:underline"
-            onClick={() => trackFreshCapitalJoinVekta()}
+            onClick={() => trackFreshCapitalJoinVekta({ cta_location: "footer_create_account" })}
           >
             Create an account
           </Link>{" "}

@@ -172,7 +172,7 @@ export function FreshCapitalConversion() {
           <Link
             to={signupHref}
             onClick={() => {
-              trackFreshCapitalJoinVekta();
+              trackFreshCapitalJoinVekta({ cta_location: "conversion_join_vekta" });
             }}
           >
             Join Vekta
