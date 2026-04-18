@@ -7,10 +7,14 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveContext } from "@/context/ActiveContext";
+import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
+import { isOwnerContextUuid } from "@/lib/connectorContextStorage";
 import { cn } from "@/lib/utils";
 import type { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { ConnectorContextBanner } from "@/components/ConnectorContextBanner";
 import { NetworkGraph } from "@/components/connections/NetworkGraph";
 
 const CommunityView = lazy(() =>
@@ -83,6 +87,10 @@ export function ConnectionsPage({
   onNavigateProfile,
 }: ConnectionsPageProps = {}) {
   const { user } = useAuth();
+  const { activeContextId } = useActiveContext();
+  const { data: contextAccounts = [], isFetched: contextAccountsFetched } = useConnectedAccounts(
+    isOwnerContextUuid(activeContextId) ? activeContextId : null,
+  );
   const [activeTab, setActiveTab] = useState<ConnectionsPageTabId>("overview");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [reviewSort, setReviewSort] = useState<ReviewSort>("latest");
@@ -125,6 +133,12 @@ export function ConnectionsPage({
         <h1 className="text-2xl font-bold text-foreground">Connections</h1>
         <p className="text-sm text-muted-foreground mt-1">Network intelligence, warm intros, and data pipelines</p>
       </motion.div>
+
+      {isOwnerContextUuid(activeContextId) && contextAccountsFetched && contextAccounts.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+          No connectors installed for this context yet (no rows in connected_accounts).
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
         {CONNECTIONS_PAGE_TABS.map((tab) => {
@@ -331,6 +345,7 @@ export function ConnectionsPage({
       {/* Intelligence Sensor Suite */}
       <div>
         <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Intelligence Sensor Suite</p>
+        <ConnectorContextBanner className="mb-3" />
         <SensorSuiteGrid showHeader={true} showTerminal={true} />
       </div>
 

@@ -5,6 +5,7 @@ import {
   COMPANY_LINKED_DATA_SECTION_ORDER,
   normalizeHttpHref,
 } from "@/lib/companyLinkedDataSources";
+import { useActiveContext } from "@/context/ActiveContext";
 import { usePitchDecks } from "@/hooks/usePitchDecks";
 import type { CompanyData } from "@/components/company-profile/types";
 import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
@@ -18,6 +19,7 @@ export function CompanyHealthDataSourcesPanel({
   /** Opens Raise → Data Room (e.g. to manage pitch deck and one-pager). */
   onEditDocumentsInDataRoom?: () => void;
 }) {
+  const { activeContextId } = useActiveContext();
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function CompanyHealthDataSourcesPanel({
     };
   }, []);
 
-  const rows = useMemo(() => collectCompanyLinkedDataSources(), [refresh]);
+  const rows = useMemo(() => collectCompanyLinkedDataSources(activeContextId), [refresh, activeContextId]);
 
   const bySection = useMemo(() => {
     const m = new Map<string, typeof rows>();

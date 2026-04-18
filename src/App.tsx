@@ -7,6 +7,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ActiveContextProvider } from "@/context/ActiveContext";
+import { ConnectorOAuthReturnListener } from "@/components/ConnectorOAuthReturnListener";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -19,6 +21,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const FirmProfile = lazy(() => import("./pages/FirmProfile.tsx"));
 const OrganizationProfile = lazy(() => import("./pages/OrganizationProfile.tsx"));
 const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
+const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -243,8 +246,10 @@ const App = () => (
       <SpeedInsights />
       <BrowserRouter>
         <AuthProvider>
+          <ActiveContextProvider>
           <BackgroundProfileProvider>
             <MixpanelPageViewTracker />
+            <ConnectorOAuthReturnListener />
             <Routes>
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               <Route
@@ -252,6 +257,14 @@ const App = () => (
                 element={
                   <Suspense fallback={<RouteLoader label="Loading…" />}>
                     <AccessRequest />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/fresh-capital"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
                   </Suspense>
                 }
               />
@@ -273,6 +286,7 @@ const App = () => (
               <Route path="*" element={<Suspense fallback={<RouteLoader fullscreen={false} label="Loading page…" />}><NotFound /></Suspense>} />
             </Routes>
           </BackgroundProfileProvider>
+          </ActiveContextProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

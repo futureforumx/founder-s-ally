@@ -15,7 +15,8 @@ import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combob
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
-import { useClerk } from "@clerk/clerk-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useClerk, useAuth as useClerkAuthForConnectors } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
@@ -29,6 +30,16 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
+import { ConnectorContextBanner } from "@/components/ConnectorContextBanner";
+import { useActiveContext } from "@/context/ActiveContext";
+import { contextScopedStorageKey, isOwnerContextUuid } from "@/lib/connectorContextStorage";
+import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
+import {
+  invalidateConnectorSurfaceQueries,
+  logConnectorClientPlaceholder,
+  runConnectorDisconnectAction,
+  startGoogleOAuthRedirect,
+} from "@/lib/connectorClient";
 import { SettingsTour } from "@/components/settings/SettingsTour";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
@@ -1144,17 +1155,19 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
 
 
 // ── Personal Network Integrations ──
-const PERSONAL_STORAGE_KEY = "personal-connections-status";
+const PERSONAL_CONNECTIONS_BASE = "personal-connections-status";
 
-function loadPersonalConnected(): Record<string, boolean> {
+function loadPersonalConnected(scopeId: string): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem(PERSONAL_STORAGE_KEY);
+    const raw = localStorage.getItem(contextScopedStorageKey(PERSONAL_CONNECTIONS_BASE, scopeId));
     if (raw) return JSON.parse(raw);
   } catch {}
   return { linkedin: false, twitter: false, google: false };
 }
-function savePersonalConnected(s: Record<string, boolean>) {
-  localStorage.setItem(PERSONAL_STORAGE_KEY, JSON.stringify(s));
+function savePersonalConnected(scopeId: string, s: Record<string, boolean>) {
+  try {
+    localStorage.setItem(contextScopedStorageKey(PERSONAL_CONNECTIONS_BASE, scopeId), JSON.stringify(s));
+  } catch {}
 }
 
 const PERSONAL_INTEGRATIONS = [
@@ -1179,34 +1192,76 @@ const PERSONAL_INTEGRATIONS = [
     label: "Google",
     icon: "https://cdn.simpleicons.org/google/4285F4",
     fallbackIcon: Mail,
-    description: "Connect a personal Google account for your own inbox and calendar, separate from company workspace.",
+    description: "Connect Google (Gmail + Calendar) for the active owner context.",
     connectedLabel: "Personal account linked",
   },
 ] as const;
 
 function PersonalNetworkSection() {
-  const [connected, setConnected] = useState(loadPersonalConnected);
+  const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
+  const { getToken } = useClerkAuthForConnectors();
+  const queryClient = useQueryClient();
+  const [connected, setConnected] = useState(() => loadPersonalConnected(activeContextId));
   const [syncing, setSyncing] = useState<string | null>(null);
 
-  const handleToggle = useCallback((key: string) => {
-    if (syncing) return;
-    const isConnected = connected[key];
-    if (isConnected) {
-      const next = { ...connected, [key]: false };
-      setConnected(next);
-      savePersonalConnected(next);
-      toast.success(`Personal ${PERSONAL_INTEGRATIONS.find(i => i.key === key)?.label} disconnected`);
-      return;
-    }
-    setSyncing(key);
-    setTimeout(() => {
-      const next = { ...connected, [key]: true };
-      setConnected(next);
-      savePersonalConnected(next);
-      setSyncing(null);
-      toast.success(`Personal ${PERSONAL_INTEGRATIONS.find(i => i.key === key)?.label} connected`);
-    }, 1800);
-  }, [connected, syncing]);
+  useEffect(() => {
+    setConnected(loadPersonalConnected(activeContextId));
+  }, [activeContextId]);
+
+  const handleToggle = useCallback(
+    async (key: string) => {
+      if (syncing) return;
+      if (!canManageConnectorIntegrations) {
+        toast.error(CONNECTOR_MANAGE_DENIED_MESSAGE);
+        return;
+      }
+      const isConnected = connected[key];
+      if (isConnected) {
+        const disc = await runConnectorDisconnectAction({
+          integrationKey: key,
+          ownerContextId: activeContextId,
+          getToken,
+        });
+        if (!disc.ok) {
+          toast.error(disc.message);
+          return;
+        }
+        invalidateConnectorSurfaceQueries(queryClient, activeContextId);
+        const next = { ...connected, [key]: false };
+        setConnected(next);
+        savePersonalConnected(activeContextId, next);
+        toast.success(`${PERSONAL_INTEGRATIONS.find((i) => i.key === key)?.label} disconnected`);
+        return;
+      }
+      if (key === "google" && isOwnerContextUuid(activeContextId)) {
+        setSyncing(key);
+        const r = await startGoogleOAuthRedirect({
+          connector: "gmail",
+          ownerContextId: activeContextId,
+          getToken,
+        });
+        setSyncing(null);
+        if (!r.ok) {
+          toast.error(r.message);
+          return;
+        }
+        toast.message("Redirecting to Google", {
+          description: "Complete sign-in to link your personal Google account.",
+        });
+        return;
+      }
+      logConnectorClientPlaceholder({ kind: "connect", integrationKey: key, ownerContextId: activeContextId });
+      setSyncing(key);
+      setTimeout(() => {
+        const next = { ...connected, [key]: true };
+        setConnected(next);
+        savePersonalConnected(activeContextId, next);
+        setSyncing(null);
+        toast.success(`${PERSONAL_INTEGRATIONS.find((i) => i.key === key)?.label} connected`);
+      }, 1800);
+    },
+    [activeContextId, connected, syncing, getToken, queryClient, canManageConnectorIntegrations],
+  );
 
   const connectedCount = Object.values(connected).filter(Boolean).length;
 
@@ -1215,11 +1270,11 @@ function PersonalNetworkSection() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <User className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Personal Accounts</h3>
+          <h3 className="text-sm font-semibold text-foreground">Accounts for active context</h3>
           <Badge variant="outline" className="text-[9px] font-mono ml-1">{connectedCount}/{PERSONAL_INTEGRATIONS.length}</Badge>
         </div>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Connect your <span className="font-semibold text-foreground">personal</span> accounts here. These are separate from the company integrations above and map to your individual identity.
+          Integrations below use your active <span className="font-semibold text-foreground">owner_context_id</span> (same model as workspace and personal contexts).
         </p>
       </div>
 
@@ -1269,7 +1324,8 @@ function PersonalNetworkSection() {
                 variant={isConnected ? "outline" : "default"}
                 size="sm"
                 className="w-full text-[10px] h-7"
-                disabled={isSyncing}
+                disabled={isSyncing || !canManageConnectorIntegrations}
+                title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
                 onClick={() => handleToggle(integration.key)}
               >
                 {isSyncing ? (
@@ -1277,7 +1333,7 @@ function PersonalNetworkSection() {
                 ) : isConnected ? (
                   "Disconnect"
                 ) : (
-                  "Connect Personal Account"
+                  "Connect account"
                 )}
               </Button>
             </div>
@@ -1295,6 +1351,7 @@ function NetworkTab() {
   return (
     <TabWrapper>
       <div className="space-y-6">
+        <ConnectorContextBanner />
         {/* View Toggle */}
         <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
           {(["company", "personal"] as const).map((view) => (
@@ -1321,9 +1378,7 @@ function NetworkTab() {
           </div>
         )}
 
-        {networkView === "personal" && (
-          <PersonalNetworkSection />
-        )}
+        {networkView === "personal" && <PersonalNetworkSection />}
       </div>
     </TabWrapper>
   );

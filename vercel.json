@@ -2,6 +2,9 @@
   "functions": {
     "api/firm-website-team.ts": {
       "maxDuration": 120
+    },
+    "api/connectors/google/resync.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

@@ -10,12 +10,148 @@ import { handleFirmWebsiteHqPost } from "./api/handleFirmWebsiteHqPost";
 import { mirrorFirmInvestorHeadshotsForFirm, supabaseAdminForMirror } from "./api/_mirrorFirmInvestorHeadshots";
 import { fetchProxiedExternalImage, parseProxyTargetUrl } from "./api/_proxyExternalImage";
 import { ensureFirmElevatorPitchSaved, supabaseAdminForElevatorPitch } from "./api/_ensureFirmElevatorPitch";
+import { buildGoogleOAuthStartResponse } from "./api/oauth/googleStartLogic";
+import { buildGoogleOAuthCallbackResponse } from "./api/oauth/googleCallbackLogic";
+import { runLinkedinCsvUpload } from "./api/connectors/linkedinUploadLogic";
+import { runGoogleDisconnect } from "./api/connectors/googleDisconnectLogic";
+import { runGoogleResync } from "./api/connectors/googleResyncLogic";
+import { runLinkedinCsvDisconnect } from "./api/connectors/linkedinDisconnectLogic";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
  * works the same as the deployed Vercel serverless function.
  * Uses SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY from the shell environment (.env.local).
  */
+function connectorsOauthDevPlugin() {
+  return {
+    name: "connectors-oauth-dev",
+    configureServer(server: any) {
+      async function readDevPostJson(req: any): Promise<Record<string, unknown>> {
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        try {
+          const raw = Buffer.concat(chunks).toString("utf8").trim();
+          return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        } catch {
+          return {};
+        }
+      }
+
+      const postJsonCors: Record<string, string> = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Content-Type": "application/json",
+      };
+
+      function mountConnectorPostJson(
+        routePath: string,
+        runner: (input: { authorization: string | undefined; owner_context_id: string | undefined }) => Promise<{
+          status: number;
+          json: Record<string, unknown>;
+        }>,
+      ) {
+        server.middlewares.use(routePath, async (req: any, res: any) => {
+          if (req.method === "OPTIONS") {
+            res.writeHead(204, postJsonCors);
+            res.end();
+            return;
+          }
+          if (req.method !== "POST") {
+            res.writeHead(405, postJsonCors);
+            res.end(JSON.stringify({ error: "Method not allowed" }));
+            return;
+          }
+          const body = await readDevPostJson(req);
+          const owner_context_id = typeof body.owner_context_id === "string" ? body.owner_context_id : undefined;
+          const auth = req.headers.authorization;
+          const out = await runner({
+            authorization: typeof auth === "string" ? auth : undefined,
+            owner_context_id,
+          });
+          res.writeHead(out.status, postJsonCors);
+          res.end(JSON.stringify(out.json));
+        });
+      }
+
+      mountConnectorPostJson("/api/connectors/google/disconnect", runGoogleDisconnect);
+      mountConnectorPostJson("/api/connectors/google/resync", runGoogleResync);
+      mountConnectorPostJson("/api/connectors/linkedin/disconnect", runLinkedinCsvDisconnect);
+
+      server.middlewares.use("/api/oauth/google/start", async (req: any, res: any) => {
+        const corsBase: Record<string, string> = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+        };
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, corsBase);
+          res.end();
+          return;
+        }
+        const host = (req.headers.host as string) || "localhost";
+        const u = new URL(req.url || "/", `http://${host}`);
+        const auth = req.headers.authorization;
+        const r = await buildGoogleOAuthStartResponse({
+          method: req.method || "GET",
+          connector: u.searchParams.get("connector") || undefined,
+          owner_context_id: u.searchParams.get("owner_context_id") || undefined,
+          authorization: typeof auth === "string" ? auth : undefined,
+        });
+        if (r.kind === "redirect") {
+          res.writeHead(302, { ...corsBase, Location: r.location, "Cache-Control": "no-store" });
+          res.end();
+          return;
+        }
+        res.writeHead(r.status, { ...corsBase, "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(r.body));
+      });
+
+      server.middlewares.use("/api/oauth/google/callback", async (req: any, res: any) => {
+        const host = (req.headers.host as string) || "localhost";
+        const u = new URL(req.url || "/", `http://${host}`);
+        const r = await buildGoogleOAuthCallbackResponse({
+          method: req.method || "GET",
+          code: u.searchParams.get("code") || undefined,
+          state: u.searchParams.get("state") || undefined,
+          error: u.searchParams.get("error") || undefined,
+        });
+        res.writeHead(302, { Location: r.location, "Cache-Control": "no-store" });
+        res.end();
+      });
+
+      server.middlewares.use("/api/connectors/linkedin/upload", async (req: any, res: any) => {
+        const cors: Record<string, string> = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        const auth = req.headers.authorization;
+        try {
+          const out = await runLinkedinCsvUpload(req, typeof auth === "string" ? auth : undefined);
+          res.writeHead(out.status, cors);
+          res.end(JSON.stringify(out.json));
+        } catch (e) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: e instanceof Error ? e.message : "upload failed" }));
+        }
+      });
+    },
+  };
+}
+
 function saveProfileDevPlugin(env: Record<string, string>) {
   return {
     name: "save-profile-dev",
@@ -590,6 +726,7 @@ export default defineConfig(async ({ mode }) => {
     react(),
     mode === "development" && componentTagger(),
     mode === "development" && saveProfileDevPlugin(env),
+    mode === "development" && connectorsOauthDevPlugin(),
     mode === "development" && firmWebsiteContactDevPlugin(),
     mode === "development" && firmWebsiteThemesDevPlugin(),
     mode === "development" && firmWebsiteTeamDevPlugin(),

@@ -4,10 +4,16 @@ import {
   Shield, Lock, X, CheckCircle2, Mail, Linkedin, Twitter,
   ArrowRight, Sparkles, Zap
 } from "lucide-react";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { useActiveContext } from "@/context/ActiveContext";
+import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
+import { contextScopedStorageKey, isOwnerContextUuid } from "@/lib/connectorContextStorage";
+import { logConnectorClientPlaceholder, startGoogleOAuthRedirect } from "@/lib/connectorClient";
+import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
 
 // ── Types ──
 type SourceKey = "google" | "linkedin" | "twitter" | "angellist";
@@ -26,30 +32,37 @@ interface ConnStatus {
   angellist: SourceStatus;
 }
 
-// ── Persistence ──
-const STORAGE_KEY = "community-connections-status";
-const DETAIL_KEY = "community-connections-detail";
+// ── Persistence (same base key as SensorSuiteGrid; merge so we do not wipe other connector flags) ──
+const CONNECTION_STATUS_BASE = "community-connections-status";
 
-function loadCompletedSources(): Set<SourceKey> {
+function loadStatusBlob(scopeId: string): Record<string, boolean> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const obj = JSON.parse(raw);
-      // migrate old "gmail" key
-      if ("gmail" in obj && !("google" in obj)) obj.google = obj.gmail;
-      const keys: SourceKey[] = ["google", "linkedin", "twitter", "angellist"];
-      return new Set(keys.filter((k) => obj[k] === true));
-    }
-  } catch {}
-  return new Set();
+    const raw = localStorage.getItem(contextScopedStorageKey(CONNECTION_STATUS_BASE, scopeId));
+    if (!raw) return {};
+    const obj = JSON.parse(raw) as Record<string, boolean>;
+    if ("gmail" in obj && !("google" in obj)) obj.google = obj.gmail as boolean;
+    return obj;
+  } catch {
+    return {};
+  }
 }
 
-function saveCompletedSources(completed: Set<SourceKey>) {
-  const obj: Record<string, boolean> = {};
-  (["google", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach(
-    (k) => (obj[k] = completed.has(k))
-  );
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+function loadCompletedSources(scopeId: string): Set<SourceKey> {
+  const obj = loadStatusBlob(scopeId);
+  const keys: SourceKey[] = ["google", "linkedin", "twitter", "angellist"];
+  return new Set(keys.filter((k) => obj[k] === true));
+}
+
+function saveCompletedSources(scopeId: string, completed: Set<SourceKey>) {
+  const merged: Record<string, boolean> = { ...loadStatusBlob(scopeId) };
+  (["google", "linkedin", "twitter", "angellist"] as SourceKey[]).forEach((k) => {
+    merged[k] = completed.has(k);
+  });
+  try {
+    localStorage.setItem(contextScopedStorageKey(CONNECTION_STATUS_BASE, scopeId), JSON.stringify(merged));
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Source Definitions ──
@@ -121,7 +134,10 @@ interface ConnectionsGateProps {
 }
 
 export function ConnectionsGate({ children }: ConnectionsGateProps) {
-  const completedRef = useRef(loadCompletedSources());
+  const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
+  const { getToken } = useClerkAuth();
+  const { data: remoteAccounts = [] } = useConnectedAccounts(activeContextId);
+  const completedRef = useRef(loadCompletedSources(activeContextId));
   const [statuses, setStatuses] = useState<ConnStatus>(() => {
     const completed = completedRef.current;
     const init: any = {};
@@ -132,6 +148,35 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
   });
   const [showModal, setShowModal] = useState(() => completedRef.current.size === 0);
   const [connectingKey, setConnectingKey] = useState<SourceKey | null>(null);
+
+  useEffect(() => {
+    const completed = loadCompletedSources(activeContextId);
+    completedRef.current = completed;
+    setStatuses(() => {
+      const init: any = {};
+      for (const s of SOURCES) {
+        init[s.key] = completed.has(s.key) ? makeCompleteStatus(s.stats) : makeIdleStatus();
+      }
+      return init as ConnStatus;
+    });
+    setShowModal(completed.size === 0);
+  }, [activeContextId]);
+
+  useEffect(() => {
+    if (!isOwnerContextUuid(activeContextId)) return;
+    const hasGoogle = remoteAccounts.some(
+      (a) => a.provider === "gmail" || a.provider === "google_calendar",
+    );
+    if (!hasGoogle) return;
+    if (completedRef.current.has("google")) return;
+    completedRef.current.add("google");
+    saveCompletedSources(activeContextId, completedRef.current);
+    const g = SOURCES.find((s) => s.key === "google")!;
+    setStatuses((prev) => ({
+      ...prev,
+      google: makeCompleteStatus(g.stats),
+    }));
+  }, [remoteAccounts, activeContextId]);
 
   const completedCount = SOURCES.filter((s) => statuses[s.key].state === "complete").length;
   const isUnlocked = completedCount >= 1;
@@ -151,6 +196,10 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
   const handleConnect = useCallback(async (key: SourceKey) => {
     if (connectingKey) return;
+    if (!canManageConnectorIntegrations) {
+      toast.error(CONNECTOR_MANAGE_DENIED_MESSAGE);
+      return;
+    }
     setConnectingKey(key);
 
     const source = SOURCES.find((s) => s.key === key)!;
@@ -160,6 +209,27 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
       ...prev,
       [key]: { state: "authenticating", progress: 0, statusMessage: "Connecting...", stats: null },
     }));
+
+    if (key === "google" && isOwnerContextUuid(activeContextId)) {
+      const r = await startGoogleOAuthRedirect({
+        connector: "gmail",
+        ownerContextId: activeContextId,
+        getToken,
+      });
+      if (!r.ok) {
+        toast.error(r.message);
+        setStatuses((prev) => ({ ...prev, [key]: makeIdleStatus() }));
+        setConnectingKey(null);
+        return;
+      }
+      setStatuses((prev) => ({
+        ...prev,
+        [key]: { state: "authenticating", progress: 8, statusMessage: "Opening Google sign-in…", stats: null },
+      }));
+      return;
+    }
+
+    logConnectorClientPlaceholder({ kind: "connect", integrationKey: key, ownerContextId: activeContextId });
     await new Promise((r) => setTimeout(r, 1500));
 
     // Step 2: Sync progress stages
@@ -184,7 +254,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
 
     // Persist
     completedRef.current.add(key);
-    saveCompletedSources(completedRef.current);
+    saveCompletedSources(activeContextId, completedRef.current);
 
     setConnectingKey(null);
 
@@ -192,7 +262,7 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
     toast(source.unlockMessage, {
       description: source.stats,
     });
-  }, [connectingKey]);
+  }, [activeContextId, connectingKey, getToken, canManageConnectorIntegrations]);
 
   const handleSkip = () => setShowModal(false);
 
@@ -316,7 +386,8 @@ export function ConnectionsGate({ children }: ConnectionsGateProps) {
                             : "bg-transparent border border-white/20 text-white/60 hover:bg-white/[0.06]"
                         }`}
                         onClick={() => handleConnect(source.key)}
-                        disabled={connectingKey !== null}
+                        disabled={connectingKey !== null || !canManageConnectorIntegrations}
+                        title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
                       >
                         {source.sensorType === "identity" ? "Verify" : source.sensorType === "ingestor" ? "Import" : "Sync"}
                       </Button>

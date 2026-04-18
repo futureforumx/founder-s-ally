@@ -12,7 +12,7 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, Settings2, SlidersHorizontal, LogOut,
+  User, UserCircle, Settings2, SlidersHorizontal, LogOut,
   type LucideIcon,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
@@ -76,7 +76,8 @@ type ViewType =
   | "groups"
   | "data-room"
   | "resources"
-  | "settings";
+  | "settings"
+  | "profile-workspace";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -147,18 +148,17 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "benchmarks", label: "Benchmarks" },
     { id: "audit", label: "Deck Audit" },
   ]},
-  investors: { section: "Intelligence", label: "ALL", siblings: [
-    { id: "investors", label: "ALL" },
+  investors: { section: "Workspace", label: "MATCHES", siblings: [
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
-  "investor-search": { section: "Intelligence", label: "INVESTORS", siblings: [
-    { id: "investors", label: "ALL" },
+  "investor-search": { section: "Research", label: "INVESTORS", siblings: [
+    { id: "investors", label: "MATCHES" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
-  "investor-funding": { section: "Intelligence", label: "FUNDING", siblings: [
-    { id: "investors", label: "ALL" },
+  "investor-funding": { section: "Research", label: "FUNDING", siblings: [
+    { id: "investors", label: "MATCHES" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
   ]},
@@ -194,6 +194,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
 
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
+  "profile-workspace": { section: "Settings", label: "Profile & Workspace" },
 };
 
 // ── Contextual AI suggestions per view ──
@@ -439,8 +440,7 @@ function useRotatingPulse(interval = 4000) {
   return PULSE_MESSAGES[idx];
 }
 
-const INVESTOR_DIRECTORY_SEGMENTS: { id: "investors" | "investor-search" | "investor-funding"; label: string }[] = [
-  { id: "investors", label: "All" },
+const INVESTOR_DIRECTORY_SEGMENTS: { id: "investor-search" | "investor-funding"; label: string }[] = [
   { id: "investor-search", label: "Investors" },
   { id: "investor-funding", label: "Funding" },
 ];
@@ -1278,15 +1278,15 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Investor directory segmented control (All / Investors only — Market tab is separate) ── */}
-        {!searchOpen && ["investors", "investor-search", "investor-funding"].includes(activeView) && (
+        {!searchOpen && ["investor-search", "investor-funding"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
               <TopNavSegmentedControl
                 segments={INVESTOR_DIRECTORY_SEGMENTS}
-                activeId={activeView as "investors" | "investor-search" | "investor-funding"}
+                activeId={activeView as "investor-search" | "investor-funding"}
                 onSelect={(v) => routeView(v)}
                 ariaLabel="Investor directory view"
-                widthClassName="w-[248px] sm:w-[268px]"
+                widthClassName="w-[168px] sm:w-[180px]"
               />
             </div>
 
@@ -1296,18 +1296,12 @@ export function GlobalTopNav({
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10.5rem]")}>
                     <span className="min-w-0 flex-1 truncate text-left uppercase">
-                      {activeView === "investors" ? "All" : activeView === "investor-search" ? "Investors" : "Funding"}
+                      {activeView === "investor-search" ? "Investors" : "Funding"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-36">
-                  <DropdownMenuItem
-                    onClick={() => routeView("investors")}
-                    className={cn(activeView === "investors" && "bg-accent/10 text-accent")}
-                  >
-                    ALL
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => routeView("investor-search")}
                     className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
@@ -1721,6 +1715,21 @@ export function GlobalTopNav({
 
             {/* Navigation Menu Items */}
             <div className="p-1">
+              <DropdownMenuItem
+                onClick={() => {
+                  const fromIntel = location.pathname === "/intelligence";
+                  if (fromIntel) navigate("/");
+                  const url = new URL(fromIntel ? `${window.location.origin}/` : window.location.href);
+                  url.searchParams.set("view", "profile-workspace");
+                  url.searchParams.delete("tab");
+                  window.history.replaceState({}, "", url.toString());
+                  onViewChange?.("profile-workspace" as ViewType);
+                }}
+                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer"
+              >
+                <UserCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                Profile &amp; Workspace
+              </DropdownMenuItem>
               {([
                 { key: "personal", label: "Personal", icon: User, tab: "account" },
                 { key: "company", label: "Company", icon: Building2, tab: "company" },
