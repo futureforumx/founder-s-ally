@@ -49,6 +49,8 @@ import {
   MailOpen, Palette, Megaphone,
   LineChart, Eye, UserCheck, Search
 } from "lucide-react";
+import { useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -64,6 +66,21 @@ import { NetworkIntelligenceHeader } from "@/components/connections/network-inte
 import { LiveOpportunitiesPanel } from "@/components/connections/network-intelligence/LiveOpportunitiesPanel";
 import { NetworkMapPreview } from "@/components/connections/network-intelligence/NetworkMapPreview";
 import { UnlockMoreAccessSection } from "@/components/connections/network-intelligence/UnlockMoreAccessSection";
+import { useActiveContext } from "@/context/ActiveContext";
+import {
+  ACTIVE_OWNER_CONTEXT_STORAGE_KEY,
+  contextScopedStorageKey,
+  isOwnerContextUuid,
+} from "@/lib/connectorContextStorage";
+import {
+  invalidateConnectorSurfaceQueries,
+  logConnectorClientPlaceholder,
+  runConnectorDisconnectAction,
+  runConnectorResyncAction,
+  startGoogleOAuthRedirect,
+} from "@/lib/connectorClient";
+import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
+import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
 
 // ── Types ──
 export type SourceKey =
@@ -77,8 +94,8 @@ export type SourceKey =
 
 export type FilterCategory = "recommended" | "crm" | "social" | "meetings" | "messaging" | "finance" | "workflows" | "marketing" | "analytics";
 
-const STORAGE_KEY = "community-connections-status";
-const SYNC_DETAIL_KEY = "connections-sync-detail";
+const CONNECTION_STATUS_BASE = "community-connections-status";
+const SYNC_DETAIL_BASE = "connections-sync-detail";
 
 export const ALL_KEYS: SourceKey[] = [
   "google", "linkedin", "notion", "stripe", "granola", "hubspot", "attio", "twitter",
@@ -90,9 +107,17 @@ export const ALL_KEYS: SourceKey[] = [
   "googleanalytics", "posthog", "clerk",
 ];
 
-export function loadConnected(): Record<SourceKey, boolean> {
+function readScopeFromStorage(): string {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(ACTIVE_OWNER_CONTEXT_STORAGE_KEY)?.trim() || "personal";
+  } catch {
+    return "personal";
+  }
+}
+
+function loadConnectedScoped(ownerContextId: string): Record<SourceKey, boolean> {
+  try {
+    const raw = localStorage.getItem(contextScopedStorageKey(CONNECTION_STATUS_BASE, ownerContextId));
     if (raw) {
       const parsed = JSON.parse(raw);
       if ("gmail" in parsed && !("google" in parsed)) { parsed.google = parsed.gmail; delete parsed.gmail; }
@@ -105,18 +130,37 @@ export function loadConnected(): Record<SourceKey, boolean> {
   ALL_KEYS.forEach(k => def[k] = false);
   return def;
 }
-export function saveConnected(s: Record<SourceKey, boolean>) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
 
-function loadSyncDetails(): Record<SourceKey, { lastSynced: string | null }> {
+function saveConnectedScoped(ownerContextId: string, s: Record<SourceKey, boolean>) {
   try {
-    const raw = localStorage.getItem(SYNC_DETAIL_KEY);
+    localStorage.setItem(contextScopedStorageKey(CONNECTION_STATUS_BASE, ownerContextId), JSON.stringify(s));
+  } catch {}
+}
+
+function loadSyncDetailsScoped(ownerContextId: string): Record<SourceKey, { lastSynced: string | null }> {
+  try {
+    const raw = localStorage.getItem(contextScopedStorageKey(SYNC_DETAIL_BASE, ownerContextId));
     if (raw) return JSON.parse(raw);
   } catch {}
   const def: any = {};
   ALL_KEYS.forEach(k => def[k] = { lastSynced: null });
   return def;
 }
-function saveSyncDetails(d: Record<SourceKey, { lastSynced: string | null }>) { localStorage.setItem(SYNC_DETAIL_KEY, JSON.stringify(d)); }
+
+function saveSyncDetailsScoped(ownerContextId: string, d: Record<SourceKey, { lastSynced: string | null }>) {
+  try {
+    localStorage.setItem(contextScopedStorageKey(SYNC_DETAIL_BASE, ownerContextId), JSON.stringify(d));
+  } catch {}
+}
+
+/** @param scopeId when omitted, uses `vekta-active-owner-context-id` from localStorage (fallback `personal`). */
+export function loadConnected(scopeId?: string): Record<SourceKey, boolean> {
+  return loadConnectedScoped(scopeId ?? readScopeFromStorage());
+}
+
+export function saveConnected(s: Record<SourceKey, boolean>, scopeId?: string) {
+  saveConnectedScoped(scopeId ?? readScopeFromStorage(), s);
+}
 
 // ── Sensor Config ──
 type SensorSection = "recommended" | "power" | "signal";
@@ -504,8 +548,8 @@ const SOURCES: SourceConfig[] = [
 ];
 
 /** Labels + icons for integrations the user marked connected (Settings → Network). */
-export function getConnectedSensorIntegrations(): { key: SourceKey; label: string; iconUrl?: string }[] {
-  const c = loadConnected();
+export function getConnectedSensorIntegrations(scopeId?: string): { key: SourceKey; label: string; iconUrl?: string }[] {
+  const c = loadConnected(scopeId);
   return ALL_KEYS.filter((k) => c[k])
     .map((key) => {
       const s = SOURCES.find((x) => x.key === key);
@@ -574,26 +618,95 @@ interface SensorSuiteGridProps {
 }
 
 export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
+  const { activeContextId, activeContextLabel, canManageConnectorIntegrations } = useActiveContext();
+  const { getToken } = useClerkAuth();
+  const queryClient = useQueryClient();
+  const { data: remoteAccounts = [], isFetched: remoteAccountsFetched } = useConnectedAccounts(activeContextId);
+
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("crm");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [connected, setConnected] = useState<Record<SourceKey, boolean>>(loadConnected);
-  const [syncDetails, setSyncDetails] = useState(loadSyncDetails);
+  const [connected, setConnected] = useState<Record<SourceKey, boolean>>(() => loadConnectedScoped(activeContextId));
+  const [syncDetails, setSyncDetails] = useState(() => loadSyncDetailsScoped(activeContextId));
   const [syncStates, setSyncStates] = useState<Record<SourceKey, { syncing: boolean; progress: number; message: string }>>(() => {
-    const init: any = {};
-    ALL_KEYS.forEach(k => init[k] = { syncing: false, progress: 0, message: "" });
+    const init = {} as Record<SourceKey, { syncing: boolean; progress: number; message: string }>;
+    ALL_KEYS.forEach((k) => (init[k] = { syncing: false, progress: 0, message: "" }));
     return init;
   });
   const [activeConnect, setActiveConnect] = useState<SourceKey | null>(null);
   const [hoveredCard, setHoveredCard] = useState<SourceKey | null>(null);
   const [disconnectTarget, setDisconnectTarget] = useState<SourceKey | null>(null);
 
-  const connectedCount = ALL_KEYS.filter(k => connected[k]).length;
+  useEffect(() => {
+    setConnected(loadConnectedScoped(activeContextId));
+    setSyncDetails(loadSyncDetailsScoped(activeContextId));
+    setSyncStates(() => {
+      const init = {} as Record<SourceKey, { syncing: boolean; progress: number; message: string }>;
+      ALL_KEYS.forEach((k) => (init[k] = { syncing: false, progress: 0, message: "" }));
+      return init;
+    });
+  }, [activeContextId]);
+
+  useEffect(() => {
+    if (!isOwnerContextUuid(activeContextId)) return;
+    const hasGoogle = remoteAccounts.some(
+      (a) => a.provider === "gmail" || a.provider === "google_calendar",
+    );
+    const hasLinkedinCsv = remoteAccounts.some(
+      (a) =>
+        a.provider === "other" &&
+        (a.metadata as { linkedin_csv_upload?: boolean } | undefined)?.linkedin_csv_upload === true,
+    );
+    if (!hasGoogle && !hasLinkedinCsv) return;
+    setConnected((prev) => {
+      let next = prev;
+      let changed = false;
+      if (hasGoogle && !next.google) {
+        next = { ...next, google: true };
+        changed = true;
+      }
+      if (hasLinkedinCsv && !next.linkedin) {
+        next = { ...next, linkedin: true };
+        changed = true;
+      }
+      if (!changed) return prev;
+      saveConnected(next, activeContextId);
+      return next;
+    });
+  }, [remoteAccounts, activeContextId]);
+
+  const connectedCount = ALL_KEYS.filter((k) => connected[k]).length;
+  const serverAccountCount = remoteAccounts.length;
+  const showContextEmptyHint =
+    connectedCount === 0 && remoteAccountsFetched && isOwnerContextUuid(activeContextId) && serverAccountCount === 0;
 
   const handleConnect = useCallback(async (key: SourceKey) => {
     if (activeConnect) return;
+    if (!canManageConnectorIntegrations) {
+      toast.error(CONNECTOR_MANAGE_DENIED_MESSAGE);
+      return;
+    }
+    if (!(key === "google" && isOwnerContextUuid(activeContextId))) {
+      logConnectorClientPlaceholder({ kind: "connect", integrationKey: key, ownerContextId: activeContextId });
+    }
     setActiveConnect(key);
     setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress: 0, message: "Connecting..." } }));
+
+    if (key === "google" && isOwnerContextUuid(activeContextId)) {
+      const r = await startGoogleOAuthRedirect({
+        connector: "gmail",
+        ownerContextId: activeContextId,
+        getToken,
+      });
+      if (!r.ok) {
+        toast.error(r.message);
+        setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 0, message: "" } }));
+        setActiveConnect(null);
+        return;
+      }
+      setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress: 5, message: "Opening Google sign-in…" } }));
+      return;
+    }
 
     await new Promise(r => setTimeout(r, 1500));
     await simulateSync(key, (progress, message) => {
@@ -606,18 +719,31 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
 
     setConnected(nextConnected);
     setSyncDetails(nextDetails);
-    saveConnected(nextConnected);
-    saveSyncDetails(nextDetails);
+    saveConnected(nextConnected, activeContextId);
+    saveSyncDetailsScoped(activeContextId, nextDetails);
     setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 100, message: "" } }));
     setActiveConnect(null);
 
     confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ["#5B5CFF", "#2EE6A6", "#8788ff"] });
     const source = SOURCES.find(s => s.key === key)!;
     toast.success("Intelligence Pipeline Established", { description: source.unlockToast });
-  }, [activeConnect, connected, syncDetails]);
+  }, [activeConnect, activeContextId, connected, syncDetails, getToken, canManageConnectorIntegrations]);
 
   const handleResync = useCallback(async (key: SourceKey) => {
     if (activeConnect) return;
+    if (!canManageConnectorIntegrations) {
+      toast.error(CONNECTOR_MANAGE_DENIED_MESSAGE);
+      return;
+    }
+    const api = await runConnectorResyncAction({
+      integrationKey: key,
+      ownerContextId: activeContextId,
+      getToken,
+    });
+    if (!api.ok) {
+      toast.error(api.message);
+      return;
+    }
     setActiveConnect(key);
     setSyncStates(prev => ({ ...prev, [key]: { syncing: true, progress: 0, message: "Re-syncing..." } }));
     await simulateSync(key, (progress, message) => {
@@ -626,20 +752,37 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
     const now = new Date().toISOString();
     const nextDetails = { ...syncDetails, [key]: { lastSynced: now } };
     setSyncDetails(nextDetails);
-    saveSyncDetails(nextDetails);
+    saveSyncDetailsScoped(activeContextId, nextDetails);
     setSyncStates(prev => ({ ...prev, [key]: { syncing: false, progress: 100, message: "" } }));
     setActiveConnect(null);
+    invalidateConnectorSurfaceQueries(queryClient, activeContextId);
     toast.success(`${SOURCES.find(s => s.key === key)!.label} re-synced`);
-  }, [activeConnect, syncDetails]);
+  }, [activeConnect, activeContextId, syncDetails, getToken, queryClient, canManageConnectorIntegrations]);
 
-  const confirmDisconnect = () => {
+  const confirmDisconnect = useCallback(async () => {
     if (!disconnectTarget) return;
+    if (!canManageConnectorIntegrations) {
+      toast.error(CONNECTOR_MANAGE_DENIED_MESSAGE);
+      setDisconnectTarget(null);
+      return;
+    }
+    const api = await runConnectorDisconnectAction({
+      integrationKey: disconnectTarget,
+      ownerContextId: activeContextId,
+      getToken,
+    });
+    if (!api.ok) {
+      toast.error(api.message);
+      setDisconnectTarget(null);
+      return;
+    }
+    invalidateConnectorSurfaceQueries(queryClient, activeContextId);
     const nextConnected = { ...connected, [disconnectTarget]: false };
     setConnected(nextConnected);
-    saveConnected(nextConnected);
+    saveConnected(nextConnected, activeContextId);
     toast(`${SOURCES.find(s => s.key === disconnectTarget)!.label} disconnected`);
     setDisconnectTarget(null);
-  };
+  }, [disconnectTarget, activeContextId, connected, getToken, queryClient, canManageConnectorIntegrations]);
 
   const intelligenceFlags = useMemo(
     () => ({
@@ -661,9 +804,9 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
         ...c,
         iconUrl: SOURCES.find((s) => s.key === (c.key as SourceKey))?.customIcon,
         onConnect: () => handleConnect(c.key as SourceKey),
-        disabled: activeConnect !== null,
+        disabled: activeConnect !== null || !canManageConnectorIntegrations,
       })),
-    [connected, activeConnect, handleConnect],
+    [connected, activeConnect, handleConnect, canManageConnectorIntegrations],
   );
 
   function formatLastSynced(iso: string | null): string {
@@ -778,7 +921,12 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   : "bg-transparent border border-border text-muted-foreground hover:bg-secondary hover:border-accent/30"
               }`}
               onClick={() => isConnected ? setDisconnectTarget(source.key) : handleConnect(source.key)}
-              disabled={isSyncing || (activeConnect !== null && activeConnect !== source.key)}
+              disabled={
+                isSyncing ||
+                (activeConnect !== null && activeConnect !== source.key) ||
+                !canManageConnectorIntegrations
+              }
+              title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
             >
               {isSyncing ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="h-3.5 w-3.5 border-2 border-border border-t-foreground/60 rounded-full" />
@@ -952,7 +1100,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                 <Button
                   size="sm"
                   onClick={() => handleConnect(source.key)}
-                  disabled={activeConnect !== null}
+                  disabled={activeConnect !== null || !canManageConnectorIntegrations}
+                  title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
                   className="rounded-lg text-xs font-semibold h-9 px-5 bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
                 >
                   {source.connectLabel}
@@ -981,7 +1130,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                     variant="ghost"
                     className="rounded-lg text-[11px] h-7 px-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary"
                     onClick={() => handleResync(source.key)}
-                    disabled={activeConnect !== null}
+                    disabled={activeConnect !== null || !canManageConnectorIntegrations}
+                    title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
                   >
                     <RefreshCw className="h-3 w-3 mr-1" /> Re-sync
                   </Button>
@@ -990,6 +1140,8 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                     variant="ghost"
                     className="rounded-lg text-[11px] h-7 px-2.5 text-destructive/50 hover:text-destructive hover:bg-destructive/5"
                     onClick={() => setDisconnectTarget(source.key)}
+                    disabled={!canManageConnectorIntegrations}
+                    title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
                   >
                     Disconnect
                   </Button>
@@ -1042,7 +1194,12 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
                   <Button size="sm" variant="ghost" className="rounded-lg text-xs h-9 px-4 text-muted-foreground hover:text-foreground hover:bg-secondary" onClick={() => setDisconnectTarget(null)}>
                     Cancel
                   </Button>
-                  <Button size="sm" className="rounded-lg text-xs h-9 px-4 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20" onClick={confirmDisconnect}>
+                  <Button
+                    size="sm"
+                    className="rounded-lg text-xs h-9 px-4 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20"
+                    onClick={confirmDisconnect}
+                    disabled={!canManageConnectorIntegrations}
+                  >
                     Disconnect
                   </Button>
                 </div>
@@ -1061,6 +1218,24 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
           </div>
         )}
 
+        {isOwnerContextUuid(activeContextId) && remoteAccountsFetched && serverAccountCount > 0 && (
+          <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            <span className="font-medium text-foreground">{serverAccountCount}</span> linked account
+            {serverAccountCount === 1 ? "" : "s"} in Supabase for this context
+            {remoteAccounts[0]?.account_email ? (
+              <span className="block font-mono text-[10px] text-muted-foreground/80 mt-1">
+                Latest: {remoteAccounts.map((a) => a.account_email).filter(Boolean).slice(0, 3).join(", ")}
+              </span>
+            ) : null}
+          </div>
+        )}
+
+        {showContextEmptyHint && (
+          <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
+            No connectors linked for this context yet.
+          </div>
+        )}
+
         {/* Empty State */}
         {connectedCount === 0 && (
           <motion.div
@@ -1074,12 +1249,14 @@ export function SensorSuiteGrid({ compact = false, showHeader = true, showTermin
             </div>
             <h3 className="text-lg font-bold text-foreground mb-1">Unlock intro intelligence</h3>
             <p className="text-sm text-muted-foreground max-w-xs mb-6">
-              Connect Gmail or LinkedIn first — we map relationships and warm paths from your real activity.
+              Connect Gmail or LinkedIn to map relationships and warm paths. Integrations are scoped to{" "}
+              <span className="font-medium text-foreground/90">{activeContextLabel}</span>.
             </p>
             <Button
               size="sm"
               onClick={() => handleConnect("google")}
-              disabled={activeConnect !== null}
+              disabled={activeConnect !== null || !canManageConnectorIntegrations}
+              title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
               className="rounded-lg text-sm font-semibold h-10 px-6 bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
             >
               Connect Google

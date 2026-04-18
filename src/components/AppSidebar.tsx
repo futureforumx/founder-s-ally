@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, Fragment, type ReactElement } from "react";
+import { useState, useRef, useCallback, Fragment, type ReactElement } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -7,12 +7,14 @@ import {
   Link2,
   MapPin,
   UserCog,
+  UserCircle,
   TrendingUp,
   Zap,
   Share2,
-  ChevronDown,
   UsersRound,
+  UserSearch,
   Handshake,
+  Target,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -21,8 +23,8 @@ import { cn } from "@/lib/utils";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ContextSwitcher } from "@/components/ContextSwitcher";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 
 type ViewType =
@@ -53,7 +55,9 @@ type ViewType =
   | "data-room"
   | "resources"
   | "workspace"
-  | "settings";
+  | "settings"
+  | "profile-workspace"
+  | "targeting";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -122,16 +126,6 @@ export function AppSidebar({
     onViewChange(view);
     if (view === "investors") dispatchInvestorsAllFocus();
   };
-  const [communityOpen, setCommunityOpen] = useState(
-    activeView === "directory" || activeView === "groups" || activeView === "events",
-  );
-
-  useEffect(() => {
-    if (activeView === "directory" || activeView === "groups" || activeView === "events") {
-      setCommunityOpen(true);
-    }
-  }, [activeView]);
-
   const missionControlActive =
     activeView === "dashboard" ||
     activeView === "industry" ||
@@ -204,8 +198,6 @@ export function AppSidebar({
           collapsed ? "w-14" : "w-44",
         )}
         data-sidebar-collapsed={collapsed ? "true" : "false"}
-        data-community-expanded={communityOpen ? "true" : "false"}
-        data-community-shortcuts={communityItems.length}
       >
         <div
           className={cn(
@@ -294,52 +286,32 @@ export function AppSidebar({
                 {!collapsed && "Connection"}
               </button>
             </SidebarHint>
+          </div>
 
-            <Collapsible open={communityOpen} onOpenChange={setCommunityOpen} className="w-full">
-              <CollapsibleTrigger asChild>
+          <div className={sectionLabel}>Community</div>
+          <div className={rail}>
+            {communityItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeView === item.id;
+              const row = (
                 <button
                   type="button"
-                  title={collapsed ? "Community — Directory, Groups, Events" : undefined}
-                  className={cn(
-                    "mt-1 flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground",
-                    collapsed && "mt-2 justify-center px-1.5",
-                  )}
-                  aria-expanded={communityOpen}
+                  onClick={() => goView(item.id)}
+                  className={navBtn(active)}
+                  style={active ? activeNavStyle : undefined}
                 >
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
-                      communityOpen ? "rotate-0" : "-rotate-90",
-                    )}
-                  />
-                  {!collapsed && <span>Community</span>}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && item.label}
                 </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className={cn("flex flex-col gap-1 pt-1", collapsed && "items-center")}>
-                {communityItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = activeView === item.id;
-                  const row = (
-                    <button
-                      type="button"
-                      onClick={() => goView(item.id)}
-                      className={navBtn(active)}
-                      style={active ? activeNavStyle : undefined}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && item.label}
-                    </button>
-                  );
-                  return collapsed ? (
-                    <SidebarHint key={item.id} collapsed={collapsed} label={item.label}>
-                      {row}
-                    </SidebarHint>
-                  ) : (
-                    <Fragment key={item.id}>{row}</Fragment>
-                  );
-                })}
-              </CollapsibleContent>
-            </Collapsible>
+              );
+              return collapsed ? (
+                <SidebarHint key={item.id} collapsed={collapsed} label={item.label}>
+                  {row}
+                </SidebarHint>
+              ) : (
+                <Fragment key={item.id}>{row}</Fragment>
+              );
+            })}
           </div>
 
           <div className={sectionLabel}>Execution</div>
@@ -355,24 +327,29 @@ export function AppSidebar({
                 {!collapsed && "Network"}
               </button>
             </SidebarHint>
-          </div>
-
-          <div className={sectionLabel}>Intelligence</div>
-          <div className={rail}>
-            <SidebarHint collapsed={collapsed} label="Investors">
+            <SidebarHint collapsed={collapsed} label="Investor targeting">
               <button
                 type="button"
-                onClick={() => goView("investors")}
-                className={navBtn(
-                  activeView === "investors" || activeView === "investor-search" || activeView === "investor-funding",
-                )}
-                style={
-                  activeView === "investors" || activeView === "investor-search" || activeView === "investor-funding"
-                    ? activeNavStyle
-                    : undefined
-                }
+                onClick={() => goView("targeting")}
+                className={navBtn(activeView === "targeting")}
+                style={activeView === "targeting" ? activeNavStyle : undefined}
               >
-                <Zap className="h-4 w-4 shrink-0" />
+                <Target className="h-4 w-4 shrink-0" />
+                {!collapsed && "Targeting"}
+              </button>
+            </SidebarHint>
+          </div>
+
+          <div className={sectionLabel}>Research</div>
+          <div className={rail}>
+            <SidebarHint collapsed={collapsed} label="Investor directory">
+              <button
+                type="button"
+                onClick={() => goView("investor-search")}
+                className={navBtn(activeView === "investor-search")}
+                style={activeView === "investor-search" ? activeNavStyle : undefined}
+              >
+                <UserSearch className="h-4 w-4 shrink-0" />
                 {!collapsed && "Investors"}
               </button>
             </SidebarHint>
@@ -389,7 +366,7 @@ export function AppSidebar({
             </SidebarHint>
           </div>
 
-          <div className={sectionLabel}>Command</div>
+          <div className={sectionLabel}>Workspace</div>
           <div className={rail}>
             <SidebarHint collapsed={collapsed} label="Mission Control">
               <button
@@ -402,6 +379,17 @@ export function AppSidebar({
                 {!collapsed && "Mission Control"}
               </button>
             </SidebarHint>
+            <SidebarHint collapsed={collapsed} label="Investor matches">
+              <button
+                type="button"
+                onClick={() => goView("investors")}
+                className={navBtn(activeView === "investors")}
+                style={activeView === "investors" ? activeNavStyle : undefined}
+              >
+                <Zap className="h-4 w-4 shrink-0" />
+                {!collapsed && "Matches"}
+              </button>
+            </SidebarHint>
             <SidebarHint collapsed={collapsed} label="Data Room">
               <button
                 type="button"
@@ -411,6 +399,17 @@ export function AppSidebar({
               >
                 <FileText className="h-4 w-4 shrink-0" />
                 {!collapsed && "Data Room"}
+              </button>
+            </SidebarHint>
+            <SidebarHint collapsed={collapsed} label="Profile & Workspace">
+              <button
+                type="button"
+                onClick={() => goView("profile-workspace")}
+                className={navBtn(activeView === "profile-workspace")}
+                style={activeView === "profile-workspace" ? activeNavStyle : undefined}
+              >
+                <UserCircle className="h-4 w-4 shrink-0" />
+                {!collapsed && "Profile & Workspace"}
               </button>
             </SidebarHint>
           </div>
@@ -432,7 +431,10 @@ export function AppSidebar({
           )}
         </nav>
 
-        <div className={cn("shrink-0 border-t border-sidebar-border/30 px-3 py-3", collapsed && "px-2")}>
+        <div className={cn("shrink-0 space-y-2 border-t border-sidebar-border/30 px-3 py-3", collapsed && "px-2")}>
+          <SidebarHint collapsed={collapsed} label="Workspace or personal context">
+            <ContextSwitcher collapsed={collapsed} />
+          </SidebarHint>
           <Popover
             open={agentPopoverOpen}
             onOpenChange={(next) => {

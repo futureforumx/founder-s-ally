@@ -25,7 +25,7 @@ export function normalizeHttpHref(raw: string | null | undefined): string | null
  * Reads the same persisted shapes as Settings → Company (profile) and Settings → Network (sensor suite),
  * plus deck / last-analysis hints from localStorage. (Logo is omitted — shown in the health header.)
  */
-export function collectCompanyLinkedDataSources(): CompanyLinkedDataSourceRow[] {
+export function collectCompanyLinkedDataSources(connectorScopeId?: string): CompanyLinkedDataSourceRow[] {
   if (typeof window === "undefined") return [];
   const rows: CompanyLinkedDataSourceRow[] = [];
 
@@ -131,7 +131,7 @@ export function collectCompanyLinkedDataSources(): CompanyLinkedDataSourceRow[] 
     });
   }
 
-  for (const int of getConnectedSensorIntegrations()) {
+  for (const int of getConnectedSensorIntegrations(connectorScopeId)) {
     rows.push({
       id: `workspace-${int.key}`,
       section: "Workspace connections",

@@ -8,6 +8,7 @@ import {
   Eye
 } from "lucide-react";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { ConnectorContextBanner } from "@/components/ConnectorContextBanner";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
@@ -324,6 +325,7 @@ function ConnectionsTab() {
         <h3 className="text-lg font-bold text-foreground">Sensor Suite</h3>
         <p className="text-xs text-muted-foreground mt-0.5">Linked data sources powering your intelligence engine</p>
       </div>
+      <ConnectorContextBanner />
       <SensorSuiteGrid compact showHeader={true} showTerminal={false} />
     </motion.div>
   );

@@ -38,6 +38,12 @@ const MarketIntelligenceInvestors = lazy(() => import("@/components/market-intel
 const NetworkWorkspacePage = lazy(() =>
   import("@/components/network-workspace/NetworkWorkspacePage").then((m) => ({ default: m.NetworkWorkspacePage })),
 );
+const ProfileWorkspacePage = lazy(() =>
+  import("@/components/ProfileWorkspacePage").then((m) => ({ default: m.ProfileWorkspacePage })),
+);
+const TargetingPage = lazy(() =>
+  import("@/components/targeting/TargetingPage").then((m) => ({ default: m.TargetingPage })),
+);
 
 type ViewType =
   | "home"
@@ -67,7 +73,9 @@ type ViewType =
   | "data-room"
   | "resources"
   | "workspace"
-  | "settings";
+  | "settings"
+  | "profile-workspace"
+  | "targeting";
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -179,6 +187,7 @@ const Index = () => {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
+      if (view === "profile-workspace") return "profile-workspace";
       if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
     } catch {
       /* ignore */
@@ -223,6 +232,9 @@ const Index = () => {
     }
     if (v === "settings") {
       setActiveView("settings");
+    }
+    if (v === "profile-workspace") {
+      setActiveView("profile-workspace");
     }
   }, [searchParams]);
 
@@ -742,6 +754,14 @@ const Index = () => {
             </DeferredSection>
           ) : activeView === "workspace" ? (
             <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
+          ) : activeView === "profile-workspace" ? (
+            <DeferredSection label="Loading profile…">
+              <ProfileWorkspacePage />
+            </DeferredSection>
+          ) : activeView === "targeting" ? (
+            <DeferredSection label="Loading targeting…">
+              <TargetingPage />
+            </DeferredSection>
           ) : activeView === "settings" ? (
             <DeferredSection label="Loading settings…">
               <SettingsPage />
