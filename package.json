@@ -98,6 +98,8 @@
     "headshots:dry-run": "DRY_RUN=true tsx scripts/update-headshots.ts",
     "headshots:refresh": "ALLOW_REFRESH=true tsx scripts/update-headshots.ts",
     "headshots:audit": "tsx scripts/audit-firm-investor-avatars.ts",
+    "db:audit:vc": "tsx scripts/audit-vc-database.ts",
+    "db:audit:vc:json": "tsx scripts/audit-vc-database.ts --json",
     "headshots:audit:firm": "tsx scripts/audit-firm-investor-avatars.ts",
     "headshots:repair": "tsx scripts/repair-firm-investor-avatars.ts",
     "headshots:repair:dry": "DRY_RUN=1 tsx scripts/repair-firm-investor-avatars.ts",
