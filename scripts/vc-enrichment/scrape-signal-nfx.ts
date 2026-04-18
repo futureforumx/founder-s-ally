@@ -126,10 +126,10 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
     }
 
     if (!authOk) {
-      log("  AUTH FAILED — run 'SIGNAL_PHASE=auth npm run scrape:signal-nfx' to login manually first");
-      log("  Skipping Signal NFX scraping.");
       await browser.close();
-      return stats;
+      throw new Error(
+        "Signal NFX auth failed. Run 'SIGNAL_PHASE=auth npm run scrape:signal-nfx' to login manually first, then retry."
+      );
     }
   }
 
@@ -137,9 +137,11 @@ async function setupBrowser(): Promise<{ browser: Browser; context: BrowserConte
 }
 
 async function loginToSignal(page: Page): Promise<boolean> {
-  const loginEmail = EMAIL || "joinfutureforum@gmail.com";
-  const loginPass = PASSWORD || "RADIO123radio";
-  log(`  Attempting login as ${loginEmail}...`);
+  if (!EMAIL || !PASSWORD) {
+    log("  SIGNAL_NFX_EMAIL / SIGNAL_NFX_PASSWORD not set — cannot login programmatically");
+    return false;
+  }
+  log(`  Attempting login as ${EMAIL}...`);
   try {
     await page.goto(`${SIGNAL_BASE}/login`, { waitUntil: "networkidle", timeout: 30_000 });
     await sleep(2000);
@@ -155,7 +157,7 @@ async function loginToSignal(page: Page): Promise<boolean> {
       }
       return false;
     }
-    await emailInput.fill(loginEmail);
+    await emailInput.fill(EMAIL);
 
     // Find "Continue" or submit button (Auth0 2-step flow)
     const continueBtn = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
@@ -167,7 +169,7 @@ async function loginToSignal(page: Page): Promise<boolean> {
     // Fill password
     const passInput = page.locator('input[type="password"]').first();
     if (await passInput.count() > 0) {
-      await passInput.fill(loginPass);
+      await passInput.fill(PASSWORD);
       const loginBtn = page.locator('button[type="submit"], button:has-text("Log In"), button:has-text("Sign In")').first();
       if (await loginBtn.count() > 0) {
         await loginBtn.click();
@@ -632,6 +634,16 @@ export async function runSignalNFXScraper(config: {
         const scraped = await extractSignalFirmProfile(page);
         stats.firmsMatched++;
 
+        // Parse check size range string → numeric min/max
+        const rawRange = (scraped as any).check_size_range as string | undefined;
+        if (rawRange && !scraped.check_size_min) {
+          const m = rawRange.match(/\$([\d,.]+[KMBkmb]?)\s*[-–]\s*\$([\d,.]+[KMBkmb]?)/i);
+          if (m) {
+            scraped.check_size_min = parseDollarAmount(m[1]) ?? undefined;
+            scraped.check_size_max = parseDollarAmount(m[2]) ?? undefined;
+          }
+        }
+
         // Map to firm_records columns
         const scrapedFields: Record<string, any> = {};
         if (scraped.description) scrapedFields.description = scraped.description;
@@ -647,8 +659,8 @@ export async function runSignalNFXScraper(config: {
         if (scraped.x_url) scrapedFields.x_url = scraped.x_url;
         if (scraped.signal_nfx_url) scrapedFields.signal_nfx_url = scraped.signal_nfx_url;
         if (scraped.sectors && scraped.sectors.length > 0) scrapedFields.thesis_verticals = scraped.sectors;
-        if (scraped.check_size_min) scrapedFields.check_size_min = scraped.check_size_min;
-        if (scraped.check_size_max) scrapedFields.check_size_max = scraped.check_size_max;
+        if (scraped.check_size_min) scrapedFields.min_check_size = scraped.check_size_min;
+        if (scraped.check_size_max) scrapedFields.max_check_size = scraped.check_size_max;
 
         const updates = computeFieldUpdates(firm, scrapedFields, 0.8);
         const patch: Record<string, any> = {};
@@ -788,6 +800,16 @@ export async function runSignalNFXScraper(config: {
 
         const scraped = await extractSignalInvestorProfile(page);
         stats.investorsMatched++;
+
+        // Parse check size range string → numeric min/max
+        const rawInvRange = (scraped as any).check_size_range as string | undefined;
+        if (rawInvRange && !scraped.check_size_min) {
+          const m = rawInvRange.match(/\$([\d,.]+[KMBkmb]?)\s*[-–]\s*\$([\d,.]+[KMBkmb]?)/i);
+          if (m) {
+            scraped.check_size_min = parseDollarAmount(m[1]) ?? undefined;
+            scraped.check_size_max = parseDollarAmount(m[2]) ?? undefined;
+          }
+        }
 
         const scrapedFields: Record<string, any> = {};
         if (scraped.title) scrapedFields.title = scraped.title;

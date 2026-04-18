@@ -491,10 +491,7 @@ export async function runTracxnScraper(config: {
 
         // Compute merge
         const updates = computeFieldUpdates(firm, scrapedFields, 0.75);
-        if (updates.length === 0) {
-          stats.firmsSearched; // already counted
-          continue;
-        }
+        if (updates.length === 0) continue;
 
         const patch: Record<string, any> = {};
         for (const u of updates) {
