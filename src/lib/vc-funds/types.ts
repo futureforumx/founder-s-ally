@@ -160,6 +160,10 @@ export interface CanonicalFundDraft {
   estimatedCheckMaxUsd: number | null;
   fieldConfidence: Record<string, number>;
   fieldProvenance: Record<string, string[]>;
+  verificationStatus: "verified" | "official_source_promoted" | "manual_reviewed";
+  lastVerifiedAt: string | null;
+  freshnessSyncedAt: string;
+  latestSourcePublishedAt: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -207,8 +211,8 @@ export interface FirmRecordLookup {
   stage_focus?: string[] | null;
   thesis_verticals?: string[] | null;
   active_geo_focus?: string[] | null;
-  check_size_min?: number | null;
-  check_size_max?: number | null;
+  min_check_size?: number | null;
+  max_check_size?: number | null;
 }
 
 export interface FundSyncRunOptions {
@@ -231,6 +235,12 @@ export interface FundSyncRunOptions {
 export interface FundSyncStats {
   fetched: number;
   parsed: number;
+  processedCandidates?: number;
+  verifiedCandidates?: number;
+  promotedCandidates?: number;
+  mirroredSignals?: number;
+  rederivedFirms?: number;
+  failures?: number;
   matchedFirms: number;
   createdFirms: number;
   upsertedFunds: number;
@@ -239,6 +249,15 @@ export interface FundSyncStats {
   linkedPeople: number;
   emittedSignals: number;
   reviewQueueItems: number;
+}
+
+export interface FundSyncVerifyStats {
+  processed: number;
+  verified: number;
+  escalated: number;
+  rejected: number;
+  review: number;
+  failures: number;
 }
 
 export interface VcFundSourceAdapter {

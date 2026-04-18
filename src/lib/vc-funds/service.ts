@@ -32,6 +32,7 @@ import type {
   FundSourceRecord,
   FundSyncRunOptions,
   FundSyncStats,
+  FundSyncVerifyStats,
   VcFundSourceAdapter,
 } from "./types";
 
@@ -144,170 +145,276 @@ export class FundSyncService {
     }) as DbLike;
   }
 
-  async run(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
-    const detectStats = await this.detectCandidateCapitalEvents(options);
-    if (options.dryRun) return detectStats;
-
-    await this.verifyCandidateClusters(options);
-    const promoteStats = await this.promoteCandidateCapitalEvents(options);
-    await this.mirrorVcFundSignalsToIntelligenceEvents({ ...options, verbose: options.verbose });
-
+  private serializeRunOptions(options: FundSyncRunOptions) {
     return {
-      fetched: detectStats.fetched,
-      parsed: detectStats.parsed,
-      matchedFirms: detectStats.matchedFirms,
-      createdFirms: promoteStats.createdFirms,
-      upsertedFunds: promoteStats.upsertedFunds,
-      updatedFunds: promoteStats.updatedFunds,
-      attachedSources: promoteStats.attachedSources,
-      linkedPeople: promoteStats.linkedPeople,
-      emittedSignals: promoteStats.emittedSignals,
-      reviewQueueItems: detectStats.reviewQueueItems + promoteStats.reviewQueueItems,
+      source_keys: options.sourceKeys ?? null,
+      max_items: options.maxItems ?? null,
+      allow_firm_creation: options.allowFirmCreation ?? null,
+      fresh_capital_window_days: options.freshCapitalWindowDays ?? null,
+      firm_id: options.firmId ?? null,
+      cluster_key: options.clusterKey ?? null,
+      date_from: options.dateFrom ?? null,
+      date_to: options.dateTo ?? null,
+      verbose: options.verbose ?? false,
+      allow_official_source_promotion: options.allowOfficialSourcePromotion ?? null,
+      require_verified_for_promotion: options.requireVerifiedForPromotion ?? null,
+      verifier_batch_size: options.verifierBatchSize ?? null,
+      verification_rate_ms: options.verificationRateMs ?? null,
     };
+  }
+
+  private async withRunLog<T>(phase: "detect" | "verify" | "promote" | "rederive" | "mirror" | "daily", options: FundSyncRunOptions, work: () => Promise<T>): Promise<T> {
+    if (options.dryRun) return work();
+
+    const { data: started, error: startError } = await this.supabase
+      .from("vc_fund_sync_runs")
+      .insert({
+        phase,
+        status: "running",
+        dry_run: false,
+        scope_firm_id: options.firmId ?? null,
+        scope_cluster_key: options.clusterKey ?? null,
+        options: this.serializeRunOptions(options),
+      })
+      .select("id")
+      .single();
+    if (startError) throw new Error(`Failed to create vc_fund_sync_runs entry: ${startError.message}`);
+
+    try {
+      const result = await work();
+      await this.supabase
+        .from("vc_fund_sync_runs")
+        .update({
+          status: "completed",
+          stats: result as any,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", started.id);
+      return result;
+    } catch (error) {
+      await this.supabase
+        .from("vc_fund_sync_runs")
+        .update({
+          status: "failed",
+          error_message: error instanceof Error ? error.message : String(error),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", started.id);
+      throw error;
+    }
+  }
+
+  async run(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
+    return this.withRunLog("daily", options, async () => {
+      const detectStats = await this.detectCandidateCapitalEvents(options);
+      if (options.dryRun) {
+        return {
+          ...detectStats,
+          processedCandidates: detectStats.parsed,
+        };
+      }
+
+      const verifyStats = await this.verifyCandidateClusters(options);
+      const promoteStats = await this.promoteCandidateCapitalEvents(options);
+      const rederivedFirms = await this.rederive(options);
+      const mirroredSignals = await this.mirrorVcFundSignalsToIntelligenceEvents({ ...options, verbose: options.verbose });
+
+      return {
+        fetched: detectStats.fetched,
+        parsed: detectStats.parsed,
+        processedCandidates: (detectStats.processedCandidates ?? detectStats.parsed) + verifyStats.processed,
+        verifiedCandidates: verifyStats.verified,
+        promotedCandidates: promoteStats.promotedCandidates ?? 0,
+        mirroredSignals,
+        rederivedFirms,
+        failures: (detectStats.failures ?? 0) + verifyStats.failures + (promoteStats.failures ?? 0),
+        matchedFirms: detectStats.matchedFirms + promoteStats.matchedFirms,
+        createdFirms: promoteStats.createdFirms,
+        upsertedFunds: promoteStats.upsertedFunds,
+        updatedFunds: promoteStats.updatedFunds,
+        attachedSources: promoteStats.attachedSources,
+        linkedPeople: promoteStats.linkedPeople,
+        emittedSignals: promoteStats.emittedSignals,
+        reviewQueueItems: detectStats.reviewQueueItems + verifyStats.review + promoteStats.reviewQueueItems,
+      };
+    });
   }
 
   async detectCandidateCapitalEvents(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
-    const stats: FundSyncStats = {
-      fetched: 0,
-      parsed: 0,
-      matchedFirms: 0,
-      createdFirms: 0,
-      upsertedFunds: 0,
-      updatedFunds: 0,
-      attachedSources: 0,
-      linkedPeople: 0,
-      emittedSignals: 0,
-      reviewQueueItems: 0,
-    };
+    return this.withRunLog("detect", options, async () => {
+      const stats: FundSyncStats = {
+        fetched: 0,
+        parsed: 0,
+        processedCandidates: 0,
+        matchedFirms: 0,
+        createdFirms: 0,
+        upsertedFunds: 0,
+        updatedFunds: 0,
+        attachedSources: 0,
+        linkedPeople: 0,
+        emittedSignals: 0,
+        reviewQueueItems: 0,
+        failures: 0,
+      };
 
-    const firms = await this.loadFirmLookups(options);
-    const adapters = this.options.adapters.filter((adapter) => !options.sourceKeys?.length || options.sourceKeys.includes(adapter.key));
+      const firms = await this.loadFirmLookups(options);
+      const adapters = this.options.adapters.filter((adapter) => !options.sourceKeys?.length || options.sourceKeys.includes(adapter.key));
 
-    for (const adapter of adapters.sort((a, b) => b.priority - a.priority)) {
-      const items = await adapter.fetchFundAnnouncements({ firms, options });
-      stats.fetched += items.length;
+      for (const adapter of adapters.sort((a, b) => b.priority - a.priority)) {
+        const items = await adapter.fetchFundAnnouncements({ firms, options });
+        stats.fetched += items.length;
 
-      for (const item of items.slice(0, options.maxItems ?? items.length)) {
-        stats.parsed += 1;
+        for (const item of items.slice(0, options.maxItems ?? items.length)) {
+          stats.parsed += 1;
+          stats.processedCandidates = (stats.processedCandidates ?? 0) + 1;
 
-        if (looksLikePortfolioFinancingNews(item)) {
-          if (options.verbose) console.log(`[vc-fund:detect] skip portfolio financing ${item.sourceUrl}`);
-          continue;
-        }
-        if (looksLikeGeneralFundraisingAnnouncement(item)) {
-          if (options.verbose) console.log(`[vc-fund:detect] skip generic fundraising ${item.sourceUrl}`);
-          continue;
-        }
-
-        const match = matchFirmRecord(item, firms);
-        const draft = toCandidateDraft({
-          item,
-          firm: match.matchedFirm,
-          firmMatchConfidence: match.confidence,
-          officialSourcePresent: item.sourceType === "official_website",
-        });
-        const evidence = buildEvidenceRow(item, draft.confidenceScore);
-
-        if (match.matchedFirm) stats.matchedFirms += 1;
-        if (draft.status === "review") stats.reviewQueueItems += 1;
-
-        if (options.dryRun) {
-          if (options.verbose) {
-            console.log("[vc-fund:detect:dry]", JSON.stringify({ cluster: draft.clusterKey, score: draft.confidenceScore, status: draft.status, url: draft.sourceUrl }, null, 2));
+          if (looksLikePortfolioFinancingNews(item)) {
+            if (options.verbose) console.log(`[vc-fund:detect] skip portfolio financing ${item.sourceUrl}`);
+            continue;
           }
-          continue;
-        }
+          if (looksLikeGeneralFundraisingAnnouncement(item)) {
+            if (options.verbose) console.log(`[vc-fund:detect] skip generic fundraising ${item.sourceUrl}`);
+            continue;
+          }
 
-        const result = await this.upsertCandidateCluster(draft, evidence, match.confidence);
-        if (options.verbose) {
-          console.log("[vc-fund:detect]", JSON.stringify(result, null, 2));
+          const match = matchFirmRecord(item, firms);
+          const draft = toCandidateDraft({
+            item,
+            firm: match.matchedFirm,
+            firmMatchConfidence: match.confidence,
+            officialSourcePresent: item.sourceType === "official_website",
+          });
+          const evidence = buildEvidenceRow(item, draft.confidenceScore);
+
+          if (match.matchedFirm) stats.matchedFirms += 1;
+          if (draft.status === "review") stats.reviewQueueItems += 1;
+
+          if (options.dryRun) {
+            if (options.verbose) {
+              console.log("[vc-fund:detect:dry]", JSON.stringify({ cluster: draft.clusterKey, score: draft.confidenceScore, status: draft.status, url: draft.sourceUrl }, null, 2));
+            }
+            continue;
+          }
+
+          const result = await this.upsertCandidateCluster(draft, evidence, match.confidence);
+          if (options.verbose) {
+            console.log("[vc-fund:detect]", JSON.stringify(result, null, 2));
+          }
         }
       }
-    }
 
-    return stats;
+      return stats;
+    });
   }
 
   async promoteCandidateCapitalEvents(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
-    const stats: FundSyncStats = {
-      fetched: 0,
-      parsed: 0,
-      matchedFirms: 0,
-      createdFirms: 0,
-      upsertedFunds: 0,
-      updatedFunds: 0,
-      attachedSources: 0,
-      linkedPeople: 0,
-      emittedSignals: 0,
-      reviewQueueItems: 0,
-    };
+    return this.withRunLog("promote", options, async () => {
+      const stats: FundSyncStats = {
+        fetched: 0,
+        parsed: 0,
+        processedCandidates: 0,
+        promotedCandidates: 0,
+        matchedFirms: 0,
+        createdFirms: 0,
+        upsertedFunds: 0,
+        updatedFunds: 0,
+        attachedSources: 0,
+        linkedPeople: 0,
+        emittedSignals: 0,
+        reviewQueueItems: 0,
+        failures: 0,
+      };
 
-    const candidates = await this.loadPromotableCandidates(options);
-    const firms = await this.loadFirmLookups(options);
-    const investors = await this.loadFirmInvestorLookups();
+      const candidates = await this.loadPromotableCandidates(options);
+      const firms = await this.loadFirmLookups(options);
+      const investors = await this.loadFirmInvestorLookups();
 
-    if (options.dryRun) {
-      if (options.verbose) {
-        console.log("[vc-fund:promote:dry]", JSON.stringify(candidates.map((candidate) => ({
-          id: candidate.id,
-          cluster_key: candidate.cluster_key,
-          status: candidate.status,
-          score: candidate.confidence_score,
-        })), null, 2));
+      if (options.dryRun) {
+        if (options.verbose) {
+          console.log("[vc-fund:promote:dry]", JSON.stringify(candidates.map((candidate) => ({
+            id: candidate.id,
+            cluster_key: candidate.cluster_key,
+            status: candidate.status,
+            score: candidate.confidence_score,
+          })), null, 2));
+        }
+        stats.processedCandidates = candidates.length;
+        return stats;
       }
+
+      for (const candidate of candidates) {
+        stats.processedCandidates = (stats.processedCandidates ?? 0) + 1;
+        const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors);
+        if (!result) continue;
+        const { wasUpdate, attachedSources, linkedPeople, emittedSignals, firmMatched, sentToReview } = result;
+        if (sentToReview) {
+          stats.reviewQueueItems += 1;
+          continue;
+        }
+        if (firmMatched) stats.matchedFirms += 1;
+        if (wasUpdate) stats.updatedFunds += 1;
+        else stats.upsertedFunds += 1;
+        stats.promotedCandidates = (stats.promotedCandidates ?? 0) + 1;
+        stats.attachedSources += attachedSources;
+        stats.linkedPeople += linkedPeople;
+        stats.emittedSignals += emittedSignals;
+      }
+
       return stats;
-    }
-
-    for (const candidate of candidates) {
-      const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors);
-      if (!result) continue;
-      const { fundId, wasUpdate, attachedSources, linkedPeople, emittedSignals, firmMatched, sentToReview } = result;
-      if (sentToReview) {
-        stats.reviewQueueItems += 1;
-        continue;
-      }
-      if (firmMatched) stats.matchedFirms += 1;
-      if (wasUpdate) stats.updatedFunds += 1;
-      else stats.upsertedFunds += 1;
-      stats.attachedSources += attachedSources;
-      stats.linkedPeople += linkedPeople;
-      stats.emittedSignals += emittedSignals;
-    }
-
-    return stats;
+    });
   }
 
-  async verifyCandidateClusters(options: FundSyncRunOptions = {}): Promise<number> {
-    const candidates = await this.loadVerifiableCandidates(options);
-    if (options.dryRun) {
-      if (options.verbose) {
-        console.log("[vc-fund:verify:dry]", JSON.stringify(candidates.map((candidate) => ({
-          id: candidate.id,
-          cluster_key: candidate.cluster_key,
-          score: candidate.confidence_score,
-          official_source_present: candidate.official_source_present,
-        })), null, 2));
+  async verifyCandidateClusters(options: FundSyncRunOptions = {}): Promise<FundSyncVerifyStats> {
+    return this.withRunLog("verify", options, async () => {
+      const candidates = await this.loadVerifiableCandidates(options);
+      if (options.dryRun) {
+        if (options.verbose) {
+          console.log("[vc-fund:verify:dry]", JSON.stringify(candidates.map((candidate) => ({
+            id: candidate.id,
+            cluster_key: candidate.cluster_key,
+            score: candidate.confidence_score,
+            official_source_present: candidate.official_source_present,
+          })), null, 2));
+        }
+        return {
+          processed: candidates.length,
+          verified: 0,
+          escalated: candidates.length,
+          rejected: 0,
+          review: 0,
+          failures: 0,
+        };
       }
-      return candidates.length;
-    }
-    let verified = 0;
-    const delayMs = options.verificationRateMs ?? CAPITAL_EVENT_THRESHOLDS.verifierRateMs;
+      const stats: FundSyncVerifyStats = {
+        processed: 0,
+        verified: 0,
+        escalated: 0,
+        rejected: 0,
+        review: 0,
+        failures: 0,
+      };
+      const delayMs = options.verificationRateMs ?? CAPITAL_EVENT_THRESHOLDS.verifierRateMs;
 
-    for (const candidate of candidates) {
-      const outcome = await this.verifyEscalatedCandidateCapitalEvent(candidate);
-      if (options.verbose) {
-        console.log("[vc-fund:verify]", JSON.stringify({
-          candidateId: candidate.id,
-          clusterKey: candidate.cluster_key,
-          previousStatus: candidate.status,
-          outcome,
-        }, null, 2));
+      for (const candidate of candidates) {
+        stats.processed += 1;
+        const outcome = await this.verifyEscalatedCandidateCapitalEvent(candidate);
+        if (options.verbose) {
+          console.log("[vc-fund:verify]", JSON.stringify({
+            candidateId: candidate.id,
+            clusterKey: candidate.cluster_key,
+            previousStatus: candidate.status,
+            outcome,
+          }, null, 2));
+        }
+        if (outcome.status === "verified") stats.verified += 1;
+        else if (outcome.status === "review") stats.review += 1;
+        else if (outcome.status === "rejected") stats.rejected += 1;
+        else stats.escalated += 1;
+        await sleep(delayMs);
       }
-      if (outcome.status === "verified") verified += 1;
-      await sleep(delayMs);
-    }
 
-    return verified;
+      return stats;
+    });
   }
 
   async verifyEscalatedCandidateCapitalEvent(candidate: CandidateRow): Promise<{
@@ -509,76 +616,78 @@ export class FundSyncService {
   }
 
   async mirrorVcFundSignalsToIntelligenceEvents(options: FundSyncRunOptions & { force?: boolean } = {}): Promise<number> {
-    const rows = await this.loadSignalsForMirror(options);
-    let mirrored = 0;
+    return this.withRunLog("mirror", options, async () => {
+      const rows = await this.loadSignalsForMirror(options);
+      let mirrored = 0;
 
-    for (const row of rows) {
-      const mirrorKey = `vc_fund_signal:${row.dedupe_key}`;
-      const firmEntityId = await this.ensureIntelligenceEntity("investor", row.firm_name, [], { firm_record_id: row.firm_record_id });
-      const fundEntityId = row.fund_name
-        ? await this.ensureIntelligenceEntity("fund", row.fund_name, [], { vc_fund_id: row.vc_fund_id, firm_record_id: row.firm_record_id })
-        : null;
-      const personEntityId = row.firm_investor_name
-        ? await this.ensureIntelligenceEntity("person", row.firm_investor_name, [], { firm_investor_id: row.firm_investor_id })
-        : null;
+      for (const row of rows) {
+        const mirrorKey = `vc_fund_signal:${row.dedupe_key}`;
+        const firmEntityId = await this.ensureIntelligenceEntity("investor", row.firm_name, [], { firm_record_id: row.firm_record_id });
+        const fundEntityId = row.fund_name
+          ? await this.ensureIntelligenceEntity("fund", row.fund_name, [], { vc_fund_id: row.vc_fund_id, firm_record_id: row.firm_record_id })
+          : null;
+        const personEntityId = row.firm_investor_name
+          ? await this.ensureIntelligenceEntity("person", row.firm_investor_name, [], { firm_investor_id: row.firm_investor_id })
+          : null;
 
-      const { data: existing, error: existingError } = await this.supabase
-        .from("intelligence_events")
-        .select("id, source_count")
-        .eq("dedupe_key", mirrorKey)
-        .maybeSingle();
-      if (existingError) throw new Error(existingError.message);
+        const { data: existing, error: existingError } = await this.supabase
+          .from("intelligence_events")
+          .select("id, source_count")
+          .eq("dedupe_key", mirrorKey)
+          .maybeSingle();
+        if (existingError) throw new Error(existingError.message);
 
-      const payload = {
-        event_type: row.signal_type,
-        category: "investors",
-        title: row.headline,
-        summary: row.summary || "",
-        why_it_matters: whyItMattersForSignal(row.signal_type, row.firm_name),
-        confidence_score: row.confidence,
-        importance_score: Math.min(1, Math.max(0.35, row.display_priority / 100)),
-        relevance_score: Math.min(1, Math.max(0.4, row.confidence)),
-        canonical_source_url: row.source_url,
-        source_count: existing?.source_count ? Number(existing.source_count) + 1 : 1,
-        dedupe_key: mirrorKey,
-        metadata: {
-          ...(row.metadata || {}),
-          vc_fund_signal_id: row.id,
-          firm_record_id: row.firm_record_id,
-          vc_fund_id: row.vc_fund_id,
-          firm_investor_id: row.firm_investor_id,
-          mirror_key: mirrorKey,
-        },
-        last_seen_at: new Date().toISOString(),
-      };
+        const payload = {
+          event_type: row.signal_type,
+          category: "investors",
+          title: row.headline,
+          summary: row.summary || "",
+          why_it_matters: whyItMattersForSignal(row.signal_type, row.firm_name),
+          confidence_score: row.confidence,
+          importance_score: Math.min(1, Math.max(0.35, row.display_priority / 100)),
+          relevance_score: Math.min(1, Math.max(0.4, row.confidence)),
+          canonical_source_url: row.source_url,
+          source_count: existing?.source_count ? Number(existing.source_count) + 1 : 1,
+          dedupe_key: mirrorKey,
+          metadata: {
+            ...(row.metadata || {}),
+            vc_fund_signal_id: row.id,
+            firm_record_id: row.firm_record_id,
+            vc_fund_id: row.vc_fund_id,
+            firm_investor_id: row.firm_investor_id,
+            mirror_key: mirrorKey,
+          },
+          last_seen_at: new Date().toISOString(),
+        };
 
-      const { data: event, error } = await this.supabase
-        .from("intelligence_events")
-        .upsert(payload, { onConflict: "dedupe_key" })
-        .select("id")
-        .single();
-      if (error) throw new Error(`Failed to mirror intelligence_event: ${error.message}`);
+        const { data: event, error } = await this.supabase
+          .from("intelligence_events")
+          .upsert(payload, { onConflict: "dedupe_key" })
+          .select("id")
+          .single();
+        if (error) throw new Error(`Failed to mirror intelligence_event: ${error.message}`);
 
-      const links = [
-        { event_id: event.id, entity_id: firmEntityId, role: "investor" },
-        ...(fundEntityId ? [{ event_id: event.id, entity_id: fundEntityId, role: "fund" }] : []),
-        ...(personEntityId ? [{ event_id: event.id, entity_id: personEntityId, role: "person" }] : []),
-      ];
-      for (const link of links) {
-        await this.supabase.from("intelligence_event_entities").upsert(link, { onConflict: "event_id,entity_id,role" });
+        const links = [
+          { event_id: event.id, entity_id: firmEntityId, role: "investor" },
+          ...(fundEntityId ? [{ event_id: event.id, entity_id: fundEntityId, role: "fund" }] : []),
+          ...(personEntityId ? [{ event_id: event.id, entity_id: personEntityId, role: "person" }] : []),
+        ];
+        for (const link of links) {
+          await this.supabase.from("intelligence_event_entities").upsert(link, { onConflict: "event_id,entity_id,role" });
+        }
+
+        await this.supabase
+          .from("vc_fund_signals")
+          .update({
+            intelligence_event_id: event.id,
+            mirrored_to_intelligence_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        mirrored += 1;
       }
 
-      await this.supabase
-        .from("vc_fund_signals")
-        .update({
-          intelligence_event_id: event.id,
-          mirrored_to_intelligence_at: new Date().toISOString(),
-        })
-        .eq("id", row.id);
-      mirrored += 1;
-    }
-
-    return mirrored;
+      return mirrored;
+    });
   }
 
   async repairVcFundSignalMirror(options: FundSyncRunOptions = {}): Promise<number> {
@@ -662,6 +771,9 @@ export class FundSyncService {
     investors: Array<{ id: string; firm_id: string; full_name: string; title?: string | null }>,
   ) {
     const canonical = this.buildCanonicalDraft(firm, grouped);
+    if (candidate.status !== "verified" && candidate.official_source_present) {
+      canonical.verificationStatus = "official_source_promoted";
+    }
     const { fundId, wasUpdate } = await this.upsertFund(canonical);
     const attachedSources = await this.attachProvenanceFromCandidate(fundId, grouped);
     const linkedPeople = await this.linkPeople(fundId, grouped, investors);
@@ -693,15 +805,21 @@ export class FundSyncService {
   }
 
   async rederive(options: FundSyncRunOptions = {}) {
-    await this.refreshFirmDerivations(options.firmId || null, options.freshCapitalWindowDays ?? 365);
-    if (options.firmId) {
-      await this.refreshInvestorRankingInputs(options.firmId);
-    } else {
-      const firms = await this.loadFirmLookups({});
-      for (const firm of firms.slice(0, options.maxItems ?? firms.length)) {
-        await this.refreshInvestorRankingInputs(firm.id);
+    return this.withRunLog("rederive", options, async () => {
+      const refreshed = await this.refreshFirmDerivations(options.firmId || null, options.freshCapitalWindowDays ?? 365);
+      let investorsRefreshed = 0;
+      if (options.firmId) {
+        await this.refreshInvestorRankingInputs(options.firmId);
+        investorsRefreshed = 1;
+      } else {
+        const firms = await this.loadFirmLookups({});
+        for (const firm of firms.slice(0, options.maxItems ?? firms.length)) {
+          await this.refreshInvestorRankingInputs(firm.id);
+          investorsRefreshed += 1;
+        }
       }
-    }
+      return refreshed || investorsRefreshed;
+    });
   }
 
   private async loadFirmLookups(options: FundSyncRunOptions = {}): Promise<FirmRecordLookup[]> {
@@ -775,8 +893,13 @@ export class FundSyncService {
     const capitalWindow = deriveCapitalWindow({ announcedDate, closeDate, fundType, status });
     const checkRange = deriveEstimatedCheckRange(
       { finalSizeUsd, targetSizeUsd, fundType },
-      { checkSizeMin: firm.check_size_min ?? null, checkSizeMax: firm.check_size_max ?? null },
+      { checkSizeMin: firm.min_check_size ?? null, checkSizeMax: firm.max_check_size ?? null },
     );
+    const latestSourcePublishedAt = grouped
+      .map((item) => item.closeDate || item.announcedDate || null)
+      .filter((value): value is string => Boolean(value))
+      .sort((left, right) => right.localeCompare(left))[0] ?? null;
+    const nowIso = new Date().toISOString();
 
     return {
       firmRecordId: firm.id,
@@ -809,6 +932,10 @@ export class FundSyncService {
       estimatedCheckMaxUsd: checkRange.maxUsd,
       fieldConfidence,
       fieldProvenance,
+      verificationStatus: "verified",
+      lastVerifiedAt: nowIso,
+      freshnessSyncedAt: nowIso,
+      latestSourcePublishedAt,
       metadata: {
         adapter_keys: Array.from(new Set(grouped.map((item) => item.sourceType))),
         external_ids: grouped.map((item) => item.externalId).filter(Boolean),
@@ -971,6 +1098,10 @@ export class FundSyncService {
       estimated_check_max_usd: fund.estimatedCheckMaxUsd,
       field_confidence: fund.fieldConfidence,
       field_provenance: fund.fieldProvenance,
+      verification_status: fund.verificationStatus,
+      last_verified_at: fund.lastVerifiedAt,
+      freshness_synced_at: fund.freshnessSyncedAt,
+      latest_source_published_at: fund.latestSourcePublishedAt,
       metadata: fund.metadata,
       last_signal_at: new Date().toISOString(),
     };
@@ -1510,10 +1641,13 @@ export class FundSyncService {
         .in("vc_fund_id", fundIds)
         .order("confidence", { ascending: false });
       for (const row of peopleRows || []) {
+        const investorName = Array.isArray(row.firm_investors)
+          ? row.firm_investors[0]?.full_name || null
+          : row.firm_investors?.full_name || null;
         if (!peopleByFund.has(row.vc_fund_id)) {
           peopleByFund.set(row.vc_fund_id, {
             firm_investor_id: row.firm_investor_id || null,
-            full_name: row.firm_investors?.full_name || null,
+            full_name: investorName,
           });
         }
       }
@@ -1548,11 +1682,13 @@ export class FundSyncService {
     return data.id as string;
   }
 
-  private async refreshFirmDerivations(firmRecordId: string | null, windowDays: number): Promise<void> {
-    await this.supabase.rpc("refresh_firm_capital_derived_fields", {
+  private async refreshFirmDerivations(firmRecordId: string | null, windowDays: number): Promise<number> {
+    const { data, error } = await this.supabase.rpc("refresh_firm_capital_derived_fields", {
       p_firm_record_id: firmRecordId,
       p_fresh_window_days: windowDays,
     });
+    if (error) throw new Error(`Failed to refresh firm capital derivations: ${error.message}`);
+    return Number(data || 0);
   }
 
   private async refreshInvestorRankingInputs(firmRecordId: string): Promise<void> {
@@ -1607,6 +1743,9 @@ export class FundSyncService {
       actively_deploying: fund.likelyActivelyDeploying,
       confidence: fund.sourceConfidence,
       source_url: fund.announcementUrl,
+      verification_status: fund.verificationStatus,
+      last_verified_at: fund.lastVerifiedAt,
+      canonical_freshness_synced_at: fund.freshnessSyncedAt,
     }, { onConflict: "firm_id,normalized_fund_name" });
   }
 

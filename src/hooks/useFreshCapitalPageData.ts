@@ -21,6 +21,11 @@ export type FreshCapitalPageQueryResult = {
   usingDemoData: boolean;
 };
 
+/**
+ * `/fresh-capital` reads only the public-safe RPC layer:
+ * `get_new_vc_funds(...)` + optional `get_capital_heatmap_backend(...)`.
+ * Those map to canonical `vc_funds` + `firm_records`, not candidate staging or legacy `fund_records`.
+ */
 export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: string | null) {
   return useQuery({
     queryKey: ["fresh-capital-page", stage, sector],
@@ -36,6 +41,10 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
       if (!sector) {
         const p = await fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 });
         const heatmapSource: HeatmapSource = p.heatmapFromRpc?.length ? "rpc" : "fallback_sector_tag_counts";
+        if (import.meta.env.DEV) {
+          // grep: [FreshCapital] heatmap_page_source — final UI heatmap path after merge (rpc vs fallback_sector_tag_counts).
+          console.info(`[FreshCapital] heatmap_page_source=${heatmapSource} sector_filter=false`);
+        }
         return {
           funds: p.funds,
           heatmapBuckets: p.heatmapFromRpc ?? aggregateSectorHeatmap(p.funds, 8),
@@ -51,6 +60,9 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
       ]);
       const canonical = narrow.heatmapFromRpc ?? wide.heatmapFromRpc;
       const heatmapSource: HeatmapSource = canonical?.length ? "rpc" : "fallback_sector_tag_counts";
+      if (import.meta.env.DEV) {
+        console.info(`[FreshCapital] heatmap_page_source=${heatmapSource} sector_filter=true`);
+      }
       return {
         funds: narrow.funds,
         heatmapBuckets: canonical ?? aggregateSectorHeatmap(wide.funds, 8),
