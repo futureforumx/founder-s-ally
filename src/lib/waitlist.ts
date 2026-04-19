@@ -11,10 +11,7 @@ function isLikelySupabaseJwt(token: string): boolean {
   return token.startsWith("eyJ");
 }
 
-/**
- * Bearer token the Edge Function **gateway** accepts when JWT verification is on.
- * Prefer optional legacy anon JWT; else use publishable key only if it is already a JWT.
- */
+/** Legacy anon JWT (`eyJ…`) for Bearer when set; otherwise {@link waitlistEdgeRequestHeaders} uses publishable key as Bearer. */
 function edgeFunctionBearerJwt(): string | undefined {
   const explicit = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (typeof explicit === "string") {
@@ -26,17 +23,21 @@ function edgeFunctionBearerJwt(): string | undefined {
   return undefined;
 }
 
+/**
+ * Edge Functions gateway expects the same project API key in both `apikey` and `Authorization`
+ * for anonymous invokes (see Supabase Functions docs). We must always send `Authorization`:
+ * with only `VITE_SUPABASE_PUBLISHABLE_KEY` (sb_publishable_…), omitting it causes HTTP 401.
+ * Prefer legacy anon JWT for Bearer when `VITE_SUPABASE_ANON_KEY` is set (eyJ…).
+ */
 function waitlistEdgeRequestHeaders(): Record<string, string> {
   const key = publishableKey();
-  const headers: Record<string, string> = {
+  const bearerJwt = edgeFunctionBearerJwt();
+  const bearer = bearerJwt ?? key;
+  return {
     "Content-Type": "application/json",
     apikey: key,
+    Authorization: `Bearer ${bearer}`,
   };
-  const bearer = edgeFunctionBearerJwt();
-  if (bearer) {
-    headers.Authorization = `Bearer ${bearer}`;
-  }
-  return headers;
 }
 
 function supabaseOrigin(): string {
@@ -77,6 +78,11 @@ async function messageFromFunctionsHttpError(error: unknown): Promise<string | n
  * `supabase.functions.invoke` uses `fetchWithAuth`, which can still surface
  * edge cases with bundled auth; this path never sends a Clerk session token.
  */
+/** Same gateway/auth as waitlist-signup (public, anon-compatible). */
+export async function invokePublicEdgeFunction<T>(name: string, body: unknown): Promise<T> {
+  return invokeWaitlistFunction<T>(name, body);
+}
+
 async function invokeWaitlistFunction<T>(name: string, body: unknown): Promise<T> {
   if (!isSupabaseConfigured) {
     const { data, error } = await supabase.functions.invoke(name, { body });
@@ -114,6 +120,7 @@ async function invokeWaitlistFunction<T>(name: string, body: unknown): Promise<T
   }
 
   if (!res.ok) {
+    console.warn(`[waitlist] ${name} HTTP ${res.status}`, parsed ?? raw?.slice?.(0, 300));
     const fromBody =
       parsed &&
       typeof parsed === "object" &&
@@ -125,7 +132,7 @@ async function invokeWaitlistFunction<T>(name: string, body: unknown): Promise<T
     if (res.status === 401) {
       const hint401 =
         publishableKey().startsWith("sb_publishable_") && !edgeFunctionBearerJwt()
-          ? " Publishable keys are not JWTs. Fix: run `npm run supabase:functions` (deploys waitlist-signup/status with --no-verify-jwt; needs SUPABASE_ACCESS_TOKEN in .env.local), or set VITE_SUPABASE_ANON_KEY to the legacy anon JWT (Dashboard → Settings → API), or turn off “Verify JWT” for this function in the dashboard."
+          ? " If this persists: set VITE_SUPABASE_ANON_KEY to the legacy anon JWT (eyJ…) from Dashboard → API, or confirm Edge Functions use --no-verify-jwt."
           : "";
       throw new Error((fromBody ?? `${name} failed (HTTP 401)`) + hint401);
     }
@@ -142,6 +149,10 @@ async function invokeWaitlistFunction<T>(name: string, body: unknown): Promise<T
     throw new Error((parsed as { error: string }).error);
   }
 
+  if (import.meta.env.DEV && name === "founder-waitlist-snapshot") {
+    console.debug("[waitlist] founder-waitlist-snapshot OK", res.status, parsed);
+  }
+
   return parsed as T;
 }
 
@@ -155,6 +166,8 @@ export interface WaitlistSignupPayload {
   role?: "founder" | "investor" | "operator" | "advisor" | "other";
   /** Normalized server-side; free-form values allowed from custom forms. */
   stage?: string;
+  /** Canonical founder sector slug (optional); see `src/config/founderWaitlistSector.ts`. */
+  sector?: string;
   urgency?:
     | "actively_raising"
     | "raising_6_months"
@@ -218,4 +231,24 @@ export async function waitlistGetStatus(
   params: { email?: string; referral_code?: string },
 ): Promise<WaitlistStatusResponse> {
   return invokeWaitlistFunction<WaitlistStatusResponse>("waitlist-status", params);
+}
+
+export type FounderWaitlistSnapshotMatch = {
+  firmName: string;
+  investorName?: string;
+  reason: string;
+  url?: string;
+};
+
+export type FounderWaitlistSnapshot = {
+  investorMatches: FounderWaitlistSnapshotMatch[];
+  marketSignal: { text: string; source?: string };
+  nextStep: { text: string };
+};
+
+export async function fetchFounderWaitlistSnapshot(params: {
+  sector?: string;
+  stage?: string;
+}): Promise<FounderWaitlistSnapshot> {
+  return invokePublicEdgeFunction<FounderWaitlistSnapshot>("founder-waitlist-snapshot", params);
 }
