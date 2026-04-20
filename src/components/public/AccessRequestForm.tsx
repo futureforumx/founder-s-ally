@@ -1,9 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { z } from "zod";
-import { Check, Copy, Loader2 } from "lucide-react";
-import { waitlistSignup, type WaitlistSignupPayload, type WaitlistSignupResponse } from "@/lib/waitlist";
+import { Check, CheckCircle2, Copy, Loader2, Mail, Share2 } from "lucide-react";
+import {
+  FOUNDER_WAITLIST_SECTOR_OPTIONS,
+  getFounderWaitlistSectorLabel,
+  isFounderWaitlistSectorValue,
+} from "@/config/founderWaitlistSector";
+import { getFounderWaitlistSectorSignalHint } from "@/config/founderWaitlistSectorSignals";
+import { FounderWaitlistSnapshotPanel } from "@/components/public/FounderWaitlistSnapshotPanel";
+import { trackMixpanelEvent } from "@/lib/mixpanel";
+import {
+  fetchFounderWaitlistSnapshot,
+  type FounderWaitlistSnapshot,
+  waitlistSignup,
+  type WaitlistSignupPayload,
+  type WaitlistSignupResponse,
+} from "@/lib/waitlist";
 import { normalizeLinkedInProfileUrl } from "@/lib/normalizeLinkedInProfileUrl";
+import { requestWaitlistConfirmationEmailStub } from "@/lib/waitlistConfirmationEmailStub";
+import { referralShareOutlineButtonClass } from "@/lib/referralShareUi";
+import { resolvePublicReferralLink } from "@/lib/publicReferralLink";
+import { trackWaitlistAnalytics } from "@/lib/waitlistAnalytics";
+import { useReferralShareActions } from "@/hooks/useReferralShareActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -41,13 +61,13 @@ const accessHelperClass = "text-2xs text-[#b3b3b3]/85";
 const accessInlineHighlightClass = "text-[#2EE6A6]";
 const accessChoiceLabelClass = "flex cursor-pointer items-center gap-2 text-sm text-[#b3b3b3]";
 
-const SHARE_ORIGIN = "https://vekta.so";
+const SECTOR_HELPER_COPY = "Used to personalize investor matches and market signals.";
 
-function vektaReferralShareUrl(code: string): string {
-  const trimmed = code.trim();
-  if (!trimmed) return SHARE_ORIGIN;
-  return `${SHARE_ORIGIN}?ref=${encodeURIComponent(trimmed)}`;
-}
+const SUCCESS_VALUE_PREVIEW_BULLETS = [
+  "Relevant investors in your space",
+  "Warm intro paths where they exist",
+  "Real-time market signals",
+] as const;
 
 type AccessRole = "founder" | "investor" | "operator" | "advisor" | "other";
 
@@ -162,7 +182,7 @@ function buildMetadata(params: {
   if (utm_source) meta.utm_source = utm_source;
   if (utm_medium) meta.utm_medium = utm_medium;
   if (utm_campaign) meta.utm_campaign = utm_campaign;
-  if (params.referralFromUrl) meta.referral_code_used = params.referralFromUrl;
+  if (params.referralFromUrl) meta.referral_code = params.referralFromUrl;
   if (params.priorityAccess === true || params.priorityAccess === false) {
     meta.priority_access_requested = params.priorityAccess;
   }
@@ -195,6 +215,8 @@ export function AccessRequestForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AccessRole | "">("");
   const [stage, setStage] = useState("");
+  /** Canonical founder sector slug; cleared when stage/role hides the field. */
+  const [sector, setSector] = useState("");
   const [intentSet, setIntentSet] = useState<Record<string, boolean>>({});
   const [biggestPain, setBiggestPain] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -206,8 +228,34 @@ export function AccessRequestForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailFieldError, setEmailFieldError] = useState<string | null>(null);
   const [result, setResult] = useState<WaitlistSignupResponse | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
+
+  const reduceMotion = useReducedMotion();
+  const sectorSectionRef = useRef<HTMLDivElement>(null);
+  const sectorSelectRef = useRef<HTMLSelectElement>(null);
+  const sectorWasVisibleRef = useRef(false);
+
+  const [founderSnapshot, setFounderSnapshot] = useState<FounderWaitlistSnapshot | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotFetchFailed, setSnapshotFetchFailed] = useState(false);
+  const snapshotFetchedForSignupId = useRef<string | null>(null);
+  const signupSuccessAnalyticsFiredForId = useRef<string | null>(null);
+  const referralVisitTrackedRef = useRef(false);
+
+  const referralLink = useMemo(() => resolvePublicReferralLink(result ?? {}), [result]);
+
+  const { copied, copyFailed, copyReferralLink, xIntentHref, mailtoHref } = useReferralShareActions(referralLink);
+
+  useEffect(() => {
+    if (referralVisitTrackedRef.current) return;
+    const refParam =
+      searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim() || null;
+    if (!refParam) return;
+    referralVisitTrackedRef.current = true;
+    trackWaitlistAnalytics("referral_visit", {
+      ref_code: refParam,
+      path: typeof window !== "undefined" ? window.location.pathname : "/access",
+    });
+  }, [searchParams]);
 
   useEffect(() => {
     if (!role) return;
@@ -228,6 +276,89 @@ export function AccessRequestForm() {
       return next;
     });
   }, [role]);
+
+  useEffect(() => {
+    if (role !== "founder" || !stage.trim()) {
+      setSector("");
+    }
+  }, [role, stage]);
+
+  useEffect(() => {
+    const showSector = role === "founder" && !!stage.trim();
+    const appeared = showSector && !sectorWasVisibleRef.current;
+    sectorWasVisibleRef.current = showSector;
+    if (!appeared) return;
+
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        sectorSectionRef.current?.scrollIntoView({
+          behavior: reduceMotion ? "auto" : "smooth",
+          block: "nearest",
+          inline: "nearest",
+        });
+        sectorSelectRef.current?.focus({ preventScroll: true });
+      });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [role, stage, reduceMotion]);
+
+  useEffect(() => {
+    if (status !== "success" || !result?.id) return;
+    if (signupSuccessAnalyticsFiredForId.current === result.id) return;
+    signupSuccessAnalyticsFiredForId.current = result.id;
+    trackWaitlistAnalytics("waitlist_signup_success", {
+      signup_id: result.id,
+      waitlist_position: result.waitlist_position ?? null,
+      referral_count:
+        typeof result.referral_count === "number" ? result.referral_count : undefined,
+      total_score: typeof result.total_score === "number" ? result.total_score : undefined,
+      has_referral_link: Boolean(referralLink),
+      role: role || undefined,
+    });
+    requestWaitlistConfirmationEmailStub({
+      email: result.email,
+      waitlist_position: result.waitlist_position,
+      referral_link: referralLink,
+    });
+  }, [status, result, referralLink, role]);
+
+  useEffect(() => {
+    if (status !== "success" || !result?.id || role !== "founder") return;
+    if (snapshotFetchedForSignupId.current === result.id) return;
+    snapshotFetchedForSignupId.current = result.id;
+
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "/access";
+    trackMixpanelEvent("snapshot_generation_started", {
+      path: pathname,
+      signup_id: result.id,
+      sector: sector.trim() || undefined,
+      stage: stage.trim() || undefined,
+    });
+
+    setSnapshotLoading(true);
+    setSnapshotFetchFailed(false);
+    fetchFounderWaitlistSnapshot({
+      sector: sector.trim() || undefined,
+      stage: stage.trim() || undefined,
+    })
+      .then((data) => {
+        setFounderSnapshot(data);
+        trackMixpanelEvent("snapshot_generation_succeeded", {
+          path: pathname,
+          signup_id: result.id,
+          match_count: data.investorMatches?.length ?? 0,
+        });
+      })
+      .catch((err) => {
+        console.warn("[AccessRequestForm] fetchFounderWaitlistSnapshot failed", err);
+        setSnapshotFetchFailed(true);
+        trackMixpanelEvent("snapshot_generation_failed", { path: pathname, signup_id: result.id });
+      })
+      .finally(() => setSnapshotLoading(false));
+  }, [status, result?.id, role, sector, stage]);
+
+  const founderEarlyAccessCta =
+    role === "founder" && !!sector.trim() && isFounderWaitlistSectorValue(sector.trim());
 
   const toggleIntent = (id: string) => {
     setIntentSet((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -272,6 +403,11 @@ export function AccessRequestForm() {
       setStatus("error");
       return;
     }
+    if (role === "founder" && sector.trim() && !isFounderWaitlistSectorValue(sector.trim())) {
+      setErrorMessage("Please select a valid sector.");
+      setStatus("error");
+      return;
+    }
     const intent = PRIORITY_CHOICES[role as AccessRole].filter((p) => intentSet[p.id]).map((p) => p.id);
     if (intent.length === 0) {
       setErrorMessage("Please select at least one priority.");
@@ -312,6 +448,7 @@ export function AccessRequestForm() {
       name: combineName(firstName, lastName) || undefined,
       role: role as WaitlistSignupPayload["role"],
       ...(role !== "other" && stage.trim() ? { stage: stage.trim() } : {}),
+      ...(role === "founder" && sector.trim() ? { sector: sector.trim() } : {}),
       intent,
       ...(biggestPain.trim() ? { biggest_pain: biggestPain.trim() } : {}),
       company_name: companyName.trim(),
@@ -339,61 +476,157 @@ export function AccessRequestForm() {
     }
   };
 
-  const shareUrl = result?.referral_code ? vektaReferralShareUrl(result.referral_code) : "";
-
-  const copyReferralLink = useCallback(async () => {
-    if (!shareUrl) return;
-    setCopyFailed(false);
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopyFailed(true);
-    }
-  }, [shareUrl]);
-
   if (status === "success" && result) {
-    const positionLabel =
-      result.waitlist_position != null ? `#${result.waitlist_position}` : "We’ll email you with your position soon.";
+    const submittedSectorSlug =
+      role === "founder" && sector.trim() && isFounderWaitlistSectorValue(sector.trim()) ? sector.trim() : null;
+    const submittedSectorLabel = submittedSectorSlug ? getFounderWaitlistSectorLabel(submittedSectorSlug) : null;
 
     return (
       <div className={ACCESS_FORM_CARD_CLASS}>
-        <div className="mx-auto max-w-md text-center">
+        <div className="mx-auto max-w-md px-1 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
             <Check className="h-6 w-6" strokeWidth={2.5} />
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">You’re on the list</h2>
-          <p className="mt-2 text-sm text-[#b3b3b3]">
-            Thanks{firstName.trim() ? `, ${firstName.trim()}` : ""}. We’ve saved your request and will follow up by email.
-          </p>
 
-          <dl className="mt-8 space-y-4 rounded-xl border border-zinc-800 bg-[#121212] px-4 py-5 text-left text-sm">
-            <div className="flex flex-col gap-1">
-              <dt className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Waitlist position</dt>
-              <dd className="text-lg font-semibold text-zinc-100">{positionLabel}</dd>
-            </div>
-            {shareUrl ? (
-              <div className="flex flex-col gap-2">
-                <dt className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Your referral link</dt>
-                <dd className="break-all rounded-lg border border-zinc-700 bg-[#242424] px-3 py-2 font-mono text-xs text-zinc-100">
-                  {shareUrl}
-                </dd>
-                <Button type="button" variant="outline" size="sm" className="w-fit gap-2" onClick={copyReferralLink}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? "Copied" : "Copy link"}
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">You’re on the waitlist</h2>
+
+          <div className="mt-6 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#b3b3b3]">Your position</p>
+            {result.waitlist_position != null ? (
+              <p className="text-4xl font-bold tabular-nums tracking-tight text-zinc-50 sm:text-5xl">
+                #{result.waitlist_position}
+              </p>
+            ) : (
+              <p className="text-lg font-medium leading-snug text-zinc-200">We’re calculating your position</p>
+            )}
+          </div>
+
+          <p className="mt-8 text-base font-semibold text-zinc-100">Move up the list by inviting others</p>
+
+          <div className="mt-5 space-y-2 text-sm text-[#c4c4c4]">
+            <p>
+              Successful referrals:{" "}
+              <span className="font-semibold text-zinc-100">
+                {typeof result.referral_count === "number" ? result.referral_count : "—"}
+              </span>
+            </p>
+            {typeof result.total_score === "number" ? (
+              <p>
+                Score: <span className="font-semibold text-zinc-100">{result.total_score}</span>
+              </p>
+            ) : null}
+          </div>
+
+          {referralLink ? (
+            <div className="mt-8 space-y-4 rounded-xl border border-zinc-800 bg-[#121212] px-4 py-5 text-left">
+              <p className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Your referral link</p>
+              <p className="break-all rounded-lg border border-zinc-700 bg-[#242424] px-3 py-2 font-mono text-xs leading-relaxed text-zinc-100">
+                {referralLink}
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button
+                  type="button"
+                  variant="default"
+                  className="w-full gap-2 sm:min-w-[152px] sm:flex-1"
+                  onClick={copyReferralLink}
+                >
+                  {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+                  {copied ? "Copied!" : "Copy link"}
                 </Button>
-                {copyFailed ? (
-                  <p className={cn("text-2xs", accessInlineHighlightClass)}>Could not copy — select the link and copy manually.</p>
+                {xIntentHref ? (
+                  <Button asChild variant="outline" className={cn("w-full gap-2 sm:flex-1", referralShareOutlineButtonClass)}>
+                    <a
+                      href={xIntentHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() =>
+                        trackWaitlistAnalytics("referral_link_shared", { channel: "twitter" })
+                      }
+                    >
+                      <Share2 className="h-4 w-4" aria-hidden />
+                      Share on X
+                    </a>
+                  </Button>
+                ) : null}
+                {mailtoHref ? (
+                  <Button asChild variant="outline" className={cn("w-full gap-2 sm:flex-1", referralShareOutlineButtonClass)}>
+                    <a
+                      href={mailtoHref}
+                      rel="noopener noreferrer"
+                      onClick={() =>
+                        trackWaitlistAnalytics("referral_link_shared", { channel: "email" })
+                      }
+                    >
+                      <Mail className="h-4 w-4" aria-hidden />
+                      Share via email
+                    </a>
+                  </Button>
                 ) : null}
               </div>
-            ) : null}
-          </dl>
+              {copyFailed ? (
+                <p className={cn("text-2xs", accessInlineHighlightClass)}>
+                  Could not copy — select the link and copy manually.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
-          <p className="mt-6 text-xs leading-relaxed text-[#b3b3b3]">
-            Share your link with founders and investors who should be on Vekta. Referrals help us prioritize access for
-            people you trust.
+          <p className="mt-6 text-center">
+            <Link
+              to="/referrals"
+              className="text-sm font-medium text-primary underline-offset-4 transition-colors hover:underline"
+            >
+              View your full referral dashboard
+            </Link>
           </p>
+
+          {role === "founder" ? (
+            <>
+              <p className="mt-10 text-pretty text-sm font-medium leading-relaxed text-zinc-200">
+                Here’s a first look based on your stage and sector.
+              </p>
+              <p className="mt-2 text-pretty text-sm leading-relaxed text-[#b3b3b3]">
+                {submittedSectorLabel ? (
+                  <>
+                    We’ll send you tailored investor and market insights for{" "}
+                    <span className={cn("font-medium", accessInlineHighlightClass)}>{submittedSectorLabel}</span>.
+                  </>
+                ) : (
+                  "We’ll send you tailored investor and market insights based on your sector."
+                )}
+              </p>
+              <div className="mt-6 text-left">
+                <FounderWaitlistSnapshotPanel
+                  loading={snapshotLoading}
+                  snapshot={founderSnapshot}
+                  fetchFailed={snapshotFetchFailed}
+                  onMatchClick={(p) =>
+                    trackMixpanelEvent("snapshot_match_clicked", {
+                      path: typeof window !== "undefined" ? window.location.pathname : "/access",
+                      firm_name: p.firmName,
+                      has_url: Boolean(p.url),
+                    })
+                  }
+                />
+              </div>
+            </>
+          ) : (
+            <p className="mt-10 text-pretty text-sm leading-relaxed text-[#b3b3b3]">
+              We’ve saved your request and will follow up by email.
+            </p>
+          )}
+
+          <div className="mt-8 rounded-xl border border-zinc-800/90 bg-[#121212]/80 px-4 py-4 text-left">
+            <p className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">What you’ll get</p>
+            <ul className="mt-2 space-y-1.5 text-sm text-[#c4c4c4]">
+              {SUCCESS_VALUE_PREVIEW_BULLETS.map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary/80" aria-hidden />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -503,26 +736,131 @@ export function AccessRequestForm() {
         </div>
 
         {role && role !== "other" ? (
-          <div className="space-y-2">
-            <label className={accessLabelClass} htmlFor="access-stage">
-              {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
-            </label>
-            <select
-              id="access-stage"
-              className={accessSelectClassName}
-              value={stage}
-              onChange={(e) => setStage(e.target.value)}
-              required
-            >
-              <option value="" disabled>
-                {stagePlaceholder(role)}
-              </option>
-              {STAGE_CHOICES[role].map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+          <div className={cn("w-full", role === "founder" && "space-y-3")}>
+            <div className="space-y-2">
+              <label className={accessLabelClass} htmlFor="access-stage">
+                {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
+              </label>
+              <select
+                id="access-stage"
+                className={cn(accessSelectClassName, "w-full")}
+                value={stage}
+                onChange={(e) => setStage(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  {stagePlaceholder(role)}
                 </option>
-              ))}
-            </select>
+                {STAGE_CHOICES[role].map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <AnimatePresence>
+              {role === "founder" && stage.trim() ? (
+                <motion.div
+                  key="access-sector-panel"
+                  ref={sectorSectionRef}
+                  initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.12 }
+                      : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
+                  }
+                  className="space-y-2 border-t border-zinc-800/80 pt-3"
+                >
+                  <div className="space-y-1">
+                    <label className={cn(accessLabelClass, "flex flex-wrap items-baseline gap-x-2 gap-y-0.5")} htmlFor="access-sector">
+                      <span className="inline-flex items-center gap-1.5">
+                        Sector
+                        {founderEarlyAccessCta ? (
+                          <CheckCircle2 className={cn("h-3.5 w-3.5 shrink-0", accessInlineHighlightClass)} strokeWidth={2} aria-hidden />
+                        ) : null}
+                      </span>
+                      <span className="font-normal text-[#b3b3b3]/70">(optional)</span>
+                    </label>
+                    <p id="access-sector-helper" className={cn(accessHelperClass, "max-w-prose leading-snug")}>
+                      {SECTOR_HELPER_COPY}
+                    </p>
+                  </div>
+                  <select
+                    ref={sectorSelectRef}
+                    id="access-sector"
+                    className={cn(
+                      accessSelectClassName,
+                      "w-full transition-[border-color,box-shadow] duration-150",
+                      founderEarlyAccessCta && "border-primary/40 shadow-[0_0_0_1px_rgba(46,230,166,0.08)]",
+                    )}
+                    value={sector}
+                    aria-describedby={
+                      founderEarlyAccessCta
+                        ? "access-sector-helper access-sector-reinforce access-sector-intel-hint"
+                        : "access-sector-helper"
+                    }
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const from = sector || null;
+                      const to = next || null;
+                      if (from !== to) {
+                        trackMixpanelEvent("access_waitlist_sector_changed", {
+                          path: typeof window !== "undefined" ? window.location.pathname : "/access",
+                          from_sector: from,
+                          to_sector: to,
+                        });
+                      }
+                      setSector(next);
+                    }}
+                  >
+                    <option value="" disabled>
+                      Select your sector
+                    </option>
+                    {FOUNDER_WAITLIST_SECTOR_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <AnimatePresence initial={false}>
+                    {founderEarlyAccessCta ? (
+                      <motion.div
+                        key={sector.trim()}
+                        role="status"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: reduceMotion ? 0.01 : 0.14 }}
+                        className="space-y-1"
+                      >
+                        <p id="access-sector-reinforce" className="text-2xs leading-snug text-[#b3b3b3]/95">
+                          We’ll tailor investor matches and market signals to{" "}
+                          <span className={cn("font-medium", accessInlineHighlightClass)}>
+                            {getFounderWaitlistSectorLabel(sector.trim())}
+                          </span>
+                          .
+                        </p>
+                        <motion.p
+                          id="access-sector-intel-hint"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{
+                            duration: reduceMotion ? 0.01 : 0.12,
+                            delay: reduceMotion ? 0 : 0.04,
+                          }}
+                          className="text-[10px] leading-snug text-[#b3b3b3]/65 sm:text-[11px]"
+                        >
+                          {getFounderWaitlistSectorSignalHint(sector.trim())}
+                        </motion.p>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         ) : null}
 
@@ -638,6 +976,8 @@ export function AccessRequestForm() {
               <Loader2 className="h-4 w-4 animate-spin" />
               Submitting…
             </>
+          ) : founderEarlyAccessCta ? (
+            "Get early access"
           ) : (
             "Request access"
           )}

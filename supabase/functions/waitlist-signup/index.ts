@@ -10,6 +10,14 @@ const corsHeaders = {
 const WAITLIST_BASE_URL =
   Deno.env.get("WAITLIST_BASE_URL") || "https://vekta.app";
 
+function waitlistReferralShareUrl(code: string): string {
+  const base = WAITLIST_BASE_URL.replace(/\/$/, "");
+  const path = `${base}/access`;
+  const t = code.trim();
+  if (!t) return path;
+  return `${path}?ref=${encodeURIComponent(t)}`;
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -29,6 +37,7 @@ interface ParsedPayload {
   name: string | null;
   role: string | null;
   stage: string | null;
+  sector: string | null;
   urgency: string | null;
   intent: string[];
   biggest_pain: string | null;
@@ -439,6 +448,7 @@ function parseTallyPayload(body: Record<string, unknown>): ParsedPayload {
     name,
     role,
     stage,
+    sector: null,
     urgency,
     intent: allIntents,
     biggest_pain: str("biggest_pain"),
@@ -674,8 +684,32 @@ ${rows}
 }
 
 // ---------------------------------------------------------------------------
-// Direct JSON parser (unchanged)
+// Direct JSON parser
 // ---------------------------------------------------------------------------
+
+/** Same precedence as RPC input: body.referral_code ?? body.ref (Tally may only set parsed.referral_code). */
+function referralFromBodyOnly(body: Record<string, unknown>): string | null {
+  const referral = body.referral_code ?? body.ref ?? null;
+  return typeof referral === "string" ? referral : null;
+}
+
+/** PostgREST can return jsonb aggregates as JSON strings — normalize before spreading into the HTTP body. */
+function asRpcJsonObject(data: unknown): Record<string, unknown> {
+  if (data != null && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  if (typeof data === "string") {
+    try {
+      const parsed: unknown = JSON.parse(data);
+      if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {};
+}
 
 function parseDirectPayload(body: Record<string, unknown>): ParsedPayload {
   const rawIntent = body.intent;
@@ -688,12 +722,13 @@ function parseDirectPayload(body: Record<string, unknown>): ParsedPayload {
     name: (body.name as string) ?? null,
     role: (body.role as string) ?? null,
     stage: (body.stage as string) ?? null,
+    sector: typeof body.sector === "string" ? body.sector.trim() || null : null,
     urgency: (body.urgency as string) ?? null,
     intent,
     biggest_pain: (body.biggest_pain as string) ?? null,
     company_name: (body.company_name as string) ?? null,
     linkedin_url: (body.linkedin_url as string) ?? null,
-    referral_code: (body.referral_code as string) ?? null,
+    referral_code: referralFromBodyOnly(body),
     source: (body.source as string) ?? null,
     campaign: (body.campaign as string) ?? null,
     metadata: (body.metadata as Record<string, unknown>) ?? {},
@@ -717,13 +752,21 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const body = (await req.json()) as Record<string, unknown>;
     console.log("[waitlist-signup] raw body:", JSON.stringify(body).slice(0, 4000));
 
     const isTally = isTallyWebhook(body);
     console.log("[waitlist-signup] detected as:", isTally ? "TALLY" : "DIRECT");
 
     const parsed = isTally ? parseTallyPayload(body) : parseDirectPayload(body);
+
+    const referral =
+      referralFromBodyOnly(body) ??
+      (typeof parsed.referral_code === "string" ? parsed.referral_code : null);
+    const normalizedReferral = referral?.trim().toUpperCase() || null;
+
+    console.log("REFERRAL INPUT:", body.ref, body.referral_code);
+    console.log("NORMALIZED REFERRAL:", normalizedReferral);
 
     const email = String(parsed.email ?? "").trim().toLowerCase();
     if (!email || !email.includes("@")) {
@@ -757,7 +800,8 @@ serve(async (req) => {
       p_linkedin_url: parsed.linkedin_url ?? null,
       p_source: parsed.source ?? null,
       p_campaign: parsed.campaign ?? null,
-      p_referral_code_used: parsed.referral_code ?? null,
+      p_referral_code: normalizedReferral,
+      p_sector: parsed.sector ?? null,
       p_metadata: parsed.metadata ?? {},
     });
 
@@ -769,9 +813,14 @@ serve(async (req) => {
       );
     }
 
-    if (data?.error) {
+    const rpcPayload = asRpcJsonObject(data);
+    if (Deno.env.get("WAITLIST_DEBUG") === "1") {
+      console.log("[waitlist-signup] waitlist_signup RPC payload:", JSON.stringify(rpcPayload));
+    }
+
+    if (rpcPayload.error) {
       return new Response(
-        JSON.stringify({ error: data.error }),
+        JSON.stringify({ error: rpcPayload.error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -813,8 +862,8 @@ if (email) {
 }
 
     const result = {
-      ...data,
-      referral_link: `${WAITLIST_BASE_URL}?ref=${data.referral_code}`,
+      ...rpcPayload,
+      referral_link: waitlistReferralShareUrl(String(rpcPayload.referral_code ?? "")),
     };
 
     return new Response(JSON.stringify(result), {

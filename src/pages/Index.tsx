@@ -44,6 +44,9 @@ const ProfileWorkspacePage = lazy(() =>
 const TargetingPage = lazy(() =>
   import("@/components/targeting/TargetingPage").then((m) => ({ default: m.TargetingPage })),
 );
+const CirclesPage = lazy(() =>
+  import("@/components/targeting/CirclesPage").then((m) => ({ default: m.CirclesPage })),
+);
 
 type ViewType =
   | "home"
@@ -75,7 +78,8 @@ type ViewType =
   | "workspace"
   | "settings"
   | "profile-workspace"
-  | "targeting";
+  | "targeting"
+  | "circles";
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -189,6 +193,11 @@ const Index = () => {
       if (view === "settings") return "settings";
       if (view === "profile-workspace") return "profile-workspace";
       if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
+      if (view === "investor-funding") return "investor-funding";
+      if (view === "resources") return "resources";
+      if (view === "directory") return "directory";
+      if (view === "targeting") return "targeting";
+      if (view === "circles") return "circles";
     } catch {
       /* ignore */
     }
@@ -235,6 +244,21 @@ const Index = () => {
     }
     if (v === "profile-workspace") {
       setActiveView("profile-workspace");
+    }
+    if (v === "investor-funding") {
+      setActiveView("investor-funding");
+    }
+    if (v === "resources") {
+      setActiveView("resources");
+    }
+    if (v === "directory") {
+      setActiveView("directory");
+    }
+    if (v === "targeting") {
+      setActiveView("targeting");
+    }
+    if (v === "circles") {
+      setActiveView("circles");
     }
   }, [searchParams]);
 
@@ -761,6 +785,10 @@ const Index = () => {
           ) : activeView === "targeting" ? (
             <DeferredSection label="Loading targeting…">
               <TargetingPage />
+            </DeferredSection>
+          ) : activeView === "circles" ? (
+            <DeferredSection label="Loading circles…">
+              <CirclesPage />
             </DeferredSection>
           ) : activeView === "settings" ? (
             <DeferredSection label="Loading settings…">

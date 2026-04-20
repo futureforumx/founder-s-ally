@@ -1,5 +1,6 @@
-import { buildFundNormalizedKey, extractFundSequenceNumber, normalizeFirmName, normalizeFundName } from "./normalize";
+import { buildFundNormalizedKey, extractFundSequenceNumber, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
 import type { ExtractedFundAnnouncement, FirmRecordLookup } from "./types";
+import { isLikelyVcFundVehicleHeadline } from "../../../scripts/funding-ingest/extract";
 
 export interface FirmMatchResult {
   matchedFirm: FirmRecordLookup | null;
@@ -45,11 +46,16 @@ export function rankFirmMatches(
   const ranked: RankedFirmMatch[] = [];
 
   for (const firm of firms) {
-    const firmNames = [firm.firm_name, firm.legal_name, ...(firm.aliases || [])].filter(Boolean) as string[];
-    const exactName = firmNames.some((value) => normalizeFirmName(value) === firmName);
+    const primaryNames = [firm.firm_name, firm.legal_name].filter(Boolean) as string[];
+    const aliasNames = (firm.aliases || []).filter(Boolean) as string[];
+    const firmNames = [...primaryNames, ...aliasNames];
+    const exactPrimaryName = primaryNames.some((value) => normalizeFirmName(value) === firmName);
+    const exactAliasName = aliasNames.some((value) => normalizeFirmName(value) === firmName);
+    const brandCore = normalizeBrandCore(announcement.firmName);
+    const exactBrandCore = brandCore && firmNames.some((value) => normalizeBrandCore(value) === brandCore);
     const exactHost = firmHost && websiteHost(firm.website_url) === firmHost;
 
-    if (exactHost && exactName) {
+    if (exactHost && (exactPrimaryName || exactAliasName)) {
       ranked.push({ firm, confidence: 0.99, rule: "host_and_name_exact" });
       continue;
     }
@@ -59,8 +65,18 @@ export function rankFirmMatches(
       continue;
     }
 
-    if (exactName) {
-      ranked.push({ firm, confidence: 0.94, rule: "name_exact" });
+    if (exactPrimaryName) {
+      ranked.push({ firm, confidence: 0.95, rule: "primary_name_exact" });
+      continue;
+    }
+
+    if (exactAliasName) {
+      ranked.push({ firm, confidence: 0.88, rule: "alias_exact" });
+      continue;
+    }
+
+    if (exactBrandCore) {
+      ranked.push({ firm, confidence: 0.92, rule: "brand_core_exact" });
       continue;
     }
 
@@ -112,6 +128,9 @@ export function looksLikeGeneralFundraisingAnnouncement(announcement: ExtractedF
 }
 
 export function looksLikePortfolioFinancingNews(announcement: ExtractedFundAnnouncement): boolean {
+  if (isLikelyVcFundVehicleHeadline(announcement.sourceTitle || "", announcement.rawText || "")) {
+    return false;
+  }
   const text = [announcement.sourceTitle, announcement.rawText].filter(Boolean).join(" ").toLowerCase();
   return /\bseries [abcde]\b|\braised\b|\bfunding round\b|\blead investor\b|\bportfolio company\b/.test(text);
 }

@@ -198,10 +198,57 @@ class MockSupabaseClient {
             id: "00000000-0000-4000-8000-00000000ca11",
             email,
             total_score: 120,
+            referral_score: 0,
             referral_code: "MOCK1REF",
             referral_count: 0,
             waitlist_position: 42,
-            referral_link: "https://vekta.so?ref=MOCK1REF",
+            referral_link: "https://vekta.so/access?ref=MOCK1REF",
+          },
+          error: null,
+        };
+      }
+      if (name === "waitlist-status") {
+        const body = payload?.body ?? {};
+        const email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : "you@example.com";
+        return {
+          data: {
+            name: "Mock User",
+            email,
+            referral_code: "MOCK1REF",
+            referral_count: 0,
+            referral_score: 0,
+            total_score: 120,
+            waitlist_position: 42,
+            total_waitlist_size: 100,
+            status: "pending",
+            referral_link: "https://vekta.so/access?ref=MOCK1REF",
+            milestones: [],
+          },
+          error: null,
+        };
+      }
+      if (name === "founder-waitlist-snapshot") {
+        return {
+          data: {
+            investorMatches: [
+              {
+                firmName: "Mock Fund Alpha",
+                investorName: "Alex Partner",
+                reason: "Mock match: sector keywords align with your selected focus. Actively deploying capital.",
+                url: "https://example.com",
+              },
+              {
+                firmName: "Mock Fund Beta",
+                reason: "Mock match: directory profile for your stage. Strong directory profile.",
+                url: "https://example.com",
+              },
+              {
+                firmName: "Mock Fund Gamma",
+                reason: "Mock match: high-signal fund for your stage. Actively deploying capital.",
+              },
+            ],
+            marketSignal: { text: "AI funding activity is accelerating—top funds are actively deploying.", source: "curated" },
+            nextStep: { text: "Refine a focused target list of 25–40 funds that match your round size and sector thesis." },
           },
           error: null,
         };

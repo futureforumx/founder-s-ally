@@ -47,8 +47,9 @@ echo "Deploying to project ref: $REF"
 npx supabase@latest functions deploy create-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy claim-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy complete-founder-onboarding --project-ref "$REF" --no-verify-jwt --use-api
-# Public waitlist: browser uses sb_publishable_… (not a JWT); gateway must not require JWT verification.
+# Public waitlist + snapshot: browser uses sb_publishable_… (not a JWT); gateway must not require JWT verification.
 npx supabase@latest functions deploy waitlist-signup --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy waitlist-status --project-ref "$REF" --no-verify-jwt --use-api
+npx supabase@latest functions deploy founder-waitlist-snapshot --project-ref "$REF" --no-verify-jwt --use-api
 
 echo "Done."

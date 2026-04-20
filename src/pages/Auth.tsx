@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { Loader2 } from "lucide-react";
+import MuxPlayer from "@mux/mux-player-react";
+import type MuxPlayerElement from "@mux/mux-player";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const clerkAppearance = {
@@ -141,15 +143,17 @@ function AuthHeroMediaStage({ children }: { children: ReactNode }) {
   );
 }
 
-/** Mux iframe needs delegated permissions so the player can start muted autoplay inside the frame (esp. Safari). */
-const MUX_IFRAME_ALLOW =
-  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
-
 function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
   const playback = useMemo(() => authHeroPlayback(isSignUp), [isSignUp]);
   const [muxIndex, setMuxIndex] = useState(0);
   const muxIdsKey = playback.mode === "mux" ? playback.ids.join("|") : "";
+  const muxActiveId =
+    playback.mode === "mux" && playback.ids.length > 0
+      ? playback.ids[muxIndex % playback.ids.length]!
+      : undefined;
+  const muxLoop = playback.mode === "mux" && playback.ids.length <= 1;
   const nativeVideoRef = useRef<HTMLVideoElement>(null);
+  const muxPlayerRef = useRef<MuxPlayerElement | null>(null);
 
   useEffect(() => {
     setMuxIndex(0);
@@ -179,6 +183,27 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
     else el.addEventListener("loadeddata", kick, { once: true });
     return () => el.removeEventListener("loadeddata", kick);
   }, [nativeVideoSrc]);
+
+  /** In-document Mux Player obeys muted autoplay policies; kick play() for stubborn browsers. */
+  useEffect(() => {
+    if (playback.mode !== "mux") return;
+    const el = muxPlayerRef.current;
+    if (!el) return;
+    el.defaultMuted = true;
+    el.muted = true;
+    const kick = () => {
+      void el.play().catch(() => {
+        /* Same constraints as native <video> autoplay */
+      });
+    };
+    kick();
+    el.addEventListener("loadeddata", kick, { once: true });
+    el.addEventListener("canplay", kick, { once: true });
+    return () => {
+      el.removeEventListener("loadeddata", kick);
+      el.removeEventListener("canplay", kick);
+    };
+  }, [playback.mode, muxActiveId]);
 
   if (playback.mode === "none") {
     return (
@@ -210,22 +235,34 @@ function AuthHeroMedia({ isSignUp }: { isSignUp: boolean }) {
     );
   }
 
-  const { ids } = playback;
-  const activeId = ids[muxIndex % ids.length]!;
-  const muxLoop = ids.length <= 1;
-  const muxEmbedSrc = `https://player.mux.com/${activeId}?autoplay=1&muted=1&playsinline=1&loop=${muxLoop ? 1 : 0}&controls=0`;
+  if (!muxActiveId) {
+    return (
+      <AuthHeroMediaStage>
+        <div
+          className="absolute inset-0 h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black"
+          aria-hidden
+        />
+      </AuthHeroMediaStage>
+    );
+  }
 
   return (
     <AuthHeroMediaStage>
       <div className="auth-hero-mux relative h-full w-full min-h-0 overflow-hidden">
-        <iframe
-          key={activeId}
-          src={muxEmbedSrc}
+        <MuxPlayer
+          ref={muxPlayerRef}
+          key={muxActiveId}
+          playbackId={muxActiveId}
           title="Authentication hero video"
           className="auth-hero-mux-player block h-full w-full pointer-events-none border-0"
-          allow={MUX_IFRAME_ALLOW}
-          loading="eager"
-          tabIndex={-1}
+          autoPlay
+          muted
+          loop={muxLoop}
+          playsInline
+          preload="auto"
+          nohotkeys
+          streamType="on-demand"
+          metadata={{ video_title: "VEKTA sign-in hero" }}
         />
       </div>
     </AuthHeroMediaStage>

@@ -3,13 +3,14 @@ import { isSupabaseConfigured } from "@/integrations/supabase/client";
 import {
   aggregateSectorHeatmap,
   fetchFreshCapitalLive,
+  fetchNewVcFundSectorOptions,
   FreshCapitalMisconfiguredError,
   isFreshCapitalDemoDataEnabled,
+  resolveFreshCapitalSectorChoices,
   type FreshCapitalFundRow,
   type FreshCapitalStageFilter,
   type HeatmapBucket,
   type HeatmapSource,
-  topSectorsForFilter,
 } from "@/lib/freshCapitalPublic";
 
 export type FreshCapitalPageQueryResult = {
@@ -39,7 +40,10 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
       const usingDemoData = !isSupabaseConfigured && isFreshCapitalDemoDataEnabled();
 
       if (!sector) {
-        const p = await fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 });
+        const [p, sectorsFromDb] = await Promise.all([
+          fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 }),
+          fetchNewVcFundSectorOptions({ stage, fundDays: 150, limit: 120 }),
+        ]);
         const heatmapSource: HeatmapSource = p.heatmapFromRpc?.length ? "rpc" : "fallback_sector_tag_counts";
         if (import.meta.env.DEV) {
           // grep: [FreshCapital] heatmap_page_source — final UI heatmap path after merge (rpc vs fallback_sector_tag_counts).
@@ -49,14 +53,19 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
           funds: p.funds,
           heatmapBuckets: p.heatmapFromRpc ?? aggregateSectorHeatmap(p.funds, 8),
           heatmapSource,
-          sectorChoices: topSectorsForFilter(p.funds, 12),
+          sectorChoices: resolveFreshCapitalSectorChoices({
+            fromRpc: sectorsFromDb,
+            fundRowsForFallback: p.funds,
+            selectedSector: null,
+          }),
           usingDemoData,
         };
       }
 
-      const [wide, narrow] = await Promise.all([
+      const [wide, narrow, sectorsFromDb] = await Promise.all([
         fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 }),
         fetchFreshCapitalLive({ stage, sector, fundLimit: 80, fundDays: 150 }),
+        fetchNewVcFundSectorOptions({ stage, fundDays: 150, limit: 120 }),
       ]);
       const canonical = narrow.heatmapFromRpc ?? wide.heatmapFromRpc;
       const heatmapSource: HeatmapSource = canonical?.length ? "rpc" : "fallback_sector_tag_counts";
@@ -67,7 +76,11 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
         funds: narrow.funds,
         heatmapBuckets: canonical ?? aggregateSectorHeatmap(wide.funds, 8),
         heatmapSource,
-        sectorChoices: topSectorsForFilter(wide.funds, 12),
+        sectorChoices: resolveFreshCapitalSectorChoices({
+          fromRpc: sectorsFromDb,
+          fundRowsForFallback: wide.funds,
+          selectedSector: sector,
+        }),
         usingDemoData,
       };
     },

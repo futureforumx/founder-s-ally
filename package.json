@@ -152,7 +152,17 @@
     "enrich:vc:cbi:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=cb_insights tsx scripts/vc-enrichment/orchestrator.ts",
     "enrich:vc:signal": "ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
     "enrich:vc:signal:dry": "ENRICH_DRY_RUN=1 ENRICH_SOURCES=signal_nfx tsx scripts/vc-enrichment/orchestrator.ts",
-    "enrich:vc:overnight": "tsx scripts/vc-enrichment/orchestrator.ts"
+    "enrich:vc:overnight": "tsx scripts/vc-enrichment/orchestrator.ts",
+    "enrich:auth": "tsx scripts/capture-auth.ts",
+    "enrich:auth:signal": "tsx scripts/capture-auth.ts --source=signal_nfx",
+    "enrich:auth:cbi": "tsx scripts/capture-auth.ts --source=cbinsights",
+    "enrich:investors:phase1": "tsx scripts/enrich-investors-phase1.ts",
+    "enrich:investors:phase1:dry": "DRY_RUN=1 tsx scripts/enrich-investors-phase1.ts",
+    "enrich:investors:phase2": "tsx scripts/phase2-llm-inference.ts",
+    "enrich:investors:phase2:dry": "DRY_RUN=1 tsx scripts/phase2-llm-inference.ts",
+    "enrich:investors:phase2:funds-only": "SKIP_LLM=1 tsx scripts/phase2-llm-inference.ts",
+    "enrich:investors:phase2:rules": "RULE_BASED=1 tsx scripts/phase2-llm-inference.ts",
+    "enrich:investors:phase2:rules:dry": "RULE_BASED=1 DRY_RUN=1 tsx scripts/phase2-llm-inference.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

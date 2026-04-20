@@ -1,6 +1,13 @@
 import { createFundSyncService } from "../../src/lib/vc-funds/service";
 import { buildDefaultFundAdapters } from "../../src/lib/vc-funds/adapters";
 import type { FundSyncRunOptions } from "../../src/lib/vc-funds/types";
+import { loadEnvFiles } from "../lib/loadEnvFiles";
+
+loadEnvFiles([".env", ".env.local", ".env.enrichment"]);
+
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name] || "";
@@ -29,9 +36,29 @@ export function createVcFundService() {
 }
 
 export function envOptions(defaults: Partial<FundSyncRunOptions> = {}): FundSyncRunOptions {
+  const sourceFetchLimits = Object.fromEntries(
+    [
+      ["TECHCRUNCH_VENTURE", process.env.VC_FUND_TECHCRUNCH_VENTURE_MAX],
+      ["ALLEYWATCH_FUNDING", process.env.VC_FUND_ALLEYWATCH_MAX],
+      ["TECHCRUNCH_FUNDING_TAG", process.env.VC_FUND_TECHCRUNCH_FUNDING_TAG_MAX],
+      ["EVERYTHING_STARTUPS_NEW_VC_FUNDS", process.env.VC_FUND_EVERYTHING_STARTUPS_MAX],
+      ["VCSTACK_FUNDING_ANNOUNCEMENTS", process.env.VC_FUND_VCSTACK_MAX],
+      ["PRNEWSWIRE_VENTURE_CAPITAL", process.env.VC_FUND_PRNEWSWIRE_MAX],
+      ["VCSHEET_FUNDS", process.env.VC_FUND_VCSHEET_MAX],
+      ["SHAI_GOLDMAN_NEW_FUNDS_SHEET", process.env.VC_FUND_SHAI_GOLDMAN_NEW_FUNDS_SHEET_MAX],
+      ["FOUNDERSUITE_NEW_VC_FUNDS_2025", process.env.VC_FUND_FOUNDERSUITE_NEW_VC_FUNDS_2025_MAX],
+    ].filter(([, value]) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed > 0;
+    }).map(([key, value]) => [key, Number(value)]),
+  );
+
   return {
     sourceKeys: process.env.VC_FUND_SOURCE_KEYS?.split(",").map((value) => value.trim()).filter(Boolean),
     maxItems: process.env.VC_FUND_MAX_ITEMS ? Number(process.env.VC_FUND_MAX_ITEMS) : defaults.maxItems,
+    sourceFetchLimits: Object.keys(sourceFetchLimits).length > 0
+      ? sourceFetchLimits
+      : defaults.sourceFetchLimits,
     dryRun: process.env.VC_FUND_DRY_RUN === "1" || defaults.dryRun === true,
     allowFirmCreation: process.env.VC_FUND_ALLOW_FIRM_CREATE ? process.env.VC_FUND_ALLOW_FIRM_CREATE !== "0" : defaults.allowFirmCreation,
     freshCapitalWindowDays: process.env.VC_FUND_FRESH_WINDOW_DAYS ? Number(process.env.VC_FUND_FRESH_WINDOW_DAYS) : defaults.freshCapitalWindowDays,

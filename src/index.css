@@ -118,6 +118,10 @@
     @apply border-border;
   }
 
+  html {
+    font-size: 14px;
+  }
+
   html.auth-route-lock {
     height: 100%;
     max-height: 100%;

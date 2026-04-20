@@ -10,6 +10,31 @@ const corsHeaders = {
 const WAITLIST_BASE_URL =
   Deno.env.get("WAITLIST_BASE_URL") || "https://vekta.app";
 
+function asRpcJsonObject(data: unknown): Record<string, unknown> {
+  if (data != null && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+  if (typeof data === "string") {
+    try {
+      const parsed: unknown = JSON.parse(data);
+      if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {};
+}
+
+function waitlistReferralShareUrl(code: string): string {
+  const base = WAITLIST_BASE_URL.replace(/\/$/, "");
+  const path = `${base}/access`;
+  const t = code.trim();
+  if (!t) return path;
+  return `${path}?ref=${encodeURIComponent(t)}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -60,9 +85,14 @@ serve(async (req) => {
       );
     }
 
-    if (data?.error) {
+    const rpcPayload = asRpcJsonObject(data);
+    if (Deno.env.get("WAITLIST_DEBUG") === "1") {
+      console.log("[waitlist-status] waitlist_get_status RPC payload:", JSON.stringify(rpcPayload));
+    }
+
+    if (rpcPayload.error) {
       return new Response(
-        JSON.stringify({ error: data.error }),
+        JSON.stringify({ error: rpcPayload.error }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,8 +101,8 @@ serve(async (req) => {
     }
 
     const result = {
-      ...data,
-      referral_link: `${WAITLIST_BASE_URL}?ref=${data.referral_code}`,
+      ...rpcPayload,
+      referral_link: waitlistReferralShareUrl(String(rpcPayload.referral_code ?? "")),
     };
 
     return new Response(JSON.stringify(result), {

@@ -77,7 +77,9 @@ type ViewType =
   | "data-room"
   | "resources"
   | "settings"
-  | "profile-workspace";
+  | "profile-workspace"
+  | "targeting"
+  | "circles";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -163,6 +165,22 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "investor-funding", label: "FUNDING" },
   ]},
   "network-workspace": { section: "Network", label: "Workspace" },
+  targeting: {
+    section: "Execution",
+    label: "Targeting",
+    siblings: [
+      { id: "targeting", label: "Targeting" },
+      { id: "circles", label: "Circles" },
+    ],
+  },
+  circles: {
+    section: "Execution",
+    label: "Circles",
+    siblings: [
+      { id: "targeting", label: "Targeting" },
+      { id: "circles", label: "Circles" },
+    ],
+  },
   directory: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Overview", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
@@ -222,6 +240,8 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         "Recently connected funds",
       ];
     case "network-workspace":
+    case "targeting":
+    case "circles":
       return [
         "Who should I ask for a warm intro this week?",
         "Strongest 2-hop paths to Seed funds in my space",

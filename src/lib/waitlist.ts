@@ -190,6 +190,8 @@ export interface WaitlistSignupResponse {
   email: string;
   referral_code: string;
   referral_count: number;
+  /** Points derived from referral_count (see DB calc_waitlist_referral_score). */
+  referral_score?: number;
   total_score: number;
   waitlist_position: number | null;
   referral_link: string;
@@ -208,12 +210,28 @@ export interface WaitlistStatusResponse {
   email: string;
   referral_code: string;
   referral_count: number;
+  referral_score?: number;
   total_score: number;
   waitlist_position: number | null;
   total_waitlist_size: number;
   status: string;
   referral_link: string;
   milestones: WaitlistMilestone[];
+}
+
+function mergeSignupResponseWithStatus(
+  signup: WaitlistSignupResponse,
+  status: WaitlistStatusResponse,
+): WaitlistSignupResponse {
+  return {
+    ...signup,
+    referral_count: status.referral_count,
+    referral_score: status.referral_score ?? signup.referral_score,
+    total_score: status.total_score,
+    waitlist_position: status.waitlist_position,
+    referral_code: status.referral_code || signup.referral_code,
+    referral_link: status.referral_link || signup.referral_link,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +242,16 @@ export async function waitlistSignup(
   payload: WaitlistSignupPayload,
 ): Promise<WaitlistSignupResponse> {
   const data = await invokeWaitlistFunction<WaitlistSignupResponse>("waitlist-signup", payload);
-  return data;
+  const email = payload.email.trim().toLowerCase();
+  try {
+    const st = await invokeWaitlistFunction<WaitlistStatusResponse>("waitlist-status", { email });
+    return mergeSignupResponseWithStatus(data, st);
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn("[waitlist] waitlist-status refetch failed; using signup response only", e);
+    }
+    return data;
+  }
 }
 
 export async function waitlistGetStatus(
