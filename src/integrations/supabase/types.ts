@@ -6892,6 +6892,7 @@ export type Database = {
           referral_score: number
           referred_by_user_id: string | null
           role: string | null
+          sector: string | null
           source: string | null
           stage: string | null
           status: string
@@ -6918,6 +6919,7 @@ export type Database = {
           referral_score?: number
           referred_by_user_id?: string | null
           role?: string | null
+          sector?: string | null
           source?: string | null
           stage?: string | null
           status?: string
@@ -6944,6 +6946,7 @@ export type Database = {
           referral_score?: number
           referred_by_user_id?: string | null
           role?: string | null
+          sector?: string | null
           source?: string | null
           stage?: string | null
           status?: string
@@ -7630,6 +7633,7 @@ export type Database = {
           referral_score: number | null
           referred_by_email: string | null
           role: string | null
+          sector: string | null
           source: string | null
           stage: string | null
           status: string | null
@@ -7861,8 +7865,9 @@ export type Database = {
           p_linkedin_url?: string
           p_metadata?: Json
           p_name?: string
-          p_referral_code_used?: string
+          p_referral_code?: string
           p_role?: string
+          p_sector?: string
           p_source?: string
           p_stage?: string
           p_urgency?: string

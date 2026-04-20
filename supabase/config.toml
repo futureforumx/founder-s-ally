@@ -67,3 +67,6 @@ verify_jwt = false
 
 [functions.waitlist-status]
 verify_jwt = false
+
+[functions.founder-waitlist-snapshot]
+verify_jwt = false

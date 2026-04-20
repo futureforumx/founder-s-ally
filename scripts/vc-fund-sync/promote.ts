@@ -4,7 +4,7 @@ async function main() {
   const service = createVcFundService();
   const stats = await service.promoteCandidateCapitalEvents(envOptions({
     maxItems: 100,
-    allowFirmCreation: false,
+    allowFirmCreation: true,
   }));
   console.log("[vc-fund-sync:promote]", JSON.stringify(stats, null, 2));
 }

@@ -1,6 +1,7 @@
 import { CAPITAL_EVENT_KEYWORDS, CAPITAL_EVENT_THRESHOLDS, CAPITAL_EVENT_WEIGHTS } from "./config";
 import { inferSequenceNumber, normalizedFundLabel } from "./matching";
 import { contentHash, normalizeFirmName } from "./normalize";
+import { isLikelyVcFundVehicleHeadline } from "../../../scripts/funding-ingest/extract";
 import type {
   CandidateCapitalEventDraft,
   CandidateCapitalEventEvidence,
@@ -12,6 +13,56 @@ import type {
 
 function clamp(value: number): number {
   return Number(Math.max(0, Math.min(1, value)).toFixed(4));
+}
+
+export function normalizeAnnouncementDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const isoDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDate) {
+    const parsed = new Date(`${isoDate[1]}-${isoDate[2]}-${isoDate[3]}T12:00:00.000Z`);
+    return Number.isNaN(parsed.getTime()) ? null : `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`;
+  }
+
+  const isoTimestamp = raw.match(/^(\d{4}-\d{2}-\d{2})T/);
+  if (isoTimestamp) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : isoTimestamp[1];
+  }
+
+  const mdy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const month = Number(mdy[1]);
+    const day = Number(mdy[2]);
+    const year = Number(mdy[3]);
+    if (
+      Number.isFinite(month) &&
+      month >= 1 &&
+      month <= 12 &&
+      Number.isFinite(day) &&
+      day >= 1 &&
+      day <= 31 &&
+      Number.isFinite(year) &&
+      year >= 1900
+    ) {
+      const parsed = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  const monthYear = raw.match(/^(\d{1,2})\/(\d{4})$/);
+  if (monthYear) {
+    const month = Number(monthYear[1]);
+    const year = Number(monthYear[2]);
+    if (Number.isFinite(month) && month >= 1 && month <= 12 && Number.isFinite(year) && year >= 1900) {
+      const parsed = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return null;
 }
 
 function textBlob(item: Pick<ExtractedFundAnnouncement, "sourceTitle" | "rawText" | "fundName" | "fundLabel">): string {
@@ -43,7 +94,7 @@ export function guessCandidateEventType(item: ExtractedFundAnnouncement): Candid
 }
 
 export function computeCandidateClusterKey(item: ExtractedFundAnnouncement, firmRecordId: string | null): string {
-  const publishedAt = item.announcedDate || item.closeDate || new Date().toISOString().slice(0, 10);
+  const publishedAt = normalizeAnnouncementDate(item.announcedDate) || normalizeAnnouncementDate(item.closeDate) || new Date().toISOString().slice(0, 10);
   const monthBucket = publishedAt.slice(0, 7);
   const sequence = inferSequenceNumber(item);
   const fundLabel = normalizedFundLabel(item) || "unknown-fund";
@@ -68,6 +119,13 @@ export function scoreCandidateCapitalEvent(args: {
   independentSourceCount?: number;
 }): number {
   const text = textBlob(args.item);
+  const trustedSourceFeed =
+    args.item.metadata?.detection_mode === "source_feed_listing" &&
+    /techcrunch|alleywatch|geekwire/i.test(args.item.sourcePublisher || "");
+  const trustedStructuredSource =
+    args.item.metadata?.detection_mode === "structured_source_listing" &&
+    /everything startups|vc stack/i.test(args.item.sourcePublisher || "");
+  const vehicleHeadline = isLikelyVcFundVehicleHeadline(args.item.sourceTitle || "", args.item.rawText || "");
   let score = CAPITAL_EVENT_WEIGHTS.base;
 
   if (args.officialSourcePresent || args.item.sourceType === "official_website") score += CAPITAL_EVENT_WEIGHTS.officialSource;
@@ -90,12 +148,20 @@ export function scoreCandidateCapitalEvent(args: {
   if ((args.officialSourcePresent || args.item.sourceType === "official_website") && (args.corroborationScore || 0) >= 0.5) {
     score += CAPITAL_EVENT_WEIGHTS.strongOfficialBypass;
   }
+  if (trustedSourceFeed) score += 0.12;
+  if (trustedStructuredSource) score += 0.28;
+  if (vehicleHeadline) score += 0.16;
+  if (trustedSourceFeed && vehicleHeadline && args.firm && args.firmMatchConfidence >= 0.9) score += 0.12;
+  if (trustedStructuredSource && args.firm && args.firmMatchConfidence >= 0.9) score += 0.18;
+  if (trustedStructuredSource && (args.item.fundSize != null || args.item.targetSizeUsd != null || args.item.finalSizeUsd != null)) {
+    score += 0.08;
+  }
 
-  if (CAPITAL_EVENT_KEYWORDS.negativePortfolio.test(text)) score += CAPITAL_EVENT_WEIGHTS.portfolioFinancingPenalty;
+  if (!vehicleHeadline && CAPITAL_EVENT_KEYWORDS.negativePortfolio.test(text)) score += CAPITAL_EVENT_WEIGHTS.portfolioFinancingPenalty;
   if (CAPITAL_EVENT_KEYWORDS.negativeHiring.test(text)) score += CAPITAL_EVENT_WEIGHTS.hiringPenalty;
   if (CAPITAL_EVENT_KEYWORDS.negativeProduct.test(text)) score += CAPITAL_EVENT_WEIGHTS.productPenalty;
   if (CAPITAL_EVENT_KEYWORDS.negativeCommentary.test(text)) score += CAPITAL_EVENT_WEIGHTS.commentaryPenalty;
-  if (!CAPITAL_EVENT_KEYWORDS.positiveFund.test(text) && /\bfundraising|capital\b/i.test(text)) {
+  if (!vehicleHeadline && !CAPITAL_EVENT_KEYWORDS.positiveFund.test(text) && /\bfundraising|capital\b/i.test(text)) {
     score += CAPITAL_EVENT_WEIGHTS.genericFundraisingPenalty;
   }
   score -= Math.min(args.conflictPenalty || 0, 1) * Math.abs(CAPITAL_EVENT_WEIGHTS.conflictPenalty);
@@ -114,8 +180,18 @@ export function explainCandidateScore(args: {
   independentSourceCount?: number;
 }): Record<string, unknown> {
   const text = textBlob(args.item);
+  const trustedSourceFeed =
+    args.item.metadata?.detection_mode === "source_feed_listing" &&
+    /techcrunch|alleywatch|geekwire/i.test(args.item.sourcePublisher || "");
+  const trustedStructuredSource =
+    args.item.metadata?.detection_mode === "structured_source_listing" &&
+    /everything startups|vc stack/i.test(args.item.sourcePublisher || "");
+  const vehicleHeadline = isLikelyVcFundVehicleHeadline(args.item.sourceTitle || "", args.item.rawText || "");
   return {
     official_source: args.officialSourcePresent || args.item.sourceType === "official_website",
+    trusted_source_feed: trustedSourceFeed,
+    trusted_structured_source: trustedStructuredSource,
+    vehicle_headline: vehicleHeadline,
     positive_fund_language: CAPITAL_EVENT_KEYWORDS.positiveFund.test(text),
     close_language: CAPITAL_EVENT_KEYWORDS.closeLanguage.test(text),
     explicit_size: CAPITAL_EVENT_KEYWORDS.sizeLanguage.test(text) || args.item.fundSize != null || args.item.targetSizeUsd != null || args.item.finalSizeUsd != null,
@@ -155,6 +231,9 @@ export function toCandidateDraft(args: {
   const score = scoreCandidateCapitalEvent(args);
   const eventTypeGuess = guessCandidateEventType(args.item);
   const label = normalizedFundLabel(args.item) || null;
+  const normalizedAnnouncedDate = normalizeAnnouncementDate(args.item.announcedDate);
+  const normalizedCloseDate = normalizeAnnouncementDate(args.item.closeDate);
+  const effectiveDate = normalizedAnnouncedDate || normalizedCloseDate;
   return {
     firmRecordId: args.firm?.id ?? null,
     rawFirmName: args.item.firmName,
@@ -164,13 +243,13 @@ export function toCandidateDraft(args: {
     sourceUrl: args.item.sourceUrl,
     sourceType: args.item.sourceType,
     publisher: args.item.sourcePublisher || null,
-    publishedAt: args.item.announcedDate || args.item.closeDate || null,
+    publishedAt: effectiveDate,
     rawText: args.item.rawText || null,
     eventTypeGuess,
     normalizedFundLabel: label,
     fundSequenceNumber: inferSequenceNumber(args.item),
     vintageYear: args.item.vintageYear ?? null,
-    announcedDate: args.item.announcedDate || args.item.closeDate || null,
+    announcedDate: effectiveDate,
     sizeAmount: args.item.finalSizeUsd ?? args.item.targetSizeUsd ?? args.item.fundSize ?? null,
     sizeCurrency: args.item.currency || "USD",
     confidenceScore: score,
@@ -239,11 +318,12 @@ export function computeConflictPenalty(items: ExtractedFundAnnouncement[]): numb
 }
 
 export function buildEvidenceRow(item: ExtractedFundAnnouncement, score: number): CandidateCapitalEventEvidence {
+  const normalizedPublishedAt = normalizeAnnouncementDate(item.announcedDate) || normalizeAnnouncementDate(item.closeDate);
   return {
     sourceUrl: item.sourceUrl,
     sourceType: item.sourceType,
     publisher: item.sourcePublisher || null,
-    publishedAt: item.announcedDate || item.closeDate || null,
+    publishedAt: normalizedPublishedAt,
     headline: item.sourceTitle || item.fundName || "Untitled capital event",
     excerpt: item.rawText?.slice(0, 800) || null,
     rawText: item.rawText || null,
@@ -259,8 +339,8 @@ export function buildEvidenceRow(item: ExtractedFundAnnouncement, score: number)
       final_size_usd: item.finalSizeUsd ?? null,
       currency: item.currency || "USD",
       vintage_year: item.vintageYear ?? null,
-      announced_date: item.announcedDate || null,
-      close_date: item.closeDate || null,
+      announced_date: normalizeAnnouncementDate(item.announcedDate),
+      close_date: normalizeAnnouncementDate(item.closeDate),
       partners: item.partners || [],
       metadata: item.metadata || {},
     },

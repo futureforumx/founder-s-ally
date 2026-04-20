@@ -80,7 +80,7 @@ export default function AccessRequest() {
               Request access to Vekta
             </h1>
             <p className="text-pretty text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-              A decision and routing engine for founders and investors. Tell us who you are—we’ll follow up when your spot opens.
+              Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
             </p>
           </div>
 

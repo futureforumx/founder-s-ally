@@ -51,6 +51,13 @@ export type FreshCapitalFundRow = {
   fresh_capital_priority_score: number | null;
   /** Same COALESCE rule as `get_active_funds_by_stage` (see migration 20260423120000). */
   likely_actively_deploying: boolean | null;
+  /** From `firm_records.logo_url` when the RPC includes it. */
+  firm_logo_url: string | null;
+  /**
+   * From `firm_records.domain`, or host parsed from `website_url` (see `get_new_vc_funds` migration).
+   * Used to build a favicon URL when `firm_logo_url` is missing.
+   */
+  firm_domain: string | null;
 };
 
 export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "growth";
@@ -82,6 +89,83 @@ export function formatFundSizeUsd(value: number | null | undefined): string | nu
   if (value >= 1e6) return `$${Math.round(value / 1e6)}M`;
   if (value >= 1e3) return `$${Math.round(value / 1e3)}K`;
   return `$${Math.round(value)}`;
+}
+
+/**
+ * Display-name hints when `firm_domain` is still null (old RPC deploy, or sparse firm_records).
+ * Keys are lowercased `firm_name` — used only to build favicon URLs, not as canonical identity.
+ */
+const FIRM_MARK_NAME_HINT_HOST: Record<string, string> = {
+  accel: "accel.com",
+  "accel partners": "accel.com",
+  "andreessen horowitz": "a16z.com",
+  a16z: "a16z.com",
+  sequoia: "sequoiacap.com",
+  "sequoia capital": "sequoiacap.com",
+  benchmark: "benchmark.com",
+  greylock: "greylock.com",
+  "greylock partners": "greylock.com",
+  "kleiner perkins": "kleinerperkins.com",
+  lightspeed: "lsvp.com",
+  "lightspeed venture partners": "lsvp.com",
+  index: "indexventures.com",
+  "index ventures": "indexventures.com",
+  insight: "insightpartners.com",
+  "insight partners": "insightpartners.com",
+  founders: "foundersfund.com",
+  "founders fund": "foundersfund.com",
+  "general catalyst": "generalcatalyst.com",
+  bessemer: "bvp.com",
+  "bessemer venture partners": "bvp.com",
+  nea: "nea.com",
+  gv: "gv.com",
+  "google ventures": "gv.com",
+  "first round": "firstround.com",
+  "first round capital": "firstround.com",
+  usv: "usv.com",
+  "union square ventures": "usv.com",
+};
+
+function firmMarkHintHostFromName(firmName: string | null | undefined): string | null {
+  const k = firmName?.trim().toLowerCase();
+  if (!k) return null;
+  return FIRM_MARK_NAME_HINT_HOST[k] ?? null;
+}
+
+function effectiveFirmMarkHost(row: Pick<FreshCapitalFundRow, "firm_domain" | "firm_name">): string | null {
+  const fromDb = row.firm_domain?.trim().replace(/^www\./i, "");
+  if (fromDb) return fromDb;
+  return firmMarkHintHostFromName(row.firm_name);
+}
+
+/**
+ * Ordered URLs to try for the Fresh Capital firm column: stored logo, then Google s2, then DuckDuckGo favicon.
+ */
+export function firmMarkCandidateUrls(row: Pick<FreshCapitalFundRow, "firm_logo_url" | "firm_domain" | "firm_name">): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (u: string | null | undefined) => {
+    const t = u?.trim();
+    if (!t || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+
+  push(row.firm_logo_url);
+
+  const host = effectiveFirmMarkHost(row);
+  if (host) {
+    push(`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(host)}`);
+    push(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`);
+  }
+
+  return out;
+}
+
+/** First candidate URL, or null (see {@link firmMarkCandidateUrls}). */
+export function firmMarkImageSrc(row: Pick<FreshCapitalFundRow, "firm_logo_url" | "firm_domain" | "firm_name">): string | null {
+  const urls = firmMarkCandidateUrls(row);
+  return urls[0] ?? null;
 }
 
 export function formatAnnouncedDate(isoDate: string | null | undefined): string {
@@ -161,6 +245,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     has_fresh_capital: true,
     fresh_capital_priority_score: 0.91,
     likely_actively_deploying: true,
+    firm_logo_url: null,
+    firm_domain: "northline.vc",
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000002",
@@ -184,6 +270,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     has_fresh_capital: true,
     fresh_capital_priority_score: 0.88,
     likely_actively_deploying: true,
+    firm_logo_url: null,
+    firm_domain: null,
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000003",
@@ -207,6 +295,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     has_fresh_capital: true,
     fresh_capital_priority_score: 0.72,
     likely_actively_deploying: false,
+    firm_logo_url: null,
+    firm_domain: null,
   },
 ];
 
@@ -269,6 +359,8 @@ export function parseFreshCapitalFundRow(raw: unknown): FreshCapitalFundRow | nu
     has_fresh_capital: readBool(r.has_fresh_capital),
     fresh_capital_priority_score: readFiniteNumber(r.fresh_capital_priority_score),
     likely_actively_deploying: readBool(r.likely_actively_deploying),
+    firm_logo_url: readString(r.firm_logo_url),
+    firm_domain: readString(r.firm_domain),
   };
 }
 
@@ -372,13 +464,9 @@ export async function fetchFreshCapitalLive(input: {
   }
 
   const parsed = (fundsRes.data ?? []).map(parseFreshCapitalFundRow).filter((x): x is FreshCapitalFundRow => Boolean(x));
-  const funds = sortFreshCapitalRows(
-    parsed.filter((row) => {
-      // Canonical verified funds should usually have one of these dates; drop rows that cannot
-      // be placed on the timeline instead of rendering a misleading “live” undated item.
-      return Boolean(row.announced_date || row.close_date);
-    }),
-  );
+  // Canonical RPC rows remain displayable even when announced/close dates are sparse; the UI
+  // already degrades safely to "—" for date cells, so do not drop fresh-capital rows here.
+  const funds = sortFreshCapitalRows(parsed);
 
   const heatErr = heatmapRes.error;
   if (heatErr) {
@@ -408,6 +496,74 @@ export async function fetchFreshCapitalLive(input: {
     heatmapFromRpc: heatBuckets && heatBuckets.length ? heatBuckets : null,
     heatmapRpcError: heatErr,
   };
+}
+
+function parseSectorOptionRpcRows(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const s = readString((row as Record<string, unknown>).sector);
+    if (s) out.push(s);
+  }
+  return out;
+}
+
+/** Keeps the current filter value visible if it is not in the latest RPC list (stale cohort edge case). */
+export function mergeSelectedSectorIntoChoices(choices: string[], selected: string | null): string[] {
+  if (!selected) return choices;
+  const t = selected.trim();
+  if (!t) return choices;
+  if (choices.some((s) => s === t)) return choices;
+  return [t, ...choices];
+}
+
+/**
+ * Distinct `sector_focus` tags from `get_new_vc_fund_sector_options` (same window/stage cohort as the feed RPC).
+ * Falls back to an empty array on RPC error so callers can use `topSectorsForFilter` on fund rows.
+ */
+export async function fetchNewVcFundSectorOptions(input: {
+  stage: FreshCapitalStageFilter;
+  fundDays?: number;
+  limit?: number;
+}): Promise<string[]> {
+  const fundDays = input.fundDays ?? 150;
+  const limit = input.limit ?? 120;
+
+  if (!isSupabaseConfigured) {
+    if (!isFreshCapitalDemoDataEnabled()) return [];
+    let funds = [...DEMO_FUNDS];
+    if (input.stage !== "all") {
+      const need = new Set(stageFilterToRpcArray(input.stage) ?? []);
+      funds = funds.filter((f) => (f.stage_focus ?? []).some((s) => need.has(s)));
+    }
+    return topSectorsForFilter(funds, limit);
+  }
+
+  const p_stage = stageFilterToRpcArray(input.stage);
+  const res = await rpc<unknown[]>("get_new_vc_fund_sector_options", {
+    p_days: fundDays,
+    p_stage,
+    p_limit: limit,
+  });
+  if (res.error) {
+    console.warn("[FreshCapital] get_new_vc_fund_sector_options", res.error);
+    return [];
+  }
+  return parseSectorOptionRpcRows(res.data ?? []);
+}
+
+export function resolveFreshCapitalSectorChoices(input: {
+  fromRpc: string[];
+  fundRowsForFallback: FreshCapitalFundRow[];
+  selectedSector: string | null;
+  fallbackTopN?: number;
+}): string[] {
+  const base =
+    input.fromRpc.length > 0
+      ? input.fromRpc
+      : topSectorsForFilter(input.fundRowsForFallback, input.fallbackTopN ?? 12);
+  return mergeSelectedSectorIntoChoices(base, input.selectedSector);
 }
 
 export function topSectorsForFilter(rows: FreshCapitalFundRow[], limit = 10): string[] {

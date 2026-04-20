@@ -205,12 +205,15 @@ export interface FirmRecordLookup {
   firm_name: string;
   legal_name?: string | null;
   website_url?: string | null;
+  signal_nfx_url?: string | null;
+  cb_insights_url?: string | null;
+  tracxn_url?: string | null;
   aliases?: string[] | null;
   slug?: string | null;
   entity_type?: string | null;
   stage_focus?: string[] | null;
   thesis_verticals?: string[] | null;
-  active_geo_focus?: string[] | null;
+  geo_focus?: string[] | null;
   min_check_size?: number | null;
   max_check_size?: number | null;
 }
@@ -218,6 +221,7 @@ export interface FirmRecordLookup {
 export interface FundSyncRunOptions {
   sourceKeys?: string[];
   maxItems?: number;
+  sourceFetchLimits?: Record<string, number>;
   dryRun?: boolean;
   allowFirmCreation?: boolean;
   freshCapitalWindowDays?: number;
@@ -230,6 +234,15 @@ export interface FundSyncRunOptions {
   requireVerifiedForPromotion?: boolean;
   verifierBatchSize?: number;
   verificationRateMs?: number;
+}
+
+export interface FundSyncSourceStats {
+  fetched: number;
+  parsed: number;
+  candidates: number;
+  verified: number;
+  promoted: number;
+  failures: number;
 }
 
 export interface FundSyncStats {
@@ -249,6 +262,7 @@ export interface FundSyncStats {
   linkedPeople: number;
   emittedSignals: number;
   reviewQueueItems: number;
+  sourceStats?: Record<string, FundSyncSourceStats>;
 }
 
 export interface FundSyncVerifyStats {
@@ -258,6 +272,7 @@ export interface FundSyncVerifyStats {
   rejected: number;
   review: number;
   failures: number;
+  sourceStats?: Record<string, FundSyncSourceStats>;
 }
 
 export interface VcFundSourceAdapter {

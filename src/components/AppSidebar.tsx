@@ -15,6 +15,7 @@ import {
   UserSearch,
   Handshake,
   Target,
+  Orbit,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -57,7 +58,8 @@ type ViewType =
   | "workspace"
   | "settings"
   | "profile-workspace"
-  | "targeting";
+  | "targeting"
+  | "circles";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -327,17 +329,32 @@ export function AppSidebar({
                 {!collapsed && "Network"}
               </button>
             </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Investor targeting">
-              <button
-                type="button"
-                onClick={() => goView("targeting")}
-                className={navBtn(activeView === "targeting")}
-                style={activeView === "targeting" ? activeNavStyle : undefined}
-              >
-                <Target className="h-4 w-4 shrink-0" />
-                {!collapsed && "Targeting"}
-              </button>
-            </SidebarHint>
+            <div className="flex w-full flex-col gap-1">
+              <SidebarHint collapsed={collapsed} label="Investor targeting">
+                <button
+                  type="button"
+                  onClick={() => goView("targeting")}
+                  className={navBtn(activeView === "targeting")}
+                  style={activeView === "targeting" ? activeNavStyle : undefined}
+                >
+                  <Target className="h-4 w-4 shrink-0" />
+                  {!collapsed && "Targeting"}
+                </button>
+              </SidebarHint>
+              <div className={cn(!collapsed && "ml-1 border-l border-sidebar-border/35 pl-2")}>
+                <SidebarHint collapsed={collapsed} label="Circles">
+                  <button
+                    type="button"
+                    onClick={() => goView("circles")}
+                    className={navBtn(activeView === "circles")}
+                    style={activeView === "circles" ? activeNavStyle : undefined}
+                  >
+                    <Orbit className="h-4 w-4 shrink-0" />
+                    {!collapsed && "Circles"}
+                  </button>
+                </SidebarHint>
+              </div>
+            </div>
           </div>
 
           <div className={sectionLabel}>Research</div>

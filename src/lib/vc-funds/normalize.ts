@@ -34,7 +34,9 @@ const FUND_TYPE_KEYWORDS: Array<{ type: string; pattern: RegExp }> = [
 ];
 
 const LEGAL_SUFFIX_RE =
-  /\b(l\.?p\.?|llc|llp|inc\.?|ltd\.?|corp\.?|co\.?|plc|gmbh|sarl|fund,?\s*l\.?p\.?)\b/gi;
+  /\b(l\.?p\.?|llc|llp|inc\.?|ltd\.?|corp\.?|plc|gmbh|sarl|fund,?\s*l\.?p\.?)\b/gi;
+const BRAND_STOPWORD_RE =
+  /\b(ventures?|venture|capital|partners?|partner|vc|seed|fund|group|holdings?|management|investments?)\b/gi;
 
 export function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -64,6 +66,14 @@ export function normalizeFundName(raw: string): string {
       .replace(/\bfund\s+(\d+)/g, "$1")
       .replace(/\bvehicle\b/g, "fund")
       .replace(/[^a-z0-9\s]/g, " "),
+  );
+}
+
+export function normalizeBrandCore(raw: string): string {
+  return normalizeWhitespace(
+    normalizeFirmName(raw)
+      .replace(BRAND_STOPWORD_RE, " ")
+      .replace(/\b(the|and)\b/g, " "),
   );
 }
 

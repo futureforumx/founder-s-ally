@@ -4,13 +4,14 @@ import {
   computeConflictPenalty,
   computeCorroborationScore,
   computeFreshCapitalPriorityScore,
+  normalizeAnnouncementDate,
   scoreCandidateCapitalEvent,
   statusFromCandidateScore,
   toCandidateDraft,
 } from "./candidates";
 import { CAPITAL_EVENT_THRESHOLDS } from "./config";
 import { deriveCapitalWindow, deriveEstimatedCheckRange, deriveFirmCapitalState } from "./derivations";
-import { refetchCapitalArticleDetails } from "./adapters";
+import { fetchAuthenticatedVerificationEvidence, refetchCapitalArticleDetails } from "./adapters";
 import {
   buildAnnouncementFundKey,
   inferSequenceNumber,
@@ -19,7 +20,7 @@ import {
   matchFirmRecord,
   rankFirmMatches,
 } from "./matching";
-import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeFirmName, normalizeFundName } from "./normalize";
+import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
 import { getSourcePriority } from "./sourcePriority";
 import type {
   CandidateCapitalEventDraft,
@@ -31,6 +32,7 @@ import type {
   FundSignalRecord,
   FundSourceRecord,
   FundSyncRunOptions,
+  FundSyncSourceStats,
   FundSyncStats,
   FundSyncVerifyStats,
   VcFundSourceAdapter,
@@ -81,6 +83,21 @@ function roundConfidence(value: number): number {
   return Number(Math.max(0, Math.min(1, value)).toFixed(4));
 }
 
+function candidateVerificationPriority(candidate: CandidateRow, firm: FirmRecordLookup | null): number {
+  let score = candidate.confidence_score;
+  if (candidate.firm_record_id) score += 1;
+  if (firm?.signal_nfx_url || firm?.cb_insights_url || firm?.tracxn_url) score += 1.5;
+  if (candidate.official_source_present) score += 0.35;
+  if (candidate.published_at) score += 0.15;
+
+  const firmName = normalizeFirmName(firm?.firm_name || candidate.raw_firm_name || "");
+  const fundLabel = normalizeFundName(candidate.normalized_fund_label || candidate.candidate_headline || "");
+  if (firmName && fundLabel && fundLabel.includes(firmName)) score += 1.25;
+  else if (firmName && fundLabel) score -= 2.5;
+
+  return score;
+}
+
 async function sleep(ms: number): Promise<void> {
   if (ms <= 0) return;
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -105,6 +122,144 @@ function dedupeSignals(signals: FundSignalRecord[]): FundSignalRecord[] {
   });
 }
 
+function emptySourceStats(): FundSyncSourceStats {
+  return {
+    fetched: 0,
+    parsed: 0,
+    candidates: 0,
+    verified: 0,
+    promoted: 0,
+    failures: 0,
+  };
+}
+
+function ensureSourceStats(stats: Record<string, FundSyncSourceStats>, key: string): FundSyncSourceStats {
+  if (!stats[key]) stats[key] = emptySourceStats();
+  return stats[key];
+}
+
+function recordSourceMetric(
+  stats: Record<string, FundSyncSourceStats>,
+  key: string | null | undefined,
+  field: keyof FundSyncSourceStats,
+  delta = 1,
+): void {
+  const bucket = ensureSourceStats(stats, key || "unknown");
+  bucket[field] += delta;
+}
+
+function mergeSourceStats(
+  ...entries: Array<Record<string, FundSyncSourceStats> | null | undefined>
+): Record<string, FundSyncSourceStats> | undefined {
+  const merged: Record<string, FundSyncSourceStats> = {};
+  for (const entry of entries) {
+    if (!entry) continue;
+    for (const [key, value] of Object.entries(entry)) {
+      const bucket = ensureSourceStats(merged, key);
+      bucket.fetched += value.fetched || 0;
+      bucket.parsed += value.parsed || 0;
+      bucket.candidates += value.candidates || 0;
+      bucket.verified += value.verified || 0;
+      bucket.promoted += value.promoted || 0;
+      bucket.failures += value.failures || 0;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function sourceKeyFromAnnouncement(item: ExtractedFundAnnouncement, fallback = "unknown"): string {
+  const metadataKey = typeof item.metadata?.source_feed_key === "string" ? item.metadata.source_feed_key : null;
+  if (metadataKey) return metadataKey;
+  const providerKey = typeof item.metadata?.provider_key === "string" ? item.metadata.provider_key : null;
+  if (providerKey) return providerKey;
+  if (item.sourcePublisher) return item.sourcePublisher;
+  return fallback;
+}
+
+function normalizedTokenSimilarity(left: string, right: string): number {
+  const leftTokens = new Set(normalizeFirmName(left).split(" ").filter((token) => token.length >= 2));
+  const rightTokens = new Set(normalizeFirmName(right).split(" ").filter((token) => token.length >= 2));
+  const union = new Set([...leftTokens, ...rightTokens]).size || 1;
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection += 1;
+  }
+  return intersection / union;
+}
+
+function candidateSourceFirmName(candidate: CandidateRow): string {
+  return typeof candidate.metadata?.firm_name === "string" && candidate.metadata.firm_name.trim()
+    ? candidate.metadata.firm_name.trim()
+    : candidate.raw_firm_name;
+}
+
+function isTrustedStructuredVerificationSource(item: ExtractedFundAnnouncement): boolean {
+  const sourceKey = typeof item.metadata?.source_feed_key === "string" ? item.metadata.source_feed_key : "";
+  return sourceKey === "EVERYTHING_STARTUPS_NEW_VC_FUNDS";
+}
+
+function allowsStructuredVerificationBypass(
+  items: ExtractedFundAnnouncement[],
+  firmMatchConfidence: number,
+  hasCanonicalFirmLink: boolean,
+): boolean {
+  if (firmMatchConfidence < 0.9) return false;
+  if (!items.length) return false;
+  if (!items.every((item) => isTrustedStructuredVerificationSource(item))) return false;
+  const hasDate = items.some((item) => Boolean(item.announcedDate || item.closeDate));
+  const hasSize = items.some((item) => typeof (item.finalSizeUsd ?? item.targetSizeUsd ?? item.fundSize) === "number");
+  const hasLabel = items.some((item) => {
+    const label = normalizeFundName(item.fundName || item.fundLabel || "");
+    const firm = normalizeFirmName(item.firmName);
+    return Boolean(label && firm && label.includes(firm));
+  });
+  const detailEnriched = items.some((item) => item.metadata?.detail_enriched === true);
+  return hasDate && hasSize && (hasLabel || detailEnriched || (hasCanonicalFirmLink && detailEnriched));
+}
+
+function groupedFundLabelAlignsWithFirm(grouped: ExtractedFundAnnouncement[], firm: FirmRecordLookup): boolean {
+  const firmNames = [firm.firm_name, firm.legal_name, ...(firm.aliases || [])].filter(Boolean).map(String);
+  return grouped.some((item) => {
+    const label = item.fundName || item.fundLabel || item.sourceTitle || "";
+    if (!label) return false;
+    return firmNames.some((name) => {
+      const normalizedFirm = normalizeFirmName(name);
+      const normalizedLabel = normalizeFundName(label);
+      return (
+        (normalizedFirm && normalizedLabel.includes(normalizedFirm)) ||
+        (normalizeBrandCore(label) && normalizeBrandCore(name) && normalizeBrandCore(label) === normalizeBrandCore(name)) ||
+        normalizedTokenSimilarity(label, name) >= 0.75
+      );
+    });
+  });
+}
+
+function sourceKeyFromEvidenceRow(row: any): string {
+  const rawPayload = row.raw_payload || {};
+  const metadataKey = typeof rawPayload?.metadata?.source_feed_key === "string" ? rawPayload.metadata.source_feed_key : null;
+  if (metadataKey) return metadataKey;
+  const providerKey = typeof rawPayload?.metadata?.provider_key === "string" ? rawPayload.metadata.provider_key : null;
+  if (providerKey) return providerKey;
+  return row.publisher || row.source_type || "unknown";
+}
+
+function preferredSourceKeyFromEvidenceRows(rows: any[]): string {
+  const primary =
+    rows.find((row) => {
+      const payload = row.raw_payload || {};
+      const metadata = payload.metadata || {};
+      return typeof metadata.source_feed_key === "string" &&
+        !payload.verification_profile_refetch &&
+        !payload.verification_refetch;
+    }) ||
+    rows.find((row) => {
+      const payload = row.raw_payload || {};
+      return !payload.verification_profile_refetch && !payload.verification_refetch;
+    }) ||
+    rows[0];
+  return primary ? sourceKeyFromEvidenceRow(primary) : "unknown";
+}
+
 function chooseValue<T>(fieldName: string, candidates: Array<{ value: T | null | undefined; sourceType: ExtractedFundAnnouncement["sourceType"] }>): T | null {
   let winner: { value: T; priority: number } | null = null;
   for (const candidate of candidates) {
@@ -119,6 +274,13 @@ function chooseValue<T>(fieldName: string, candidates: Array<{ value: T | null |
 
 function normalizeArray(values: string[] | null | undefined): string[] {
   return Array.from(new Set((values || []).map((value) => value.trim()).filter(Boolean)));
+}
+
+function slugifyFirmName(value: string): string {
+  const base = normalizeFirmName(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || `firm-${Date.now()}`;
 }
 
 function whyItMattersForSignal(signalType: string, firmName: string): string {
@@ -138,6 +300,7 @@ function whyItMattersForSignal(signalType: string, firmName: string): string {
 
 export class FundSyncService {
   private readonly supabase: DbLike;
+  private firmLookupsCache: Promise<FirmRecordLookup[]> | null = null;
 
   constructor(private readonly options: FundSyncServiceOptions) {
     this.supabase = createClient(options.supabaseUrl, options.serviceRoleKey, {
@@ -236,6 +399,7 @@ export class FundSyncService {
         linkedPeople: promoteStats.linkedPeople,
         emittedSignals: promoteStats.emittedSignals,
         reviewQueueItems: detectStats.reviewQueueItems + verifyStats.review + promoteStats.reviewQueueItems,
+        sourceStats: mergeSourceStats(detectStats.sourceStats, verifyStats.sourceStats, promoteStats.sourceStats),
       };
     });
   }
@@ -255,18 +419,34 @@ export class FundSyncService {
         emittedSignals: 0,
         reviewQueueItems: 0,
         failures: 0,
+        sourceStats: {},
       };
 
       const firms = await this.loadFirmLookups(options);
       const adapters = this.options.adapters.filter((adapter) => !options.sourceKeys?.length || options.sourceKeys.includes(adapter.key));
 
       for (const adapter of adapters.sort((a, b) => b.priority - a.priority)) {
-        const items = await adapter.fetchFundAnnouncements({ firms, options });
+        let items: ExtractedFundAnnouncement[] = [];
+        try {
+          items = await adapter.fetchFundAnnouncements({ firms, options });
+        } catch (error) {
+          recordSourceMetric(stats.sourceStats!, adapter.key, "failures");
+          stats.failures = (stats.failures ?? 0) + 1;
+          if (options.verbose) {
+            console.log(`[vc-fund:detect] adapter failed ${adapter.key}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+          continue;
+        }
         stats.fetched += items.length;
+        for (const item of items) {
+          recordSourceMetric(stats.sourceStats!, sourceKeyFromAnnouncement(item, adapter.key), "fetched");
+        }
 
         for (const item of items.slice(0, options.maxItems ?? items.length)) {
+          const sourceKey = sourceKeyFromAnnouncement(item, adapter.key);
           stats.parsed += 1;
           stats.processedCandidates = (stats.processedCandidates ?? 0) + 1;
+          recordSourceMetric(stats.sourceStats!, sourceKey, "parsed");
 
           if (looksLikePortfolioFinancingNews(item)) {
             if (options.verbose) console.log(`[vc-fund:detect] skip portfolio financing ${item.sourceUrl}`);
@@ -288,6 +468,7 @@ export class FundSyncService {
 
           if (match.matchedFirm) stats.matchedFirms += 1;
           if (draft.status === "review") stats.reviewQueueItems += 1;
+          recordSourceMetric(stats.sourceStats!, sourceKey, "candidates");
 
           if (options.dryRun) {
             if (options.verbose) {
@@ -323,6 +504,7 @@ export class FundSyncService {
         emittedSignals: 0,
         reviewQueueItems: 0,
         failures: 0,
+        sourceStats: {},
       };
 
       const candidates = await this.loadPromotableCandidates(options);
@@ -344,7 +526,9 @@ export class FundSyncService {
 
       for (const candidate of candidates) {
         stats.processedCandidates = (stats.processedCandidates ?? 0) + 1;
-        const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors);
+        const evidenceRows = await this.loadCandidateEvidence(candidate.id);
+        const sourceKey = preferredSourceKeyFromEvidenceRows(evidenceRows);
+        const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors, options);
         if (!result) continue;
         const { wasUpdate, attachedSources, linkedPeople, emittedSignals, firmMatched, sentToReview } = result;
         if (sentToReview) {
@@ -355,6 +539,7 @@ export class FundSyncService {
         if (wasUpdate) stats.updatedFunds += 1;
         else stats.upsertedFunds += 1;
         stats.promotedCandidates = (stats.promotedCandidates ?? 0) + 1;
+        recordSourceMetric(stats.sourceStats!, sourceKey, "promoted");
         stats.attachedSources += attachedSources;
         stats.linkedPeople += linkedPeople;
         stats.emittedSignals += emittedSignals;
@@ -392,11 +577,13 @@ export class FundSyncService {
         rejected: 0,
         review: 0,
         failures: 0,
+        sourceStats: {},
       };
       const delayMs = options.verificationRateMs ?? CAPITAL_EVENT_THRESHOLDS.verifierRateMs;
 
       for (const candidate of candidates) {
         stats.processed += 1;
+        const sourceKey = await this.loadCandidatePrimarySourceKey(candidate.id);
         const outcome = await this.verifyEscalatedCandidateCapitalEvent(candidate);
         if (options.verbose) {
           console.log("[vc-fund:verify]", JSON.stringify({
@@ -406,8 +593,10 @@ export class FundSyncService {
             outcome,
           }, null, 2));
         }
-        if (outcome.status === "verified") stats.verified += 1;
-        else if (outcome.status === "review") stats.review += 1;
+        if (outcome.status === "verified") {
+          stats.verified += 1;
+          recordSourceMetric(stats.sourceStats!, sourceKey, "verified");
+        } else if (outcome.status === "review") stats.review += 1;
         else if (outcome.status === "rejected") stats.rejected += 1;
         else stats.escalated += 1;
         await sleep(delayMs);
@@ -437,8 +626,22 @@ export class FundSyncService {
       return { status: "rejected", confidenceScore: 0, reviewReason: "Verification failed: no evidence available" };
     }
 
-    const firm = candidate.firm_record_id ? await this.loadFirmLookupById(candidate.firm_record_id) : null;
-    const verificationEvidence = await this.attachVerificationEvidence(candidate, evidenceRows, firm);
+    const initialHydrated = this.hydrateAnnouncementsFromEvidence(candidate, evidenceRows);
+    const initialFirmRanking = await this.rankCandidateFirmMatches(candidate, initialHydrated);
+    const matchedFirm = initialFirmRanking[0]?.firm || null;
+    const firm = candidate.firm_record_id
+      ? await this.loadFirmLookupById(candidate.firm_record_id)
+      : matchedFirm?.id
+        ? await this.loadFirmLookupById(matchedFirm.id)
+        : null;
+    const prefetchStructuredBypass = allowsStructuredVerificationBypass(
+      initialHydrated,
+      initialFirmRanking[0]?.confidence ?? (firm ? 0.9 : 0),
+      Boolean(candidate.firm_record_id || matchedFirm?.id || firm?.id),
+    );
+    const verificationEvidence = prefetchStructuredBypass
+      ? []
+      : await this.attachVerificationEvidence(candidate, evidenceRows, firm);
     const allEvidence = [...evidenceRows, ...verificationEvidence];
     const hydrated = this.hydrateAnnouncementsFromEvidence(candidate, allEvidence);
     const corroborationScore = computeCorroborationScore(hydrated);
@@ -476,6 +679,11 @@ export class FundSyncService {
       sizeConflict ? "Source disagreement on fund size above tolerance" :
       dateConflict ? "Conflicting event dates outside tolerance" :
       null;
+    const structuredBypass = allowsStructuredVerificationBypass(
+      hydrated,
+      firmMatch?.confidence ?? (firm ? 0.9 : 0),
+      Boolean(candidate.firm_record_id || firmMatch?.firm?.id || firm?.id),
+    );
 
     if (reviewReason) {
       await this.supabase.from("candidate_capital_events").update({
@@ -500,7 +708,7 @@ export class FundSyncService {
     }
 
     const targetStatus =
-      score >= CAPITAL_EVENT_THRESHOLDS.autoVerify && (corroborationScore >= CAPITAL_EVENT_THRESHOLDS.minCorroborationScore || officialSourcePresent)
+      score >= CAPITAL_EVENT_THRESHOLDS.autoVerify && (corroborationScore >= CAPITAL_EVENT_THRESHOLDS.minCorroborationScore || officialSourcePresent || structuredBypass)
         ? "verified"
         : score >= CAPITAL_EVENT_THRESHOLDS.escalate
           ? "escalated"
@@ -531,6 +739,7 @@ export class FundSyncService {
         corroboration_score: corroborationScore,
         conflict_penalty: conflictPenalty,
         independent_source_count: independentSourceCount,
+        structured_verification_bypass: structuredBypass,
         verification_status: targetStatus,
         verified_at: new Date().toISOString(),
       },
@@ -612,6 +821,37 @@ export class FundSyncService {
         score: evidence.score,
       });
     }
+
+    const providerEvidence = await fetchAuthenticatedVerificationEvidence({
+      firmName: firm?.firm_name || candidate.raw_firm_name,
+      firmWebsiteUrl: firm?.website_url || null,
+      signalNfxUrl: firm?.signal_nfx_url || null,
+      cbInsightsUrl: firm?.cb_insights_url || null,
+      tracxnUrl: firm?.tracxn_url || null,
+      fundLabel: candidate.normalized_fund_label || candidate.candidate_headline,
+      announcedDate: candidate.announced_date || candidate.published_at || null,
+    });
+    for (const refined of providerEvidence) {
+      const evidence = buildEvidenceRow(refined, Math.max(refined.confidence, candidate.confidence_score));
+      evidence.sourceUrl = `${refined.sourceUrl}#verified-profile`;
+      evidence.rawPayload = {
+        ...evidence.rawPayload,
+        verification_profile_refetch: true,
+      };
+      await this.insertCandidateEvidence(candidate.id, evidence);
+      inserted.push({
+        candidate_capital_event_id: candidate.id,
+        source_url: evidence.sourceUrl,
+        source_type: evidence.sourceType,
+        publisher: evidence.publisher,
+        published_at: evidence.publishedAt,
+        headline: evidence.headline,
+        excerpt: evidence.excerpt,
+        raw_text: evidence.rawText,
+        raw_payload: evidence.rawPayload,
+        score: evidence.score,
+      });
+    }
     return inserted;
   }
 
@@ -660,12 +900,25 @@ export class FundSyncService {
           last_seen_at: new Date().toISOString(),
         };
 
-        const { data: event, error } = await this.supabase
-          .from("intelligence_events")
-          .upsert(payload, { onConflict: "dedupe_key" })
-          .select("id")
-          .single();
-        if (error) throw new Error(`Failed to mirror intelligence_event: ${error.message}`);
+        let event: { id: string } | null = null;
+        if (existing?.id) {
+          const { data, error } = await this.supabase
+            .from("intelligence_events")
+            .update(payload)
+            .eq("id", existing.id)
+            .select("id")
+            .single();
+          if (error) throw new Error(`Failed to mirror intelligence_event: ${error.message}`);
+          event = data as { id: string };
+        } else {
+          const { data, error } = await this.supabase
+            .from("intelligence_events")
+            .insert(payload)
+            .select("id")
+            .single();
+          if (error) throw new Error(`Failed to mirror intelligence_event: ${error.message}`);
+          event = data as { id: string };
+        }
 
         const links = [
           { event_id: event.id, entity_id: firmEntityId, role: "investor" },
@@ -698,6 +951,7 @@ export class FundSyncService {
     candidate: CandidateRow,
     firms?: FirmRecordLookup[],
     investors?: Array<{ id: string; firm_id: string; full_name: string; title?: string | null }>,
+    options: FundSyncRunOptions = {},
   ): Promise<{
     fundId: string;
     wasUpdate: boolean;
@@ -710,15 +964,27 @@ export class FundSyncService {
     const evidenceRows = await this.loadCandidateEvidence(candidate.id);
     if (!evidenceRows.length) return null;
 
-    const firmUniverse = firms || await this.loadFirmLookups({});
+    const grouped = this.hydrateAnnouncementsFromEvidence(candidate, evidenceRows);
+    let firmUniverse = firms || await this.loadFirmLookups({});
     const investorUniverse = investors || await this.loadFirmInvestorLookups();
-    const firm = await this.resolveCandidateFirm(candidate, firmUniverse);
+    let firm = await this.resolveCandidateFirm(candidate, firmUniverse);
+    if (!firm && options.allowFirmCreation) {
+      firm = await this.createFirmRecordFromCandidate(candidate, grouped);
+      if (firm) {
+        firmUniverse = [...firmUniverse, firm];
+      }
+    }
     if (!firm) {
       await this.sendCandidateToReview(candidate, "Weak or missing firm match during promotion");
       return { fundId: "", wasUpdate: false, attachedSources: 0, linkedPeople: 0, emittedSignals: 0, firmMatched: false, sentToReview: true };
     }
 
-    const grouped = this.hydrateAnnouncementsFromEvidence(candidate, evidenceRows);
+    const structuredSourceOnly = grouped.every((item) => isTrustedStructuredVerificationSource(item));
+    if (structuredSourceOnly && !groupedFundLabelAlignsWithFirm(grouped, firm)) {
+      await this.sendCandidateToReview(candidate, "Structured source fund label diverges from matched firm");
+      return { fundId: "", wasUpdate: false, attachedSources: 0, linkedPeople: 0, emittedSignals: 0, firmMatched: true, sentToReview: true };
+    }
+
     const sequenceNumbers = new Set(grouped.map((item) => inferSequenceNumber(item)).filter((value) => value != null));
     if (sequenceNumbers.size > 1) {
       await this.sendCandidateToReview(candidate, "Conflicting sequence numbers across evidence");
@@ -823,15 +1089,37 @@ export class FundSyncService {
   }
 
   private async loadFirmLookups(options: FundSyncRunOptions = {}): Promise<FirmRecordLookup[]> {
-    let query = this.supabase
-      .from("firm_records")
-      .select("id, firm_name, legal_name, website_url, aliases, slug, entity_type, stage_focus, thesis_verticals, active_geo_focus, min_check_size, max_check_size")
-      .is("deleted_at", null)
-      .limit(50000);
-    if (options.firmId) query = query.eq("id", options.firmId);
-    const { data, error } = await query;
-    if (error) throw new Error(`Failed to load firm_records: ${error.message}`);
-    return (data ?? []) as FirmRecordLookup[];
+    const selectClause = "id, firm_name, legal_name, website_url, signal_nfx_url, cb_insights_url, tracxn_url, aliases, slug, entity_type, stage_focus, thesis_verticals, geo_focus, min_check_size, max_check_size";
+    if (options.firmId) {
+      const { data, error } = await this.supabase
+        .from("firm_records")
+        .select(selectClause)
+        .eq("id", options.firmId)
+        .is("deleted_at", null);
+      if (error) throw new Error(`Failed to load firm_records: ${error.message}`);
+      return (data ?? []) as FirmRecordLookup[];
+    }
+
+    if (!this.firmLookupsCache) {
+      this.firmLookupsCache = (async () => {
+        const pageSize = 1000;
+        const firms: FirmRecordLookup[] = [];
+        for (let from = 0; from < 50000; from += pageSize) {
+          const to = from + pageSize - 1;
+          const { data, error } = await this.supabase
+            .from("firm_records")
+            .select(selectClause)
+            .is("deleted_at", null)
+            .range(from, to);
+          if (error) throw new Error(`Failed to load firm_records: ${error.message}`);
+          const page = (data ?? []) as FirmRecordLookup[];
+          firms.push(...page);
+          if (page.length < pageSize) break;
+        }
+        return firms;
+      })();
+    }
+    return this.firmLookupsCache;
   }
 
   private async loadFirmInvestorLookups(): Promise<Array<{ id: string; firm_id: string; full_name: string; title?: string | null }>> {
@@ -949,7 +1237,7 @@ export class FundSyncService {
       sourceUrl: item.sourceUrl || null,
       sourceTitle: item.sourceTitle || null,
       publisher: item.sourcePublisher || null,
-      publishedAt: item.announcedDate || item.closeDate || null,
+      publishedAt: normalizeAnnouncementDate(item.announcedDate) || normalizeAnnouncementDate(item.closeDate),
       extractedPayload: {
         ...item.rawPayload,
         fund_name: item.fundName,
@@ -1190,11 +1478,30 @@ export class FundSyncService {
       .maybeSingle();
 
     if (existingEvidence?.candidate_capital_event_id) {
+      await this.insertCandidateEvidence(existingEvidence.candidate_capital_event_id, evidence);
       await this.supabase.from("candidate_capital_events").update({
+        candidate_headline: draft.candidateHeadline,
+        excerpt: draft.excerpt,
+        source_url: draft.sourceUrl,
+        source_type: draft.sourceType,
+        publisher: draft.publisher,
+        published_at: draft.publishedAt,
+        raw_text: draft.rawText,
+        normalized_fund_label: draft.normalizedFundLabel,
+        fund_sequence_number: draft.fundSequenceNumber,
+        announced_date: draft.announcedDate,
+        size_amount: draft.sizeAmount,
+        confidence_score: draft.confidenceScore,
+        confidence_breakdown: draft.confidenceBreakdown,
+        metadata: {
+          ...(draft.metadata || {}),
+          source_urls: [draft.sourceUrl],
+          firm_match_confidence: firmMatchConfidence,
+        },
         latest_seen_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }).eq("id", existingEvidence.candidate_capital_event_id);
-      return { action: "deduped_source_url", candidateId: existingEvidence.candidate_capital_event_id };
+      return { action: "refreshed_source_url", candidateId: existingEvidence.candidate_capital_event_id, score: draft.confidenceScore, status: draft.status };
     }
 
     const { data: existingCluster } = await this.supabase
@@ -1377,13 +1684,24 @@ export class FundSyncService {
     return data ?? [];
   }
 
+  private async loadCandidatePrimarySourceKey(candidateId: string): Promise<string> {
+    const evidenceRows = await this.loadCandidateEvidence(candidateId);
+    if (!evidenceRows.length) return "unknown";
+    return preferredSourceKeyFromEvidenceRows(evidenceRows);
+  }
+
   private async resolveCandidateFirm(candidate: CandidateRow, firms: FirmRecordLookup[]): Promise<FirmRecordLookup | null> {
     if (candidate.firm_record_id) {
       const existing = firms.find((firm) => firm.id === candidate.firm_record_id);
-      if (existing) return existing;
+      if (existing) {
+        const sourceName = candidateSourceFirmName(candidate);
+        const existingNames = [existing.firm_name, existing.legal_name, ...(existing.aliases || [])].filter(Boolean).map(String);
+        const maxSimilarity = Math.max(...existingNames.map((name) => normalizedTokenSimilarity(sourceName, name)), 0);
+        if (maxSimilarity >= 0.75) return existing;
+      }
     }
     const synthetic: ExtractedFundAnnouncement = {
-      firmName: candidate.raw_firm_name,
+      firmName: candidateSourceFirmName(candidate),
       sourceUrl: candidate.source_url,
       sourceType: candidate.source_type as any,
       confidence: candidate.confidence_score,
@@ -1391,6 +1709,45 @@ export class FundSyncService {
       rawText: candidate.raw_text,
     };
     return matchFirmRecord(synthetic, firms).matchedFirm;
+  }
+
+  private async createFirmRecordFromCandidate(
+    candidate: CandidateRow,
+    grouped: ExtractedFundAnnouncement[],
+  ): Promise<FirmRecordLookup | null> {
+    const primary = grouped[0];
+    const firmName = (primary?.firmName || candidate.raw_firm_name || "").trim();
+    if (!firmName) return null;
+
+    const websiteUrl = primary?.firmWebsiteUrl || null;
+    const baseSlug = slugifyFirmName(firmName);
+    const slugCandidates = [baseSlug, `${baseSlug}-${Date.now().toString().slice(-6)}`];
+
+    for (const slug of slugCandidates) {
+      const { data, error } = await this.supabase
+        .from("firm_records")
+        .insert({
+          firm_name: firmName,
+          legal_name: firmName,
+          slug,
+          website_url: websiteUrl,
+          entity_type: "VC",
+          aliases: [],
+          ready_for_live: false,
+          needs_review: true,
+          enrichment_status: "pending",
+          verification_status: "pending",
+          source_count: 1,
+        })
+        .select("id, firm_name, legal_name, website_url, signal_nfx_url, cb_insights_url, tracxn_url, aliases, slug, entity_type, stage_focus, thesis_verticals, geo_focus, min_check_size, max_check_size")
+        .single();
+
+      if (!error && data) {
+        return data as FirmRecordLookup;
+      }
+    }
+
+    return null;
   }
 
   private hydrateAnnouncementsFromEvidence(candidate: CandidateRow, evidenceRows: any[]): ExtractedFundAnnouncement[] {
@@ -1524,26 +1881,54 @@ export class FundSyncService {
   }
 
   private async loadVerifiableCandidates(options: FundSyncRunOptions): Promise<CandidateRow[]> {
+    const batchSize = options.verifierBatchSize ?? options.maxItems ?? CAPITAL_EVENT_THRESHOLDS.verifierBatchSize;
+    const poolSize = Math.max(batchSize * 50, 500);
     let query = this.supabase
       .from("candidate_capital_events")
       .select("*")
       .eq("status", "escalated")
       .order("confidence_score", { ascending: false })
       .order("latest_seen_at", { ascending: false })
-      .limit(options.verifierBatchSize ?? options.maxItems ?? CAPITAL_EVENT_THRESHOLDS.verifierBatchSize);
+      .limit(poolSize);
     if (options.firmId) query = query.eq("firm_record_id", options.firmId);
     if (options.clusterKey) query = query.eq("cluster_key", options.clusterKey);
     if (options.dateFrom) query = query.gte("published_at", options.dateFrom);
     if (options.dateTo) query = query.lte("published_at", options.dateTo);
     const { data, error } = await query;
     if (error) throw new Error(`Failed to load verifiable candidates: ${error.message}`);
-    return (data ?? []) as CandidateRow[];
+    const candidates = (data ?? []) as CandidateRow[];
+    if (!candidates.length || options.firmId || options.clusterKey) return candidates.slice(0, batchSize);
+
+    const firmIds = Array.from(new Set(candidates.map((row) => row.firm_record_id).filter(Boolean))) as string[];
+    const firmMap = new Map<string, FirmRecordLookup>();
+    if (firmIds.length) {
+      const { data: firms, error: firmError } = await this.supabase
+        .from("firm_records")
+        .select("id, firm_name, legal_name, website_url, signal_nfx_url, cb_insights_url, tracxn_url, aliases, slug, entity_type, stage_focus, thesis_verticals, geo_focus, min_check_size, max_check_size")
+        .in("id", firmIds)
+        .is("deleted_at", null);
+      if (!firmError) {
+        for (const firm of (firms ?? []) as FirmRecordLookup[]) firmMap.set(firm.id, firm);
+      }
+    }
+
+    return candidates
+      .slice()
+      .sort((left, right) => {
+        const rightPriority = candidateVerificationPriority(right, right.firm_record_id ? firmMap.get(right.firm_record_id) || null : null);
+        const leftPriority = candidateVerificationPriority(left, left.firm_record_id ? firmMap.get(left.firm_record_id) || null : null);
+        if (rightPriority !== leftPriority) return rightPriority - leftPriority;
+        const rightPublished = right.published_at || right.latest_seen_at || "";
+        const leftPublished = left.published_at || left.latest_seen_at || "";
+        return rightPublished.localeCompare(leftPublished);
+      })
+      .slice(0, batchSize);
   }
 
   private async loadFirmLookupById(firmId: string): Promise<FirmRecordLookup | null> {
     const { data, error } = await this.supabase
       .from("firm_records")
-      .select("id, firm_name, legal_name, website_url, aliases, slug, entity_type, stage_focus, thesis_verticals, active_geo_focus, min_check_size, max_check_size")
+      .select("id, firm_name, legal_name, website_url, signal_nfx_url, cb_insights_url, tracxn_url, aliases, slug, entity_type, stage_focus, thesis_verticals, geo_focus, min_check_size, max_check_size")
       .eq("id", firmId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -1561,7 +1946,40 @@ export class FundSyncService {
       sourceTitle: candidate.candidate_headline,
     };
     const firms = await this.loadFirmLookups({});
-    return rankFirmMatches(basis, firms);
+    const ranked = rankFirmMatches(basis, firms);
+    if (!candidate.firm_record_id) return ranked;
+
+    const existing = firms.find((firm) => firm.id === candidate.firm_record_id);
+    if (!existing) return ranked;
+
+    const normalizedBasis = normalizeFirmName(basis.firmName || candidate.raw_firm_name || "");
+    const existingNames = [
+      existing.firm_name,
+      existing.legal_name,
+      ...(existing.aliases || []),
+    ]
+      .filter(Boolean)
+      .map((value) => normalizeFirmName(String(value)));
+    const basisTokens = new Set(normalizedBasis.split(" ").filter((token) => token.length >= 2));
+    const similarity = Math.max(
+      ...existingNames.map((name) => {
+        const nameTokens = new Set(name.split(" ").filter((token) => token.length >= 2));
+        const union = new Set([...basisTokens, ...nameTokens]).size || 1;
+        let intersection = 0;
+        for (const token of basisTokens) {
+          if (nameTokens.has(token)) intersection += 1;
+        }
+        return intersection / union;
+      }),
+      0,
+    );
+    if (!existingNames.includes(normalizedBasis) && similarity < 0.75) return ranked;
+    const confidence = existingNames.includes(normalizedBasis) ? 0.99 : 0.95;
+
+    return [
+      { firm: existing, confidence, rule: "existing_candidate_firm" },
+      ...ranked.filter((entry) => entry.firm.id !== existing.id),
+    ];
   }
 
   private pickDominantSequence(hydrated: ExtractedFundAnnouncement[]): number | null {

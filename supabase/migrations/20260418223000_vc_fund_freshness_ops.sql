@@ -218,7 +218,10 @@ BEGIN
       max(sb.recent_capital_signal_count) AS recent_capital_signal_count,
       max(lvf.last_verified_at) AS freshness_verified_at,
       max(lvf.freshness_synced_at) AS freshness_synced_at,
-      max(lvf.latest_verified_vc_fund_id) AS latest_verified_vc_fund_id,
+      (array_agg(
+        lvf.latest_verified_vc_fund_id
+        ORDER BY lvf.last_verified_at DESC NULLS LAST, lvf.freshness_synced_at DESC NULLS LAST
+      ))[1] AS latest_verified_vc_fund_id,
       round(
         (
           COALESCE(
