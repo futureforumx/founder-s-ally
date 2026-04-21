@@ -41,6 +41,7 @@
     "vc:fund-sync:mirror": "tsx scripts/vc-fund-sync/mirror.ts",
     "vc:fund-sync:heatmap": "tsx scripts/vc-fund-sync/heatmap.ts",
     "vc:fund-sync:repair": "tsx scripts/vc-fund-sync/repair.ts",
+    "vc:fund-sync:repair:everything-startups": "tsx scripts/vc-fund-sync/repair-everything-startups-canonical.ts",
     "vc:fund-sync:rederive": "tsx scripts/vc-fund-sync/rederive.ts",
     "vc:investor-news": "python3 scripts/investor_news_refresh.py",
     "sec:form-d": "python3 scripts/sec_form_d_sync.py",
@@ -61,6 +62,7 @@
     "db:backfill:csv": "tsx scripts/backfill-from-csv.ts",
     "db:enrich:wikipedia": "tsx scripts/enrich-wikipedia.ts",
     "db:enrich:wikipedia:dry": "WIKI_DRY_RUN=1 tsx scripts/enrich-wikipedia.ts",
+    "db:enrich:firm-focus": "tsx scripts/enrich-firm-focus.ts",
     "enrich:firm-logos": "tsx scripts/enrich-firm-logos.ts",
     "enrich:firm-logos:dry": "LOGO_DRY_RUN=1 tsx scripts/enrich-firm-logos.ts",
     "db:backfill:firm-logos-website": "tsx scripts/backfill-firm-logos-from-website.ts",
@@ -162,7 +164,9 @@
     "enrich:investors:phase2:dry": "DRY_RUN=1 tsx scripts/phase2-llm-inference.ts",
     "enrich:investors:phase2:funds-only": "SKIP_LLM=1 tsx scripts/phase2-llm-inference.ts",
     "enrich:investors:phase2:rules": "RULE_BASED=1 tsx scripts/phase2-llm-inference.ts",
-    "enrich:investors:phase2:rules:dry": "RULE_BASED=1 DRY_RUN=1 tsx scripts/phase2-llm-inference.ts"
+    "enrich:investors:phase2:rules:dry": "RULE_BASED=1 DRY_RUN=1 tsx scripts/phase2-llm-inference.ts",
+    "enrich:linkedin:test": "ENRICH_MAX=20 tsx scripts/backfill-investor-linkedin.ts",
+    "enrich:linkedin": "ENRICH_MAX=0 tsx scripts/backfill-investor-linkedin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

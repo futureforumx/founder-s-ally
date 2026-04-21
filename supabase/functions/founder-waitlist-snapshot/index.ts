@@ -119,7 +119,11 @@ serve(async (req) => {
       );
       return jsonResponse({
         investorMatches: [],
-        marketSignal: { text: ms.text, source: ms.source },
+        marketSignal: {
+          text: ms.text,
+          source: ms.source,
+          ...(ms.highlightTerms?.length ? { highlightTerms: ms.highlightTerms } : {}),
+        },
         nextStep: ns,
       });
     }
@@ -133,7 +137,11 @@ serve(async (req) => {
 
     const payload: FounderWaitlistSnapshotPayload = {
       investorMatches,
-      marketSignal: { text: ms.text, source: ms.source },
+      marketSignal: {
+        text: ms.text,
+        source: ms.source,
+        ...(ms.highlightTerms?.length ? { highlightTerms: ms.highlightTerms } : {}),
+      },
       nextStep: ns,
     };
 
@@ -144,7 +152,11 @@ serve(async (req) => {
     const ns = nextStepForFounderStage("");
     return jsonResponse({
       investorMatches: [],
-      marketSignal: { text: ms.text, source: ms.source },
+      marketSignal: {
+        text: ms.text,
+        source: ms.source,
+        ...(ms.highlightTerms?.length ? { highlightTerms: ms.highlightTerms } : {}),
+      },
       nextStep: ns,
     });
   }

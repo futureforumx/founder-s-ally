@@ -205,6 +205,29 @@ export interface WaitlistMilestone {
   reached: boolean;
 }
 
+/** Live cohort + ladder context from `waitlist_get_status` (Phase 2). All optional for backward compatibility. */
+export interface WaitlistPathContext {
+  current_position: number | null;
+  current_referral_count: number | null;
+  current_tier: "top10" | "top25" | "top50" | "general" | null;
+  next_tier: "top10" | "top25" | "top50" | null;
+  /** Best rank included in “top 25%” band: ceil(N×0.25). */
+  tier_top25_max_rank: number | null;
+  /** Best rank included in “top 50%” band: ceil(N×0.50). */
+  tier_top50_max_rank: number | null;
+  top10_cutoff_position: number | null;
+  top10_cutoff_referral_count: number | null;
+  next_comparison_position: number | null;
+  next_comparison_referral_count: number | null;
+  /**
+   * Referral-count gap vs the user currently at rank #10 (total_score ranking).
+   * Not a guarantee of rank movement (qualification scores differ). Null when uninformative.
+   */
+  referrals_needed_for_top10: number | null;
+  spots_to_top10: number | null;
+  total_waitlist_size: number | null;
+}
+
 export interface WaitlistStatusResponse {
   name: string | null;
   email: string;
@@ -217,6 +240,8 @@ export interface WaitlistStatusResponse {
   status: string;
   referral_link: string;
   milestones: WaitlistMilestone[];
+  /** Present when RPC returns path_context (deploy migration 20260420190000). */
+  path_context?: WaitlistPathContext | null;
 }
 
 function mergeSignupResponseWithStatus(
@@ -269,7 +294,7 @@ export type FounderWaitlistSnapshotMatch = {
 
 export type FounderWaitlistSnapshot = {
   investorMatches: FounderWaitlistSnapshotMatch[];
-  marketSignal: { text: string; source?: string };
+  marketSignal: { text: string; source?: string; highlightTerms?: string[] };
   nextStep: { text: string };
 };
 

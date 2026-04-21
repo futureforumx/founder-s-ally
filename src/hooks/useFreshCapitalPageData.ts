@@ -41,8 +41,8 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
 
       if (!sector) {
         const [p, sectorsFromDb] = await Promise.all([
-          fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 }),
-          fetchNewVcFundSectorOptions({ stage, fundDays: 150, limit: 120 }),
+          fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 365 }),
+          fetchNewVcFundSectorOptions({ stage, fundDays: 365, limit: 120 }),
         ]);
         const heatmapSource: HeatmapSource = p.heatmapFromRpc?.length ? "rpc" : "fallback_sector_tag_counts";
         if (import.meta.env.DEV) {
@@ -63,9 +63,9 @@ export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: 
       }
 
       const [wide, narrow, sectorsFromDb] = await Promise.all([
-        fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 150 }),
-        fetchFreshCapitalLive({ stage, sector, fundLimit: 80, fundDays: 150 }),
-        fetchNewVcFundSectorOptions({ stage, fundDays: 150, limit: 120 }),
+        fetchFreshCapitalLive({ stage, sector: null, fundLimit: 100, fundDays: 365 }),
+        fetchFreshCapitalLive({ stage, sector, fundLimit: 80, fundDays: 365 }),
+        fetchNewVcFundSectorOptions({ stage, fundDays: 365, limit: 120 }),
       ]);
       const canonical = narrow.heatmapFromRpc ?? wide.heatmapFromRpc;
       const heatmapSource: HeatmapSource = canonical?.length ? "rpc" : "fallback_sector_tag_counts";

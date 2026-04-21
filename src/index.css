@@ -187,6 +187,56 @@
   animation: pulse-glow-purple 3s ease-in-out infinite;
 }
 
+/** Referrals dashboard — hero tier pill (TOP 25, etc.) */
+@keyframes referrals-tier-chip-soft-pulse {
+  0%,
+  100% {
+    border-color: rgba(168, 85, 247, 0.38);
+    box-shadow: 0 0 14px -6px rgba(147, 112, 219, 0.12);
+  }
+  50% {
+    border-color: rgba(192, 132, 252, 0.65);
+    box-shadow: 0 0 22px -4px rgba(147, 112, 219, 0.38);
+  }
+}
+
+.animate-referrals-tier-chip-pulse {
+  animation: referrals-tier-chip-soft-pulse 2.75s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-referrals-tier-chip-pulse {
+    animation: none;
+  }
+}
+
+/** Referrals dashboard — compact “Total points” metric cell */
+@keyframes referrals-total-points-soft-pulse {
+  0%,
+  100% {
+    border-color: rgba(113, 63, 182, 0.28);
+    box-shadow:
+      0 0 22px -12px rgba(147, 112, 219, 0.35),
+      inset 0 0 28px -14px rgba(88, 28, 135, 0.18);
+  }
+  50% {
+    border-color: rgba(167, 139, 250, 0.45);
+    box-shadow:
+      0 0 32px -8px rgba(147, 112, 219, 0.48),
+      inset 0 0 36px -12px rgba(88, 28, 135, 0.26);
+  }
+}
+
+.animate-referrals-total-points-soft-pulse {
+  animation: referrals-total-points-soft-pulse 3.25s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-referrals-total-points-soft-pulse {
+    animation: none;
+  }
+}
+
 @keyframes home-vyta-mark-aura-pulse {
   0%,
   100% {

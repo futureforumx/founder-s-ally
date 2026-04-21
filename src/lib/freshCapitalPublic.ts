@@ -58,6 +58,10 @@ export type FreshCapitalFundRow = {
    * Used to build a favicon URL when `firm_logo_url` is missing.
    */
   firm_domain: string | null;
+  /** Public display line for firm HQ/location. */
+  firm_location: string | null;
+  /** Public website URL when available. */
+  firm_website_url: string | null;
 };
 
 export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "growth";
@@ -81,6 +85,50 @@ const STAGE_RPC: Record<Exclude<FreshCapitalStageFilter, "all">, string[]> = {
 export function stageFilterToRpcArray(stage: FreshCapitalStageFilter): string[] | null {
   if (stage === "all") return null;
   return STAGE_RPC[stage];
+}
+
+/**
+ * Fresh Capital UI: some fund rows omit early stages that still match the firm’s mandate.
+ * Keys are lowercased {@link FreshCapitalFundRow.firm_name}; display-only — RPC filters still use stored `stage_focus`.
+ */
+const FLYBRIDGE_STAGE_FOCUS_DISPLAY = ["Pre-Seed", "Seed"] as const;
+
+const STAGE_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[]> = {
+  flybridge: [...FLYBRIDGE_STAGE_FOCUS_DISPLAY],
+  "flybridge ventures": [...FLYBRIDGE_STAGE_FOCUS_DISPLAY],
+};
+
+/** Stage chips / labels — prefers firm-specific overrides when present. */
+export function stageFocusForDisplay(row: Pick<FreshCapitalFundRow, "firm_name" | "stage_focus">): string[] {
+  const key = row.firm_name?.trim().toLowerCase();
+  const override = key ? STAGE_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
+  if (override?.length) return [...override];
+  return row.stage_focus ?? [];
+}
+
+/**
+ * Theme / sector pills on the Fresh Capital feed — same override pattern as stages.
+ * Default rows still cap at 3 tags for density; overrides return the full list.
+ */
+const FLYBRIDGE_SECTOR_FOCUS_DISPLAY = [
+  "AI Infrastructure",
+  "Dev Platforms",
+  "Agentic AI",
+  "Future of Work",
+  "Consumer",
+] as const;
+
+const SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[]> = {
+  flybridge: [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
+  "flybridge ventures": [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
+};
+
+/** Theme chips — prefers firm-specific overrides when present. */
+export function sectorFocusForDisplay(row: Pick<FreshCapitalFundRow, "firm_name" | "sector_focus">): string[] {
+  const key = row.firm_name?.trim().toLowerCase();
+  const override = key ? SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
+  if (override?.length) return [...override];
+  return (row.sector_focus ?? []).filter(Boolean).slice(0, 3);
 }
 
 export function formatFundSizeUsd(value: number | null | undefined): string | null {
@@ -122,14 +170,76 @@ const FIRM_MARK_NAME_HINT_HOST: Record<string, string> = {
   "google ventures": "gv.com",
   "first round": "firstround.com",
   "first round capital": "firstround.com",
+  eka: "ekavc.com",
+  "eka ventures": "ekavc.com",
   usv: "usv.com",
   "union square ventures": "usv.com",
+};
+
+/**
+ * Curated VC Sheet marks pulled from `https://www.vcsheet.com/funds`.
+ * We prefer these first when available because they are typically cleaner than generic favicon proxies.
+ */
+const VCSHEET_FUND_MARK_BY_NAME: Record<string, string> = {
+  "andreessen horowitz": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b180b9b8a6daa57ede490_a16z_logo%20(2).jpeg",
+  a16z: "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b180b9b8a6daa57ede490_a16z_logo%20(2).jpeg",
+  "black flag": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/696b15cdb9f35449c9a1c3ad_BF%20Icon.webp",
+  "deep checks": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/686313c44d46c34b33c2a0da_DeepChecksIcon.webp",
+  eka: "https://cdn.prod.website-files.com/68fb32edfd991098f5733b6b/690247c9911044cfc16d90e6_Eka_logo_white.svg",
+  "eka ventures": "https://cdn.prod.website-files.com/68fb32edfd991098f5733b6b/690247c9911044cfc16d90e6_Eka_logo_white.svg",
+  "fifty years": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b189128e406d5ca9b6152_fifty_years_logo.jpeg",
+  "founders fund": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b18188940e0d554664262_1631346747811.jpeg",
+  "harpoon ventures": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/68631320a7cc6a93d2eb5c07_Harpoon%20Iocn.webp",
+  "humba ventures": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b187c5b40ee605330998b_humba_ventures_logo.jpeg",
+  "julian capital": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b18635f42e63bb1fa2e28_julian_capital_logo%20(1).jpeg",
+  "kleiner perkins": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/6981207af9befc5bbf7334a9_kleiner_perkins_logo.jpeg",
+  lightspeed: "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/698120cac8462a0bf1b604c5_640262cd3052e2b11baa7735_jGxBqUKj_400x400.jpeg",
+  "lightspeed venture partners": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/698120cac8462a0bf1b604c5_640262cd3052e2b11baa7735_jGxBqUKj_400x400.jpeg",
+  "sequoia capital": "https://cdn.prod.website-files.com/62f3f3ccd0cfd515f3b095e4/693b184ce8d84123c1b26495_1638904115341.jpeg",
 };
 
 function firmMarkHintHostFromName(firmName: string | null | undefined): string | null {
   const k = firmName?.trim().toLowerCase();
   if (!k) return null;
   return FIRM_MARK_NAME_HINT_HOST[k] ?? null;
+}
+
+function vcsheetFundMarkFromName(firmName: string | null | undefined): string | null {
+  const k = firmName?.trim().toLowerCase();
+  if (!k) return null;
+  return VCSHEET_FUND_MARK_BY_NAME[k] ?? null;
+}
+
+function guessedHostsFromFirmName(firmName: string | null | undefined): string[] {
+  const raw = firmName?.trim().toLowerCase() ?? "";
+  if (!raw) return [];
+
+  const cleaned = raw
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return [];
+
+  const tokens = cleaned.split(" ").filter(Boolean);
+  if (tokens.length === 0) return [];
+
+  const suffixes = new Set(["capital", "ventures", "venture", "partners", "management", "fund", "funds"]);
+  const strippedTokens = tokens.filter((token) => !suffixes.has(token));
+  const joined = tokens.join("");
+  const strippedJoined = strippedTokens.join("");
+
+  const bases = [joined, strippedJoined].filter((value, index, arr) => value && arr.indexOf(value) === index);
+  const tlds = [".com", ".vc", ".ventures", ".capital"];
+  const out: string[] = [];
+
+  for (const base of bases) {
+    for (const tld of tlds) {
+      out.push(`${base}${tld}`);
+    }
+  }
+
+  return out;
 }
 
 function effectiveFirmMarkHost(row: Pick<FreshCapitalFundRow, "firm_domain" | "firm_name">): string | null {
@@ -139,7 +249,12 @@ function effectiveFirmMarkHost(row: Pick<FreshCapitalFundRow, "firm_domain" | "f
 }
 
 /**
- * Ordered URLs to try for the Fresh Capital firm column: stored logo, then Google s2, then DuckDuckGo favicon.
+ * Ordered URLs to try for the Fresh Capital firm column:
+ * 1. Curated VC Sheet mark when known
+ * 2. logo.dev
+ * 3. Google s2 favicon
+ *
+ * The UI falls back to the firm's first letter when all image candidates fail quality checks.
  */
 export function firmMarkCandidateUrls(row: Pick<FreshCapitalFundRow, "firm_logo_url" | "firm_domain" | "firm_name">): string[] {
   const seen = new Set<string>();
@@ -151,12 +266,17 @@ export function firmMarkCandidateUrls(row: Pick<FreshCapitalFundRow, "firm_logo_
     out.push(t);
   };
 
-  push(row.firm_logo_url);
+  push(vcsheetFundMarkFromName(row.firm_name));
 
   const host = effectiveFirmMarkHost(row);
   if (host) {
+    push(`https://img.logo.dev/${encodeURIComponent(host)}?size=64&format=png&fallback=404`);
     push(`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(host)}`);
-    push(`https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`);
+  }
+
+  for (const guessedHost of guessedHostsFromFirmName(row.firm_name)) {
+    push(`https://img.logo.dev/${encodeURIComponent(guessedHost)}?size=64&format=png&fallback=404`);
+    push(`https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(guessedHost)}`);
   }
 
   return out;
@@ -247,6 +367,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     likely_actively_deploying: true,
     firm_logo_url: null,
     firm_domain: "northline.vc",
+    firm_location: "London, UK",
+    firm_website_url: "https://northline.vc",
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000002",
@@ -272,6 +394,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     likely_actively_deploying: true,
     firm_logo_url: null,
     firm_domain: null,
+    firm_location: "San Francisco, CA, US",
+    firm_website_url: "https://harborpeak.com",
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000003",
@@ -297,6 +421,8 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     likely_actively_deploying: false,
     firm_logo_url: null,
     firm_domain: null,
+    firm_location: "New York, NY, US",
+    firm_website_url: "https://relaypartners.com",
   },
 ];
 
@@ -361,6 +487,8 @@ export function parseFreshCapitalFundRow(raw: unknown): FreshCapitalFundRow | nu
     likely_actively_deploying: readBool(r.likely_actively_deploying),
     firm_logo_url: readString(r.firm_logo_url),
     firm_domain: readString(r.firm_domain),
+    firm_location: readString(r.firm_location),
+    firm_website_url: readString(r.firm_website_url),
   };
 }
 

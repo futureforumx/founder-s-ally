@@ -12,7 +12,7 @@ export type FounderSnapshotInvestorMatch = {
 
 export type FounderWaitlistSnapshotPayload = {
   investorMatches: FounderSnapshotInvestorMatch[];
-  marketSignal: { text: string; source?: string };
+  marketSignal: { text: string; source?: string; highlightTerms?: string[] };
   nextStep: { text: string };
 };
 
@@ -52,10 +52,24 @@ const SIGNAL_BY_SECTOR: Record<string, string> = {
   developer_tools: "Developer tooling remains a top category for early-stage funding.",
 };
 
-export function marketSignalForSector(sector: string | null): { text: string; source: string } {
+/** Substrings of curated lines to emphasize in the product UI (case-insensitive match). */
+const SIGNAL_HIGHLIGHT_TERMS: Partial<Record<string, string[]>> = {
+  healthcare: ["automation", "clinical workflows"],
+};
+
+export function marketSignalForSector(sector: string | null): {
+  text: string;
+  source: string;
+  highlightTerms?: string[];
+} {
   const slug = (sector ?? "").trim();
   if (slug && SIGNAL_BY_SECTOR[slug]) {
-    return { text: SIGNAL_BY_SECTOR[slug], source: "curated" };
+    const highlightTerms = SIGNAL_HIGHLIGHT_TERMS[slug];
+    return {
+      text: SIGNAL_BY_SECTOR[slug],
+      source: "curated",
+      ...(highlightTerms?.length ? { highlightTerms } : {}),
+    };
   }
   if (slug) {
     return { text: SIGNAL_FALLBACK, source: "sector" };
@@ -75,7 +89,12 @@ export function nextStepForFounderStage(stage: string | null): { text: string } 
       text: "Refine a focused target list of 25–40 funds that match your round size and sector thesis.",
     };
   }
-  if (s === "series-a-plus") {
+  if (
+    s === "series-a" ||
+    s === "series-b" ||
+    s === "series-c-plus" ||
+    s === "series-a-plus"
+  ) {
     return {
       text: "Position around traction, category timing, and deployment velocity when you open conversations.",
     };
@@ -140,7 +159,12 @@ function stageFitScore(foundStage: string | null, haystack: string): number {
   if (s === "seed") {
     return /seed/.test(haystack) ? 4 : 2;
   }
-  if (s === "series-a-plus") {
+  if (
+    s === "series-a" ||
+    s === "series-b" ||
+    s === "series-c-plus" ||
+    s === "series-a-plus"
+  ) {
     return /series|growth|late|expansion/.test(haystack) ? 4 : 2;
   }
   return 1;

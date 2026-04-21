@@ -318,7 +318,47 @@ export function RecentFundingFeed({ className }: { className?: string }) {
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Recent funding</h1>
         <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-          {dataSource === "ingest" ? (
+          {dataSource === "seed_dev" ? (
+            <span className="text-muted-foreground">
+              Static examples only — no Supabase URL/key is configured for this dev session. Configure env keys to load ingested deals;
+              examples match the shape of{" "}
+              <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+                startups.gallery/news
+              </a>
+              .
+            </span>
+          ) : error ? (
+            <span className="text-amber-700 dark:text-amber-400/90">
+              Could not load ingested deals; the table below stays empty until the RPC succeeds (demo seed rows are not substituted when
+              Supabase is configured).{" "}
+              {(error as { code?: string })?.code === "PGRST202" ||
+              String((error as Error)?.message ?? "").includes("Could not find the function") ? (
+                <span className="block mt-1 font-normal text-muted-foreground">
+                  The RPC is missing on the database. From the repo root run{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>{" "}
+                  with <code className="rounded bg-muted px-1 py-0.5 text-[10px]">SUPABASE_DB_URL</code> in{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[10px]">.env.local</code>, or use{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:db:push:direct</code> if you prefer the full
+                  migration set (bypasses Supabase CLI 403).
+                </span>
+              ) : null}
+            </span>
+          ) : ingestEmpty ? (
+            <>
+              <span className="block font-medium text-foreground/90">The funding RPC returned no rows yet.</span>
+              <span className="block mt-1.5 font-normal">
+                Live rows come from <code className="rounded bg-muted px-1 py-0.5 text-[10px]">funding_deals</code> on the{" "}
+                <strong>same Postgres</strong> as this Supabase project: apply the Prisma funding schema to that DB (
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run funding:schema:apply</code> with{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">DATABASE_URL</code>), install the RPC (
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>), then run
+                the ingest job (
+                <code className="rounded bg-muted px-1 py-0.5 text-[10px]">INGEST_SKIP_PACIFIC_GUARD=1 npx tsx scripts/funding-ingest/run.ts</code>
+                — see <code className="rounded bg-muted px-1 py-0.5 text-[10px]">scripts/funding-ingest/README.md</code>
+                ).
+              </span>
+            </>
+          ) : (
             <>
               Live deals from the daily ingest pipeline (TechCrunch Venture, AlleyWatch funding, GeekWire fundings, and{" "}
               <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
@@ -326,49 +366,6 @@ export function RecentFundingFeed({ className }: { className?: string }) {
               </a>{" "}
               news), normalized for this table. Refreshes on a short interval after the server has new rows.
             </>
-          ) : (
-            <span className="text-muted-foreground">
-              {error ? (
-                <span className="text-amber-700 dark:text-amber-400/90">
-                  Could not load ingested deals; showing static examples.{" "}
-                  {(error as { code?: string })?.code === "PGRST202" ||
-                  String((error as Error)?.message ?? "").includes("Could not find the function") ? (
-                    <span className="block mt-1 font-normal">
-                      The RPC is missing on the database. From the repo root run{" "}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>{" "}
-                      with <code className="rounded bg-muted px-1 py-0.5 text-[10px]">SUPABASE_DB_URL</code> in{" "}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">.env.local</code>, or use{" "}
-                      <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:db:push:direct</code>{" "}
-                      if you prefer the full migration set (bypasses Supabase CLI 403).
-                    </span>
-                  ) : null}
-                </span>
-              ) : ingestEmpty ? (
-                <>
-                  <span className="block font-medium text-foreground/90">
-                    The funding RPC returned no rows yet.
-                  </span>
-                  <span className="block mt-1.5 font-normal">
-                    Live rows come from <code className="rounded bg-muted px-1 py-0.5 text-[10px]">funding_deals</code> on the{" "}
-                    <strong>same Postgres</strong> as this Supabase project: apply the Prisma funding schema to that DB (
-                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run funding:schema:apply</code> with{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">DATABASE_URL</code>
-                    ), install the RPC (
-                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">npm run supabase:apply:recent-funding-feed-rpc</code>
-                    ), then run the ingest job (
-                    <code className="rounded bg-muted px-1 py-0.5 text-[10px]">INGEST_SKIP_PACIFIC_GUARD=1 npx tsx scripts/funding-ingest/run.ts</code>
-                    — see <code className="rounded bg-muted px-1 py-0.5 text-[10px]">scripts/funding-ingest/README.md</code>
-                    ). Showing static examples in the same shape as{" "}
-                  </span>
-                </>
-              ) : (
-                <>Examples in the same shape as </>
-              )}
-              <a href={GALLERY_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
-                startups.gallery/news
-              </a>
-              .
-            </span>
           )}
         </p>
         {isFetching && !isLoading ? (
@@ -381,6 +378,10 @@ export function RecentFundingFeed({ className }: { className?: string }) {
       {isLoading ? (
         <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-10 text-center text-sm text-muted-foreground">
           Loading latest funding rounds…
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-12 text-center text-sm text-muted-foreground">
+          No rows to display.
         </div>
       ) : (
         <>

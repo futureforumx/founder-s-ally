@@ -18,6 +18,11 @@ export type RecentFundingRound = {
   leadWebsiteUrl?: string | null;
   coInvestors: string[];
   sourceUrl: string;
+  /** Present when ingest exposes outlet / pipeline metadata (optional). */
+  sourceType?: string | null;
+  confidenceScore?: number | null;
+  /** When backend distinguishes rumor vs confirmed announcement. */
+  confirmationStatus?: "confirmed" | "rumor" | "unverified";
 };
 
 /** Slug for https://startups.gallery/companies/{slug} */

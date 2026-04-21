@@ -50,10 +50,12 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const EXA_API_KEY = process.env.EXA_API_KEY;
 const JINA_API_KEY = process.env.JINA_API_KEY; // optional
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY; // primary fallback
 const XAI_API_KEY = process.env.XAI_API_KEY; // secondary fallback
-const MAX = parseInt(process.env.ENRICH_MAX || "500", 10);
-const DELAY = parseInt(process.env.ENRICH_DELAY_MS || "600", 10);
+const MAX_RAW = parseInt(process.env.ENRICH_MAX || "500", 10);
+const MAX = MAX_RAW <= 0 ? 100_000 : MAX_RAW; // 0 = unlimited
+const DELAY = parseInt(process.env.ENRICH_DELAY_MS || "1500", 10);
 const DRY_RUN = process.env.DRY_RUN === "true";
 
 // ── Validate required keys ──
@@ -65,8 +67,8 @@ if (!EXA_API_KEY) {
   console.error("Missing EXA_API_KEY");
   process.exit(1);
 }
-if (!GEMINI_API_KEY && !DEEPSEEK_API_KEY && !XAI_API_KEY) {
-  console.error("Need at least one LLM key: GEMINI_API_KEY, DEEPSEEK_API_KEY, or XAI_API_KEY");
+if (!GEMINI_API_KEY && !OPENROUTER_API_KEY && !DEEPSEEK_API_KEY && !XAI_API_KEY) {
+  console.error("Need at least one LLM key: OPENROUTER_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, or XAI_API_KEY");
   process.exit(1);
 }
 
@@ -192,7 +194,90 @@ async function jinaReadPage(url: string): Promise<string> {
   }
 }
 
-// ── Step 3: Gemini Evaluator (primary) ──
+// ── Step 3: Rule-based evaluator (no API — primary fast path) ──
+// Uses name-slug matching + firm/title mention in snippet. Fast and free.
+
+function slugTokens(url: string): string[] {
+  const match = url.match(/linkedin\.com\/in\/([^/?#]+)/i);
+  if (!match) return [];
+  return match[1].toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(t => t.length > 1);
+}
+
+function nameTokens(name: string): string[] {
+  return name.toLowerCase().replace(/[^a-z\s]/g, "").trim().split(/\s+/).filter(t => t.length > 1);
+}
+
+function ruleBasedEvaluate(
+  person: InvestorRow,
+  firmName: string | null,
+  candidateUrl: string,
+  exaSnippet: string,
+): "high" | "medium" | "low" {
+  const urlTokens = slugTokens(candidateUrl);
+  const personTokens = nameTokens(person.full_name);
+  if (urlTokens.length === 0 || personTokens.length === 0) return "low";
+
+  // Count how many name tokens appear in the URL slug
+  const nameMatches = personTokens.filter(t => urlTokens.some(u => u.startsWith(t) || t.startsWith(u)));
+  const nameMatchRatio = nameMatches.length / personTokens.length;
+
+  // Check firm name in snippet
+  const snippet = (exaSnippet + " " + candidateUrl).toLowerCase();
+  const firmTokens = firmName ? nameTokens(firmName).filter(t => t.length > 3) : [];
+  const firmMentioned = firmTokens.length > 0 && firmTokens.some(t => snippet.includes(t));
+
+  // High: most of the name matches + firm mentioned
+  if (nameMatchRatio >= 0.75 && firmMentioned) return "high";
+  // High: all name tokens match (very strong signal even without firm)
+  if (nameMatchRatio === 1.0 && personTokens.length >= 2) return "high";
+  // Medium: name mostly matches but no firm confirmation
+  if (nameMatchRatio >= 0.75) return "medium";
+  // Low: poor name match
+  return "low";
+}
+
+// ── Step 4: OpenRouter Evaluator (LLM fallback for medium/ambiguous cases) ──
+async function callOpenRouterEval(system: string, user: string, retries = 3): Promise<string> {
+  if (!OPENROUTER_API_KEY) throw new Error("No OPENROUTER_API_KEY");
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://vekta.so",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-001",
+        max_tokens: 256,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+
+    if (resp.status === 429) {
+      const wait = attempt * 5000; // 5s, 10s, 15s
+      console.warn(`  OpenRouter 429 — waiting ${wait / 1000}s (attempt ${attempt}/${retries})...`);
+      await sleep(wait);
+      continue;
+    }
+
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      throw new Error(`OpenRouter error ${resp.status}: ${body.slice(0, 200)}`);
+    }
+
+    const data = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  }
+
+  throw new Error("OpenRouter failed after max retries (429)");
+}
+
 const MATCH_SYSTEM_PROMPT = `You are a strict identity-matching assistant. You will be given:
 1. An investor's known details (name, title, firm, email)
 2. A candidate LinkedIn profile URL and page text
@@ -239,7 +324,7 @@ async function callGeminiEval(system: string, user: string): Promise<string> {
   if (!GEMINI_API_KEY) throw new Error("No GEMINI_API_KEY");
 
   // Direct Google Generative Language API — same pattern as OnboardingStepper.tsx
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${GEMINI_API_KEY}`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -358,7 +443,30 @@ async function evaluateMatch(
 ): Promise<MatchEvaluation | null> {
   const userPrompt = buildMatchUserPrompt(person, firmName, candidateUrl, pageText, exaSnippet);
 
-  // Tier 1: Gemini direct (primary)
+  // Tier 0: Rule-based (no API — fast path for clear name matches)
+  const ruleResult = ruleBasedEvaluate(person, firmName, candidateUrl, exaSnippet);
+  if (ruleResult === "high") {
+    return { confidence: "high", reason: "name tokens match URL slug + firm confirmed in snippet", evaluator: "gemini" };
+  }
+  if (ruleResult === "low") {
+    // Only escalate to LLM for medium — skip LLM entirely for clear mismatches
+    return { confidence: "low", reason: "name does not match LinkedIn URL slug", evaluator: "gemini" };
+  }
+  // ruleResult === "medium" — escalate to LLM for confirmation
+
+  // Tier 1: OpenRouter (most reliable — uses gemini-2.0-flash-001 via OR)
+  if (OPENROUTER_API_KEY) {
+    try {
+      const raw = await callOpenRouterEval(MATCH_SYSTEM_PROMPT, userPrompt);
+      const result = parseEvaluation(raw, "gemini");
+      if (result) return result;
+      console.warn("  OpenRouter returned unparseable response, trying Gemini direct...");
+    } catch (err) {
+      console.warn(`  OpenRouter error: ${err}, trying Gemini direct...`);
+    }
+  }
+
+  // Tier 2: Gemini direct (secondary)
   if (GEMINI_API_KEY) {
     try {
       const raw = await callGeminiEval(MATCH_SYSTEM_PROMPT, userPrompt);
@@ -370,7 +478,7 @@ async function evaluateMatch(
     }
   }
 
-  // Tier 2: DeepSeek (primary fallback)
+  // Tier 3: DeepSeek (tertiary fallback)
   if (DEEPSEEK_API_KEY) {
     try {
       const raw = await callDeepSeekEval(MATCH_SYSTEM_PROMPT, userPrompt);
@@ -402,9 +510,10 @@ async function main() {
   console.log(`\u{1F517} LinkedIn Backfill for firm_investors (Exa \u2192 Jina \u2192 Gemini \u2192 DeepSeek \u2192 Grok)`);
   console.log(`   Max: ${MAX} | Delay: ${DELAY}ms | DRY_RUN: ${DRY_RUN}`);
   const evals = [
-    GEMINI_API_KEY ? "Gemini (primary)" : null,
-    DEEPSEEK_API_KEY ? "DeepSeek (fallback 1)" : null,
-    XAI_API_KEY ? "Grok (fallback 2)" : null,
+    OPENROUTER_API_KEY ? "OpenRouter/Gemini (primary)" : null,
+    GEMINI_API_KEY ? "Gemini direct (fallback 1)" : null,
+    DEEPSEEK_API_KEY ? "DeepSeek (fallback 2)" : null,
+    XAI_API_KEY ? "Grok (fallback 3)" : null,
   ].filter(Boolean).join(" + ");
   console.log(`   Evaluators: ${evals || "NONE — will fail"}`);
   console.log();

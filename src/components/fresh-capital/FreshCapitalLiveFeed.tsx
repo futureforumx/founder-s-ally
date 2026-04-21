@@ -7,12 +7,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LatestFundingFeed } from "@/components/fresh-capital/latest-funding/LatestFundingFeed";
+import { SourceOutletBadge } from "@/components/fresh-capital/SourceOutletBadge";
+import { buildDedupedSectorChoices } from "@/lib/latestFundingFilters";
 import { cn } from "@/lib/utils";
 import {
   firmMarkCandidateUrls,
   formatAnnouncedDate,
   formatFundSizeUsd,
-  isLikelyNewFundAnnouncement,
+  sectorFocusForDisplay,
+  stageFocusForDisplay,
   type FreshCapitalFundRow,
   type FreshCapitalStageFilter,
 } from "@/lib/freshCapitalPublic";
@@ -54,6 +58,7 @@ function prettySourceLabelFromUrl(url: string): string | null {
     const { hostname } = new URL(url);
     const host = hostname.replace(/^www\./i, "");
     if (!host) return null;
+    if (host === "tech.eu") return "Tech EU";
     const segments = host.split(".").filter(Boolean);
     const raw = segments[0];
     if (!raw) return null;
@@ -63,53 +68,67 @@ function prettySourceLabelFromUrl(url: string): string | null {
   }
 }
 
-function AnnouncementSummaryRich({
-  title,
-  announcementUrl,
-}: {
-  title: string;
-  announcementUrl: string | null;
-}) {
-  const url = announcementUrl?.trim() || null;
-  const trimmed = title.trim();
-  const { head, sourceFromTitle } = splitAnnouncementTitleHeadAndSource(trimmed);
-  const sourceLabel =
-    sourceFromTitle ?? (url ? prettySourceLabelFromUrl(url) : null);
-  /** When the title embeds ` | Source`, show only the left side as the headline; otherwise the full title. */
-  const headline = sourceFromTitle != null ? head : trimmed;
+function normalizeWebsiteUrl(url: string | null | undefined): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+}
 
-  const linkClass = "text-inherit no-underline underline-offset-2 hover:underline";
+function prettyWebsiteLabel(url: string | null | undefined): string | null {
+  const normalized = normalizeWebsiteUrl(url);
+  if (!normalized) return null;
+  try {
+    const host = new URL(normalized).hostname.replace(/^www\./i, "");
+    return host || null;
+  } catch {
+    return null;
+  }
+}
 
-  const sep = (
-    <span className="text-zinc-600" aria-hidden>
-      {" "}
-      |{" "}
-    </span>
+function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
+  const location = row.firm_location?.trim() || null;
+  const websiteSource = row.firm_website_url ?? row.firm_domain;
+  const websiteUrl = normalizeWebsiteUrl(websiteSource);
+  const websiteLabel = prettyWebsiteLabel(websiteSource);
+  const announcementUrl = row.announcement_url?.trim() || null;
+  const title = row.announcement_title?.trim() || "";
+  const { sourceFromTitle } = splitAnnouncementTitleHeadAndSource(title);
+  const hasArticle = Boolean(announcementUrl);
+  const outletFromUrl = announcementUrl ? prettySourceLabelFromUrl(announcementUrl) : null;
+  const showSourceBadge = hasArticle || Boolean(title);
+
+  const pieces = [
+    location ? <span key="location">{location}</span> : null,
+    websiteUrl && websiteLabel ? (
+      <a key="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-inherit underline-offset-2 hover:underline">
+        {websiteLabel}
+      </a>
+    ) : null,
+    showSourceBadge ? (
+      <span key="source">
+        <SourceOutletBadge
+          hasArticle={hasArticle}
+          outletLabel={hasArticle ? outletFromUrl ?? sourceFromTitle ?? null : null}
+          href={announcementUrl}
+          noLinkFallbackLabel={hasArticle ? null : sourceFromTitle ?? null}
+        />
+      </span>
+    ) : null,
+  ].filter(Boolean);
+
+  if (pieces.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-[#b3b3b3]/90">
+      {pieces.map((piece, index) => (
+        <span key={index} className="inline-flex items-center gap-2">
+          {index > 0 ? <span className="text-zinc-600">·</span> : null}
+          {piece}
+        </span>
+      ))}
+    </div>
   );
-
-  if (sourceLabel && url) {
-    return (
-      <>
-        {headline}
-        {sep}
-        <a href={url} target="_blank" rel="noopener noreferrer" className={linkClass}>
-          {sourceLabel}
-        </a>
-      </>
-    );
-  }
-
-  if (sourceLabel && !url) {
-    return (
-      <>
-        {headline}
-        {sep}
-        <span>{sourceLabel}</span>
-      </>
-    );
-  }
-
-  return <>{trimmed}</>;
 }
 
 function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
@@ -119,6 +138,26 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
   );
   const [attempt, setAttempt] = useState(0);
   const letter = (row.firm_name?.trim().charAt(0) || "?").toUpperCase();
+  const currentSrc = candidates[attempt] ?? null;
+
+  const shouldRejectLoadedMark = (src: string | null, width: number, height: number): boolean => {
+    if (!src) return false;
+    const normalized = src.toLowerCase();
+    const isProxyService = normalized.includes("google.com/s2/favicons") || normalized.includes("img.logo.dev/");
+    const tooSmall = width < 24 || height < 24;
+    if (tooSmall) return true;
+
+    const aspectRatio = width / height;
+    if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return true;
+
+    const implausibleLogoShape = aspectRatio > 6 || aspectRatio < 0.2;
+    if (implausibleLogoShape) return true;
+
+    if (!isProxyService) return false;
+
+    // Proxy favicon services often return generic/globe placeholders at tiny or soft sizes.
+    return width < 28 || height < 28;
+  };
 
   useEffect(() => {
     setAttempt(0);
@@ -137,7 +176,7 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
 
   return (
     <img
-      src={candidates[attempt]}
+      src={currentSrc}
       alt=""
       width={20}
       height={20}
@@ -146,29 +185,86 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
       decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setAttempt((i) => i + 1)}
+      onLoad={(event) => {
+        if (shouldRejectLoadedMark(currentSrc, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) {
+          setAttempt((i) => i + 1);
+        }
+      }}
     />
   );
 }
 
-function SignalBadges({ row }: { row: FreshCapitalFundRow }) {
-  const activelyDeploying = row.likely_actively_deploying === true;
+function ThemePills({ row }: { row: FreshCapitalFundRow }) {
+  const themes = sectorFocusForDisplay(row);
+
+  if (themes.length === 0) {
+    return <span className="text-sm text-[#b3b3b3]">—</span>;
+  }
+
   return (
     <div className="flex flex-wrap gap-1.5">
-      {isLikelyNewFundAnnouncement(row.status) ? (
-        <span className="rounded-full border border-zinc-600 bg-zinc-900/80 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-zinc-300">
-          New fund
+      {themes.map((theme) => (
+        <span
+          key={theme}
+          title={theme}
+          className="rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary"
+        >
+          {theme.toUpperCase()}
         </span>
-      ) : null}
-      {row.has_fresh_capital ? (
-        <span className="rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary">
-          Fresh capital
+      ))}
+    </div>
+  );
+}
+
+/** Stage focus column — compact chips (distinct from theme pills). */
+function StageFocusChips({ stages }: { stages: string[] | null | undefined }) {
+  const list = (stages ?? []).filter(Boolean).slice(0, 4);
+
+  if (list.length === 0) {
+    return <span className="text-sm text-[#b3b3b3]">—</span>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {list.map((stage) => (
+        <span
+          key={stage}
+          title={stage}
+          className="inline-flex max-w-full shrink-0 truncate rounded-full border border-zinc-600/75 bg-zinc-950/90 px-2 py-0.5 text-2xs font-medium tabular-nums text-[#c4c4c4] shadow-sm"
+        >
+          {stage}
         </span>
-      ) : null}
-      {activelyDeploying ? (
-        <span className="rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-[#2EE6A6]">
-          Actively deploying
+      ))}
+    </div>
+  );
+}
+
+/** Shorter chip text for long geo labels; full value stays on `title`. */
+function geoChipDisplayLabel(geo: string): string {
+  const t = geo.trim();
+  if (/^Global\s*\(/i.test(t)) return "Global";
+  return t;
+}
+
+/** Geo focus column — same chip treatment as {@link StageFocusChips}. */
+function GeoFocusChips({ geos }: { geos: string[] | null | undefined }) {
+  const list = (geos ?? []).filter(Boolean).slice(0, 4);
+
+  if (list.length === 0) {
+    return <span className="text-sm text-[#b3b3b3]">—</span>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-1.5">
+      {list.map((geo, i) => (
+        <span
+          key={`${geo}-${i}`}
+          title={geo}
+          className="inline-flex max-w-full shrink-0 truncate rounded-full border border-zinc-600/75 bg-zinc-950/90 px-2 py-0.5 text-2xs font-medium text-[#c4c4c4] shadow-sm"
+        >
+          {geoChipDisplayLabel(geo)}
         </span>
-      ) : null}
+      ))}
     </div>
   );
 }
@@ -220,6 +316,21 @@ export function FreshCapitalLiveFeed({
   onSectorChange,
 }: Props) {
   const [mainTab, setMainTab] = useState<(typeof FEED_MAIN_TABS)[number]["id"]>("fresh_funds");
+  const [latestFundingSectors, setLatestFundingSectors] = useState<string[]>([]);
+
+  /** Latest funding tab: union VC + deal sectors, then cluster / dedupe for a shorter list. */
+  const mergedLatestSectorChoices = useMemo(() => {
+    const raw: string[] = [];
+    for (const s of sectorChoices) {
+      const t = s?.trim();
+      if (t) raw.push(t);
+    }
+    for (const s of latestFundingSectors) {
+      const t = s?.trim();
+      if (t) raw.push(t);
+    }
+    return buildDedupedSectorChoices(raw);
+  }, [sectorChoices, latestFundingSectors]);
 
   return (
     <section id={id} className="border-b border-zinc-800 bg-black font-spaceGrotesk">
@@ -329,66 +440,82 @@ export function FreshCapitalLiveFeed({
             </div>
           ) : (
             <>
-              <div className="hidden grid-cols-[1.1fr_1fr_0.7fr_0.75fr_0.9fr_1fr] gap-3 border-b border-zinc-800 bg-[#0a0a0a] px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-[#b3b3b3] md:grid">
+              <div className="hidden grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] gap-3 border-b border-zinc-800 bg-[#0a0a0a] px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-[#b3b3b3] md:grid">
                 <span>Firm</span>
                 <span>Fund</span>
                 <span className="text-right">Size</span>
                 <span>Announced</span>
-                <span>Focus</span>
-                <span>Signals</span>
+                <span>Stage Focus</span>
+                <span>Geo Focus</span>
+                <span>Themes</span>
               </div>
               <ul className="divide-y divide-zinc-800">
                 {rows.map((row) => {
-                  const size = formatFundSizeUsd(row.final_size_usd ?? row.target_size_usd ?? null);
-                  const stages = (row.stage_focus ?? []).slice(0, 2).join(" · ") || "—";
-                  const sectors = (row.sector_focus ?? []).slice(0, 2).join(" · ") || "—";
-                  const focus = [stages, sectors].filter((x) => x !== "—").join(" · ") || "—";
-                  const summary = row.announcement_title?.trim();
-                  const announcementUrl = row.announcement_url ?? null;
+                  const size = formatFundSizeUsd(row.final_size_usd ?? row.target_size_usd ?? null) ?? "Undisclosed";
                   const displayDate = row.announced_date ?? row.close_date ?? null;
 
                   return (
                     <li key={row.vc_fund_id} className="px-4 py-4 md:px-0 md:py-0">
                       <div className="hidden md:block">
-                        <div className="grid grid-cols-[1.1fr_1fr_0.7fr_0.75fr_0.9fr_1fr] items-center gap-3 px-4 py-3.5">
-                          <span className="inline-flex min-w-0 items-center gap-2">
-                            <FirmRowMark row={row} />
-                            <span className="min-w-0 truncate font-medium text-[#eeeeee]">{row.firm_name}</span>
+                        <div className="grid grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] items-start gap-3 px-4 py-3.5">
+                          <span className="inline-flex min-w-0 items-start gap-2 pt-px">
+                            <span className="mt-0.5 shrink-0">
+                              <FirmRowMark row={row} />
+                            </span>
+                            <span className="min-w-0 break-words font-medium leading-snug text-[#eeeeee]">{row.firm_name}</span>
                           </span>
-                          <span className="text-sm text-[#b3b3b3]">{row.fund_name}</span>
-                          <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{size ?? "—"}</span>
+                          <span className="min-w-0">
+                            <span title={row.fund_name} className="block break-words text-sm leading-snug text-[#b3b3b3]">
+                              {row.fund_name}
+                            </span>
+                          </span>
+                          <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{size}</span>
                           <span className="text-sm text-[#b3b3b3]">{formatAnnouncedDate(displayDate)}</span>
-                          <span className="truncate text-sm text-[#b3b3b3]" title={focus}>
-                            {focus}
-                          </span>
-                          <SignalBadges row={row} />
+                          <StageFocusChips stages={stageFocusForDisplay(row)} />
+                          <GeoFocusChips geos={row.geography_focus} />
+                          <ThemePills row={row} />
                         </div>
-                        {summary ? (
-                          <p className="border-t border-zinc-800 px-4 pb-3.5 pt-2 text-xs leading-relaxed text-[#b3b3b3]/90">
-                            <AnnouncementSummaryRich title={summary} announcementUrl={announcementUrl} />
-                          </p>
-                        ) : null}
+                        <div className="border-t border-zinc-800 px-4 pb-3.5 pt-2">
+                          <FirmMetaRow row={row} />
+                        </div>
                       </div>
                       <div className="flex flex-col gap-2 md:hidden">
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="inline-flex min-w-0 items-center gap-2">
-                            <FirmRowMark row={row} />
-                            <span className="min-w-0 truncate font-medium text-[#eeeeee]">{row.firm_name}</span>
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <span className="inline-flex min-w-0 max-w-full flex-1 items-start gap-2 pt-px">
+                            <span className="mt-0.5 shrink-0">
+                              <FirmRowMark row={row} />
+                            </span>
+                            <span className="min-w-0 break-words font-medium leading-snug text-[#eeeeee]">{row.firm_name}</span>
                           </span>
                           <span className="text-2xs tabular-nums text-[#b3b3b3]">{formatAnnouncedDate(displayDate)}</span>
                         </div>
-                        <div className="text-sm text-[#b3b3b3]">{row.fund_name}</div>
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
+                        <div className="min-w-0 text-sm text-[#b3b3b3]">
+                          <span title={row.fund_name} className="block break-words leading-snug">
+                            {row.fund_name}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-[#b3b3b3]">
                           {size ? <span className="tabular-nums">{size}</span> : <span>—</span>}
                           <span className="text-zinc-600">·</span>
-                          <span>{focus}</span>
+                          <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="shrink-0 text-2xs font-medium uppercase tracking-wide text-zinc-500">
+                              Stage
+                            </span>
+                            <StageFocusChips stages={stageFocusForDisplay(row)} />
+                          </span>
+                          <span className="text-zinc-600">·</span>
+                          <span className="inline-flex min-w-0 flex-wrap items-center gap-1.5">
+                            <span className="shrink-0 text-2xs font-medium uppercase tracking-wide text-zinc-500">
+                              Geo
+                            </span>
+                            <GeoFocusChips geos={row.geography_focus} />
+                          </span>
                         </div>
-                        <SignalBadges row={row} />
-                        {summary ? (
-                          <p className="text-xs leading-relaxed text-[#b3b3b3]/90">
-                            <AnnouncementSummaryRich title={summary} announcementUrl={announcementUrl} />
-                          </p>
-                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
+                          <span>Themes:</span>
+                          <ThemePills row={row} />
+                        </div>
+                        <FirmMetaRow row={row} />
                       </div>
                     </li>
                   );
@@ -427,28 +554,40 @@ export function FreshCapitalLiveFeed({
               </div>
 
               <div className="shrink-0">
-                <Select
-                  value={sector ?? SECTOR_SELECT_ALL}
-                  onValueChange={(v) => onSectorChange(v === SECTOR_SELECT_ALL ? null : v)}
-                  disabled={misconfigured}
-                >
-                  <SelectTrigger
-                    className={SECTOR_SELECT_TRIGGER}
-                    aria-label="Filter funds by sector"
-                  >
-                    <SelectValue placeholder="Sector" />
-                  </SelectTrigger>
-                  <SelectContent className={SECTOR_SELECT_CONTENT} position="popper" sideOffset={6}>
-                    <SelectItem className={SECTOR_SELECT_ITEM} value={SECTOR_SELECT_ALL}>
-                      All sectors
-                    </SelectItem>
-                    {sectorChoices.map((s) => (
-                      <SelectItem className={SECTOR_SELECT_ITEM} key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const choices = mainTab === "latest_funding" ? mergedLatestSectorChoices : sectorChoices;
+                  return (
+                    <Select
+                      value={sector ?? SECTOR_SELECT_ALL}
+                      onValueChange={(v) => onSectorChange(v === SECTOR_SELECT_ALL ? null : v)}
+                      disabled={misconfigured}
+                    >
+                      <SelectTrigger
+                        className={SECTOR_SELECT_TRIGGER}
+                        aria-label="Filter funds by sector"
+                      >
+                        <SelectValue placeholder="Sector" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className={SECTOR_SELECT_CONTENT}
+                        position="popper"
+                        side="bottom"
+                        sideOffset={6}
+                        align="start"
+                        avoidCollisions={false}
+                      >
+                        <SelectItem className={SECTOR_SELECT_ITEM} value={SECTOR_SELECT_ALL}>
+                          All sectors
+                        </SelectItem>
+                        {choices.map((s) => (
+                          <SelectItem className={SECTOR_SELECT_ITEM} key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                })()}
               </div>
             </div>
 
@@ -457,27 +596,16 @@ export function FreshCapitalLiveFeed({
                 <p className="text-2xs font-medium uppercase tracking-wider text-primary">Live intelligence</p>
                 <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#eeeeee]">Latest funding</h2>
                 <p className="mt-1 text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-                  Company funding rounds and deal headlines—curated for speed. This view is rolling out on the public feed next.
+                  Recent company raises and deal headlines—sorted for scan speed.
                 </p>
               </div>
             </div>
 
-            <div className={cn("overflow-hidden", ACCESS_CARD)}>
-              <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 px-6 py-14 text-center">
-                <p className="text-sm font-medium text-[#eeeeee]">Coming soon</p>
-                <p className="max-w-md text-sm leading-relaxed text-[#b3b3b3]">
-                  We&apos;re wiring a public snapshot of the latest venture rounds here. Switch to{" "}
-                  <button
-                    type="button"
-                    onClick={() => setMainTab("fresh_funds")}
-                    className="font-medium text-[#eeeeee]/90 underline-offset-2 hover:underline"
-                  >
-                    Fresh funds
-                  </button>{" "}
-                  to browse new fund vehicles today.
-                </p>
-              </div>
-            </div>
+            <LatestFundingFeed
+              stage={stage}
+              sector={sector}
+              onAvailableSectors={setLatestFundingSectors}
+            />
           </>
         )}
       </div>
