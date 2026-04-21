@@ -5,52 +5,52 @@ import type { RecentFundingRound } from "@/lib/recentFundingSeed";
  * Maps free-text round labels to the same coarse buckets as the Fresh Capital stage chips.
  * Kept intentionally conservative on substrings (e.g. avoids classifying "venture debt" as growth).
  */
-export function roundKindStageBucket(kind: string): “seed” | “series_a” | “series_b” | “series_c_plus” | “other” {
-  const k = kind.toLowerCase().replace(/\s+/g, “ “).trim();
-  if (!k) return “other”;
+export function roundKindStageBucket(kind: string): "seed" | "series_a" | "series_b" | "series_c_plus" | "other" {
+  const k = kind.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!k) return "other";
 
-  if (/\bseries\s*a\b/.test(k)) return “series_a”;
+  if (/\bseries\s*a\b/.test(k)) return "series_a";
 
-  if (/\bseries\s*b\b/i.test(k)) return “series_b”;
+  if (/\bseries\s*b\b/i.test(k)) return "series_b";
 
-  if (/\bseries\s*[c-z]\b/i.test(k)) return “series_c_plus”;
+  if (/\bseries\s*[c-z]\b/i.test(k)) return "series_c_plus";
 
   if (/\bgrowth\b/.test(k) || /\blate\b/.test(k) || /\bexpansion\b/.test(k) || /\bstrategic\b/.test(k)) {
-    return “series_c_plus”;
+    return "series_c_plus";
   }
 
-  if (k === “venture” || /\bventure\s+round\b/.test(k)) return “series_c_plus”;
+  if (k === "venture" || /\bventure\s+round\b/.test(k)) return "series_c_plus";
 
-  if (/\bcorporate\s+venture\b/.test(k) || /\bcvc\b/.test(k)) return “series_c_plus”;
+  if (/\bcorporate\s+venture\b/.test(k) || /\bcvc\b/.test(k)) return "series_c_plus";
 
-  if (/\bpre[- ]seed\b/.test(k) || /\bseed\s*\+\b/.test(k) || /\bseed\s*extension\b/.test(k)) return “seed”;
+  if (/\bpre[- ]seed\b/.test(k) || /\bseed\s*\+\b/.test(k) || /\bseed\s*extension\b/.test(k)) return "seed";
 
-  if (/\bseed\b/.test(k) && !/\bseries\b/.test(k)) return “seed”;
+  if (/\bseed\b/.test(k) && !/\bseries\b/.test(k)) return "seed";
 
-  if (/\bangel\b/.test(k)) return “seed”;
+  if (/\bangel\b/.test(k)) return "seed";
 
-  if (/\bipo\b/.test(k) || /\bpublic\s+offering\b/.test(k)) return “series_c_plus”;
+  if (/\bipo\b/.test(k) || /\bpublic\s+offering\b/.test(k)) return "series_c_plus";
 
-  // Common ingest labels that sit in “other” but map cleanly to stage buckets
-  if (/\bsafe\b/.test(k) || /\bsimple agreement\b/.test(k)) return “seed”;
-  if (/\bconvertible\b/.test(k)) return “seed”;
-  if (/\bbridge\b/.test(k)) return “seed”;
-  if (/\bfriends\b.*\bfamily\b|\bf&f\b/i.test(k)) return “seed”;
-  if (/\bgrant\b/.test(k)) return “seed”;
+  // Common ingest labels that sit in "other" but map cleanly to stage buckets
+  if (/\bsafe\b/.test(k) || /\bsimple agreement\b/.test(k)) return "seed";
+  if (/\bconvertible\b/.test(k)) return "seed";
+  if (/\bbridge\b/.test(k)) return "seed";
+  if (/\bfriends\b.*\bfamily\b|\bf&f\b/i.test(k)) return "seed";
+  if (/\bgrant\b/.test(k)) return "seed";
 
-  if (/\bsecondary\b/.test(k)) return “series_c_plus”;
-  if (/\bfollow[- ]on\b/.test(k)) return “series_c_plus”;
+  if (/\bsecondary\b/.test(k)) return "series_c_plus";
+  if (/\bfollow[- ]on\b/.test(k)) return "series_c_plus";
 
-  return “other”;
+  return "other";
 }
 
 function matchesStage(row: RecentFundingRound, stage: FreshCapitalStageFilter): boolean {
-  if (stage === “all”) return true;
+  if (stage === "all") return true;
   const bucket = roundKindStageBucket(row.roundKind);
-  if (stage === “seed”) return bucket === “seed”;
-  if (stage === “series_a”) return bucket === “series_a”;
-  if (stage === “series_b”) return bucket === “series_b”;
-  if (stage === “series_c_plus”) return bucket === “series_c_plus”;
+  if (stage === "seed") return bucket === "seed";
+  if (stage === "series_a") return bucket === "series_a";
+  if (stage === "series_b") return bucket === "series_b";
+  if (stage === "series_c_plus") return bucket === "series_c_plus";
   return true;
 }
 
