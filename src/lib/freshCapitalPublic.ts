@@ -187,9 +187,9 @@ function isBatteryVenturesXVFund(row: Pick<FreshCapitalFundRow, "firm_name" | "f
 function isThriveCapitalXFund(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
   const firm = row.firm_name?.trim().toLowerCase() ?? "";
   const fundRaw = row.fund_name?.trim() ?? "";
-  const fund = fundRaw.toLowerCase();
   if (!firm.includes("thrive capital")) return false;
   if (/^x$/i.test(fundRaw.trim())) return true;
+  if (/^fund\s+x$/i.test(fundRaw.trim())) return true;
   return /\bthrive\s+capital\s+x\b(?!i)/i.test(row.fund_name ?? "");
 }
 
