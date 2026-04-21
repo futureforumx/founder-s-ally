@@ -1,0 +1,55 @@
+name: Fix Thrive Capital fund name (X → Thrive X)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fix Thrive X fund name in vc_funds
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          // Find the fund(s) named "X" under Thrive Capital
+          const { data: rows, error: fe } = await sb
+            .from("vc_funds")
+            .select("id, fund_name, firm_name")
+            .ilike("firm_name", "Thrive Capital")
+            .ilike("fund_name", "X")
+            .is("deleted_at", null);
+
+          if (fe) { console.error("❌ query error:", fe.message); process.exit(1); }
+          if (!rows?.length) { console.log("⚠️  No vc_funds row found where firm_name='Thrive Capital' and fund_name='X' — already fixed or not present"); process.exit(0); }
+
+          for (const row of rows) {
+            const { error: ue } = await sb
+              .from("vc_funds")
+              .update({ fund_name: "Thrive X", updated_at: new Date().toISOString() })
+              .eq("id", row.id);
+            if (ue) { console.error(`❌ update ${row.id}:`, ue.message); }
+            else console.log(`✅ vc_funds ${row.id}: "X" → "Thrive X"`);
+          }
+          EOF
