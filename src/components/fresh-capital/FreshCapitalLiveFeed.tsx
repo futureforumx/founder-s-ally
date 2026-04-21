@@ -20,6 +20,7 @@ import {
   type FreshCapitalFundRow,
   type FreshCapitalStageFilter,
 } from "@/lib/freshCapitalPublic";
+import { buildOutboundUrl } from "@/lib/outboundUrl";
 
 /** Aligns live feed surfaces with `/access` (AccessRequestForm + “What happens next” card). */
 const ACCESS_CARD = cn(
@@ -98,10 +99,13 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
   const outletFromUrl = announcementUrl ? prettySourceLabelFromUrl(announcementUrl) : null;
   const showSourceBadge = hasArticle || Boolean(title);
 
+  const firmOutboundHref = buildOutboundUrl(websiteUrl, "firm_website", "fresh_funds", row.vc_fund_id);
+  const articleOutboundHref = buildOutboundUrl(announcementUrl, "funding_article", "fresh_funds", row.vc_fund_id);
+
   const pieces = [
     location ? <span key="location">{location}</span> : null,
-    websiteUrl && websiteLabel ? (
-      <a key="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-inherit underline-offset-2 hover:underline">
+    firmOutboundHref && websiteLabel ? (
+      <a key="website" href={firmOutboundHref} target="_blank" rel="noopener" className="text-inherit underline-offset-2 hover:underline">
         {websiteLabel}
       </a>
     ) : null,
@@ -110,7 +114,7 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
         <SourceOutletBadge
           hasArticle={hasArticle}
           outletLabel={hasArticle ? outletFromUrl ?? sourceFromTitle ?? null : null}
-          href={announcementUrl}
+          href={articleOutboundHref}
           noLinkFallbackLabel={hasArticle ? null : sourceFromTitle ?? null}
         />
       </span>

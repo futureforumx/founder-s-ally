@@ -4,6 +4,7 @@ import { SourceOutletBadge } from "@/components/fresh-capital/SourceOutletBadge"
 import { normalizeWebsiteUrl, prettyWebsiteHost } from "@/lib/latestFundingDisplay";
 import { roundKindStageBucket } from "@/lib/latestFundingFilters";
 import { formatAnnouncedDate } from "@/lib/freshCapitalPublic";
+import { buildOutboundUrl } from "@/lib/outboundUrl";
 import { cn } from "@/lib/utils";
 import { CompanyRowMark } from "./CompanyRowMark";
 
@@ -56,17 +57,17 @@ function FundingDealMetaRow({
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
   const host = prettyWebsiteHost(row.websiteUrl);
-  const webHref = normalizeWebsiteUrl(row.websiteUrl);
+  const webOutboundHref = buildOutboundUrl(normalizeWebsiteUrl(row.websiteUrl), "company_website", "latest_funding", row.id);
   const outlet = prettyOutletFromSourceUrl(row.sourceUrl);
   const hasArticle = Boolean(row.sourceUrl?.trim());
 
   const pieces = [
-    host && webHref ? (
+    host && webOutboundHref ? (
       <a
         key="web"
-        href={webHref}
+        href={webOutboundHref}
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         className="text-inherit underline-offset-2 hover:text-[#eeeeee] hover:underline"
         onClick={stopRowOpen}
         onAuxClick={stopRowOpen}
@@ -98,17 +99,18 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
   const co = row.coInvestors.filter(Boolean);
   const coShown = co.slice(0, 2);
   const coExtra = co.length > coShown.length ? co.length - coShown.length : 0;
-  const leadHref = normalizeWebsiteUrl(row.leadWebsiteUrl ?? undefined);
+  const leadHref = buildOutboundUrl(normalizeWebsiteUrl(row.leadWebsiteUrl ?? undefined), "lead_investor", "latest_funding", row.id);
   const showRumorBadge = row.confirmationStatus === "rumor";
   const hasArticle = Boolean(row.sourceUrl?.trim());
+  const sourceOutboundHref = buildOutboundUrl(row.sourceUrl, "funding_article", "latest_funding", row.id);
 
   const openSource = () => {
-    if (!hasArticle) return;
-    window.open(row.sourceUrl, "_blank", "noopener,noreferrer");
+    if (!sourceOutboundHref) return;
+    window.open(sourceOutboundHref, "_blank", "noopener");
   };
 
   const onRowKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!hasArticle) return;
+    if (!sourceOutboundHref) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       openSource();
@@ -121,7 +123,7 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
 
   const interactiveShell = cn(
     "outline-none",
-    hasArticle &&
+    sourceOutboundHref &&
       "cursor-pointer hover:bg-white/[0.02] focus-visible:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-zinc-600/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
   );
 
@@ -137,16 +139,16 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
   return (
     <li className="px-4 py-4 md:px-0 md:py-0">
       <div
-        role={hasArticle ? "button" : undefined}
-        tabIndex={hasArticle ? 0 : undefined}
+        role={sourceOutboundHref ? "button" : undefined}
+        tabIndex={sourceOutboundHref ? 0 : undefined}
         aria-label={
-          hasArticle
+          sourceOutboundHref
             ? `Open funding article for ${row.companyName}`
             : `Funding deal for ${row.companyName} (no public article URL)`
         }
         className={cn("hidden md:block", interactiveShell)}
-        onClick={hasArticle ? openSource : undefined}
-        onKeyDown={hasArticle ? onRowKeyDown : undefined}
+        onClick={sourceOutboundHref ? openSource : undefined}
+        onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
       >
         <div className={DESKTOP_GRID}>
           <span className="inline-flex min-w-0 items-center gap-2">
@@ -167,7 +169,7 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
               <a
                 href={leadHref}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener"
                 className="text-inherit underline-offset-2 hover:text-[#eeeeee] hover:underline"
                 onClick={stopRowOpen}
                 onAuxClick={stopRowOpen}
@@ -188,16 +190,16 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
       </div>
 
       <div
-        role={hasArticle ? "button" : undefined}
-        tabIndex={hasArticle ? 0 : undefined}
+        role={sourceOutboundHref ? "button" : undefined}
+        tabIndex={sourceOutboundHref ? 0 : undefined}
         aria-label={
-          hasArticle
+          sourceOutboundHref
             ? `Open funding article for ${row.companyName}`
             : `Funding deal for ${row.companyName} (no public article URL)`
         }
         className={cn("flex flex-col gap-2 md:hidden", interactiveShell)}
-        onClick={hasArticle ? openSource : undefined}
-        onKeyDown={hasArticle ? onRowKeyDown : undefined}
+        onClick={sourceOutboundHref ? openSource : undefined}
+        onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <span className="inline-flex min-w-0 items-center gap-2">
