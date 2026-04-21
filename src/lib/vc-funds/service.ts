@@ -20,6 +20,7 @@ import {
   matchFirmRecord,
   rankFirmMatches,
 } from "./matching";
+import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
 import { getSourcePriority } from "./sourcePriority";
 import type {
@@ -151,14 +152,15 @@ function romanNumeral(value: number | null | undefined): string | null {
 
 function canonicalizeFundDisplayName(firmName: string, chosenFundName: string, sequenceNumber: number | null): string {
   const trimmed = chosenFundName.trim();
-  if (!trimmed) return `${firmName} Fund`;
+  if (!trimmed) return stripRedundantFirmPrefixFromFundName(firmName, `${firmName} Fund`);
   const normalizedChosen = normalizeFundName(trimmed);
   const normalizedGeneric = normalizeFundName(`${firmName} Fund`);
   if (sequenceNumber != null && normalizedChosen === normalizedGeneric) {
     const roman = romanNumeral(sequenceNumber);
-    return roman ? `${firmName} Fund ${roman}` : `${firmName} Fund ${sequenceNumber}`;
+    const synthesized = roman ? `${firmName} Fund ${roman}` : `${firmName} Fund ${sequenceNumber}`;
+    return stripRedundantFirmPrefixFromFundName(firmName, synthesized);
   }
-  return trimmed;
+  return stripRedundantFirmPrefixFromFundName(firmName, trimmed);
 }
 
 function announcementSourcePriority(item: Pick<ExtractedFundAnnouncement, "sourceType" | "sourceUrl" | "sourcePublisher" | "sourceTitle" | "announcedDate" | "closeDate" | "confidence">): number {
@@ -1436,34 +1438,32 @@ export class FundSyncService {
   }
 
   private async upsertFund(fund: CanonicalFundDraft): Promise<{ fundId: string; wasUpdate: boolean }> {
-    const { data: existing } = await this.supabase.from("vc_funds").select("id").eq("normalized_key", fund.normalizedKey).is("deleted_at", null).maybeSingle();
-    const payload = {
+    const { data: existing } = await this.supabase
+      .from("vc_funds")
+      .select("id, manually_verified")
+      .eq("normalized_key", fund.normalizedKey)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    // Pipeline/technical fields — always safe to update regardless of manual curation.
+    const pipelineFields = {
       firm_record_id: fund.firmRecordId,
-      name: fund.name,
       normalized_name: fund.normalizedName,
       normalized_key: fund.normalizedKey,
       fund_type: fund.fundType,
       fund_sequence_number: fund.fundSequenceNumber,
       vintage_year: fund.vintageYear,
-      announced_date: fund.announcedDate,
       close_date: fund.closeDate,
-      target_size_usd: fund.targetSizeUsd,
-      final_size_usd: fund.finalSizeUsd,
-      currency: fund.currency,
       status: fund.status,
       source_confidence: fund.sourceConfidence,
       source_count: fund.sourceCount,
       lead_source: fund.leadSource,
-      announcement_url: fund.announcementUrl,
       announcement_title: fund.announcementTitle,
       raw_source_text: fund.rawSourceText,
       is_new_fund_signal: fund.isNewFundSignal,
       active_deployment_window_start: fund.activeDeploymentWindowStart,
       active_deployment_window_end: fund.activeDeploymentWindowEnd,
       likely_actively_deploying: fund.likelyActivelyDeploying,
-      stage_focus: fund.stageFocus,
-      sector_focus: fund.sectorFocus,
-      geography_focus: fund.geographyFocus,
       estimated_check_min_usd: fund.estimatedCheckMinUsd,
       estimated_check_max_usd: fund.estimatedCheckMaxUsd,
       field_confidence: fund.fieldConfidence,
@@ -1475,9 +1475,48 @@ export class FundSyncService {
       metadata: fund.metadata,
       last_signal_at: new Date().toISOString(),
     };
-    const { data, error } = await this.supabase.from("vc_funds").upsert(payload, { onConflict: "normalized_key" }).select("id").single();
-    if (error) throw new Error(`Failed to upsert vc_funds: ${error.message}`);
-    return { fundId: String(data.id), wasUpdate: Boolean(existing?.id) };
+
+    // Curated fields — protected when manually_verified = true.
+    // A sync run must never silently overwrite human-curated fund names,
+    // amounts, dates, URLs, or focus arrays.
+    const curatedFields = {
+      name: fund.name,
+      announcement_url: fund.announcementUrl,
+      target_size_usd: fund.targetSizeUsd,
+      final_size_usd: fund.finalSizeUsd,
+      currency: fund.currency,
+      announced_date: fund.announcedDate,
+      stage_focus: fund.stageFocus,
+      sector_focus: fund.sectorFocus,
+      geography_focus: fund.geographyFocus,
+    };
+
+    if (existing?.id) {
+      // Row exists: only include curated fields in the update when the record
+      // has NOT been manually verified — i.e., it is safe for the pipeline to
+      // overwrite it.
+      const updatePayload = existing.manually_verified
+        ? pipelineFields
+        : { ...pipelineFields, ...curatedFields };
+
+      const { error } = await this.supabase
+        .from("vc_funds")
+        .update(updatePayload)
+        .eq("id", existing.id);
+      if (error) throw new Error(`Failed to update vc_funds: ${error.message}`);
+      return { fundId: existing.id, wasUpdate: true };
+    }
+
+    // New record: write all fields.  New pipeline-discovered funds start with
+    // manually_verified = false so future syncs can still refine them until a
+    // human curator marks them verified.
+    const { data, error } = await this.supabase
+      .from("vc_funds")
+      .insert({ ...pipelineFields, ...curatedFields, manually_verified: false })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Failed to insert vc_funds: ${error.message}`);
+    return { fundId: String(data.id), wasUpdate: false };
   }
 
   private async attachSources(fundId: string, rows: FundSourceRecord[]): Promise<number> {
