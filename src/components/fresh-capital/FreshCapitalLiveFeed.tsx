@@ -127,33 +127,23 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
   const hasArticle = Boolean(announcementUrl);
   const outletFromUrl = announcementUrl ? prettySourceLabelFromUrl(announcementUrl) : null;
   const showSourceBadge = hasArticle || Boolean(title);
-
-<<<<<<< HEAD
   const aumText = formatFundSizeUsd(freshCapitalFirmAumUsd(row)) ?? "Undisclosed";
-
-  const pieces = [
-    websiteUrl && websiteDisplay ? (
-      <a
-        key="website"
-        href={websiteUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-inherit underline-offset-2 hover:underline"
-      >
-        {websiteDisplay}
-=======
   const firmOutboundHref = buildOutboundUrl(websiteUrl, "firm_website", "fresh_funds", row.vc_fund_id);
   const articleOutboundHref = buildOutboundUrl(announcementUrl, "funding_article", "fresh_funds", row.vc_fund_id);
 
   const pieces = [
     location ? <span key="location">{location}</span> : null,
-    firmOutboundHref && websiteLabel ? (
-      <a key="website" href={firmOutboundHref} target="_blank" rel="noopener" className="text-inherit underline-offset-2 hover:underline">
-        {websiteLabel}
->>>>>>> origin/claude/add-link-tracking-R7MGF
+    firmOutboundHref && websiteDisplay ? (
+      <a
+        key="website"
+        href={firmOutboundHref}
+        target="_blank"
+        rel="noopener"
+        className="text-inherit underline-offset-2 hover:underline"
+      >
+        {websiteDisplay}
       </a>
     ) : null,
-    location ? <span key="location">{location}</span> : null,
     <span key="aum" className="tabular-nums">
       AUM {aumText}
     </span>,

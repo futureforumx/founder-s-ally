@@ -134,6 +134,27 @@ describe("Hummingbird Ventures display corrections", () => {
     ).toBe("https://hummingbird.vc");
   });
 
+  it("prefers the canonical Kleiner Perkins domain over stale DB URLs", () => {
+    expect(
+      freshCapitalFirmWebsiteLinkSource({
+        firm_name: "Kleiner Perkins",
+        firm_website_url: "https://www.kpcb.com",
+        firm_domain: "kpcb.com",
+      }),
+    ).toBe("https://kleinerperkins.com");
+  });
+
+  it("shows March 24, 2026 as the announced date for Kleiner Perkins KP22", () => {
+    expect(
+      announcedDateForDisplay({
+        firm_name: "Kleiner Perkins",
+        fund_name: "KP22",
+        announced_date: "2026-03-01",
+        close_date: null,
+      }),
+    ).toBe("March 24, 2026");
+  });
+
   it("uses $1B firm AUM for Hummingbird meta row", () => {
     expect(formatFundSizeUsd(freshCapitalFirmAumUsd({ firm_name: "Hummingbird Ventures", firm_aum_usd: null }))).toBe(
       "$1.0B",

@@ -56,13 +56,8 @@ function FundingDealMetaRow({
   row: RecentFundingRound;
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
-<<<<<<< HEAD
   const host = prettyWebsiteHost(row.websiteUrl)?.toLowerCase() ?? null;
-  const webHref = normalizeWebsiteUrl(row.websiteUrl);
-=======
-  const host = prettyWebsiteHost(row.websiteUrl);
   const webOutboundHref = buildOutboundUrl(normalizeWebsiteUrl(row.websiteUrl), "company_website", "latest_funding", row.id);
->>>>>>> origin/claude/add-link-tracking-R7MGF
   const outlet = prettyOutletFromSourceUrl(row.sourceUrl);
   const hasArticle = Boolean(row.sourceUrl?.trim());
 
