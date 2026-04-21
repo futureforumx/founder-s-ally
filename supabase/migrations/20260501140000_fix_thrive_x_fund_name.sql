@@ -1,10 +1,14 @@
 -- Fix Thrive Capital fund named "X" → "Thrive X" in vc_funds.
--- The fund was imported with a truncated name; correct it to the canonical "Thrive X".
+-- vc_funds.name is the fund name; firm is joined via firm_record_id → firm_records.
 
 UPDATE public.vc_funds
 SET
-  fund_name  = 'Thrive X',
+  name       = 'Thrive X',
   updated_at = now()
 WHERE deleted_at IS NULL
-  AND lower(trim(fund_name))  = lower(trim('X'))
-  AND lower(trim(firm_name))  = lower(trim('Thrive Capital'));
+  AND lower(trim(name)) = 'x'
+  AND firm_record_id IN (
+    SELECT id FROM public.firm_records
+    WHERE deleted_at IS NULL
+      AND lower(trim(firm_name)) = 'thrive capital'
+  );

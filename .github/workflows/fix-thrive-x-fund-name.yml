@@ -33,23 +33,36 @@ jobs:
 
           const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 
-          // Find the fund(s) named "X" under Thrive Capital
-          const { data: rows, error: fe } = await sb
-            .from("vc_funds")
-            .select("id, fund_name, firm_name")
+          // vc_funds uses "name" (not "fund_name") and "firm_record_id" FK (not "firm_name").
+          // Step 1: get Thrive Capital's firm_record_id
+          const { data: firms, error: fe } = await sb
+            .from("firm_records")
+            .select("id")
             .ilike("firm_name", "Thrive Capital")
-            .ilike("fund_name", "X")
             .is("deleted_at", null);
 
-          if (fe) { console.error("❌ query error:", fe.message); process.exit(1); }
-          if (!rows?.length) { console.log("⚠️  No vc_funds row found where firm_name='Thrive Capital' and fund_name='X' — already fixed or not present"); process.exit(0); }
+          if (fe) { console.error("❌ firm_records query:", fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Thrive Capital not found in firm_records"); process.exit(0); }
+
+          const firmIds = firms.map(f => f.id);
+
+          // Step 2: find vc_funds rows named "X" for those firm IDs
+          const { data: rows, error: re } = await sb
+            .from("vc_funds")
+            .select("id, name")
+            .in("firm_record_id", firmIds)
+            .ilike("name", "X")
+            .is("deleted_at", null);
+
+          if (re) { console.error("❌ vc_funds query:", re.message); process.exit(1); }
+          if (!rows?.length) { console.log("⚠️  No vc_funds row found where name='X' for Thrive Capital — already fixed or not present"); process.exit(0); }
 
           for (const row of rows) {
             const { error: ue } = await sb
               .from("vc_funds")
-              .update({ fund_name: "Thrive X", updated_at: new Date().toISOString() })
+              .update({ name: "Thrive X", updated_at: new Date().toISOString() })
               .eq("id", row.id);
             if (ue) { console.error(`❌ update ${row.id}:`, ue.message); }
-            else console.log(`✅ vc_funds ${row.id}: "X" → "Thrive X"`);
+            else console.log(`✅ vc_funds ${row.id}: "${row.name}" → "Thrive X"`);
           }
           EOF
