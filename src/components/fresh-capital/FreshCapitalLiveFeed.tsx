@@ -278,7 +278,8 @@ const STAGE_TABS: { id: FreshCapitalStageFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "seed", label: "Seed" },
   { id: "series_a", label: "Series A" },
-  { id: "growth", label: "Growth" },
+  { id: "series_b", label: "Series B" },
+  { id: "series_c_plus", label: "Series C+" },
 ];
 
 /** Radix Select rejects empty string item values; map to public `null` sector filter. */

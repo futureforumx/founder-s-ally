@@ -64,7 +64,7 @@ export type FreshCapitalFundRow = {
   firm_website_url: string | null;
 };
 
-export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "growth";
+export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "series_b" | "series_c_plus";
 
 export type HeatmapBucket = {
   label: string;
@@ -79,7 +79,8 @@ export type HeatmapSource = "rpc" | "fallback_sector_tag_counts";
 const STAGE_RPC: Record<Exclude<FreshCapitalStageFilter, "all">, string[]> = {
   seed: ["Seed"],
   series_a: ["Series A"],
-  growth: ["Growth"],
+  series_b: ["Series B"],
+  series_c_plus: ["Series C+"],
 };
 
 export function stageFilterToRpcArray(stage: FreshCapitalStageFilter): string[] | null {

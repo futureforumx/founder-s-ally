@@ -30,21 +30,21 @@ describe("roundKindStageBucket", () => {
     expect(roundKindStageBucket("series a extension")).toBe("series_a");
   });
 
-  it("maps Series B+ to growth without matching venture debt", () => {
-    expect(roundKindStageBucket("Series B")).toBe("growth");
-    expect(roundKindStageBucket("Series Z")).toBe("growth");
+  it("maps Series B to series_b, Series C+ and above to series_c_plus, without matching venture debt", () => {
+    expect(roundKindStageBucket("Series B")).toBe("series_b");
+    expect(roundKindStageBucket("Series Z")).toBe("series_c_plus");
     expect(roundKindStageBucket("Venture debt")).toBe("other");
   });
 
-  it("maps standalone Venture / venture round to growth", () => {
-    expect(roundKindStageBucket("Venture")).toBe("growth");
-    expect(roundKindStageBucket("Venture round")).toBe("growth");
+  it("maps standalone Venture / venture round to series_c_plus", () => {
+    expect(roundKindStageBucket("Venture")).toBe("series_c_plus");
+    expect(roundKindStageBucket("Venture round")).toBe("series_c_plus");
   });
 
-  it("does not treat bare corporate as growth", () => {
+  it("does not treat bare corporate as series_c_plus", () => {
     expect(roundKindStageBucket("Corporate")).toBe("other");
-    expect(roundKindStageBucket("Corporate venture")).toBe("growth");
-    expect(roundKindStageBucket("CVC")).toBe("growth");
+    expect(roundKindStageBucket("Corporate venture")).toBe("series_c_plus");
+    expect(roundKindStageBucket("CVC")).toBe("series_c_plus");
   });
 
   it("maps seed ladder", () => {
@@ -56,16 +56,16 @@ describe("roundKindStageBucket", () => {
 
   it("maps angel and IPO-style labels", () => {
     expect(roundKindStageBucket("Angel")).toBe("seed");
-    expect(roundKindStageBucket("IPO")).toBe("growth");
-    expect(roundKindStageBucket("Initial public offering")).toBe("growth");
+    expect(roundKindStageBucket("IPO")).toBe("series_c_plus");
+    expect(roundKindStageBucket("Initial public offering")).toBe("series_c_plus");
   });
 
   it("maps common ingest labels that used to sit in other", () => {
     expect(roundKindStageBucket("SAFE")).toBe("seed");
     expect(roundKindStageBucket("Convertible note")).toBe("seed");
     expect(roundKindStageBucket("Bridge round")).toBe("seed");
-    expect(roundKindStageBucket("Secondary")).toBe("growth");
-    expect(roundKindStageBucket("Follow-on")).toBe("growth");
+    expect(roundKindStageBucket("Secondary")).toBe("series_c_plus");
+    expect(roundKindStageBucket("Follow-on")).toBe("series_c_plus");
   });
 });
 
@@ -113,7 +113,7 @@ describe("buildDedupedSectorChoices", () => {
 });
 
 describe("filterLatestFundingRows stage", () => {
-  const stages: FreshCapitalStageFilter[] = ["seed", "series_a", "growth"];
+  const stages: FreshCapitalStageFilter[] = ["seed", "series_a", "series_b", "series_c_plus"];
   it("filters seed tab", () => {
     const rows = [
       row({ roundKind: "Angel", id: "a" }),
@@ -125,9 +125,12 @@ describe("filterLatestFundingRows stage", () => {
   });
 
   it.each(stages)("never drops everything when stage is %s if rows match bucket", (stage) => {
-    const rows = [
-      row({ roundKind: stage === "seed" ? "Seed" : stage === "series_a" ? "Series A" : "Series C", id: "m" }),
-    ];
+    const roundKind =
+      stage === "seed" ? "Seed" :
+      stage === "series_a" ? "Series A" :
+      stage === "series_b" ? "Series B" :
+      "Series C";
+    const rows = [row({ roundKind, id: "m" })];
     expect(filterLatestFundingRows(rows, stage, null)).toHaveLength(1);
   });
 });
