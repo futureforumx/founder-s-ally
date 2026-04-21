@@ -354,6 +354,21 @@ describe("Battery Ventures XV / Thrive Capital X stage labels", () => {
     ).toBe("Thrive X");
   });
 
+  it('shows fund name as "Thrive X" for stale generic Thrive fund labels', () => {
+    expect(
+      fundNameForDisplay({
+        firm_name: "Thrive Capital",
+        fund_name: "Fund",
+      }),
+    ).toBe("Thrive X");
+    expect(
+      fundNameForDisplay({
+        firm_name: "Thrive Capital",
+        fund_name: "Thrive Capital Fund",
+      }),
+    ).toBe("Thrive X");
+  });
+
   it('maps Growth to "Series C+" for Battery Ventures XV', () => {
     expect(
       stageFocusForDisplay({
@@ -379,6 +394,63 @@ describe("Battery Ventures XV / Thrive Capital X stage labels", () => {
         stage_focus: ["Growth"],
       }),
     ).toEqual(["Growth"]);
+  });
+});
+
+describe("Kleiner Perkins KP Select IV display", () => {
+  it("shows Series B and Series C+ stages for KP Select IV", () => {
+    expect(
+      stageFocusForDisplay({
+        firm_name: "Kleiner Perkins",
+        fund_name: "KP Select IV",
+        stage_focus: ["Series B", "Growth"],
+      }),
+    ).toEqual(["Series B", "Series C+"]);
+  });
+
+  it("shows the full curated theme list for KP Select IV", () => {
+    expect(
+      sectorFocusForDisplay({
+        firm_name: "Kleiner Perkins",
+        fund_name: "KP Select IV",
+        sector_focus: ["AI-Native", "Professional Services", "Healthcare"],
+      }),
+    ).toEqual([
+      "AI-Native",
+      "Professional Services",
+      "Healthcare",
+      "Cybersecurity",
+      "Fintech",
+        "Enterprise",
+        "Transportation",
+        "Industrial",
+        "Physical AI",
+        "Deep Tech",
+        "AI Infrastructure",
+      ]);
+  });
+});
+
+describe("Kleiner Perkins KP22 display", () => {
+  it("shows the full curated theme list for KP22", () => {
+    expect(
+      sectorFocusForDisplay({
+        firm_name: "Kleiner Perkins",
+        fund_name: "Kleiner Perkins KP22",
+        sector_focus: ["AI-Native", "Healthcare", "Enterprise"],
+      }),
+    ).toEqual([
+      "AI-Native",
+      "Professional Services",
+      "Healthcare",
+      "Autonomy / Transportation",
+      "Cybersecurity",
+      "Financial Services",
+      "Productivity",
+      "Enterprise",
+      "Industrial",
+      "Physical AI",
+    ]);
   });
 });
 

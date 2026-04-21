@@ -144,6 +144,13 @@ function isKleinerPerkinsKP22DisplayCase(row: Pick<FreshCapitalFundRow, "firm_na
   return /\bkp\s*22\b/i.test(fundRaw) || /\bkleiner perkins\s*22\b/i.test(fundRaw);
 }
 
+function isKpSelectIVDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  if (!firm.includes("kleiner perkins")) return false;
+  const fundRaw = row.fund_name?.trim() ?? "";
+  return /\bkp\s*select\s*(iv|4)\b/i.test(fundRaw) || /\bselect\s*(iv|4)\b/i.test(fundRaw);
+}
+
 function isAntlerUSFundIIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
   const firm = row.firm_name?.trim().toLowerCase() ?? "";
   const fund = row.fund_name?.trim().toLowerCase() ?? "";
@@ -189,7 +196,10 @@ function isThriveCapitalXFund(row: Pick<FreshCapitalFundRow, "firm_name" | "fund
   const fundRaw = row.fund_name?.trim() ?? "";
   if (!firm.includes("thrive capital")) return false;
   if (/^x$/i.test(fundRaw.trim())) return true;
+  if (/^fund$/i.test(fundRaw.trim())) return true;
   if (/^fund\s+x$/i.test(fundRaw.trim())) return true;
+  if (/^thrive\s+capital\s+fund$/i.test(fundRaw.trim())) return true;
+  if (/^thrive\s+capital\s+fund\s+x$/i.test(fundRaw.trim())) return true;
   return /\bthrive\s+capital\s+x\b(?!i)/i.test(row.fund_name ?? "");
 }
 
@@ -240,6 +250,9 @@ export function stageFocusForDisplay(
   if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
     return ["Series B", "Series C+"];
   }
+  if (isKpSelectIVDisplayCase(row)) {
+    return ["Series B", "Series C+"];
+  }
   if (isLuxCapitalIXDisplayCase(row)) {
     return [...LUX_CAPITAL_IX_STAGE_FOCUS_DISPLAY];
   }
@@ -273,9 +286,19 @@ const FLYBRIDGE_SECTOR_FOCUS_DISPLAY = [
   "Consumer",
 ] as const;
 
+const VIOLA_VENTURES_SECTOR_FOCUS_DISPLAY = [
+  "Vertical AI",
+  "AI Infrastructure",
+  "Quantum",
+  "Enterprise",
+  "Cybersecurity",
+  "Defense",
+] as const;
+
 const SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[]> = {
   flybridge: [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
   "flybridge ventures": [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
+  "viola ventures": [...VIOLA_VENTURES_SECTOR_FOCUS_DISPLAY],
 };
 
 const HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY = [
@@ -286,12 +309,45 @@ const HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY = [
   "Gaming",
 ] as const;
 
+const KP22_SECTOR_FOCUS_DISPLAY = [
+  "AI-Native",
+  "Professional Services",
+  "Healthcare",
+  "Autonomy / Transportation",
+  "Cybersecurity",
+  "Financial Services",
+  "Productivity",
+  "Enterprise",
+  "Industrial",
+  "Physical AI",
+] as const;
+
+const KP_SELECT_IV_SECTOR_FOCUS_DISPLAY = [
+  "AI-Native",
+  "Professional Services",
+  "Healthcare",
+  "Cybersecurity",
+  "Fintech",
+  "Enterprise",
+  "Transportation",
+  "Industrial",
+  "Physical AI",
+  "Deep Tech",
+  "AI Infrastructure",
+] as const;
+
 /** Theme chips — prefers firm-specific overrides when present. */
 export function sectorFocusForDisplay(
   row: Pick<FreshCapitalFundRow, "firm_name" | "sector_focus" | "fund_name">,
 ): string[] {
   if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
     return [...HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY];
+  }
+  if (isKleinerPerkinsKP22DisplayCase(row)) {
+    return [...KP22_SECTOR_FOCUS_DISPLAY];
+  }
+  if (isKpSelectIVDisplayCase(row)) {
+    return [...KP_SELECT_IV_SECTOR_FOCUS_DISPLAY];
   }
   if (isAntlerUSFundIIDisplayCase(row)) {
     return [...ANTLER_US_FUND_II_SECTOR_FOCUS_DISPLAY];

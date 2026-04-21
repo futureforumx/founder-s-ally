@@ -20,6 +20,18 @@ function SectorThemePill({ label }: { label: string }) {
   );
 }
 
+/** Pill for the funding round stage — e.g. Series A, Pre-Seed. */
+function RoundKindPill({ label, title }: { label: string; title?: string }) {
+  return (
+    <span
+      className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-2xs font-medium text-sky-300"
+      title={title ?? label}
+    >
+      {label}
+    </span>
+  );
+}
+
 function prettyOutletFromSourceUrl(url: string): string | null {
   const t = url?.trim();
   if (!t) return null;
@@ -158,9 +170,7 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
               {showRumorBadge ? <RumorBadge /> : null}
             </span>
           </span>
-          <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={roundKindTitle}>
-            {row.roundKind}
-          </span>
+          <RoundKindPill label={row.roundKind} title={roundKindTitle} />
           <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
           <span className="text-sm text-[#b3b3b3]">{displayDate}</span>
           <SectorThemePill label={row.sector} />
@@ -211,10 +221,8 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
           </span>
           <span className="text-2xs tabular-nums text-[#b3b3b3]">{displayDate}</span>
         </div>
-        <div className="min-w-0 text-sm text-[#b3b3b3]">
-          <span className="break-words font-normal" title={roundKindTitle}>
-            {row.roundKind}
-          </span>
+        <div className="min-w-0">
+          <RoundKindPill label={row.roundKind} title={roundKindTitle} />
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
           <span className="tabular-nums">{row.amountLabel}</span>
