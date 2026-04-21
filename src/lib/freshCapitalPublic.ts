@@ -1,5 +1,6 @@
 import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
+import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 
 /**
  * Canonical public Fresh Capital feed source:
@@ -134,6 +135,13 @@ function isHummingbirdFundVIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_nam
   if (row.firm_name?.trim().toLowerCase() !== HUMMINGBIRD_VENTURES_LC) return false;
   const raw = row.fund_name?.trim() ?? "";
   return /^Fund\s+VI\b/i.test(raw);
+}
+
+function isKleinerPerkinsKP22DisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  if (!firm.includes("kleiner perkins")) return false;
+  const fundRaw = row.fund_name?.trim() ?? "";
+  return /\bkp\s*22\b/i.test(fundRaw) || /\bkleiner perkins\s*22\b/i.test(fundRaw);
 }
 
 function isAntlerUSFundIIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
@@ -545,6 +553,7 @@ export function announcedDateForDisplay(
 ): string {
   if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return "March 16, 2026";
   if (isHummingbirdFundVIDisplayCase(row)) return "March 16, 2026";
+  if (isKleinerPerkinsKP22DisplayCase(row)) return "March 24, 2026";
   const iso = row.announced_date ?? row.close_date ?? null;
   return formatAnnouncedDate(iso);
 }
@@ -656,11 +665,11 @@ export function freshCapitalFirmWebsiteLinkSource(
   row: Pick<FreshCapitalFundRow, "firm_name" | "firm_website_url" | "firm_domain">,
 ): string | null {
   if (row.firm_name?.trim().toLowerCase() === HUMMINGBIRD_VENTURES_LC) return "https://hummingbird.vc";
-  const direct = row.firm_website_url?.trim();
-  if (direct) return direct;
-  const dom = row.firm_domain?.trim();
-  if (!dom) return null;
-  return /^https?:\/\//i.test(dom) ? dom : `https://${dom.replace(/^\/+/, "")}`;
+  return resolveDirectoryFirmWebsiteUrl({
+    firmName: row.firm_name,
+    firmRecordsWebsite: row.firm_website_url,
+    vcDirectoryWebsite: row.firm_domain,
+  });
 }
 
 /** Firm-level AUM (USD) for meta row (`firm_records.aum`) — curated when ingestion lags. */
