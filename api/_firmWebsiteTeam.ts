@@ -25,7 +25,9 @@ const IMG_OPEN_TAG_RE = /<img\b([^>]*)\/?>/gi;
 const SOCIAL_LINK_RE = /href=["']([^"']*(?:linkedin\.com|x\.com|twitter\.com)[^"']*)["']/gi;
 const MAILTO_RE = /mailto:([^"'? ]+)/i;
 // Unicode letters for names like "Peter Hébert", "José García"
+// @ts-ignore — unicode property escapes require ES2018+; runtime is Node 18+ so this is safe
 const NAME_ONE_RE = /\b([A-Z][\p{L}\p{M}]+(?:\s+[A-Z][\p{L}\p{M}.'-]+){1,4}(?:,\s*(?:PhD|MD|MBA|JD|CPA|CFA))?)\b/u;
+// @ts-ignore
 const NAME_RE = new RegExp(NAME_ONE_RE.source, "gu");
 
 
