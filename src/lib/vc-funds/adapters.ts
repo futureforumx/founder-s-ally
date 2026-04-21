@@ -602,18 +602,12 @@ function sourcePublisherLabel(sourceKey: string): string {
       return "AlleyWatch";
     case "GEEKWIRE_FUNDINGS":
       return "GeekWire";
-    case "EVERYTHING_STARTUPS_NEW_VC_FUNDS":
-      return "Everything Startups";
-    case "VCSTACK_FUNDING_ANNOUNCEMENTS":
-      return "VC Stack";
     case "PRNEWSWIRE_VENTURE_CAPITAL":
       return "PR Newswire";
     case "VCSHEET_FUNDS":
       return "VC Sheet";
     case "SHAI_GOLDMAN_NEW_FUNDS_SHEET":
       return "Shai Goldman New Funds Sheet";
-    case "FOUNDERSUITE_NEW_VC_FUNDS_2025":
-      return "Foundersuite";
     default:
       return sourceKey;
   }
@@ -790,50 +784,7 @@ function isPlausibleFundLabel(label: string | null | undefined, firmName: string
   return normalized.includes(normalizedFirm) || /fund\s+[ivx0-9]+$/i.test(label.trim());
 }
 
-async function enrichEverythingStartupsAnnouncement(
-  listing: FeedListing,
-  parsed: ExtractedFundAnnouncement,
-): Promise<ExtractedFundAnnouncement> {
-  const html = await fetchHtml(listing.articleUrl);
-  if (!html) return parsed;
-  const $ = load(html);
-  const body = $("body").text().replace(/\s+/g, " ").trim();
-  if (!body) return parsed;
-
-  const fundSection =
-    body.match(/\bFund\b([\s\S]{0,2500}?)(?:\bOther Information\b|\bLeadership\b|\bInvestment Strategy\b|\bAbout\b|$)/i)?.[1]?.trim() ||
-    body;
-  const title = $("title").text().replace(/\s+/g, " ").trim() || parsed.sourceTitle || `${parsed.firmName} fund detail`;
-  const explicitLabel = buildFundLabel({ firm_name: parsed.firmName }, title, fundSection);
-  const fundLabel = isPlausibleFundLabel(explicitLabel, parsed.firmName)
-    ? explicitLabel!
-    : (parsed.fundLabel || parsed.fundName || `${parsed.firmName} Fund`);
-  const announcedIso = extractRecentFundDate(fundSection) || extractRecentFundDate(body) || (parsed.announcedDate ? `${parsed.announcedDate}T12:00:00.000Z` : null);
-  const stageFocus = Array.from(new Set([...(parsed.stageFocus || []), ...inferStageFocus(body)]));
-  const sectorFocus = Array.from(new Set([...(parsed.sectorFocus || []), ...inferSectorFocus(body)]));
-  const geographyFocus = Array.from(new Set([...(parsed.geographyFocus || []), ...inferGeographyFocus(body)]));
-  const explicitSize = extractUsdAmount(fundSection) || parseUsdAmountText(fundSection) || parsed.fundSize || parsed.targetSizeUsd || parsed.finalSizeUsd || null;
-
-  return {
-    ...parsed,
-    fundName: fundLabel,
-    fundLabel,
-    fundSize: explicitSize,
-    targetSizeUsd: parsed.targetSizeUsd ?? explicitSize,
-    announcedDate: announcedIso ? announcedIso.slice(0, 10) : parsed.announcedDate,
-    rawText: fundSection || parsed.rawText,
-    sourceTitle: title,
-    stageFocus,
-    sectorFocus,
-    geographyFocus,
-    confidence: Math.max(parsed.confidence, 0.94),
-    metadata: {
-      ...(parsed.metadata || {}),
-      detail_enriched: true,
-      structured_detail_source: "everything_startups_detail",
-    },
-  };
-}
+// enrichEverythingStartupsAnnouncement removed — everythingstartups no longer used as a source.
 
 function fundLabelContainsFirmName(firmName: string, fundLabel: string | null | undefined): boolean {
   if (!fundLabel) return false;
@@ -957,7 +908,7 @@ function parseStructuredSourceFeedArticle(listing: FeedListing): ExtractedFundAn
     sourcePublisher: sourcePublisherLabel(listing.sourceKey),
     sourceType: listing.sourceType || "structured_provider",
     rawText: rawTextParts.join("\n").trim() || listing.summary || sourceTitle,
-    confidence: listing.sourceKey === "EVERYTHING_STARTUPS_NEW_VC_FUNDS" ? 0.9 : 0.72,
+    confidence: 0.72,
     stageFocus: Array.isArray(listing.metadata?.stage_focus)
       ? listing.metadata.stage_focus.filter((value): value is string => typeof value === "string")
       : undefined,
@@ -1036,157 +987,16 @@ async function fetchTechcrunchFundingTagListings(
   return found;
 }
 
-async function fetchEverythingStartupsListings(
-  since: Date | null,
-  maxItems: number,
-  log: (message: string) => void,
-): Promise<FeedListing[]> {
-  const found: FeedListing[] = [];
-  const seen = new Set<string>();
+// fetchEverythingStartupsListings removed.
+// everythingstartups.com was the original source of all 91 bad fund records
+// (wrong amounts, stale data, aggregator-only URLs).  It is no longer used as
+// an ingestion source.  Replaced by: TechCrunch, PRNewswire, BusinessWire,
+// VCSheet, and the Shai Goldman community sheet.
 
-  for (let page = 1; page <= 8 && found.length < maxItems; page += 1) {
-    const url = page === 1
-      ? "https://www.everythingstartups.com/new-vc-funds"
-      : `https://www.everythingstartups.com/new-vc-funds?db2fb825_page=${page}`;
-    const html = await fetchHtml(url);
-    if (!html) break;
-    const $ = load(html);
-    const rows = $(".collection-item.w-dyn-item, .collection-item").toArray();
-    let pageMatches = 0;
-
-    for (const rowEl of rows) {
-      if (found.length >= maxItems) break;
-      const row = $(rowEl);
-      const href = row.find("a.row_link_block").attr("href");
-      if (!href) continue;
-      const articleUrl = href.startsWith("http") ? href : normalizeUrl(url, href);
-      const key = normUrl(articleUrl);
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const headlineTexts = row
-        .find("h6.fund_row_txt, h6.fund_row_txt-2")
-        .map((_, element) => cleanStructuredCellText($(element).text()))
-        .get()
-        .filter((value): value is string => Boolean(value));
-      const detailTexts = row
-        .find("h2.fund_row_txt")
-        .map((_, element) => cleanStructuredCellText($(element).text()))
-        .get()
-        .filter((value): value is string => Boolean(value));
-      const focusTags = row
-        .find(".fund_focus_tag")
-        .map((_, element) => cleanStructuredCellText($(element).text()))
-        .get()
-        .filter((value): value is string => Boolean(value));
-
-      const firmName = headlineTexts[0] || null;
-      const fundSizeText =
-        cleanStructuredCellText(row.find(".fund_row_txt-2").first().text()) ||
-        headlineTexts.find((text) => parseUsdAmountText(text) != null) ||
-        null;
-      const announcedText = headlineTexts.find((text) => parseFlexibleUsDateToIsoDate(text) != null) || null;
-      const fundStatus =
-        headlineTexts.find((text) => /\b(raising|closed|final close|open|active)\b/i.test(text)) ||
-        null;
-      if (!firmName) continue;
-      const announcedAt = parseFlexibleUsDateToIsoDate(announcedText);
-      const publishedAt = announcedAt ? new Date(announcedAt) : null;
-      if (since && publishedAt && publishedAt <= since) continue;
-
-      const globalHq = detailTexts[0] || null;
-      const regionText = detailTexts[1] || null;
-      const checkSizeText = detailTexts[2] || null;
-      const stageText = detailTexts[3] || null;
-
-      const stageFocus = Array.from(new Set([
-        ...splitStructuredList(stageText),
-        ...inferStageFocus(stageText || ""),
-      ]));
-      const sectorFocus = Array.from(new Set([
-        ...focusTags,
-        ...inferSectorFocus([focusTags.join(", "), checkSizeText, stageText].filter(Boolean).join(" ")),
-      ]));
-      const geographyFocus = Array.from(new Set([
-        ...inferGeographyFocus([globalHq, regionText].filter(Boolean).join(", ")),
-        ...splitStructuredList(regionText),
-      ]));
-      const summary = [fundSizeText, announcedText, fundStatus, globalHq, regionText, stageText].filter(Boolean).join(" · ");
-
-      found.push({
-        articleUrl,
-        title: `${firmName} new fund listing`,
-        publishedAt,
-        summary,
-        sourceKey: "EVERYTHING_STARTUPS_NEW_VC_FUNDS",
-        sourceType: "structured_provider",
-        metadata: {
-          firm_name: firmName,
-          fund_label: `${firmName} Fund`,
-          fund_size_text: fundSizeText,
-          fund_size_usd: parseUsdAmountText(fundSizeText),
-          announced_at: announcedAt,
-          fund_status: fundStatus || null,
-          global_hq: globalHq,
-          check_size_text: checkSizeText,
-          sector_focus: sectorFocus,
-          stage_focus: stageFocus,
-          geography_focus: geographyFocus,
-        },
-      });
-      pageMatches += 1;
-    }
-
-    log(`[everything-startups] page ${page}: ${pageMatches} row(s)`);
-    if (pageMatches === 0) break;
-  }
-
-  return found;
-}
-
-async function fetchVcstackFundingListings(
-  since: Date | null,
-  maxItems: number,
-  log: (message: string) => void,
-): Promise<FeedListing[]> {
-  const url = "https://www.vcstack.com/funding-announcements-rumours";
-  const html = await fetchHtml(url);
-  if (!html) return [];
-  const $ = load(html);
-  const found: FeedListing[] = [];
-  const seen = new Set<string>();
-
-  $(".incubator_collections-item.w-dyn-item, .incubator_collections-item").each((index, rowEl) => {
-    if (found.length >= maxItems) return false;
-    const row = $(rowEl);
-    const title = row.find(".lp_header-text").first().text().replace(/\s+/g, " ").trim();
-    const type = row.find(".tag_text").first().text().replace(/\s+/g, " ").trim();
-    const dateText = row.find(".text-size-small").first().text().replace(/\s+/g, " ").trim();
-    const summary = row.find(".text-style-2lines").first().text().replace(/\s+/g, " ").trim() || null;
-    if (!title || !type || !dateText) return;
-    const publishedAt = new Date(dateText);
-    if (since && !Number.isNaN(publishedAt.getTime()) && publishedAt <= since) return;
-    const articleUrl = `${url}#item-${index + 1}`;
-    const key = normUrl(articleUrl);
-    if (seen.has(key)) return;
-    seen.add(key);
-
-    found.push({
-      articleUrl,
-      title,
-      publishedAt: !Number.isNaN(publishedAt.getTime()) ? publishedAt : null,
-      summary,
-      sourceKey: "VCSTACK_FUNDING_ANNOUNCEMENTS",
-      sourceType: "news_article",
-      metadata: {
-        event_label: type,
-      },
-    });
-  });
-
-  log(`[vcstack] ${found.length} row(s)`);
-  return found;
-}
+// fetchVcstackFundingListings removed.
+// vcstack.com generated synthetic anchor fragment URLs (#item-N) with no
+// stable identity, causing deduplication collisions.  Removed in favour of
+// primary press-release sources (PRNewswire, BusinessWire).
 
 async function fetchPrNewswireVentureListings(
   since: Date | null,
@@ -1394,92 +1204,31 @@ async function fetchShaiGoldmanSheetListings(
   return out;
 }
 
-async function fetchFoundersuiteFundListings(
-  since: Date | null,
-  maxItems: number,
-  log: (message: string) => void,
-): Promise<FeedListing[]> {
-  const canonicalUrl = "https://www.linkedin.com/pulse/50-newly-launched-venture-capital-funds-startups-2025-foundersuite-j28jf/";
-  const mirrorUrl = "https://blog.foundersuite.com/50-newly-launched-venture-capital-funds-for-startups-in-2025/";
-  const html = await fetchHtml(mirrorUrl);
-  if (!html) return [];
-
-  const $ = load(html);
-  const publishedAtText =
-    metaContent($, "article:published_time") ||
-    $("time[datetime]").first().attr("datetime") ||
-    null;
-  const publishedAtIso = parseFlexibleUsDateToIsoDate(publishedAtText);
-  const publishedAt = publishedAtIso ? new Date(publishedAtIso) : null;
-  if (since && publishedAt && publishedAt <= since) return [];
-
-  const out: FeedListing[] = [];
-  $("h2, h3").each((_, heading) => {
-    if (out.length >= maxItems) return false;
-    const headingText = cleanStructuredCellText($(heading).text());
-    if (!headingText || !/^\d+\.\s+/.test(headingText)) return;
-
-    const firmName = headingText.replace(/^\d+\.\s+/, "").trim();
-    const section = $(heading).nextUntil("h2, h3");
-    const sectionText = section.text().replace(/\u00a0/g, " ").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
-    if (!sectionText) return;
-
-    const fundSizeText = sectionValue(sectionText, "Fund Size");
-    const stageText = sectionValue(sectionText, "Stage Focus");
-    const categoryText = sectionValue(sectionText, "Category Focus");
-    const hqLocation = sectionValue(sectionText, "HQ Location");
-    const teamPage = sectionValue(sectionText, "Team Page");
-    const sourceUrl = `${mirrorUrl}#${slugish(firmName)}`;
-    const sequenceMatch = fundSizeText?.match(/\((?:[A-Za-z ]+)?Fund\s+([IVX0-9]+)\)/i);
-    const fundLabel = sequenceMatch?.[1] ? `${firmName} Fund ${sequenceMatch[1].toUpperCase()}` : `${firmName} Fund`;
-
-    out.push({
-      articleUrl: sourceUrl,
-      title: `${firmName} featured in Foundersuite new VC funds`,
-      publishedAt,
-      summary: [fundSizeText, stageText, categoryText, hqLocation].filter(Boolean).join(" · "),
-      sourceKey: "FOUNDERSUITE_NEW_VC_FUNDS_2025",
-      sourceType: "structured_provider",
-      metadata: {
-        firm_name: firmName,
-        fund_label: fundLabel,
-        fund_size_text: fundSizeText,
-        fund_size_usd: parseUsdAmountText(fundSizeText),
-        announced_at: publishedAtIso,
-        stage_focus: splitStructuredList(stageText),
-        sector_focus: splitStructuredList(categoryText),
-        geography_focus: hqLocation ? [hqLocation] : [],
-        team_page: teamPage,
-        source_document_url: mirrorUrl,
-        requested_source_url: canonicalUrl,
-        extraction_mode: "foundersuite_blog_mirror",
-      },
-    });
-    return undefined;
-  });
-
-  log(`[foundersuite] ${out.length} row(s)`);
-  return out;
-}
+// fetchFoundersuiteFundListings removed.
+// The Foundersuite source was a single static blog article
+// ("50 Newly Launched VC Funds for Startups in 2025") — not a live feed.
+// Once `since` advanced past its publish date it returned 0 results.
+// Removed to avoid stale-source noise in the pipeline.
 
 async function fetchSourceFeedListings(options: FundSyncRunOptions, log: (message: string) => void): Promise<FeedListing[]> {
   const since = options.dateFrom ? new Date(options.dateFrom) : null;
   const max = Math.max(150, Math.min(options.maxItems ?? 1500, 3000));
 
-  const [techcrunch, alleywatch, techcrunchFunding, everythingStartups, vcstack, prNewswire, vcsheet, shaiSheet, foundersuite] = await Promise.all([
+  // Removed sources (do not re-add without overwrite-protection review):
+  //   EVERYTHING_STARTUPS_NEW_VC_FUNDS — stale aggregator, wrong amounts/URLs
+  //   VCSTACK_FUNDING_ANNOUNCEMENTS    — fake #item-N anchor URLs, unreliable
+  //   FOUNDERSUITE_NEW_VC_FUNDS_2025   — static one-off blog article, not a live feed
+  const [techcrunch, alleywatch, techcrunchFunding, prNewswire, vcsheet, shaiSheet] = await Promise.all([
     fetchTechcrunchVenture(since, sourceLimit(options, "TECHCRUNCH_VENTURE", Math.min(max, 400)), log).catch(() => []),
     fetchAlleywatchFunding(since, sourceLimit(options, "ALLEYWATCH_FUNDING", Math.min(max, 300)), log).catch(() => []),
     fetchTechcrunchFundingTagListings(since, sourceLimit(options, "TECHCRUNCH_FUNDING_TAG", Math.min(max, 300)), log).catch(() => []),
-    fetchEverythingStartupsListings(since, sourceLimit(options, "EVERYTHING_STARTUPS_NEW_VC_FUNDS", Math.min(max, 500)), log).catch(() => []),
-    fetchVcstackFundingListings(since, sourceLimit(options, "VCSTACK_FUNDING_ANNOUNCEMENTS", Math.min(max, 250)), log).catch(() => []),
     fetchPrNewswireVentureListings(since, sourceLimit(options, "PRNEWSWIRE_VENTURE_CAPITAL", Math.min(max, 250)), log).catch(() => []),
     fetchVcsheetFundListings(since, sourceLimit(options, "VCSHEET_FUNDS", Math.min(max, 150)), log).catch(() => []),
     fetchShaiGoldmanSheetListings(since, sourceLimit(options, "SHAI_GOLDMAN_NEW_FUNDS_SHEET", Math.min(max, 400)), log).catch(() => []),
-    fetchFoundersuiteFundListings(since, sourceLimit(options, "FOUNDERSUITE_NEW_VC_FUNDS_2025", Math.min(max, 100)), log).catch(() => []),
   ]);
 
   const grouped = new Map<string, FeedListing[]>();
-  for (const row of [...techcrunch, ...alleywatch, ...techcrunchFunding, ...everythingStartups, ...vcstack, ...prNewswire, ...vcsheet, ...shaiSheet, ...foundersuite]) {
+  for (const row of [...techcrunch, ...alleywatch, ...techcrunchFunding, ...prNewswire, ...vcsheet, ...shaiSheet]) {
     if (!grouped.has(row.sourceKey)) grouped.set(row.sourceKey, []);
     grouped.get(row.sourceKey)!.push(row);
   }
@@ -1540,10 +1289,7 @@ async function detectSourceFeedCandidates(firms: FirmRecordLookup[], options: Fu
     if (listing.sourceType === "structured_provider") {
       const parsed = parseStructuredSourceFeedArticle(listing);
       if (!parsed) continue;
-      const enriched = listing.sourceKey === "EVERYTHING_STARTUPS_NEW_VC_FUNDS"
-        ? await enrichEverythingStartupsAnnouncement(listing, parsed)
-        : parsed;
-      found.push(enriched);
+      found.push(parsed);
       if ((options.maxItems || 0) > 0 && found.length >= options.maxItems!) break;
       continue;
     }

@@ -1,0 +1,63 @@
+# Daily VC fund ingestion pipeline.
+#
+# Runs at 07:00 UTC — one hour before the company funding-ingest workflow
+# (08:00/09:00 UTC) so the two pipelines don't compete for CPU/network.
+#
+# Required repo secrets:
+#   VITE_SUPABASE_URL          – Supabase project URL (shared.ts maps this to SUPABASE_URL)
+#   SUPABASE_SERVICE_ROLE_KEY  – Service-role key for upsert / sync-run logging
+#
+# Optional repo secrets (enables authenticated provider enrichment via Playwright):
+#   SIGNAL_NFX_EMAIL / SIGNAL_NFX_PASSWORD
+#   CB_INSIGHTS_EMAIL / CB_INSIGHTS_PASSWORD
+#   TRACXN_EMAIL / TRACXN_PASSWORD
+#
+# Manual trigger: Actions → VC fund sync → Run workflow.
+# Override max_items or set dry_run=1 to test without writing.
+
+name: VC fund sync
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — detect only, no DB writes (1 = yes)"
+        required: false
+        default: "0"
+      max_items:
+        description: "Max candidate items to process (default: 100)"
+        required: false
+        default: "100"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright (authenticated provider enrichment)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run VC fund daily sync
+        run: npm run vc:fund-sync:daily
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VC_FUND_DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+          VC_FUND_MAX_ITEMS: ${{ github.event.inputs.max_items || '100' }}
+          # Authenticated provider enrichment (optional — skipped gracefully if absent)
+          SIGNAL_NFX_EMAIL: ${{ secrets.SIGNAL_NFX_EMAIL }}
+          SIGNAL_NFX_PASSWORD: ${{ secrets.SIGNAL_NFX_PASSWORD }}
+          CB_INSIGHTS_EMAIL: ${{ secrets.CB_INSIGHTS_EMAIL }}
+          CB_INSIGHTS_PASSWORD: ${{ secrets.CB_INSIGHTS_PASSWORD }}
+          TRACXN_EMAIL: ${{ secrets.TRACXN_EMAIL }}
+          TRACXN_PASSWORD: ${{ secrets.TRACXN_PASSWORD }}

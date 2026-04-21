@@ -41,12 +41,9 @@ export function envOptions(defaults: Partial<FundSyncRunOptions> = {}): FundSync
       ["TECHCRUNCH_VENTURE", process.env.VC_FUND_TECHCRUNCH_VENTURE_MAX],
       ["ALLEYWATCH_FUNDING", process.env.VC_FUND_ALLEYWATCH_MAX],
       ["TECHCRUNCH_FUNDING_TAG", process.env.VC_FUND_TECHCRUNCH_FUNDING_TAG_MAX],
-      ["EVERYTHING_STARTUPS_NEW_VC_FUNDS", process.env.VC_FUND_EVERYTHING_STARTUPS_MAX],
-      ["VCSTACK_FUNDING_ANNOUNCEMENTS", process.env.VC_FUND_VCSTACK_MAX],
       ["PRNEWSWIRE_VENTURE_CAPITAL", process.env.VC_FUND_PRNEWSWIRE_MAX],
       ["VCSHEET_FUNDS", process.env.VC_FUND_VCSHEET_MAX],
       ["SHAI_GOLDMAN_NEW_FUNDS_SHEET", process.env.VC_FUND_SHAI_GOLDMAN_NEW_FUNDS_SHEET_MAX],
-      ["FOUNDERSUITE_NEW_VC_FUNDS_2025", process.env.VC_FUND_FOUNDERSUITE_NEW_VC_FUNDS_2025_MAX],
     ].filter(([, value]) => {
       const parsed = Number(value);
       return Number.isFinite(parsed) && parsed > 0;
