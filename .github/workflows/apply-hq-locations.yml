@@ -1,0 +1,80 @@
+name: Apply HQ locations (Corazon Capital, Lux Capital, Antler)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+    paths:
+      - .github/workflows/apply-hq-locations.yml
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply HQ locations to firm_records
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          const FIRMS = [
+            { name: "Corazon Capital", city: "Chicago",  state: "IL", location: "Chicago, IL"  },
+            { name: "Lux Capital",     city: "New York", state: "NY", location: "New York, NY" },
+            { name: "Antler",          city: "New York", state: "NY", location: "New York, NY" },
+          ];
+
+          for (const firm of FIRMS) {
+            const { data: rows, error: fe } = await sb
+              .from("firm_records")
+              .select("id, firm_name, hq_city, canonical_hq_locked")
+              .ilike("firm_name", firm.name)
+              .is("deleted_at", null);
+
+            if (fe) { console.error(`❌ ${firm.name}:`, fe.message); continue; }
+            if (!rows?.length) { console.log(`⚠️  ${firm.name}: NOT FOUND in firm_records`); continue; }
+
+            for (const row of rows) {
+              const now = new Date().toISOString();
+              // Step 1: unlock guard + set new HQ values
+              const { error: e1 } = await sb.from("firm_records").update({
+                hq_city: firm.city, hq_state: firm.state, hq_country: null,
+                location: firm.location, canonical_hq_locked: false,
+                canonical_hq_source: "manual_admin", canonical_hq_set_at: now, updated_at: now,
+              }).eq("id", row.id);
+              if (e1) { console.error(`  ❌ unlock+set ${row.id}:`, e1.message); continue; }
+
+              // Step 2: re-lock
+              const { error: e2 } = await sb.from("firm_records")
+                .update({ canonical_hq_locked: true, updated_at: new Date().toISOString() })
+                .eq("id", row.id);
+              if (e2) { console.error(`  ❌ re-lock ${row.id}:`, e2.message); continue; }
+
+              console.log(`✅ ${firm.name} → ${firm.location}`);
+            }
+
+            // Also sync vc_firms
+            const { error: ve } = await sb.from("vc_firms")
+              .update({ hq_city: firm.city, hq_state: firm.state, hq_country: null, updated_at: new Date().toISOString() })
+              .ilike("firm_name", firm.name).is("deleted_at", null);
+            if (ve) console.error(`  ⚠️  vc_firms:`, ve.message);
+            else console.log(`  vc_firms synced`);
+          }
+          EOF
