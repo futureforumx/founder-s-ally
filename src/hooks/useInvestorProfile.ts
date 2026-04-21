@@ -4,6 +4,7 @@ import type { FirmStrategyClassification } from "@/lib/firmStrategyClassificatio
 import { pickFirmXUrl } from "@/lib/pickFirmXUrl";
 import { sanitizeText } from "@/lib/sanitizeText";
 import { generateInvestorBio } from "@/lib/generateFallbacks";
+import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 import { safeLower, safeTrim } from "@/lib/utils";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
@@ -74,6 +75,8 @@ export interface InvestorProfile {
   facebook_url: string | null;
   instagram_url: string | null;
   youtube_url: string | null;
+  /** Public Crunchbase organization URL when stored on `firm_records`. */
+  crunchbase_url: string | null;
   lead_partner: string | null;
   lead_or_follow: string | null;
   preferred_stage: string | null;
@@ -152,10 +155,18 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       legacyLocation: firm.location,
     }),
     logo_url: firm.logo_url,
-    website_url: firm.website_url,
+    website_url:
+      resolveDirectoryFirmWebsiteUrl({
+        firmName: firm.firm_name,
+        firmRecordsWebsite: typeof firm.website_url === "string" ? firm.website_url : null,
+      }) ?? (typeof firm.website_url === "string" ? firm.website_url : null),
     facebook_url: typeof firm.facebook_url === "string" ? firm.facebook_url : null,
     instagram_url: typeof firm.instagram_url === "string" ? firm.instagram_url : null,
     youtube_url: typeof firm.youtube_url === "string" ? firm.youtube_url : null,
+    crunchbase_url:
+      typeof (firm as { crunchbase_url?: unknown }).crunchbase_url === "string"
+        ? safeTrim((firm as { crunchbase_url: string }).crunchbase_url) || null
+        : null,
     lead_partner: firm.lead_partner,
     lead_or_follow: firm.lead_or_follow,
     preferred_stage: firm.preferred_stage,

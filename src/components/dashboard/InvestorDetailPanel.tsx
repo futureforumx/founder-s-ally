@@ -39,6 +39,7 @@ import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
 import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
+import { curatedFirmHqLineForDirectoryName, firmAumDisplayForInvestorPanel } from "@/lib/freshCapitalPublic";
 import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
 import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import {
@@ -1229,6 +1230,15 @@ export function InvestorDetailPanel({
     if (dbLine && !isMeaninglessDisplayLocation(dbLine)) return dbLine;
     const fallback = firstNonEmpty(websiteHqLine, dbLine);
     if (fallback && !isMeaninglessDisplayLocation(fallback)) return fallback;
+    const freshCapitalAligned = curatedFirmHqLineForDirectoryName(
+      heroName,
+      investor?.name,
+      vcFirm?.name,
+      effectiveInvestor?.name,
+      liveProfile?.firm_name,
+      dealSizeProfile?.firm_name,
+    );
+    if (freshCapitalAligned) return freshCapitalAligned;
     return resolveFirmHqLocationOverride(
       heroName,
       investor?.name,
@@ -1272,7 +1282,11 @@ export function InvestorDetailPanel({
     return connectLocation ?? undefined;
   }, [locationsForTooltip, connectLocation]);
 
-  const heroAumDisplay = firstNonEmpty(liveProfile?.aum, vcFirm?.aum) ?? null;
+  const heroFirmNameForAum = firstNonEmpty(liveProfile?.firm_name, vcFirm?.name, effectiveInvestor?.name);
+  const heroAumDisplay = useMemo(
+    () => firmAumDisplayForInvestorPanel(heroFirmNameForAum, firstNonEmpty(liveProfile?.aum, vcFirm?.aum)),
+    [heroFirmNameForAum, liveProfile?.aum, vcFirm?.aum],
+  );
   const heroInvestmentsTotal =
     typeof dealSizeProfile?.deals?.length === "number"
       ? dealSizeProfile.deals.length
@@ -1305,6 +1319,10 @@ export function InvestorDetailPanel({
     liveProfile?.source === "live" && safeTrim(liveProfile.youtube_url)
       ? safeTrim(liveProfile.youtube_url)
       : null;
+  const connectCrunchbaseUrl = firstNonEmpty(
+    dealSizeProfile?.crunchbase_url,
+    liveProfile?.crunchbase_url,
+  );
 
   /**
    * Prefer the same list the Investors tab shows (`mergedPartners`) so the number matches the UI.
@@ -1712,11 +1730,15 @@ export function InvestorDetailPanel({
                         <ActivityDashboard
                           firmName={effectiveInvestor.name}
                           firmDisplayName={resolvedLiveFirmDisplayName ?? effectiveInvestor.name}
-                          firmRecordsId={resolvedLiveFirmId}
+                          firmRecordsId={resolvedLiveFirmId ?? databaseFirmId ?? firmRecordIdFromVcDirectory}
+                          databaseFirmRecordId={databaseFirmId ?? firmRecordIdFromVcDirectory}
                           vcDirectoryFirmId={vcDirectoryFirmId}
                           companySector={companyData?.sector || undefined}
                           deals={dealSizeProfile?.deals ?? undefined}
-                          fallbackAum={dealSizeProfile?.aum ?? vcFirm?.aum ?? null}
+                          fallbackAum={firmAumDisplayForInvestorPanel(
+                            heroFirmNameForAum,
+                            firstNonEmpty(dealSizeProfile?.aum, vcFirm?.aum, liveProfile?.aum),
+                          )}
                           fallbackIsActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
                           fallbackRecentDeals={dealSizeProfile?.recent_deals ?? null}
                         />
@@ -1744,7 +1766,10 @@ export function InvestorDetailPanel({
                           liveProfile?.firm_name ?? vcFirm?.name ?? null
                         }
                         isActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
-                        firmAum={dealSizeProfile?.aum ?? vcFirm?.aum ?? null}
+                        firmAum={firmAumDisplayForInvestorPanel(
+                          heroFirmNameForAum,
+                          firstNonEmpty(dealSizeProfile?.aum, vcFirm?.aum, liveProfile?.aum),
+                        )}
                         firmWebsiteUrl={connectWebsiteUrl ?? null}
                       />
                     
@@ -1810,6 +1835,7 @@ export function InvestorDetailPanel({
                           instagramUrl={connectInstagramUrl || undefined}
                           youtubeUrl={connectYoutubeUrl || undefined}
                           websiteUrl={connectWebsiteUrl || undefined}
+                          crunchbaseUrl={connectCrunchbaseUrl || undefined}
                         />
                       </motion.div>
                     )}

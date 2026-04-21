@@ -96,6 +96,7 @@ export default function FreshCapitalPage() {
         sector={sector}
         sectorChoices={sectorChoices}
         onSectorChange={onSectorChange}
+        insightsHeatmapBuckets={heatmapBuckets}
       />
 
       <FreshCapitalWhyMatters />

@@ -1,4 +1,5 @@
 import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 
 /**
  * Canonical public Fresh Capital feed source:
@@ -62,6 +63,8 @@ export type FreshCapitalFundRow = {
   firm_location: string | null;
   /** Public website URL when available. */
   firm_website_url: string | null;
+  /** Firm-level AUM in USD (`firm_records.aum`), not this fund vehicle’s target/final size. */
+  firm_aum_usd: number | null;
 };
 
 export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "growth";
@@ -98,12 +101,156 @@ const STAGE_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[
   "flybridge ventures": [...FLYBRIDGE_STAGE_FOCUS_DISPLAY],
 };
 
+const HUMMINGBIRD_VENTURES_LC = "hummingbird ventures";
+
+/** Curated firm-level AUM (USD) for Fresh Capital meta when `firm_records.aum` is missing or stale. */
+const FIRM_AUM_USD_DISPLAY_OVERRIDE_LC: Readonly<Record<string, number>> = {
+  [HUMMINGBIRD_VENTURES_LC]: 1_000_000_000,
+  /** Otro Capital Fund I close — BusinessWire Feb 2026 (~$1.2B committed). */
+  "otro capital": 1_200_000_000,
+  /** GV AI fund / Gradient Ventures — firm-level AUM commonly cited ~$1.2B. */
+  "gradient ventures": 1_200_000_000,
+  /** Lux Capital — firm-level AUM. */
+  "lux capital": 7_000_000_000,
+  /** CRV (Charles River Ventures) — firm-level AUM. */
+  crv: 4_000_000_000,
+  "charles river ventures": 4_000_000_000,
+  "crv (charles river ventures)": 4_000_000_000,
+};
+
+/** Ingestion sometimes labels the 2026 growth vehicle as “Hummingbird Ventures V” instead of the fund proper name. */
+function isHummingbirdInauguralGrowthFundDisplayCase(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">,
+): boolean {
+  if (row.firm_name?.trim().toLowerCase() !== HUMMINGBIRD_VENTURES_LC) return false;
+  const raw = row.fund_name?.trim() ?? "";
+  if (/^Hummingbird Ventures\s+V\b/i.test(raw)) return true;
+  // Prefix strip can collapse the label to a lone roman numeral token.
+  if (/^V$/i.test(raw)) return true;
+  return false;
+}
+
+function isHummingbirdFundVIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  if (row.firm_name?.trim().toLowerCase() !== HUMMINGBIRD_VENTURES_LC) return false;
+  const raw = row.fund_name?.trim() ?? "";
+  return /^Fund\s+VI\b/i.test(raw);
+}
+
+function isAntlerUSFundIIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fund = row.fund_name?.trim().toLowerCase() ?? "";
+  if (!firm.includes("antler")) return false;
+  return /\bus fund ii\b/i.test(fund);
+}
+
+/** Fresh Capital theme column — Antler US Fund II (display-only; RPC may only carry a single sector tag). */
+const ANTLER_US_FUND_II_SECTOR_FOCUS_DISPLAY = ["AI", "Housing", "Biotech", "Health"] as const;
+
+function isLuxCapitalIXDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fund = row.fund_name?.trim().toLowerCase() ?? "";
+  if (!firm.includes("lux capital")) return false;
+  return /\blux capital\s+ix\b/.test(fund) || /\bcapital\s+ix\b/.test(fund) || /^ix$/i.test(fund.trim());
+}
+
+/** Lux Capital IX — curated themes for Fresh Capital feed. */
+const LUX_CAPITAL_IX_SECTOR_FOCUS_DISPLAY = [
+  "Defense",
+  "Biotech",
+  "Frontier Science",
+  "Transportation",
+  "Robotics",
+  "AI/ML",
+  "Data",
+] as const;
+
+/** Lux Capital IX — curated stage chips on Fresh Capital (display-only). */
+const LUX_CAPITAL_IX_STAGE_FOCUS_DISPLAY = ["Pre-Seed", "Seed", "Series A"] as const;
+
+/** Battery Ventures XV — map RPC “Growth” tag to Series C+ on the Fresh Capital stage column (display-only). */
+function isBatteryVenturesXVFund(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fund = row.fund_name?.trim().toLowerCase() ?? "";
+  if (!firm.includes("battery ventures")) return false;
+  return /\bxv\b/.test(fund);
+}
+
+/** Thrive Capital X — same Growth → Series C+ swap (display-only); excludes Fund XI+. */
+function isThriveCapitalXFund(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fundRaw = row.fund_name?.trim() ?? "";
+  const fund = fundRaw.toLowerCase();
+  if (!firm.includes("thrive capital")) return false;
+  if (/^x$/i.test(fundRaw.trim())) return true;
+  return /\bthrive\s+capital\s+x\b(?!i)/i.test(row.fund_name ?? "");
+}
+
+function growthStageSwapToSeriesCPlus(stages: readonly string[]): string[] {
+  return stages.map((s) => {
+    const t = String(s).trim();
+    return t.toLowerCase() === "growth" ? "Series C+" : t;
+  });
+}
+
+function isAndreessenHorowitzFirmName(firmLc: string): boolean {
+  if (/\ba16z\b/.test(firmLc)) return true;
+  if (firmLc.includes("horowitz") && (firmLc.includes("andreessen") || firmLc.includes("andreesen"))) return true;
+  return false;
+}
+
+function isA16zAmericanDynamismFundDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fund = row.fund_name?.trim().toLowerCase() ?? "";
+  if (!isAndreessenHorowitzFirmName(firm)) return false;
+  return fund.includes("american dynamism");
+}
+
+/** American Dynamism Fund (a16z) — curated themes for Fresh Capital feed. */
+const A16Z_AMERICAN_DYNAMISM_SECTOR_FOCUS_DISPLAY = [
+  "Aerospace",
+  "Defense",
+  "Public Safety",
+  "Education",
+  "Housing",
+  "Supply Chain",
+  "Industrials",
+  "Manufacturing",
+] as const;
+
+/** Fund vehicle label with repeated firm tokens removed (firm column already shows the GP). */
+export function fundNameForDisplay(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): string {
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return "Growth Fund I";
+  if (isLuxCapitalIXDisplayCase(row)) return "Fund IX";
+  if (isThriveCapitalXFund(row)) return "Thrive X";
+  return stripRedundantFirmPrefixFromFundName(row.firm_name ?? "", row.fund_name ?? "");
+}
+
 /** Stage chips / labels — prefers firm-specific overrides when present. */
-export function stageFocusForDisplay(row: Pick<FreshCapitalFundRow, "firm_name" | "stage_focus">): string[] {
+export function stageFocusForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "stage_focus" | "fund_name">,
+): string[] {
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
+    return ["Series B", "Series C+"];
+  }
+  if (isLuxCapitalIXDisplayCase(row)) {
+    return [...LUX_CAPITAL_IX_STAGE_FOCUS_DISPLAY];
+  }
+  if (isBatteryVenturesXVFund(row) || isThriveCapitalXFund(row)) {
+    return growthStageSwapToSeriesCPlus(row.stage_focus ?? []);
+  }
   const key = row.firm_name?.trim().toLowerCase();
   const override = key ? STAGE_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
   if (override?.length) return [...override];
   return row.stage_focus ?? [];
+}
+
+/** Geo-focus chips — display-only overrides when RPC/geo tags are noisy or stale. */
+export function geographyFocusForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "geography_focus">,
+): string[] | null | undefined {
+  const firmLc = row.firm_name?.trim().toLowerCase() ?? "";
+  if (firmLc.includes("credo ventures")) return ["Europe"];
+  return row.geography_focus ?? null;
 }
 
 /**
@@ -123,8 +270,30 @@ const SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string
   "flybridge ventures": [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
 };
 
+const HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY = [
+  "AI",
+  "Fintech",
+  "Biotech",
+  "Semiconductors",
+  "Gaming",
+] as const;
+
 /** Theme chips — prefers firm-specific overrides when present. */
-export function sectorFocusForDisplay(row: Pick<FreshCapitalFundRow, "firm_name" | "sector_focus">): string[] {
+export function sectorFocusForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "sector_focus" | "fund_name">,
+): string[] {
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
+    return [...HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY];
+  }
+  if (isAntlerUSFundIIDisplayCase(row)) {
+    return [...ANTLER_US_FUND_II_SECTOR_FOCUS_DISPLAY];
+  }
+  if (isLuxCapitalIXDisplayCase(row)) {
+    return [...LUX_CAPITAL_IX_SECTOR_FOCUS_DISPLAY];
+  }
+  if (isA16zAmericanDynamismFundDisplayCase(row)) {
+    return [...A16Z_AMERICAN_DYNAMISM_SECTOR_FOCUS_DISPLAY];
+  }
   const key = row.firm_name?.trim().toLowerCase();
   const override = key ? SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
   if (override?.length) return [...override];
@@ -174,6 +343,7 @@ const FIRM_MARK_NAME_HINT_HOST: Record<string, string> = {
   "eka ventures": "ekavc.com",
   usv: "usv.com",
   "union square ventures": "usv.com",
+  "gradient ventures": "gradient.com",
 };
 
 /**
@@ -202,6 +372,15 @@ function firmMarkHintHostFromName(firmName: string | null | undefined): string |
   const k = firmName?.trim().toLowerCase();
   if (!k) return null;
   return FIRM_MARK_NAME_HINT_HOST[k] ?? null;
+}
+
+/** Prefer first non-empty string among alternate RPC key spellings (snake_case vs camelCase). */
+function readStringAlt(r: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const v = readString(r[key]);
+    if (v) return v;
+  }
+  return null;
 }
 
 function vcsheetFundMarkFromName(firmName: string | null | undefined): string | null {
@@ -242,7 +421,72 @@ function guessedHostsFromFirmName(firmName: string | null | undefined): string[]
   return out;
 }
 
-function effectiveFirmMarkHost(row: Pick<FreshCapitalFundRow, "firm_domain" | "firm_name">): string | null {
+/** Same heuristic chain as favicon guesses — used only when RPC + `firm_records` lack a URL. */
+export function firstGuessedFirmWebsiteFromName(firmName: string | null | undefined): string | null {
+  for (const host of guessedHostsFromFirmName(firmName)) {
+    if (host?.trim()) return `https://${host.trim()}`;
+  }
+  return null;
+}
+
+/**
+ * After `get_new_vc_funds`, fill `firm_website_url` / `firm_domain` from `firm_records` only when the RPC
+ * row did not already supply a website. Otherwise a stale `firm_records.website_url` would overwrite the
+ * canonical URL from the fund pipeline (e.g. Kleiner Perkins correct in `get_new_vc_funds`, wrong in DB).
+ */
+async function hydrateFreshCapitalRowsWithFirmRecords(
+  funds: FreshCapitalFundRow[],
+): Promise<FreshCapitalFundRow[]> {
+  if (!isSupabaseConfigured || funds.length === 0) return funds;
+
+  const ids = [...new Set(funds.map((f) => f.firm_record_id).filter(Boolean))];
+  if (ids.length === 0) return funds;
+
+  const byId = new Map<string, string>();
+  const chunkSize = 120;
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const chunk = ids.slice(i, i + chunkSize);
+    const { data, error } = await supabasePublicDirectory
+      .from("firm_records")
+      .select("id, website_url")
+      .in("id", chunk)
+      .is("deleted_at", null);
+
+    if (error) {
+      if (import.meta.env.DEV) console.warn("[FreshCapital] hydrate firm_records.website_url", error.message);
+      continue;
+    }
+    for (const row of data ?? []) {
+      const r = row as { id: string; website_url: string | null };
+      const w = typeof r.website_url === "string" ? r.website_url.trim() : "";
+      if (w) byId.set(r.id, w);
+    }
+  }
+
+  return funds.map((f) => {
+    const canonical = byId.get(f.firm_record_id);
+    if (!canonical) return f;
+
+    const rpcAlreadyHasWebsite = Boolean(f.firm_website_url?.trim());
+    if (rpcAlreadyHasWebsite) return f;
+
+    const next: FreshCapitalFundRow = { ...f, firm_website_url: canonical };
+
+    try {
+      const href = /^https?:\/\//i.test(canonical)
+        ? canonical
+        : `https://${canonical.replace(/^\/+/, "")}`;
+      next.firm_domain = new URL(href).hostname.replace(/^www\./i, "");
+    } catch {
+      /* keep RPC firm_domain when URL parse fails */
+    }
+
+    return next;
+  });
+}
+
+/** Domain-style host for links and marks: DB domain, else curated name hints (e.g. sequoiacap.com). */
+export function effectiveFirmMarkHost(row: Pick<FreshCapitalFundRow, "firm_domain" | "firm_name">): string | null {
   const fromDb = row.firm_domain?.trim().replace(/^www\./i, "");
   if (fromDb) return fromDb;
   return firmMarkHintHostFromName(row.firm_name);
@@ -293,6 +537,163 @@ export function formatAnnouncedDate(isoDate: string | null | undefined): string 
   const d = new Date(`${isoDate}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return String(isoDate);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Announced column — applies the same curated display fixes as {@link fundNameForDisplay} where needed. */
+export function announcedDateForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name" | "announced_date" | "close_date">,
+): string {
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return "March 16, 2026";
+  if (isHummingbirdFundVIDisplayCase(row)) return "March 16, 2026";
+  const iso = row.announced_date ?? row.close_date ?? null;
+  return formatAnnouncedDate(iso);
+}
+
+/** MandA coverage of Hummingbird’s raise (Growth Fund I ~$600M within $800M total). */
+const HUMMINGBIRD_GROWTH_FUND_I_ANNOUNCEMENT_URL =
+  "https://manda.be/articles/hummingbird-ventures-raises-800-million-dollars-to-back-misfit-founders-worldwide/";
+
+/** Announcement link in the firm meta row — curated when ingestion points at the wrong article. */
+export function announcementUrlForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name" | "announcement_url">,
+): string | null {
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return HUMMINGBIRD_GROWTH_FUND_I_ANNOUNCEMENT_URL;
+  if (isHummingbirdFundVIDisplayCase(row)) return HUMMINGBIRD_GROWTH_FUND_I_ANNOUNCEMENT_URL;
+  const u = row.announcement_url?.trim();
+  return u || null;
+}
+
+/**
+ * Display-only row expansion (inject curated duplicates / corrections).
+ * Keep this narrowly scoped to avoid hiding upstream data-quality issues.
+ */
+export function expandFreshCapitalRowsForDisplay(rows: FreshCapitalFundRow[]): FreshCapitalFundRow[] {
+  const out: FreshCapitalFundRow[] = [];
+
+  for (const row of rows) {
+    out.push(row);
+
+    if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
+      out.push({
+        ...row,
+        vc_fund_id: `${row.vc_fund_id}::display-dup-fund-vi`,
+        fund_name: "Fund VI",
+        final_size_usd: 200_000_000,
+        target_size_usd: 200_000_000,
+        // Keep ISO for sorting; UI date is overridden to "March 16, 2026" above.
+        announced_date: "2026-03-16",
+        close_date: row.close_date,
+        stage_focus: ["Pre-Seed", "Seed", "Series A"],
+      });
+    }
+  }
+
+  return out;
+}
+
+/** Spellings that refer to the United States — Fresh Capital geo chips show `U.S.` only (display-only). */
+const US_GEO_FOCUS_LABEL_LC = new Set([
+  "united states",
+  "united states of america",
+  "usa",
+  "u.s.",
+  "u.s.a.",
+  "u.s.a",
+  "us",
+  "u.s",
+]);
+
+/**
+ * Normalize one `geography_focus` entry for Fresh Capital geo chips.
+ * Maps United States / U.S. / USA / US (whole chip) to **`U.S.`**; keeps `Global (…)` shortened to `Global`.
+ */
+export function normalizeGeoFocusDisplayChip(geo: string): string {
+  const raw = geo.trim();
+  if (!raw) return "";
+  if (/^Global\s*\(/i.test(raw)) return "Global";
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (US_GEO_FOCUS_LABEL_LC.has(collapsed.toLowerCase())) return "U.S.";
+  return collapsed;
+}
+
+/**
+ * HQ location line only — from RPC `firm_location` (firm_records HQ / City, ST).
+ * Never uses fund `geography_focus`.
+ */
+export function freshCapitalFirmLocationLine(row: Pick<FreshCapitalFundRow, "firm_location">): string | null {
+  const t = row.firm_location?.trim();
+  return t || null;
+}
+
+/** Firm meta row — aligns with canonical `firm_records` HQ when RPC lags a deploy. */
+export function freshCapitalFirmLocationLineForDisplay(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "firm_location">,
+): string | null {
+  if (row.firm_name?.trim().toLowerCase() === HUMMINGBIRD_VENTURES_LC) return "London, U.K.";
+  return freshCapitalFirmLocationLine(row);
+}
+
+/**
+ * Investor modal / Connect tab — same curated HQ as {@link freshCapitalFirmLocationLineForDisplay} when DB sync lags or name matching fails.
+ * Pass hero name, directory label, and `firm_records.firm_name` variants.
+ */
+export function curatedFirmHqLineForDirectoryName(
+  ...nameCandidates: Array<string | null | undefined>
+): string | null {
+  for (const raw of nameCandidates) {
+    const t = raw?.trim();
+    if (!t) continue;
+    const lc = t.toLowerCase();
+    if (lc === HUMMINGBIRD_VENTURES_LC) return "London, U.K.";
+    const compact = lc.replace(/[^a-z0-9]/g, "");
+    if (compact === "hummingbirdventures") return "London, U.K.";
+  }
+  return null;
+}
+
+/** First URL used for the firm meta row website link — RPC field or curated fallback. */
+export function freshCapitalFirmWebsiteLinkSource(
+  row: Pick<FreshCapitalFundRow, "firm_name" | "firm_website_url" | "firm_domain">,
+): string | null {
+  if (row.firm_name?.trim().toLowerCase() === HUMMINGBIRD_VENTURES_LC) return "https://hummingbird.vc";
+  const direct = row.firm_website_url?.trim();
+  if (direct) return direct;
+  const dom = row.firm_domain?.trim();
+  if (!dom) return null;
+  return /^https?:\/\//i.test(dom) ? dom : `https://${dom.replace(/^\/+/, "")}`;
+}
+
+/** Firm-level AUM (USD) for meta row (`firm_records.aum`) — curated when ingestion lags. */
+export function freshCapitalFirmAumUsd(row: Pick<FreshCapitalFundRow, "firm_name" | "firm_aum_usd">): number | null {
+  const key = row.firm_name?.trim().toLowerCase() ?? "";
+  const override = key ? FIRM_AUM_USD_DISPLAY_OVERRIDE_LC[key] : undefined;
+  if (override != null) return override;
+  const v = row.firm_aum_usd;
+  if (v == null || !Number.isFinite(v) || v <= 0) return null;
+  return v;
+}
+
+function coerceFirmAumUsdNumber(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && raw.trim()) {
+    const n = Number(raw.trim().replace(/[^0-9.\-eE]/g, ""));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+/**
+ * Connect / investor panel hero AUM — same curated USD map as Fresh Capital when DB string is empty.
+ * Falls back to a non-numeric display string when present.
+ */
+export function firmAumDisplayForInvestorPanel(firmName: string | null | undefined, aumRaw: unknown): string | null {
+  const usd = freshCapitalFirmAumUsd({
+    firm_name: firmName ?? "",
+    firm_aum_usd: coerceFirmAumUsdNumber(aumRaw),
+  });
+  if (usd != null) return formatFundSizeUsd(usd);
+  if (typeof aumRaw === "string" && aumRaw.trim()) return aumRaw.trim();
+  return null;
 }
 
 /** Sort by recency, then firm priority rollup, then source confidence (ordering only — not displayed). */
@@ -369,6 +770,7 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     firm_domain: "northline.vc",
     firm_location: "London, UK",
     firm_website_url: "https://northline.vc",
+    firm_aum_usd: 2e9,
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000002",
@@ -396,6 +798,7 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     firm_domain: null,
     firm_location: "San Francisco, CA, US",
     firm_website_url: "https://harborpeak.com",
+    firm_aum_usd: 8e9,
   },
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000003",
@@ -423,6 +826,7 @@ const DEMO_FUNDS: FreshCapitalFundRow[] = [
     firm_domain: null,
     firm_location: "New York, NY, US",
     firm_website_url: "https://relaypartners.com",
+    firm_aum_usd: 5e8,
   },
 ];
 
@@ -485,10 +889,11 @@ export function parseFreshCapitalFundRow(raw: unknown): FreshCapitalFundRow | nu
     has_fresh_capital: readBool(r.has_fresh_capital),
     fresh_capital_priority_score: readFiniteNumber(r.fresh_capital_priority_score),
     likely_actively_deploying: readBool(r.likely_actively_deploying),
-    firm_logo_url: readString(r.firm_logo_url),
-    firm_domain: readString(r.firm_domain),
-    firm_location: readString(r.firm_location),
-    firm_website_url: readString(r.firm_website_url),
+    firm_logo_url: readStringAlt(r, "firm_logo_url", "firmLogoUrl"),
+    firm_domain: readStringAlt(r, "firm_domain", "firmDomain"),
+    firm_location: readStringAlt(r, "firm_location", "firmLocation"),
+    firm_website_url: readStringAlt(r, "firm_website_url", "firmWebsiteUrl"),
+    firm_aum_usd: readFiniteNumber(r.firm_aum_usd ?? r.firmAumUsd),
   };
 }
 
@@ -592,9 +997,10 @@ export async function fetchFreshCapitalLive(input: {
   }
 
   const parsed = (fundsRes.data ?? []).map(parseFreshCapitalFundRow).filter((x): x is FreshCapitalFundRow => Boolean(x));
+  const hydrated = await hydrateFreshCapitalRowsWithFirmRecords(parsed);
   // Canonical RPC rows remain displayable even when announced/close dates are sparse; the UI
   // already degrades safely to "—" for date cells, so do not drop fresh-capital rows here.
-  const funds = sortFreshCapitalRows(parsed);
+  const funds = sortFreshCapitalRows(hydrated);
 
   const heatErr = heatmapRes.error;
   if (heatErr) {

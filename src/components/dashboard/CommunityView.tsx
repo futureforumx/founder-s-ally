@@ -54,6 +54,7 @@ import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { investorFocusBadgeFromDirectoryFields } from "@/lib/investorFocusBadge";
 import { displayFundingStatus, displayInvestmentStage } from "@/lib/organizationFundingEnums";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
+import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { AumBand } from "@prisma/client";
@@ -2174,7 +2175,15 @@ export function CommunityView({
         _isRecent: person.firm?.is_recent ?? false,
         _firmId: person.firm_id,
         _vcFirmId: vcFirmMatch?.id ?? null,
-        _websiteUrl: person.website_url || person.firm?.website_url || null,
+        _websiteUrl:
+          person.website_url ||
+          resolveDirectoryFirmWebsiteUrl({
+            firmName: firmName,
+            firmRecordsWebsite: person.firm?.website_url ?? null,
+            vcDirectoryWebsite:
+              vcFirmMatch?.website_url ?? deriveWebsiteUrlFromFirmId(vcFirmMatch?.id ?? person.firm_id),
+          }) ||
+          null,
         _dealVelocityScore: computeDealVelocityScore(
           person.firm?.recent_deals ?? null,
           person.firm?.is_actively_deploying ?? null,
@@ -2293,7 +2302,14 @@ export function CommunityView({
         _isRecent: (dbMatch as any)?.is_recent ?? false,
         _firmId: (dbMatch as any)?.id || person.firm_id,
         _vcFirmId: vcFirmMatch?.id ?? vcFirm?.id ?? null,
-        _websiteUrl: (dbMatch as any)?.website_url || person.website_url || vcFirm?.website_url || null,
+        _websiteUrl:
+          person.website_url ||
+          resolveDirectoryFirmWebsiteUrl({
+            firmName,
+            firmRecordsWebsite: (dbMatch as any)?.website_url ?? null,
+            vcDirectoryWebsite: vcFirm?.website_url ?? deriveWebsiteUrlFromFirmId(person.firm_id),
+          }) ||
+          null,
         _dealVelocityScore: computeDealVelocityScore(
           (dbMatch as any)?.recent_deals ?? null,
           (dbMatch as any)?.is_actively_deploying ?? null,
@@ -2370,7 +2386,12 @@ export function CommunityView({
           _isPopular: (dbMatch as any)?.is_popular ?? false,
           _isRecent: (dbMatch as any)?.is_recent ?? false,
           _firmId: (dbMatch as any)?.id || f.id || null,
-          _websiteUrl: (dbMatch as any)?.website_url || fallbackWebsite || null,
+          _websiteUrl:
+            resolveDirectoryFirmWebsiteUrl({
+              firmName: displayName,
+              firmRecordsWebsite: (dbMatch as any)?.website_url ?? null,
+              vcDirectoryWebsite: fallbackWebsite ?? null,
+            }) || null,
           _dealVelocityScore: computeDealVelocityScore(
             (dbMatch as any)?.recent_deals ?? null,
             (dbMatch as any)?.is_actively_deploying ?? null,
@@ -2421,7 +2442,11 @@ export function CommunityView({
         _isPopular: inv.is_popular ?? false,
         _isRecent: inv.is_recent ?? false,
         _firmId: inv.id,
-        _websiteUrl: inv.website_url ?? null,
+        _websiteUrl:
+          resolveDirectoryFirmWebsiteUrl({
+            firmName: inv.name,
+            firmRecordsWebsite: inv.website_url ?? null,
+          }) || null,
         _dealVelocityScore: computeDealVelocityScore(
           inv.recent_deals ?? null,
           inv.is_actively_deploying ?? null,
@@ -3210,7 +3235,12 @@ export function CommunityView({
       _isPopular: (dbMatch as any)?.is_popular ?? entry._isPopular ?? false,
       _isRecent: (dbMatch as any)?.is_recent ?? entry._isRecent ?? false,
       _firmId: (dbMatch as any)?.id ?? vcMatch?.id ?? entry._firmId ?? null,
-      _websiteUrl: (dbMatch as any)?.website_url ?? entry._websiteUrl ?? fallbackWebsite ?? null,
+      _websiteUrl:
+        resolveDirectoryFirmWebsiteUrl({
+          firmName: entry.name,
+          firmRecordsWebsite: (dbMatch as any)?.website_url ?? null,
+          vcDirectoryWebsite: entry._websiteUrl ?? fallbackWebsite ?? null,
+        }) || null,
       _logoUrl: (dbMatch as any)?.logo_url ?? entry._logoUrl ?? null,
       _strategyClassifications: (dbMatch as any)?.strategy_classifications ?? entry._strategyClassifications ?? null,
       _thesisOrientation: (dbMatch as any)?.thesis_orientation ?? entry._thesisOrientation ?? null,

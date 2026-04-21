@@ -407,6 +407,20 @@ export class FundSyncService {
   private async withRunLog<T>(phase: "detect" | "verify" | "promote" | "rederive" | "mirror" | "daily", options: FundSyncRunOptions, work: () => Promise<T>): Promise<T> {
     if (options.dryRun) return work();
 
+    // Expire any runs for this phase that have been 'running' for > 60 minutes.
+    // Those are process crashes or interrupted CI jobs — they will never self-resolve.
+    const staleThreshold = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    await this.supabase
+      .from("vc_fund_sync_runs")
+      .update({
+        status: "failed",
+        error_message: "Run marked failed automatically: exceeded 60-minute stale threshold. The process likely crashed or the CI job was cancelled.",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("phase", phase)
+      .eq("status", "running")
+      .lt("started_at", staleThreshold);
+
     const { data: started, error: startError } = await this.supabase
       .from("vc_fund_sync_runs")
       .insert({
