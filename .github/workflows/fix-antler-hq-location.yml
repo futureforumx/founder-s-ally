@@ -1,0 +1,91 @@
+name: Fix Antler HQ location on fresh-capital
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fix Antler HQ in firm_records (via vc_funds firm_record_id)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          // ── Step 1: find all firm_records rows matching "antler" ────────────────
+          const { data: frRows, error: fre } = await sb
+            .from("firm_records")
+            .select("id, firm_name, location, hq_city, hq_state, canonical_hq_locked")
+            .ilike("firm_name", "%antler%")
+            .is("deleted_at", null);
+
+          if (fre) { console.error("❌ firm_records query:", fre.message); process.exit(1); }
+          console.log(`firm_records matching '%antler%': ${frRows?.length ?? 0}`);
+          for (const r of frRows ?? []) {
+            console.log(`  id=${r.id} name="${r.firm_name}" location="${r.location}" hq_city="${r.hq_city}" locked=${r.canonical_hq_locked}`);
+          }
+
+          // ── Step 2: find vc_funds rows whose firm name contains "antler" ────────
+          // Join through firm_records via firm_record_id
+          const antlerFirmIds = (frRows ?? []).map(r => r.id);
+          if (antlerFirmIds.length === 0) {
+            console.log("⚠️  No firm_records found for Antler — cannot fix vc_funds");
+            process.exit(0);
+          }
+
+          const { data: funds, error: fe } = await sb
+            .from("vc_funds")
+            .select("id, name, firm_record_id, announced_date")
+            .in("firm_record_id", antlerFirmIds)
+            .is("deleted_at", null)
+            .order("announced_date", { ascending: false })
+            .limit(10);
+
+          if (fe) { console.error("❌ vc_funds query:", fe.message); process.exit(1); }
+          console.log(`\nvc_funds for Antler firm_record_ids: ${funds?.length ?? 0}`);
+          for (const f of funds ?? []) {
+            console.log(`  fund id=${f.id} name="${f.name}" firm_record_id=${f.firm_record_id} date=${f.announced_date}`);
+          }
+
+          // ── Step 3: for each firm_record, apply New York NY via two-step unlock ─
+          for (const fr of frRows ?? []) {
+            const now = new Date().toISOString();
+
+            // unlock + set
+            const { error: e1 } = await sb.from("firm_records").update({
+              hq_city: "New York", hq_state: "NY", hq_country: null,
+              location: "New York, NY", canonical_hq_locked: false,
+              canonical_hq_source: "manual_admin", canonical_hq_set_at: now, updated_at: now,
+            }).eq("id", fr.id);
+            if (e1) { console.error(`  ❌ unlock+set ${fr.id} ("${fr.firm_name}"):`, e1.message); continue; }
+
+            // re-lock
+            const { error: e2 } = await sb.from("firm_records")
+              .update({ canonical_hq_locked: true, updated_at: new Date().toISOString() })
+              .eq("id", fr.id);
+            if (e2) { console.error(`  ❌ re-lock ${fr.id}:`, e2.message); continue; }
+
+            console.log(`✅ firm_records "${fr.firm_name}" (${fr.id}) → New York, NY`);
+          }
+          EOF
