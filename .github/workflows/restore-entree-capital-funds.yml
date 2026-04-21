@@ -1,0 +1,106 @@
+name: Restore and fix Entrée Capital funds (Early + Follow-on)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Restore Early Fund + Follow-on Fund for Entrée Capital
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          const SECTORS = [
+            "AI-Native","Vertical AI","AI Infrastructure","Deep-Tech",
+            "Quantum","Data","B2B Productivity","Crypto","Frontier","Defense",
+          ];
+          const FUND_SPECS = [
+            { normalized_key: "entr-e-capital-early-fund",     name: "Early Fund",     target_size_usd: 125_000_000, stage_focus: ["Pre-Seed","Seed"],       sector_focus: SECTORS },
+            { normalized_key: "entr-e-capital-follow-on-fund", name: "Follow-on Fund", target_size_usd: 175_000_000, stage_focus: ["Series A","Series B"],   sector_focus: SECTORS },
+          ];
+
+          // Find firm
+          const { data: firms, error: fe } = await sb
+            .from("firm_records").select("id,firm_name")
+            .ilike("firm_name","entr_e capital").is("deleted_at",null);
+          if (fe) { console.error("❌ firm_records:",fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Entrée Capital not found"); process.exit(0); }
+          const firmRecordId = firms[0].id;
+          console.log(`Firm: "${firms[0].firm_name}" (${firmRecordId})`);
+
+          for (const spec of FUND_SPECS) {
+            // Look for existing row (including soft-deleted)
+            const { data: existing } = await sb
+              .from("vc_funds").select("id,name,deleted_at")
+              .eq("normalized_key", spec.normalized_key).maybeSingle();
+
+            if (existing) {
+              // Restore if soft-deleted, update fields regardless
+              const { error: ue } = await sb.from("vc_funds").update({
+                deleted_at:      null,
+                name:            spec.name,
+                target_size_usd: spec.target_size_usd,
+                stage_focus:     spec.stage_focus,
+                sector_focus:    spec.sector_focus,
+                updated_at:      new Date().toISOString(),
+              }).eq("id", existing.id);
+              if (ue) console.error(`❌ update "${spec.name}":`, ue.message);
+              else console.log(`✅ Restored/updated "${spec.name}" (was deleted=${existing.deleted_at != null})`);
+            } else {
+              // Need a live template fund to copy metadata from
+              const { data: templates } = await sb
+                .from("vc_funds").select("*")
+                .eq("firm_record_id", firmRecordId).limit(10);
+              const template = (templates ?? []).find(f => f.deleted_at == null) ?? templates?.[0];
+
+              if (!template) { console.error(`❌ No template fund found for "${spec.name}"`); continue; }
+              const { id, normalized_key, normalized_name, name, created_at, updated_at, deleted_at, ...rest } = template;
+              const { error: ie } = await sb.from("vc_funds").insert({
+                ...rest,
+                name:            spec.name,
+                normalized_name: spec.name.toLowerCase(),
+                normalized_key:  spec.normalized_key,
+                target_size_usd: spec.target_size_usd,
+                stage_focus:     spec.stage_focus,
+                sector_focus:    spec.sector_focus,
+                deleted_at:      null,
+                created_at:      new Date().toISOString(),
+                updated_at:      new Date().toISOString(),
+              });
+              if (ie) console.error(`❌ insert "${spec.name}":`, ie.message);
+              else console.log(`✅ Created "${spec.name}"`);
+            }
+          }
+
+          // Soft-delete everything else for this firm (incl. original Fund I)
+          const { data: allFunds } = await sb
+            .from("vc_funds").select("id,name,deleted_at,normalized_key")
+            .eq("firm_record_id", firmRecordId);
+          const keepKeys = new Set(FUND_SPECS.map(s => s.normalized_key));
+          for (const f of allFunds ?? []) {
+            if (keepKeys.has(f.normalized_key) || f.deleted_at != null) continue;
+            await sb.from("vc_funds")
+              .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+              .eq("id", f.id);
+            console.log(`🗑️  Soft-deleted extra fund "${f.name}"`);
+          }
+          EOF
