@@ -24,7 +24,7 @@ import { referralShareOutlineButtonClass } from "@/lib/referralShareUi";
 import { resolvePublicReferralLink } from "@/lib/publicReferralLink";
 import { trackWaitlistAnalytics } from "@/lib/waitlistAnalytics";
 import { useReferralShareActions } from "@/hooks/useReferralShareActions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +33,22 @@ type FormStatus = "idle" | "submitting" | "success" | "error";
 const accessEmailSchema = z.string().trim().toLowerCase().email();
 
 const EMAIL_FORMAT_INLINE = "You sure that's right?";
+
+/** Informational only — never blocks submit. Exact domain match after valid email parse. */
+const PERSONAL_EMAIL_HINT =
+  "Looks like a personal email. Don't have a work email?";
+
+const PERSONAL_EMAIL_DOMAINS = new Set(["gmail.com", "yahoo.com", "outlook.com"]);
+
+function isLikelyPersonalEmail(raw: string): boolean {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return false;
+  if (!accessEmailSchema.safeParse(trimmed).success) return false;
+  const at = trimmed.lastIndexOf("@");
+  if (at === -1) return false;
+  const domain = trimmed.slice(at + 1);
+  return PERSONAL_EMAIL_DOMAINS.has(domain);
+}
 
 /** Dark field fill for /access form; light text for contrast on #242424. */
 const ACCESS_FIELD_SURFACE =
@@ -82,13 +98,16 @@ const ROLE_OPTIONS: { value: AccessRole; label: string }[] = [
 const STAGE_CHOICES: Record<Exclude<AccessRole, "other">, { value: string; label: string }[]> = {
   founder: [
     { value: "idea", label: "Idea" },
-    { value: "pre-seed", label: "Pre-seed" },
+    { value: "pre-seed", label: "Pre-Seed" },
     { value: "seed", label: "Seed" },
-    { value: "series-a-plus", label: "Series A+" },
+    { value: "series-a", label: "Series A" },
+    { value: "series-b", label: "Series B" },
+    { value: "series-c-plus", label: "Series C+" },
   ],
   investor: [
     { value: "angel", label: "Angel" },
-    { value: "pre-seed-seed", label: "Pre-seed / Seed" },
+    { value: "pre-seed", label: "Pre-Seed" },
+    { value: "seed", label: "Seed" },
     { value: "series-a-plus", label: "Series A+" },
     { value: "multi-stage", label: "Multi-stage" },
   ],
@@ -167,6 +186,7 @@ function buildMetadata(params: {
   pathname: string;
   referralFromUrl: string | null;
   priorityAccess: boolean | null;
+  investor_stages?: string[];
 }): Record<string, unknown> {
   const search = typeof window !== "undefined" ? window.location.search : "";
   const sp = new URLSearchParams(search);
@@ -186,6 +206,7 @@ function buildMetadata(params: {
   if (params.priorityAccess === true || params.priorityAccess === false) {
     meta.priority_access_requested = params.priorityAccess;
   }
+  if (params.investor_stages?.length) meta.investor_stages = params.investor_stages;
   return meta;
 }
 
@@ -215,6 +236,8 @@ export function AccessRequestForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AccessRole | "">("");
   const [stage, setStage] = useState("");
+  /** Investor stage focus — multi-select (keys are STAGE_CHOICES.investor values). */
+  const [investorStages, setInvestorStages] = useState<Record<string, boolean>>({});
   /** Canonical founder sector slug; cleared when stage/role hides the field. */
   const [sector, setSector] = useState("");
   const [intentSet, setIntentSet] = useState<Record<string, boolean>>({});
@@ -243,6 +266,15 @@ export function AccessRequestForm() {
 
   const referralLink = useMemo(() => resolvePublicReferralLink(result ?? {}), [result]);
 
+  const showPersonalEmailHint = useMemo(() => isLikelyPersonalEmail(email), [email]);
+
+  const emailAriaDescribedBy = useMemo(() => {
+    const ids: string[] = [];
+    if (emailFieldError) ids.push("access-email-error");
+    if (!emailFieldError && showPersonalEmailHint) ids.push("access-email-personal-hint");
+    return ids.length ? ids.join(" ") : undefined;
+  }, [emailFieldError, showPersonalEmailHint]);
+
   const { copied, copyFailed, copyReferralLink, xIntentHref, mailtoHref } = useReferralShareActions(referralLink);
 
   useEffect(() => {
@@ -262,7 +294,11 @@ export function AccessRequestForm() {
 
     if (role === "other") {
       setStage("");
+      setInvestorStages({});
+    } else if (role === "investor") {
+      setStage("");
     } else {
+      setInvestorStages({});
       const opts = STAGE_CHOICES[role];
       setStage((prev) => (opts.some((o) => o.value === prev) ? prev : ""));
     }
@@ -364,6 +400,10 @@ export function AccessRequestForm() {
     setIntentSet((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const toggleInvestorStage = (value: string) => {
+    setInvestorStages((prev) => ({ ...prev, [value]: !prev[value] }));
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -397,11 +437,20 @@ export function AccessRequestForm() {
       setStatus("error");
       return;
     }
-    if (role !== "other" && !stage.trim()) {
-      const kind = role === "operator" || role === "advisor" ? "role type" : "stage";
-      setErrorMessage(`Please select your ${kind}.`);
-      setStatus("error");
-      return;
+    if (role !== "other") {
+      if (role === "investor") {
+        const selectedInvestor = STAGE_CHOICES.investor.map((o) => o.value).filter((v) => investorStages[v]);
+        if (selectedInvestor.length === 0) {
+          setErrorMessage("Please select at least one stage.");
+          setStatus("error");
+          return;
+        }
+      } else if (!stage.trim()) {
+        const kind = role === "operator" || role === "advisor" ? "role type" : "stage";
+        setErrorMessage(`Please select your ${kind}.`);
+        setStatus("error");
+        return;
+      }
     }
     if (role === "founder" && sector.trim() && !isFounderWaitlistSectorValue(sector.trim())) {
       setErrorMessage("Please select a valid sector.");
@@ -443,11 +492,20 @@ export function AccessRequestForm() {
     const priorityAccess: boolean | null =
       priorityChoice === "yes" ? true : priorityChoice === "no" ? false : null;
 
+    const investorStageList =
+      role === "investor"
+        ? STAGE_CHOICES.investor.map((o) => o.value).filter((v) => investorStages[v])
+        : [];
+
     const payload: WaitlistSignupPayload = {
       email: emailNorm,
       name: combineName(firstName, lastName) || undefined,
       role: role as WaitlistSignupPayload["role"],
-      ...(role !== "other" && stage.trim() ? { stage: stage.trim() } : {}),
+      ...(role !== "other" && role === "investor" && investorStageList.length > 0
+        ? { stage: investorStageList.join(", ") }
+        : role !== "other" && role !== "investor" && stage.trim()
+          ? { stage: stage.trim() }
+          : {}),
       ...(role === "founder" && sector.trim() ? { sector: sector.trim() } : {}),
       intent,
       ...(biggestPain.trim() ? { biggest_pain: biggestPain.trim() } : {}),
@@ -462,6 +520,7 @@ export function AccessRequestForm() {
         pathname,
         referralFromUrl,
         priorityAccess,
+        ...(role === "investor" && investorStageList.length > 0 ? { investor_stages: investorStageList } : {}),
       }),
     };
 
@@ -534,33 +593,35 @@ export function AccessRequestForm() {
                   {copied ? "Copied!" : "Copy link"}
                 </Button>
                 {xIntentHref ? (
-                  <Button asChild variant="outline" className={cn("w-full gap-2 sm:flex-1", referralShareOutlineButtonClass)}>
-                    <a
-                      href={xIntentHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() =>
-                        trackWaitlistAnalytics("referral_link_shared", { channel: "twitter" })
-                      }
-                    >
-                      <Share2 className="h-4 w-4" aria-hidden />
-                      Share on X
-                    </a>
-                  </Button>
+                  <a
+                    href={xIntentHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "inline-flex h-11 w-full gap-2 text-sm font-medium no-underline sm:flex-1",
+                      referralShareOutlineButtonClass,
+                    )}
+                    onClick={() => trackWaitlistAnalytics("referral_link_shared", { channel: "twitter" })}
+                  >
+                    <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+                    Share on X
+                  </a>
                 ) : null}
                 {mailtoHref ? (
-                  <Button asChild variant="outline" className={cn("w-full gap-2 sm:flex-1", referralShareOutlineButtonClass)}>
-                    <a
-                      href={mailtoHref}
-                      rel="noopener noreferrer"
-                      onClick={() =>
-                        trackWaitlistAnalytics("referral_link_shared", { channel: "email" })
-                      }
-                    >
-                      <Mail className="h-4 w-4" aria-hidden />
-                      Share via email
-                    </a>
-                  </Button>
+                  <a
+                    href={mailtoHref}
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "lg" }),
+                      "inline-flex h-11 w-full gap-2 text-sm font-medium no-underline sm:flex-1",
+                      referralShareOutlineButtonClass,
+                    )}
+                    onClick={() => trackWaitlistAnalytics("referral_link_shared", { channel: "email" })}
+                  >
+                    <Mail className="h-4 w-4 shrink-0" aria-hidden />
+                    Share via email
+                  </a>
                 ) : null}
               </div>
               {copyFailed ? (
@@ -681,7 +742,7 @@ export function AccessRequestForm() {
             inputMode="email"
             autoComplete="email"
             aria-invalid={emailFieldError ? true : undefined}
-            aria-describedby={emailFieldError ? "access-email-error" : undefined}
+            aria-describedby={emailAriaDescribedBy}
             title="Enter a valid email (e.g. name@company.com)"
             pattern="[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
             value={email}
@@ -711,6 +772,11 @@ export function AccessRequestForm() {
               {emailFieldError}
             </p>
           ) : null}
+          {!emailFieldError && showPersonalEmailHint ? (
+            <p id="access-email-personal-hint" className={cn("text-2xs", accessInlineHighlightClass)} role="status">
+              {PERSONAL_EMAIL_HINT}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -737,27 +803,49 @@ export function AccessRequestForm() {
 
         {role && role !== "other" ? (
           <div className={cn("w-full", role === "founder" && "space-y-3")}>
-            <div className="space-y-2">
-              <label className={accessLabelClass} htmlFor="access-stage">
-                {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
-              </label>
-              <select
-                id="access-stage"
-                className={cn(accessSelectClassName, "w-full")}
-                value={stage}
-                onChange={(e) => setStage(e.target.value)}
-                required
-              >
-                <option value="" disabled>
-                  {stagePlaceholder(role)}
-                </option>
-                {STAGE_CHOICES[role].map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+            {role === "investor" ? (
+              <fieldset className="space-y-2">
+                <legend className={accessLabelClass}>
+                  {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
+                </legend>
+                <p className={accessHelperClass}>Select all stages you deploy at.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {STAGE_CHOICES.investor.map((o) => (
+                    <label key={o.value} className={accessChoiceLabelClass}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(investorStages[o.value])}
+                        onChange={() => toggleInvestorStage(o.value)}
+                        className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
+                      />
+                      <span>{o.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : (
+              <div className="space-y-2">
+                <label className={accessLabelClass} htmlFor="access-stage">
+                  {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
+                </label>
+                <select
+                  id="access-stage"
+                  className={cn(accessSelectClassName, "w-full")}
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    {stagePlaceholder(role)}
                   </option>
-                ))}
-              </select>
-            </div>
+                  {STAGE_CHOICES[role].map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <AnimatePresence>
               {role === "founder" && stage.trim() ? (

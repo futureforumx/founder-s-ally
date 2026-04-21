@@ -31,9 +31,10 @@ Dashboard: Settings → Database → Connection string → URI (use Direct, port
   process.exit(1);
 }
 
+/** Prefer the latest RPC definition (canonical-first priority). */
 const MIGRATION_PATH = join(
   process.cwd(),
-  "supabase/migrations/20260422170000_get_recent_funding_feed_sanitize_rpc.sql",
+  "supabase/migrations/20260430140000_get_recent_funding_feed_canonical_priority.sql",
 );
 
 if (!existsSync(MIGRATION_PATH)) {

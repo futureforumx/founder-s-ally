@@ -122,6 +122,82 @@ function dedupeSignals(signals: FundSignalRecord[]): FundSignalRecord[] {
   });
 }
 
+function romanNumeral(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value) || value < 1 || value > 20) return null;
+  const map: Record<number, string> = {
+    1: "I",
+    2: "II",
+    3: "III",
+    4: "IV",
+    5: "V",
+    6: "VI",
+    7: "VII",
+    8: "VIII",
+    9: "IX",
+    10: "X",
+    11: "XI",
+    12: "XII",
+    13: "XIII",
+    14: "XIV",
+    15: "XV",
+    16: "XVI",
+    17: "XVII",
+    18: "XVIII",
+    19: "XIX",
+    20: "XX",
+  };
+  return map[Math.trunc(value)] ?? null;
+}
+
+function canonicalizeFundDisplayName(firmName: string, chosenFundName: string, sequenceNumber: number | null): string {
+  const trimmed = chosenFundName.trim();
+  if (!trimmed) return `${firmName} Fund`;
+  const normalizedChosen = normalizeFundName(trimmed);
+  const normalizedGeneric = normalizeFundName(`${firmName} Fund`);
+  if (sequenceNumber != null && normalizedChosen === normalizedGeneric) {
+    const roman = romanNumeral(sequenceNumber);
+    return roman ? `${firmName} Fund ${roman}` : `${firmName} Fund ${sequenceNumber}`;
+  }
+  return trimmed;
+}
+
+function announcementSourcePriority(item: Pick<ExtractedFundAnnouncement, "sourceType" | "sourceUrl" | "sourcePublisher" | "sourceTitle" | "announcedDate" | "closeDate" | "confidence">): number {
+  const url = (item.sourceUrl || "").toLowerCase();
+  const publisher = (item.sourcePublisher || "").toLowerCase();
+  const title = (item.sourceTitle || "").toLowerCase();
+
+  if (item.sourceType === "official_website") return 400;
+  if (/techcrunch\.com|geekwire\.com/.test(url) || /\btechcrunch\b|\bgeekwire\b/.test(publisher)) return 300;
+  if (item.sourceType === "press_release" || /\bpr newswire\b|\bbusiness wire\b|\bglobenewswire\b|\baccesswire\b/.test(publisher)) return 200;
+  if (item.sourceType === "news_article") return 150;
+  if (/#verified-profile\b/.test(url) || /\bprofile on\b/.test(title) || /\bsignal nfx\b|\bcb insights\b|\btracxn\b/.test(publisher)) return 25;
+  return 100;
+}
+
+function chooseAnnouncementSource(grouped: ExtractedFundAnnouncement[]): {
+  announcementUrl: string | null;
+  announcementTitle: string | null;
+  leadSource: string | null;
+} {
+  const best = grouped
+    .filter((item) => item.sourceUrl)
+    .slice()
+    .sort((left, right) => {
+      const prio = announcementSourcePriority(right) - announcementSourcePriority(left);
+      if (prio !== 0) return prio;
+      const rightDate = String(right.announcedDate || right.closeDate || "");
+      const leftDate = String(left.announcedDate || left.closeDate || "");
+      if (rightDate !== leftDate) return rightDate.localeCompare(leftDate);
+      return (right.confidence || 0) - (left.confidence || 0);
+    })[0];
+
+  return {
+    announcementUrl: best?.sourceUrl || null,
+    announcementTitle: best?.sourceTitle || null,
+    leadSource: best?.sourceType || grouped[0]?.sourceType || null,
+  };
+}
+
 function emptySourceStats(): FundSyncSourceStats {
   return {
     fetched: 0,
@@ -1036,7 +1112,7 @@ export class FundSyncService {
     grouped: ExtractedFundAnnouncement[],
     investors: Array<{ id: string; firm_id: string; full_name: string; title?: string | null }>,
   ) {
-    const canonical = this.buildCanonicalDraft(firm, grouped);
+    const canonical = this.buildCanonicalDraft(firm, grouped, candidate);
     if (candidate.status !== "verified" && candidate.official_source_present) {
       canonical.verificationStatus = "official_source_promoted";
     }
@@ -1132,11 +1208,18 @@ export class FundSyncService {
     return (data ?? []) as Array<{ id: string; firm_id: string; full_name: string; title?: string | null }>;
   }
 
-  private buildCanonicalDraft(firm: FirmRecordLookup, grouped: ExtractedFundAnnouncement[]): CanonicalFundDraft {
+  private buildCanonicalDraft(
+    firm: FirmRecordLookup,
+    grouped: ExtractedFundAnnouncement[],
+    candidateFallback?: Pick<CandidateRow, "announced_date" | "size_amount" | "vintage_year" | "fund_sequence_number">,
+  ): CanonicalFundDraft {
     const base = grouped[0];
-    const fundName =
+    const announcement = chooseAnnouncementSource(grouped);
+    const chosenFundName =
       chooseValue("fundName", grouped.map((item) => ({ value: item.fundName || item.fundLabel || item.sourceTitle || null, sourceType: item.sourceType }))) ||
       `${firm.firm_name} Fund`;
+    const sequenceNumber = inferSequenceNumber(base) ?? candidateFallback?.fund_sequence_number ?? null;
+    const fundName = canonicalizeFundDisplayName(firm.firm_name, chosenFundName, sequenceNumber);
     const normalizedName = normalizeFundName(fundName);
     const fundType = chooseValue("fundType", grouped.map((item) => ({ value: inferFundType(item), sourceType: item.sourceType })));
     const announcedDate = chooseValue("announcedDate", grouped.map((item) => ({ value: item.announcedDate || null, sourceType: item.sourceType })));
@@ -1176,7 +1259,6 @@ export class FundSyncService {
       fieldConfidence[fieldName] = roundConfidence(Math.max(...grouped.map((item) => item.confidence), 0.5));
     }
 
-    const sequenceNumber = inferSequenceNumber(base);
     const normalizedKey = buildFundNormalizedKey({ firmRecordId: firm.id, fundName, vintageYear });
     const capitalWindow = deriveCapitalWindow({ announcedDate, closeDate, fundType, status });
     const checkRange = deriveEstimatedCheckRange(
@@ -1196,18 +1278,18 @@ export class FundSyncService {
       normalizedKey,
       fundType,
       fundSequenceNumber: sequenceNumber,
-      vintageYear,
-      announcedDate,
+      vintageYear: vintageYear ?? candidateFallback?.vintage_year ?? null,
+      announcedDate: announcedDate ?? candidateFallback?.announced_date ?? null,
       closeDate,
-      targetSizeUsd,
+      targetSizeUsd: targetSizeUsd ?? candidateFallback?.size_amount ?? null,
       finalSizeUsd,
       currency: base.currency || "USD",
       status,
       sourceConfidence: roundConfidence(grouped.reduce((sum, item) => sum + item.confidence, 0) / Math.max(grouped.length, 1)),
       sourceCount: grouped.length,
-      leadSource: base.sourceType,
-      announcementUrl: base.sourceUrl || null,
-      announcementTitle: base.sourceTitle || null,
+      leadSource: announcement.leadSource,
+      announcementUrl: announcement.announcementUrl,
+      announcementTitle: announcement.announcementTitle,
       rawSourceText: grouped.map((item) => item.rawText).filter(Boolean).join("\n\n") || null,
       isNewFundSignal: true,
       activeDeploymentWindowStart: capitalWindow.start,

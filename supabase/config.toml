@@ -70,3 +70,10 @@ verify_jwt = false
 
 [functions.founder-waitlist-snapshot]
 verify_jwt = false
+
+# ── Funding ingestion pipeline ──────────────────────────────────────────────
+# Auth is done via FUNDING_INGEST_CRON_SECRET or SUPABASE_SERVICE_ROLE_KEY.
+# JWT verification is disabled so the Supabase cron scheduler can call this
+# function without a user JWT.
+[functions.funding-ingest]
+verify_jwt = false

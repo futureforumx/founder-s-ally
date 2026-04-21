@@ -18,6 +18,28 @@ export const FOUNDER_WAITLIST_SECTOR_SIGNAL_HINTS: Partial<
   developer_tools: "Developer tooling remains a top category for early-stage funding.",
 };
 
+/**
+ * Substrings to emphasize in UI for curated lines (must appear in the matching hint string).
+ * Keep aligned with `supabase/functions/_shared/founderWaitlistSnapshotMvp.ts` SIGNAL_HIGHLIGHT_TERMS.
+ */
+export const FOUNDER_WAITLIST_SECTOR_SIGNAL_HIGHLIGHT_TERMS: Partial<
+  Record<FounderWaitlistSectorValue, string[]>
+> = {
+  healthcare: ["automation", "clinical workflows"],
+};
+
+/** Resolve highlight terms from canonical snapshot copy when the API omits `highlightTerms`. */
+export function getFounderWaitlistMarketSignalHighlightTerms(signalText: string): string[] | undefined {
+  const normalized = signalText.trim();
+  for (const slug of Object.keys(FOUNDER_WAITLIST_SECTOR_SIGNAL_HINTS) as FounderWaitlistSectorValue[]) {
+    const hint = FOUNDER_WAITLIST_SECTOR_SIGNAL_HINTS[slug];
+    if (!hint || hint.trim() !== normalized) continue;
+    const terms = FOUNDER_WAITLIST_SECTOR_SIGNAL_HIGHLIGHT_TERMS[slug];
+    return terms?.length ? terms : undefined;
+  }
+  return undefined;
+}
+
 export function getFounderWaitlistSectorSignalHint(slug: string): string {
   const direct = FOUNDER_WAITLIST_SECTOR_SIGNAL_HINTS[slug as FounderWaitlistSectorValue];
   if (direct) return direct;

@@ -28,6 +28,8 @@ interface ImportMetaEnv {
   readonly VITE_ACCESS_PAGE_BG_VIDEO_URL?: string;
   /** Public base URL (no trailing slash) for the access-page background video; file name is fixed in code. */
   readonly VITE_ACCESS_PAGE_VIDEO_CDN_BASE?: string;
+  /** Overrides default `https://tryvekta.com/#features` for referrals “See what you’ll get” links. */
+  readonly VITE_PRODUCT_FEATURES_URL?: string;
 }
 
 interface ImportMeta {

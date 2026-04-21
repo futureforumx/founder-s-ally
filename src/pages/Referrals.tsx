@@ -1,7 +1,28 @@
 import { useEffect, useMemo, useRef } from "react";
+import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ReferralsPanel } from "@/components/referrals/ReferralsPanel";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getAccessPageBackgroundVideoUrl } from "@/lib/accessPageVideoUrl";
+import { PRODUCT_FEATURES_URL } from "@/lib/productLinks";
+import { cn } from "@/lib/utils";
+
+/** Matches `FreshCapitalHero` “More resources” menu styling. */
+const REFERRALS_RESOURCES_MENU =
+  "min-w-[12.5rem] rounded-lg border border-zinc-700/90 bg-zinc-950 py-1 text-zinc-100 shadow-xl";
+
+const REFERRALS_RESOURCES_ITEM = cn(
+  "cursor-pointer rounded-none px-3 py-2 text-[13px] font-normal leading-snug text-zinc-200",
+  "focus:bg-white/[0.06] focus:text-zinc-50 data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-zinc-50",
+);
+
+const REFERRALS_RESOURCES_TRIGGER =
+  "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-[#eeeeee]/80 outline-none ring-offset-black transition-colors hover:bg-white/[0.06] hover:text-[#eeeeee] focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-black data-[state=open]:bg-white/[0.06] data-[state=open]:text-[#eeeeee]";
 
 const brandGradientOverlay =
   "radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.35), transparent 55%), radial-gradient(ellipse 60% 40% at 100% 0%, hsl(var(--success) / 0.2), transparent 45%), radial-gradient(ellipse 50% 30% at 0% 100%, hsl(var(--primary) / 0.2), transparent 50%)";
@@ -63,22 +84,46 @@ export default function Referrals() {
               height={32}
             />
           </Link>
-          <Link
-            to="/access"
-            className="text-2xs font-medium text-[#eeeeee] underline-offset-4 transition-colors hover:text-white hover:underline"
-          >
-            Request access
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger type="button" className={REFERRALS_RESOURCES_TRIGGER}>
+              <span>Free resources</span>
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.75} aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={6} className={REFERRALS_RESOURCES_MENU}>
+              <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM} onSelect={(e) => e.preventDefault()}>
+                <Link to="/?view=resources">Fundraising best practices</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM} onSelect={(e) => e.preventDefault()}>
+                <Link to="/?view=investor-funding">Recent funding</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM} onSelect={(e) => e.preventDefault()}>
+                <Link to="/?view=directory">Trending companies</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM} onSelect={(e) => e.preventDefault()}>
+                <a href="https://tryvekta.com/aurora" target="_blank" rel="noopener noreferrer">
+                  Agent Library
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="flex flex-1 flex-col gap-12">
           <div className="space-y-4 text-center sm:text-left">
             <p className="text-2xs font-semibold uppercase tracking-[0.2em] text-primary/95">Waitlist</p>
             <h1 className="text-balance text-[1.75rem] font-semibold leading-tight tracking-tight text-[#f4f4f5] sm:text-4xl">
-              Your referral dashboard
+              Your waitlist command center
             </h1>
             <p className="mx-auto max-w-md text-pretty text-[0.9375rem] leading-relaxed text-[#a1a1aa] sm:mx-0 sm:text-base">
-              Track your position and move up by inviting others.
+              See your rank. Earn points for invites, and move up before doors open.{` `}
+              <a
+                href={PRODUCT_FEATURES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-purple-400 underline-offset-4 transition-colors hover:text-purple-300 hover:underline"
+              >
+                What you&apos;re getting &gt;
+              </a>
             </p>
           </div>
 

@@ -1,7 +1,71 @@
+import type { ReactNode } from "react";
+import { getFounderWaitlistMarketSignalHighlightTerms } from "@/config/founderWaitlistSectorSignals";
 import type { FounderWaitlistSnapshot } from "@/lib/waitlist";
 import { cn } from "@/lib/utils";
 
 const CARD = "rounded-xl border border-zinc-800/90 bg-[#121212]/80 px-4 py-3 text-left";
+
+const SNAPSHOT_ACCENT = "bg-[#2EE6A6]";
+const SNAPSHOT_ACCENT_TEXT = "text-[#2EE6A6]";
+
+function SnapshotSectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2 text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">
+      <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+        <span
+          className={cn(
+            "absolute inline-flex h-full w-full animate-ping rounded-full opacity-60",
+            SNAPSHOT_ACCENT,
+          )}
+        />
+        <span className={cn("relative inline-flex h-2 w-2 rounded-full", SNAPSHOT_ACCENT)} />
+      </span>
+      {children}
+    </h3>
+  );
+}
+
+function renderHighlightedPhrases(text: string, terms: string[] | undefined): ReactNode {
+  if (!terms?.length) return text;
+  const sorted = [...terms].sort((a, b) => b.length - a.length);
+  const escaped = sorted.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${escaped.join("|")})`, "gi");
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+  const copy = new RegExp(re.source, re.flags);
+  let match: RegExpExecArray | null;
+  while ((match = copy.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <span key={`sig-${match.index}-${key++}`} className={cn("font-medium", SNAPSHOT_ACCENT_TEXT)}>
+        {match[0]}
+      </span>,
+    );
+    lastIndex = match.index + match[0].length;
+    if (match[0].length === 0) copy.lastIndex++;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes.length ? <>{nodes}</> : text;
+}
+
+const MARKET_SIGNAL_FALLBACK_TEXT =
+  "Early-stage investors are staying selective while prize category leaders.";
+
+function MarketSignalParagraph({ snapshot }: { snapshot: FounderWaitlistSnapshot | null | undefined }) {
+  const signalText = snapshot?.marketSignal?.text ?? MARKET_SIGNAL_FALLBACK_TEXT;
+  const apiTerms = snapshot?.marketSignal?.highlightTerms;
+  const terms =
+    apiTerms && apiTerms.length > 0 ? apiTerms : getFounderWaitlistMarketSignalHighlightTerms(signalText);
+
+  return (
+    <p className="mt-2 text-sm leading-snug text-[#c4c4c4]">
+      {renderHighlightedPhrases(signalText, terms)}
+    </p>
+  );
+}
 
 type Props = {
   loading: boolean;
@@ -28,7 +92,7 @@ export function FounderWaitlistSnapshotPanel({ loading, snapshot, fetchFailed, o
   return (
     <div className="space-y-4 text-left">
       <section className={CARD}>
-        <h3 className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Investor matches</h3>
+        <SnapshotSectionTitle>Investor matches</SnapshotSectionTitle>
         {fetchFailed || !data?.investorMatches?.length ? (
           <p className="mt-2 text-sm text-[#b3b3b3]">
             We didn’t load live matches this time—your shortlist will appear inside Vekta once you’re in.
@@ -63,15 +127,12 @@ export function FounderWaitlistSnapshotPanel({ loading, snapshot, fetchFailed, o
       </section>
 
       <section className={CARD}>
-        <h3 className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Market signal</h3>
-        <p className="mt-2 text-sm leading-snug text-[#c4c4c4]">
-          {data?.marketSignal?.text ??
-            "Early-stage investors are staying selective while prize category leaders."}
-        </p>
+        <SnapshotSectionTitle>Market signal</SnapshotSectionTitle>
+        <MarketSignalParagraph snapshot={data} />
       </section>
 
       <section className={CARD}>
-        <h3 className="text-2xs font-medium uppercase tracking-wide text-[#b3b3b3]">Suggested next step</h3>
+        <SnapshotSectionTitle>Suggested next step</SnapshotSectionTitle>
         <p className="mt-2 text-sm leading-snug text-[#c4c4c4]">
           {data?.nextStep?.text ?? "Refine your target investor list so outreach stays high-signal."}
         </p>
