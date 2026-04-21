@@ -1,0 +1,116 @@
+name: Duplicate Entrée Capital Fund I into Early Fund + Follow-on Fund
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  duplicate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Duplicate Entrée Capital Fund I into Early Fund and Follow-on Fund
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          // Find Entrée Capital in firm_records (handles accent variants)
+          const { data: firms, error: fe } = await sb
+            .from("firm_records")
+            .select("id, firm_name")
+            .ilike("firm_name", "entr_e capital")
+            .is("deleted_at", null);
+
+          if (fe) { console.error("❌ firm_records:", fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Entrée Capital not found in firm_records"); process.exit(0); }
+
+          const firmIds = firms.map(f => f.id);
+          console.log(`Firm: ${firms.map(f => `"${f.firm_name}" (${f.id})`).join(", ")}`);
+
+          // Find Fund I
+          const { data: funds, error: ffe } = await sb
+            .from("vc_funds")
+            .select("*")
+            .in("firm_record_id", firmIds)
+            .is("deleted_at", null);
+
+          if (ffe) { console.error("❌ vc_funds:", ffe.message); process.exit(1); }
+          if (!funds?.length) { console.log("⚠️  No vc_funds rows found for Entrée Capital"); process.exit(0); }
+
+          console.log(`Existing funds: ${funds.map(f => `"${f.name}"`).join(", ")}`);
+
+          // Use Fund I as the template (prefer name containing "I" or "Fund I", else first)
+          const template = funds.find(f => /fund\s*i$/i.test(f.name)) ?? funds[0];
+          console.log(`Using "${template.name}" as template`);
+
+          const NEW_FUNDS = [
+            { label: "Early Fund",    suffix: "early-fund"    },
+            { label: "Follow-on Fund", suffix: "follow-on-fund" },
+          ];
+
+          const firmSlug = firms[0].firm_name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+
+          for (const nf of NEW_FUNDS) {
+            // Check if already exists to stay idempotent
+            const normalizedKey = `${firmSlug}-${nf.suffix}`;
+            const { data: existing } = await sb
+              .from("vc_funds")
+              .select("id, name")
+              .eq("normalized_key", normalizedKey)
+              .maybeSingle();
+
+            if (existing) {
+              console.log(`⏭️  "${nf.label}" already exists (${existing.id}) — skipping`);
+              continue;
+            }
+
+            // eslint-disable-next-line no-unused-vars
+            const { id, normalized_key, normalized_name, name, created_at, updated_at, ...rest } = template;
+
+            const { data: created, error: ce } = await sb
+              .from("vc_funds")
+              .insert({
+                ...rest,
+                name: nf.label,
+                normalized_name: nf.label.toLowerCase(),
+                normalized_key: normalizedKey,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .select("id, name")
+              .single();
+
+            if (ce) { console.error(`❌ insert "${nf.label}":`, ce.message); }
+            else console.log(`✅ Created "${created.name}" (${created.id})`);
+          }
+
+          // Soft-delete the original Fund I so it no longer appears in the feed
+          const { error: de } = await sb
+            .from("vc_funds")
+            .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .eq("id", template.id);
+          if (de) console.error(`⚠️  Could not soft-delete original "${template.name}":`, de.message);
+          else console.log(`🗑️  Soft-deleted original "${template.name}" (${template.id})`);
+          EOF
