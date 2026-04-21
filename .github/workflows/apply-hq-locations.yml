@@ -36,14 +36,15 @@ jobs:
           const FIRMS = [
             { name: "Corazon Capital", city: "Chicago",  state: "IL", location: "Chicago, IL"  },
             { name: "Lux Capital",     city: "New York", state: "NY", location: "New York, NY" },
-            { name: "Antler",          city: "New York", state: "NY", location: "New York, NY" },
+            // pattern: "antler%" catches "Antler", "Antler VC", "Antler Global", etc.
+            { name: "Antler",          city: "New York", state: "NY", location: "New York, NY", pattern: "antler%" },
           ];
 
           for (const firm of FIRMS) {
             const { data: rows, error: fe } = await sb
               .from("firm_records")
               .select("id, firm_name, hq_city, canonical_hq_locked")
-              .ilike("firm_name", firm.name)
+              .ilike("firm_name", firm.pattern ?? firm.name)
               .is("deleted_at", null);
 
             if (fe) { console.error(`❌ ${firm.name}:`, fe.message); continue; }
