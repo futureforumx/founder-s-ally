@@ -58,7 +58,7 @@ export function SourceOutletBadge({
       <a
         href={href!.trim()}
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         className={cn(
           pillClass,
           "no-underline hover:border-zinc-700/80 hover:bg-zinc-900/50 hover:text-zinc-400",

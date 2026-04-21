@@ -23,6 +23,7 @@ const OrganizationProfile = lazy(() => import("./pages/OrganizationProfile.tsx")
 const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
+const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -274,6 +275,14 @@ const App = () => (
                 element={
                   <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
                     <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/outbound"
+                element={
+                  <Suspense fallback={null}>
+                    <OutboundPage />
                   </Suspense>
                 }
               />
