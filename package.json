@@ -103,6 +103,7 @@
     "supabase:db:push": "supabase db push",
     "supabase:db:push:direct": "sh -c 'if [ -z \"$SUPABASE_DB_URL\" ]; then echo \"Missing SUPABASE_DB_URL (postgresql://postgres:...@db.<ref>.supabase.co:5432/postgres)\"; exit 1; fi; exec supabase db push --db-url \"$SUPABASE_DB_URL\"'",
     "supabase:apply:recent-funding-feed-rpc": "tsx scripts/apply-recent-funding-feed-migration.ts",
+    "supabase:apply:hq-locations": "tsx scripts/apply-hq-locations.ts",
     "funding:schema:apply": "tsx scripts/apply-funding-ingestion-schema.ts",
     "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh",
     "headshots:update": "tsx scripts/update-headshots.ts",
