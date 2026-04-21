@@ -170,6 +170,195 @@ export type Database = {
           },
         ]
       }
+      candidate_capital_event_evidence: {
+        Row: {
+          candidate_capital_event_id: string
+          created_at: string
+          excerpt: string | null
+          headline: string
+          id: string
+          published_at: string | null
+          publisher: string | null
+          raw_payload: Json
+          raw_text: string | null
+          score: number
+          source_type: string
+          source_url: string
+        }
+        Insert: {
+          candidate_capital_event_id: string
+          created_at?: string
+          excerpt?: string | null
+          headline: string
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          raw_payload?: Json
+          raw_text?: string | null
+          score?: number
+          source_type: string
+          source_url: string
+        }
+        Update: {
+          candidate_capital_event_id?: string
+          created_at?: string
+          excerpt?: string | null
+          headline?: string
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          raw_payload?: Json
+          raw_text?: string | null
+          score?: number
+          source_type?: string
+          source_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_capital_event_evidenc_candidate_capital_event_id_fkey"
+            columns: ["candidate_capital_event_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_capital_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_capital_events: {
+        Row: {
+          announced_date: string | null
+          candidate_headline: string | null
+          canonical_vc_fund_id: string | null
+          cluster_key: string | null
+          confidence_breakdown: Json
+          confidence_score: number
+          created_at: string
+          event_type_guess: string | null
+          evidence_count: number
+          excerpt: string | null
+          firm_record_id: string | null
+          first_seen_at: string
+          fund_sequence_number: number | null
+          id: string
+          latest_seen_at: string
+          metadata: Json
+          normalized_firm_name: string | null
+          normalized_fund_label: string | null
+          official_source_present: boolean
+          promoted_at: string | null
+          published_at: string | null
+          publisher: string | null
+          raw_firm_name: string | null
+          raw_text: string | null
+          review_reason: string | null
+          size_amount: number | null
+          size_currency: string | null
+          source_diversity: number
+          source_type: string
+          source_url: string
+          status: string
+          updated_at: string
+          verification_started_at: string | null
+          verified_at: string | null
+          vintage_year: number | null
+        }
+        Insert: {
+          announced_date?: string | null
+          candidate_headline?: string | null
+          canonical_vc_fund_id?: string | null
+          cluster_key?: string | null
+          confidence_breakdown?: Json
+          confidence_score?: number
+          created_at?: string
+          event_type_guess?: string | null
+          evidence_count?: number
+          excerpt?: string | null
+          firm_record_id?: string | null
+          first_seen_at?: string
+          fund_sequence_number?: number | null
+          id?: string
+          latest_seen_at?: string
+          metadata?: Json
+          normalized_firm_name?: string | null
+          normalized_fund_label?: string | null
+          official_source_present?: boolean
+          promoted_at?: string | null
+          published_at?: string | null
+          publisher?: string | null
+          raw_firm_name?: string | null
+          raw_text?: string | null
+          review_reason?: string | null
+          size_amount?: number | null
+          size_currency?: string | null
+          source_diversity?: number
+          source_type: string
+          source_url: string
+          status?: string
+          updated_at?: string
+          verification_started_at?: string | null
+          verified_at?: string | null
+          vintage_year?: number | null
+        }
+        Update: {
+          announced_date?: string | null
+          candidate_headline?: string | null
+          canonical_vc_fund_id?: string | null
+          cluster_key?: string | null
+          confidence_breakdown?: Json
+          confidence_score?: number
+          created_at?: string
+          event_type_guess?: string | null
+          evidence_count?: number
+          excerpt?: string | null
+          firm_record_id?: string | null
+          first_seen_at?: string
+          fund_sequence_number?: number | null
+          id?: string
+          latest_seen_at?: string
+          metadata?: Json
+          normalized_firm_name?: string | null
+          normalized_fund_label?: string | null
+          official_source_present?: boolean
+          promoted_at?: string | null
+          published_at?: string | null
+          publisher?: string | null
+          raw_firm_name?: string | null
+          raw_text?: string | null
+          review_reason?: string | null
+          size_amount?: number | null
+          size_currency?: string | null
+          source_diversity?: number
+          source_type?: string
+          source_url?: string
+          status?: string
+          updated_at?: string
+          verification_started_at?: string | null
+          verified_at?: string | null
+          vintage_year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_capital_events_canonical_vc_fund_id_fkey"
+            columns: ["canonical_vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_capital_events_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_capital_events_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cap_table: {
         Row: {
           amount: number
@@ -1540,6 +1729,585 @@ export type Database = {
           },
         ]
       }
+      fi_deal_investors: {
+        Row: {
+          created_at: string
+          deal_id: string
+          id: string
+          name_normalized: string
+          name_raw: string
+          role: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          id?: string
+          name_normalized: string
+          name_raw: string
+          role?: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          id?: string
+          name_normalized?: string
+          name_raw?: string
+          role?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_deal_investors_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "fi_deals_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_deal_source_links: {
+        Row: {
+          canonical_deal_id: string
+          confidence_score: number
+          contributed_fields: string[]
+          created_at: string
+          id: string
+          press_url: string | null
+          raw_deal_id: string | null
+          source_id: string
+          source_name: string
+          source_type: string
+          source_url: string | null
+        }
+        Insert: {
+          canonical_deal_id: string
+          confidence_score?: number
+          contributed_fields?: string[]
+          created_at?: string
+          id?: string
+          press_url?: string | null
+          raw_deal_id?: string | null
+          source_id: string
+          source_name: string
+          source_type?: string
+          source_url?: string | null
+        }
+        Update: {
+          canonical_deal_id?: string
+          confidence_score?: number
+          contributed_fields?: string[]
+          created_at?: string
+          id?: string
+          press_url?: string | null
+          raw_deal_id?: string | null
+          source_id?: string
+          source_name?: string
+          source_type?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_deal_source_links_canonical_deal_id_fkey"
+            columns: ["canonical_deal_id"]
+            isOneToOne: false
+            referencedRelation: "fi_deals_canonical"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_deal_source_links_raw_deal_id_fkey"
+            columns: ["raw_deal_id"]
+            isOneToOne: false
+            referencedRelation: "fi_deals_raw"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_deal_source_links_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fi_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_deals_canonical: {
+        Row: {
+          amount_minor_units: number | null
+          amount_raw: string | null
+          announced_date: string | null
+          co_investors: string[]
+          company_domain: string | null
+          company_linkedin_url: string | null
+          company_location: string | null
+          company_name: string
+          company_website: string | null
+          confidence_score: number
+          created_at: string
+          currency: string
+          dedupe_key: string | null
+          duplicate_of_deal_id: string | null
+          extracted_summary: string | null
+          extraction_method: string
+          id: string
+          is_rumor: boolean
+          lead_investor: string | null
+          lead_investor_normalized: string | null
+          needs_review: boolean
+          normalized_company_name: string
+          primary_press_url: string | null
+          primary_source_name: string | null
+          primary_source_url: string | null
+          review_reason: string | null
+          round_type_normalized: string | null
+          round_type_raw: string | null
+          sector_normalized: string | null
+          sector_raw: string | null
+          source_count: number
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount_minor_units?: number | null
+          amount_raw?: string | null
+          announced_date?: string | null
+          co_investors?: string[]
+          company_domain?: string | null
+          company_linkedin_url?: string | null
+          company_location?: string | null
+          company_name: string
+          company_website?: string | null
+          confidence_score?: number
+          created_at?: string
+          currency?: string
+          dedupe_key?: string | null
+          duplicate_of_deal_id?: string | null
+          extracted_summary?: string | null
+          extraction_method?: string
+          id?: string
+          is_rumor?: boolean
+          lead_investor?: string | null
+          lead_investor_normalized?: string | null
+          needs_review?: boolean
+          normalized_company_name: string
+          primary_press_url?: string | null
+          primary_source_name?: string | null
+          primary_source_url?: string | null
+          review_reason?: string | null
+          round_type_normalized?: string | null
+          round_type_raw?: string | null
+          sector_normalized?: string | null
+          sector_raw?: string | null
+          source_count?: number
+          source_type?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_minor_units?: number | null
+          amount_raw?: string | null
+          announced_date?: string | null
+          co_investors?: string[]
+          company_domain?: string | null
+          company_linkedin_url?: string | null
+          company_location?: string | null
+          company_name?: string
+          company_website?: string | null
+          confidence_score?: number
+          created_at?: string
+          currency?: string
+          dedupe_key?: string | null
+          duplicate_of_deal_id?: string | null
+          extracted_summary?: string | null
+          extraction_method?: string
+          id?: string
+          is_rumor?: boolean
+          lead_investor?: string | null
+          lead_investor_normalized?: string | null
+          needs_review?: boolean
+          normalized_company_name?: string
+          primary_press_url?: string | null
+          primary_source_name?: string | null
+          primary_source_url?: string | null
+          review_reason?: string | null
+          round_type_normalized?: string | null
+          round_type_raw?: string | null
+          sector_normalized?: string | null
+          sector_raw?: string | null
+          source_count?: number
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_deals_canonical_duplicate_of_deal_id_fkey"
+            columns: ["duplicate_of_deal_id"]
+            isOneToOne: false
+            referencedRelation: "fi_deals_canonical"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_deals_raw: {
+        Row: {
+          amount_raw: string | null
+          announced_date_raw: string | null
+          article_url: string | null
+          canonical_deal_id: string | null
+          co_investors_raw: string[] | null
+          company_domain_raw: string | null
+          company_location_raw: string | null
+          company_name_raw: string | null
+          company_website_raw: string | null
+          confidence_score: number
+          created_at: string
+          currency_raw: string | null
+          document_id: string
+          extracted_summary: string | null
+          extraction_metadata: Json
+          extraction_method: string
+          fetch_run_id: string | null
+          id: string
+          is_rumor: boolean
+          lead_investor_raw: string | null
+          normalization_error: string | null
+          normalization_status: string
+          press_url: string | null
+          round_type_raw: string | null
+          sector_raw: string | null
+          slot_index: number
+          source_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          amount_raw?: string | null
+          announced_date_raw?: string | null
+          article_url?: string | null
+          canonical_deal_id?: string | null
+          co_investors_raw?: string[] | null
+          company_domain_raw?: string | null
+          company_location_raw?: string | null
+          company_name_raw?: string | null
+          company_website_raw?: string | null
+          confidence_score?: number
+          created_at?: string
+          currency_raw?: string | null
+          document_id: string
+          extracted_summary?: string | null
+          extraction_metadata?: Json
+          extraction_method?: string
+          fetch_run_id?: string | null
+          id?: string
+          is_rumor?: boolean
+          lead_investor_raw?: string | null
+          normalization_error?: string | null
+          normalization_status?: string
+          press_url?: string | null
+          round_type_raw?: string | null
+          sector_raw?: string | null
+          slot_index?: number
+          source_id: string
+          source_type?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_raw?: string | null
+          announced_date_raw?: string | null
+          article_url?: string | null
+          canonical_deal_id?: string | null
+          co_investors_raw?: string[] | null
+          company_domain_raw?: string | null
+          company_location_raw?: string | null
+          company_name_raw?: string | null
+          company_website_raw?: string | null
+          confidence_score?: number
+          created_at?: string
+          currency_raw?: string | null
+          document_id?: string
+          extracted_summary?: string | null
+          extraction_metadata?: Json
+          extraction_method?: string
+          fetch_run_id?: string | null
+          id?: string
+          is_rumor?: boolean
+          lead_investor_raw?: string | null
+          normalization_error?: string | null
+          normalization_status?: string
+          press_url?: string | null
+          round_type_raw?: string | null
+          sector_raw?: string | null
+          slot_index?: number
+          source_id?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_deals_raw_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "fi_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_deals_raw_fetch_run_id_fkey"
+            columns: ["fetch_run_id"]
+            isOneToOne: false
+            referencedRelation: "fi_fetch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_deals_raw_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fi_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_documents: {
+        Row: {
+          content_hash: string | null
+          content_type: string | null
+          created_at: string
+          doc_kind: string
+          fetch_run_id: string | null
+          fetched_at: string
+          http_status: number | null
+          id: string
+          parse_error: string | null
+          parse_status: string
+          parsed_payload: Json | null
+          parser_version: string
+          raw_html: string | null
+          source_id: string
+          updated_at: string
+          url: string
+          url_hash: string
+        }
+        Insert: {
+          content_hash?: string | null
+          content_type?: string | null
+          created_at?: string
+          doc_kind?: string
+          fetch_run_id?: string | null
+          fetched_at?: string
+          http_status?: number | null
+          id?: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_payload?: Json | null
+          parser_version?: string
+          raw_html?: string | null
+          source_id: string
+          updated_at?: string
+          url: string
+          url_hash: string
+        }
+        Update: {
+          content_hash?: string | null
+          content_type?: string | null
+          created_at?: string
+          doc_kind?: string
+          fetch_run_id?: string | null
+          fetched_at?: string
+          http_status?: number | null
+          id?: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_payload?: Json | null
+          parser_version?: string
+          raw_html?: string | null
+          source_id?: string
+          updated_at?: string
+          url?: string
+          url_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_documents_fetch_run_id_fkey"
+            columns: ["fetch_run_id"]
+            isOneToOne: false
+            referencedRelation: "fi_fetch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_documents_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fi_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_errors: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          error_code: string | null
+          error_detail: Json | null
+          error_message: string
+          error_stage: string
+          fetch_run_id: string | null
+          id: string
+          retryable: boolean
+          source_id: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          error_code?: string | null
+          error_detail?: Json | null
+          error_message: string
+          error_stage: string
+          fetch_run_id?: string | null
+          id?: string
+          retryable?: boolean
+          source_id?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          error_code?: string | null
+          error_detail?: Json | null
+          error_message?: string
+          error_stage?: string
+          fetch_run_id?: string | null
+          id?: string
+          retryable?: boolean
+          source_id?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_errors_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "fi_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_errors_fetch_run_id_fkey"
+            columns: ["fetch_run_id"]
+            isOneToOne: false
+            referencedRelation: "fi_fetch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fi_errors_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fi_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_fetch_runs: {
+        Row: {
+          completed_at: string | null
+          deals_raw: number
+          deals_upserted: number
+          docs_fetched: number
+          docs_parsed: number
+          error_count: number
+          error_summary: string | null
+          id: string
+          metadata: Json
+          run_mode: string
+          source_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          deals_raw?: number
+          deals_upserted?: number
+          docs_fetched?: number
+          docs_parsed?: number
+          error_count?: number
+          error_summary?: string | null
+          id?: string
+          metadata?: Json
+          run_mode?: string
+          source_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          deals_raw?: number
+          deals_upserted?: number
+          docs_fetched?: number
+          docs_parsed?: number
+          error_count?: number
+          error_summary?: string | null
+          id?: string
+          metadata?: Json
+          run_mode?: string
+          source_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fi_fetch_runs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "fi_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fi_sources: {
+        Row: {
+          active: boolean
+          adapter_key: string
+          base_url: string
+          created_at: string
+          credibility_score: number
+          id: string
+          last_fetched_at: string | null
+          metadata: Json
+          name: string
+          poll_interval_minutes: number
+          slug: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          adapter_key: string
+          base_url: string
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          last_fetched_at?: string | null
+          metadata?: Json
+          name: string
+          poll_interval_minutes?: number
+          slug: string
+          source_type?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          adapter_key?: string
+          base_url?: string
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          last_fetched_at?: string | null
+          metadata?: Json
+          name?: string
+          poll_interval_minutes?: number
+          slug?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       firm_data_qa_flags: {
         Row: {
           confidence_score: number
@@ -1587,6 +2355,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      firm_enrichment_runs: {
+        Row: {
+          commit_mode: boolean
+          config_json: Json | null
+          created_at: string
+          failed_count: number
+          finished_at: string | null
+          id: string
+          limit_count: number | null
+          mode: string
+          offset_count: number
+          processed_count: number
+          report_path: string | null
+          review_count: number
+          skipped_count: number
+          started_at: string
+          status: string
+          updated_at: string
+          updated_count: number
+        }
+        Insert: {
+          commit_mode?: boolean
+          config_json?: Json | null
+          created_at?: string
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          limit_count?: number | null
+          mode: string
+          offset_count?: number
+          processed_count?: number
+          report_path?: string | null
+          review_count?: number
+          skipped_count?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_count?: number
+        }
+        Update: {
+          commit_mode?: boolean
+          config_json?: Json | null
+          created_at?: string
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          limit_count?: number | null
+          mode?: string
+          offset_count?: number
+          processed_count?: number
+          report_path?: string | null
+          review_count?: number
+          skipped_count?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_count?: number
+        }
+        Relationships: []
       }
       firm_field_sources: {
         Row: {
@@ -1642,6 +2470,67 @@ export type Database = {
           },
         ]
       }
+      firm_field_values: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          field_name: string
+          firm_id: string
+          id: string
+          is_winner: boolean
+          normalized_value_json: Json
+          run_id: string | null
+          source_type: string
+          source_url: string | null
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          field_name: string
+          firm_id: string
+          id?: string
+          is_winner?: boolean
+          normalized_value_json: Json
+          run_id?: string | null
+          source_type: string
+          source_url?: string | null
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          field_name?: string
+          firm_id?: string
+          id?: string
+          is_winner?: boolean
+          normalized_value_json?: Json
+          run_id?: string | null
+          source_type?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_field_values_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_field_values_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_field_values_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "firm_enrichment_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm_investors: {
         Row: {
           alternate_names: string[] | null
@@ -1657,6 +2546,7 @@ export type Database = {
           bio: string | null
           blog_posts: Json | null
           board_seats: string[] | null
+          capital_freshness_boost_score: number | null
           check_size_max: number | null
           check_size_min: number | null
           city: string | null
@@ -1692,6 +2582,7 @@ export type Database = {
           last_3_investments: Json | null
           last_5_investments: Json | null
           last_active_date: string | null
+          last_capital_signal_at: string | null
           last_enriched_at: string | null
           last_name: string | null
           lead_vs_follow: string | null
@@ -1759,6 +2650,7 @@ export type Database = {
           bio?: string | null
           blog_posts?: Json | null
           board_seats?: string[] | null
+          capital_freshness_boost_score?: number | null
           check_size_max?: number | null
           check_size_min?: number | null
           city?: string | null
@@ -1794,6 +2686,7 @@ export type Database = {
           last_3_investments?: Json | null
           last_5_investments?: Json | null
           last_active_date?: string | null
+          last_capital_signal_at?: string | null
           last_enriched_at?: string | null
           last_name?: string | null
           lead_vs_follow?: string | null
@@ -1861,6 +2754,7 @@ export type Database = {
           bio?: string | null
           blog_posts?: Json | null
           board_seats?: string[] | null
+          capital_freshness_boost_score?: number | null
           check_size_max?: number | null
           check_size_min?: number | null
           city?: string | null
@@ -1896,6 +2790,7 @@ export type Database = {
           last_3_investments?: Json | null
           last_5_investments?: Json | null
           last_active_date?: string | null
+          last_capital_signal_at?: string | null
           last_enriched_at?: string | null
           last_name?: string | null
           lead_vs_follow?: string | null
@@ -2053,6 +2948,8 @@ export type Database = {
       firm_records: {
         Row: {
           acquisition_exits: number | null
+          active_fund_count: number
+          active_fund_vintage: number | null
           active_portfolio_count: number | null
           address: string | null
           adviser_crd_number: string | null
@@ -2067,6 +2964,7 @@ export type Database = {
           breakout_companies: string[] | null
           business_model_focus: string | null
           ca_sb54_compliant: boolean | null
+          capital_freshness_boost_score: number | null
           careers_page_url: string | null
           cb_insights_url: string | null
           co_investor_patterns: string[] | null
@@ -2090,18 +2988,26 @@ export type Database = {
           email_source: string | null
           enrichment_status: string
           entity_type: Database["public"]["Enums"]["entity_type"] | null
+          estimated_check_range_json: Json
+          evidence_urls: string[] | null
           exited_portfolio_count: number | null
+          extraction_confidence: number | null
           facebook_url: string | null
           firm_blog_url: string | null
           firm_name: string
           firm_type: string | null
           first_investment_date: string | null
+          focus_enriched_at: string | null
           founded_year: number | null
           founder_reputation_score: number | null
+          fresh_capital_priority_score: number | null
+          freshness_synced_at: string | null
+          freshness_verified_at: string | null
           fund_status: string | null
           general_partner_count: number | null
           general_partner_names: string[] | null
           geo_focus: string[] | null
+          has_fresh_capital: boolean
           headcount: string | null
           hiring_signals: Json | null
           hq_city: string | null
@@ -2126,14 +3032,21 @@ export type Database = {
           is_recent: boolean | null
           is_trending: boolean | null
           last_5_investments: Json | null
+          last_capital_signal_at: string | null
           last_enriched_at: string | null
+          last_fund_announcement_date: string | null
           last_verified_at: string | null
+          latest_fund_announcement_date: string | null
           latest_fund_close: string | null
+          latest_fund_name: string | null
+          latest_fund_size_usd: number | null
+          latest_verified_vc_fund_id: string | null
           lead_follow_behavior: string | null
           lead_investments_count: number | null
           lead_or_follow: string | null
           lead_partner: string | null
           legal_name: string | null
+          likely_actively_deploying: boolean | null
           linkedin_url: string | null
           location: string | null
           locations: Json | null
@@ -2168,6 +3081,7 @@ export type Database = {
           preferred_stage: string | null
           prisma_firm_id: string | null
           ready_for_live: boolean
+          recent_capital_signal_count: number
           recent_deals: string[] | null
           recent_focus: string | null
           recent_news: Json | null
@@ -2181,6 +3095,7 @@ export type Database = {
             | Database["public"]["Enums"]["sector_classification"]
             | null
           sector_embedding: string | null
+          sector_focus: string[] | null
           sector_scope: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail: string | null
           signal_nfx_url: string | null
@@ -2216,6 +3131,9 @@ export type Database = {
           total_partners: number | null
           tracxn_url: string | null
           trustfinta_url: string | null
+          underrepresented_founders_focus: boolean | null
+          underrepresented_founders_focus_label: string | null
+          underrepresented_founders_focus_rationale: string | null
           unicorns: string[] | null
           updated_at: string | null
           value_add_score: number | null
@@ -2229,6 +3147,8 @@ export type Database = {
         }
         Insert: {
           acquisition_exits?: number | null
+          active_fund_count?: number
+          active_fund_vintage?: number | null
           active_portfolio_count?: number | null
           address?: string | null
           adviser_crd_number?: string | null
@@ -2243,6 +3163,7 @@ export type Database = {
           breakout_companies?: string[] | null
           business_model_focus?: string | null
           ca_sb54_compliant?: boolean | null
+          capital_freshness_boost_score?: number | null
           careers_page_url?: string | null
           cb_insights_url?: string | null
           co_investor_patterns?: string[] | null
@@ -2266,18 +3187,26 @@ export type Database = {
           email_source?: string | null
           enrichment_status?: string
           entity_type?: Database["public"]["Enums"]["entity_type"] | null
+          estimated_check_range_json?: Json
+          evidence_urls?: string[] | null
           exited_portfolio_count?: number | null
+          extraction_confidence?: number | null
           facebook_url?: string | null
           firm_blog_url?: string | null
           firm_name: string
           firm_type?: string | null
           first_investment_date?: string | null
+          focus_enriched_at?: string | null
           founded_year?: number | null
           founder_reputation_score?: number | null
+          fresh_capital_priority_score?: number | null
+          freshness_synced_at?: string | null
+          freshness_verified_at?: string | null
           fund_status?: string | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
           geo_focus?: string[] | null
+          has_fresh_capital?: boolean
           headcount?: string | null
           hiring_signals?: Json | null
           hq_city?: string | null
@@ -2302,14 +3231,21 @@ export type Database = {
           is_recent?: boolean | null
           is_trending?: boolean | null
           last_5_investments?: Json | null
+          last_capital_signal_at?: string | null
           last_enriched_at?: string | null
+          last_fund_announcement_date?: string | null
           last_verified_at?: string | null
+          latest_fund_announcement_date?: string | null
           latest_fund_close?: string | null
+          latest_fund_name?: string | null
+          latest_fund_size_usd?: number | null
+          latest_verified_vc_fund_id?: string | null
           lead_follow_behavior?: string | null
           lead_investments_count?: number | null
           lead_or_follow?: string | null
           lead_partner?: string | null
           legal_name?: string | null
+          likely_actively_deploying?: boolean | null
           linkedin_url?: string | null
           location?: string | null
           locations?: Json | null
@@ -2344,6 +3280,7 @@ export type Database = {
           preferred_stage?: string | null
           prisma_firm_id?: string | null
           ready_for_live?: boolean
+          recent_capital_signal_count?: number
           recent_deals?: string[] | null
           recent_focus?: string | null
           recent_news?: Json | null
@@ -2357,6 +3294,7 @@ export type Database = {
             | Database["public"]["Enums"]["sector_classification"]
             | null
           sector_embedding?: string | null
+          sector_focus?: string[] | null
           sector_scope?: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail?: string | null
           signal_nfx_url?: string | null
@@ -2392,6 +3330,9 @@ export type Database = {
           total_partners?: number | null
           tracxn_url?: string | null
           trustfinta_url?: string | null
+          underrepresented_founders_focus?: boolean | null
+          underrepresented_founders_focus_label?: string | null
+          underrepresented_founders_focus_rationale?: string | null
           unicorns?: string[] | null
           updated_at?: string | null
           value_add_score?: number | null
@@ -2405,6 +3346,8 @@ export type Database = {
         }
         Update: {
           acquisition_exits?: number | null
+          active_fund_count?: number
+          active_fund_vintage?: number | null
           active_portfolio_count?: number | null
           address?: string | null
           adviser_crd_number?: string | null
@@ -2419,6 +3362,7 @@ export type Database = {
           breakout_companies?: string[] | null
           business_model_focus?: string | null
           ca_sb54_compliant?: boolean | null
+          capital_freshness_boost_score?: number | null
           careers_page_url?: string | null
           cb_insights_url?: string | null
           co_investor_patterns?: string[] | null
@@ -2442,18 +3386,26 @@ export type Database = {
           email_source?: string | null
           enrichment_status?: string
           entity_type?: Database["public"]["Enums"]["entity_type"] | null
+          estimated_check_range_json?: Json
+          evidence_urls?: string[] | null
           exited_portfolio_count?: number | null
+          extraction_confidence?: number | null
           facebook_url?: string | null
           firm_blog_url?: string | null
           firm_name?: string
           firm_type?: string | null
           first_investment_date?: string | null
+          focus_enriched_at?: string | null
           founded_year?: number | null
           founder_reputation_score?: number | null
+          fresh_capital_priority_score?: number | null
+          freshness_synced_at?: string | null
+          freshness_verified_at?: string | null
           fund_status?: string | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
           geo_focus?: string[] | null
+          has_fresh_capital?: boolean
           headcount?: string | null
           hiring_signals?: Json | null
           hq_city?: string | null
@@ -2478,14 +3430,21 @@ export type Database = {
           is_recent?: boolean | null
           is_trending?: boolean | null
           last_5_investments?: Json | null
+          last_capital_signal_at?: string | null
           last_enriched_at?: string | null
+          last_fund_announcement_date?: string | null
           last_verified_at?: string | null
+          latest_fund_announcement_date?: string | null
           latest_fund_close?: string | null
+          latest_fund_name?: string | null
+          latest_fund_size_usd?: number | null
+          latest_verified_vc_fund_id?: string | null
           lead_follow_behavior?: string | null
           lead_investments_count?: number | null
           lead_or_follow?: string | null
           lead_partner?: string | null
           legal_name?: string | null
+          likely_actively_deploying?: boolean | null
           linkedin_url?: string | null
           location?: string | null
           locations?: Json | null
@@ -2520,6 +3479,7 @@ export type Database = {
           preferred_stage?: string | null
           prisma_firm_id?: string | null
           ready_for_live?: boolean
+          recent_capital_signal_count?: number
           recent_deals?: string[] | null
           recent_focus?: string | null
           recent_news?: Json | null
@@ -2533,6 +3493,7 @@ export type Database = {
             | Database["public"]["Enums"]["sector_classification"]
             | null
           sector_embedding?: string | null
+          sector_focus?: string[] | null
           sector_scope?: Database["public"]["Enums"]["sector_scope_enum"] | null
           sentiment_detail?: string | null
           signal_nfx_url?: string | null
@@ -2568,6 +3529,9 @@ export type Database = {
           total_partners?: number | null
           tracxn_url?: string | null
           trustfinta_url?: string | null
+          underrepresented_founders_focus?: boolean | null
+          underrepresented_founders_focus_label?: string | null
+          underrepresented_founders_focus_rationale?: string | null
           unicorns?: string[] | null
           updated_at?: string | null
           value_add_score?: number | null
@@ -2579,7 +3543,79 @@ export type Database = {
           x_url?: string | null
           youtube_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "firm_records_latest_verified_vc_fund_id_fkey"
+            columns: ["latest_verified_vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm_source_evidence: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          field_name: string
+          firm_id: string
+          id: string
+          quote_or_snippet: string
+          run_id: string | null
+          source_title: string | null
+          source_type: string
+          source_url: string
+          value_json: Json
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          field_name: string
+          firm_id: string
+          id?: string
+          quote_or_snippet: string
+          run_id?: string | null
+          source_title?: string | null
+          source_type: string
+          source_url: string
+          value_json: Json
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          field_name?: string
+          firm_id?: string
+          id?: string
+          quote_or_snippet?: string
+          run_id?: string | null
+          source_title?: string | null
+          source_type?: string
+          source_url?: string
+          value_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_source_evidence_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_source_evidence_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_source_evidence_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "firm_enrichment_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       firm_source_url_candidates: {
         Row: {
@@ -2965,6 +4001,8 @@ export type Database = {
           aum_usd: number | null
           avg_check_size_max: number | null
           avg_check_size_min: number | null
+          canonical_freshness_synced_at: string | null
+          canonical_vc_fund_id: string | null
           close_date: string | null
           committed_capital: number | null
           confidence: number | null
@@ -2985,6 +4023,7 @@ export type Database = {
           geo_focus: string[] | null
           gp_commit_usd: number | null
           id: string
+          last_verified_at: string | null
           marketer_name: string | null
           minimum_investment_commitment_usd: number | null
           normalized_fund_name: string | null
@@ -3008,6 +4047,7 @@ export type Database = {
           target_size_usd: number | null
           themes: string[] | null
           updated_at: string | null
+          verification_status: string | null
           vintage_year: number | null
         }
         Insert: {
@@ -3021,6 +4061,8 @@ export type Database = {
           aum_usd?: number | null
           avg_check_size_max?: number | null
           avg_check_size_min?: number | null
+          canonical_freshness_synced_at?: string | null
+          canonical_vc_fund_id?: string | null
           close_date?: string | null
           committed_capital?: number | null
           confidence?: number | null
@@ -3041,6 +4083,7 @@ export type Database = {
           geo_focus?: string[] | null
           gp_commit_usd?: number | null
           id?: string
+          last_verified_at?: string | null
           marketer_name?: string | null
           minimum_investment_commitment_usd?: number | null
           normalized_fund_name?: string | null
@@ -3064,6 +4107,7 @@ export type Database = {
           target_size_usd?: number | null
           themes?: string[] | null
           updated_at?: string | null
+          verification_status?: string | null
           vintage_year?: number | null
         }
         Update: {
@@ -3077,6 +4121,8 @@ export type Database = {
           aum_usd?: number | null
           avg_check_size_max?: number | null
           avg_check_size_min?: number | null
+          canonical_freshness_synced_at?: string | null
+          canonical_vc_fund_id?: string | null
           close_date?: string | null
           committed_capital?: number | null
           confidence?: number | null
@@ -3097,6 +4143,7 @@ export type Database = {
           geo_focus?: string[] | null
           gp_commit_usd?: number | null
           id?: string
+          last_verified_at?: string | null
           marketer_name?: string | null
           minimum_investment_commitment_usd?: number | null
           normalized_fund_name?: string | null
@@ -3120,9 +4167,17 @@ export type Database = {
           target_size_usd?: number | null
           themes?: string[] | null
           updated_at?: string | null
+          verification_status?: string | null
           vintage_year?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fund_records_canonical_vc_fund_id_fkey"
+            columns: ["canonical_vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fund_records_firm_id_fkey"
             columns: ["firm_id"]
@@ -3501,6 +4556,383 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      intelligence_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          event_id: string | null
+          id: string
+          status: string
+          user_id: string
+          watchlist_id: string | null
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          status?: string
+          user_id: string
+          watchlist_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+          watchlist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_alerts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_alerts_watchlist_id_fkey"
+            columns: ["watchlist_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_watchlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intelligence_dismissed_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_dismissed_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intelligence_entities: {
+        Row: {
+          aliases: string[]
+          created_at: string
+          description: string | null
+          domain: string | null
+          geography: string | null
+          id: string
+          metadata: Json
+          name: string
+          sectors: string[]
+          tags: string[]
+          type: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          geography?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          sectors?: string[]
+          tags?: string[]
+          type: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          created_at?: string
+          description?: string | null
+          domain?: string | null
+          geography?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          sectors?: string[]
+          tags?: string[]
+          type?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      intelligence_event_entities: {
+        Row: {
+          created_at: string
+          entity_id: string
+          event_id: string
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          event_id: string
+          id?: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          event_id?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_event_entities_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intelligence_event_entities_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intelligence_event_types: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          default_category: string
+          description: string | null
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          default_category: string
+          description?: string | null
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          default_category?: string
+          description?: string | null
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      intelligence_events: {
+        Row: {
+          canonical_source_url: string | null
+          category: string
+          confidence_score: number
+          created_at: string
+          dedupe_key: string | null
+          event_type: string
+          first_seen_at: string
+          id: string
+          importance_score: number
+          last_seen_at: string
+          metadata: Json
+          relevance_score: number
+          sentiment: string | null
+          source_count: number
+          summary: string
+          title: string
+          updated_at: string
+          why_it_matters: string
+        }
+        Insert: {
+          canonical_source_url?: string | null
+          category: string
+          confidence_score?: number
+          created_at?: string
+          dedupe_key?: string | null
+          event_type: string
+          first_seen_at?: string
+          id?: string
+          importance_score?: number
+          last_seen_at?: string
+          metadata?: Json
+          relevance_score?: number
+          sentiment?: string | null
+          source_count?: number
+          summary?: string
+          title: string
+          updated_at?: string
+          why_it_matters?: string
+        }
+        Update: {
+          canonical_source_url?: string | null
+          category?: string
+          confidence_score?: number
+          created_at?: string
+          dedupe_key?: string | null
+          event_type?: string
+          first_seen_at?: string
+          id?: string
+          importance_score?: number
+          last_seen_at?: string
+          metadata?: Json
+          relevance_score?: number
+          sentiment?: string | null
+          source_count?: number
+          summary?: string
+          title?: string
+          updated_at?: string
+          why_it_matters?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_events_event_type_fkey"
+            columns: ["event_type"]
+            isOneToOne: false
+            referencedRelation: "intelligence_event_types"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      intelligence_saved_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          notes: string | null
+          project_label: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          project_label?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          project_label?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_saved_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intelligence_sources: {
+        Row: {
+          active: boolean
+          base_url: string | null
+          created_at: string
+          credibility_score: number
+          id: string
+          metadata: Json
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          base_url?: string | null
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          metadata?: Json
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          base_url?: string | null
+          created_at?: string
+          credibility_score?: number
+          id?: string
+          metadata?: Json
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      intelligence_watchlists: {
+        Row: {
+          alert_threshold: string | null
+          category: string | null
+          created_at: string
+          digest_frequency: string | null
+          entity_id: string | null
+          id: string
+          keyword: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_threshold?: string | null
+          category?: string | null
+          created_at?: string
+          digest_frequency?: string | null
+          entity_id?: string | null
+          id?: string
+          keyword?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_threshold?: string | null
+          category?: string | null
+          created_at?: string
+          digest_frequency?: string | null
+          entity_id?: string | null
+          id?: string
+          keyword?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intelligence_watchlists_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interaction_participants: {
         Row: {
@@ -5311,6 +6743,62 @@ export type Database = {
           },
         ]
       }
+      raw_intelligence_items: {
+        Row: {
+          author: string | null
+          body: string | null
+          content_hash: string
+          created_at: string
+          excerpt: string | null
+          fetched_at: string
+          id: string
+          metadata: Json
+          processing_status: string
+          published_at: string | null
+          source_id: string
+          source_url: string | null
+          title: string
+        }
+        Insert: {
+          author?: string | null
+          body?: string | null
+          content_hash: string
+          created_at?: string
+          excerpt?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json
+          processing_status?: string
+          published_at?: string | null
+          source_id: string
+          source_url?: string | null
+          title: string
+        }
+        Update: {
+          author?: string | null
+          body?: string | null
+          content_hash?: string
+          created_at?: string
+          excerpt?: string | null
+          fetched_at?: string
+          id?: string
+          metadata?: Json
+          processing_status?: string
+          published_at?: string | null
+          source_id?: string
+          source_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_intelligence_items_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendations: {
         Row: {
           created_at: string
@@ -6656,6 +8144,406 @@ export type Database = {
         }
         Relationships: []
       }
+      vc_fund_people: {
+        Row: {
+          canonical_person_key: string | null
+          confidence: number
+          created_at: string
+          firm_investor_id: string | null
+          id: string
+          role: string
+          source: string | null
+          source_url: string | null
+          updated_at: string
+          vc_fund_id: string
+        }
+        Insert: {
+          canonical_person_key?: string | null
+          confidence?: number
+          created_at?: string
+          firm_investor_id?: string | null
+          id?: string
+          role: string
+          source?: string | null
+          source_url?: string | null
+          updated_at?: string
+          vc_fund_id: string
+        }
+        Update: {
+          canonical_person_key?: string | null
+          confidence?: number
+          created_at?: string
+          firm_investor_id?: string | null
+          id?: string
+          role?: string
+          source?: string | null
+          source_url?: string | null
+          updated_at?: string
+          vc_fund_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_fund_people_firm_investor_id_fkey"
+            columns: ["firm_investor_id"]
+            isOneToOne: false
+            referencedRelation: "firm_investors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_people_vc_fund_id_fkey"
+            columns: ["vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vc_fund_signals: {
+        Row: {
+          confidence: number
+          created_at: string
+          dedupe_key: string
+          display_priority: number
+          event_date: string
+          firm_record_id: string
+          headline: string
+          id: string
+          intelligence_event_id: string | null
+          metadata: Json
+          mirrored_to_intelligence_at: string | null
+          signal_type: Database["public"]["Enums"]["vc_fund_signal_type_enum"]
+          source_url: string | null
+          summary: string | null
+          vc_fund_id: string | null
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          dedupe_key: string
+          display_priority?: number
+          event_date: string
+          firm_record_id: string
+          headline: string
+          id?: string
+          intelligence_event_id?: string | null
+          metadata?: Json
+          mirrored_to_intelligence_at?: string | null
+          signal_type: Database["public"]["Enums"]["vc_fund_signal_type_enum"]
+          source_url?: string | null
+          summary?: string | null
+          vc_fund_id?: string | null
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          dedupe_key?: string
+          display_priority?: number
+          event_date?: string
+          firm_record_id?: string
+          headline?: string
+          id?: string
+          intelligence_event_id?: string | null
+          metadata?: Json
+          mirrored_to_intelligence_at?: string | null
+          signal_type?: Database["public"]["Enums"]["vc_fund_signal_type_enum"]
+          source_url?: string | null
+          summary?: string | null
+          vc_fund_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_fund_signals_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_signals_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_signals_intelligence_event_id_fkey"
+            columns: ["intelligence_event_id"]
+            isOneToOne: false
+            referencedRelation: "intelligence_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_signals_vc_fund_id_fkey"
+            columns: ["vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vc_fund_sources: {
+        Row: {
+          confidence: number
+          content_hash: string | null
+          created_at: string
+          extracted_payload: Json
+          id: string
+          published_at: string | null
+          publisher: string | null
+          source_title: string | null
+          source_type: string
+          source_url: string | null
+          vc_fund_id: string
+        }
+        Insert: {
+          confidence?: number
+          content_hash?: string | null
+          created_at?: string
+          extracted_payload?: Json
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          source_title?: string | null
+          source_type: string
+          source_url?: string | null
+          vc_fund_id: string
+        }
+        Update: {
+          confidence?: number
+          content_hash?: string | null
+          created_at?: string
+          extracted_payload?: Json
+          id?: string
+          published_at?: string | null
+          publisher?: string | null
+          source_title?: string | null
+          source_type?: string
+          source_url?: string | null
+          vc_fund_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_fund_sources_vc_fund_id_fkey"
+            columns: ["vc_fund_id"]
+            isOneToOne: false
+            referencedRelation: "vc_funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vc_fund_sync_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          dry_run: boolean
+          error_message: string | null
+          id: string
+          options: Json
+          phase: string
+          scope_cluster_key: string | null
+          scope_firm_id: string | null
+          started_at: string
+          stats: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error_message?: string | null
+          id?: string
+          options?: Json
+          phase: string
+          scope_cluster_key?: string | null
+          scope_firm_id?: string | null
+          started_at?: string
+          stats?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error_message?: string | null
+          id?: string
+          options?: Json
+          phase?: string
+          scope_cluster_key?: string | null
+          scope_firm_id?: string | null
+          started_at?: string
+          stats?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_fund_sync_runs_scope_firm_id_fkey"
+            columns: ["scope_firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_sync_runs_scope_firm_id_fkey"
+            columns: ["scope_firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vc_funds: {
+        Row: {
+          active_deployment_window_end: string | null
+          active_deployment_window_start: string | null
+          announced_date: string | null
+          announcement_title: string | null
+          announcement_url: string | null
+          close_date: string | null
+          created_at: string
+          currency: string
+          deleted_at: string | null
+          estimated_check_max_usd: number | null
+          estimated_check_min_usd: number | null
+          field_confidence: Json
+          field_provenance: Json
+          final_size_usd: number | null
+          firm_record_id: string
+          freshness_synced_at: string
+          fund_sequence_number: number | null
+          fund_type: string | null
+          geography_focus: string[]
+          id: string
+          is_new_fund_signal: boolean
+          last_signal_at: string | null
+          last_verified_at: string | null
+          latest_source_published_at: string | null
+          lead_source: string | null
+          legacy_fund_record_id: string | null
+          likely_actively_deploying: boolean | null
+          manually_verified: boolean
+          metadata: Json
+          name: string
+          normalized_key: string
+          normalized_name: string
+          raw_source_text: string | null
+          sector_focus: string[]
+          source_confidence: number
+          source_count: number
+          stage_focus: string[]
+          status: Database["public"]["Enums"]["vc_fund_status_enum"]
+          target_size_usd: number | null
+          updated_at: string
+          verification_status: string
+          vintage_year: number | null
+        }
+        Insert: {
+          active_deployment_window_end?: string | null
+          active_deployment_window_start?: string | null
+          announced_date?: string | null
+          announcement_title?: string | null
+          announcement_url?: string | null
+          close_date?: string | null
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          estimated_check_max_usd?: number | null
+          estimated_check_min_usd?: number | null
+          field_confidence?: Json
+          field_provenance?: Json
+          final_size_usd?: number | null
+          firm_record_id: string
+          freshness_synced_at?: string
+          fund_sequence_number?: number | null
+          fund_type?: string | null
+          geography_focus?: string[]
+          id?: string
+          is_new_fund_signal?: boolean
+          last_signal_at?: string | null
+          last_verified_at?: string | null
+          latest_source_published_at?: string | null
+          lead_source?: string | null
+          legacy_fund_record_id?: string | null
+          likely_actively_deploying?: boolean | null
+          manually_verified?: boolean
+          metadata?: Json
+          name: string
+          normalized_key: string
+          normalized_name: string
+          raw_source_text?: string | null
+          sector_focus?: string[]
+          source_confidence?: number
+          source_count?: number
+          stage_focus?: string[]
+          status?: Database["public"]["Enums"]["vc_fund_status_enum"]
+          target_size_usd?: number | null
+          updated_at?: string
+          verification_status?: string
+          vintage_year?: number | null
+        }
+        Update: {
+          active_deployment_window_end?: string | null
+          active_deployment_window_start?: string | null
+          announced_date?: string | null
+          announcement_title?: string | null
+          announcement_url?: string | null
+          close_date?: string | null
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          estimated_check_max_usd?: number | null
+          estimated_check_min_usd?: number | null
+          field_confidence?: Json
+          field_provenance?: Json
+          final_size_usd?: number | null
+          firm_record_id?: string
+          freshness_synced_at?: string
+          fund_sequence_number?: number | null
+          fund_type?: string | null
+          geography_focus?: string[]
+          id?: string
+          is_new_fund_signal?: boolean
+          last_signal_at?: string | null
+          last_verified_at?: string | null
+          latest_source_published_at?: string | null
+          lead_source?: string | null
+          legacy_fund_record_id?: string | null
+          likely_actively_deploying?: boolean | null
+          manually_verified?: boolean
+          metadata?: Json
+          name?: string
+          normalized_key?: string
+          normalized_name?: string
+          raw_source_text?: string | null
+          sector_focus?: string[]
+          source_confidence?: number
+          source_count?: number
+          stage_focus?: string[]
+          status?: Database["public"]["Enums"]["vc_fund_status_enum"]
+          target_size_usd?: number | null
+          updated_at?: string
+          verification_status?: string
+          vintage_year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_funds_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_funds_firm_record_id_fkey"
+            columns: ["firm_record_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vc_interactions: {
         Row: {
           created_at: string
@@ -6914,7 +8802,7 @@ export type Database = {
           name?: string | null
           priority_access?: boolean
           qualification_score?: number
-          referral_code: string
+          referral_code?: string
           referral_count?: number
           referral_score?: number
           referred_by_user_id?: string | null
@@ -7516,6 +9404,15 @@ export type Database = {
         }
         Relationships: []
       }
+      v_latest_vc_fund_sync: {
+        Row: {
+          completed_at: string | null
+          id: string | null
+          started_at: string | null
+          stats: Json | null
+        }
+        Relationships: []
+      }
       v_org_profile: {
         Row: {
           city: string | null
@@ -7633,7 +9530,6 @@ export type Database = {
           referral_score: number | null
           referred_by_email: string | null
           role: string | null
-          sector: string | null
           source: string | null
           stage: string | null
           status: string | null
@@ -7642,6 +9538,38 @@ export type Database = {
           waitlist_position: number | null
         }
         Relationships: []
+      }
+      vc_fund_sync_latest_runs: {
+        Row: {
+          completed_at: string | null
+          dry_run: boolean | null
+          error_message: string | null
+          id: string | null
+          options: Json | null
+          phase: string | null
+          scope_cluster_key: string | null
+          scope_firm_id: string | null
+          started_at: string | null
+          stats: Json | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vc_fund_sync_runs_scope_firm_id_fkey"
+            columns: ["scope_firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vc_fund_sync_runs_scope_firm_id_fkey"
+            columns: ["scope_firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -7695,6 +9623,75 @@ export type Database = {
         }[]
       }
       generate_waitlist_referral_code: { Args: never; Returns: string }
+      get_active_funds_by_stage: {
+        Args: {
+          p_days?: number
+          p_firm_type?: string[]
+          p_fund_size_max?: number
+          p_fund_size_min?: number
+          p_geography?: string[]
+          p_limit?: number
+          p_sector?: string[]
+          p_stage?: string[]
+        }
+        Returns: {
+          announced_date: string
+          close_date: string
+          estimated_check_max_usd: number
+          estimated_check_min_usd: number
+          firm_name: string
+          firm_record_id: string
+          fund_name: string
+          fund_type: string
+          geography_focus: string[]
+          likely_actively_deploying: boolean
+          representative_size_usd: number
+          sector_focus: string[]
+          source_confidence: number
+          stage_focus: string[]
+          vc_fund_id: string
+          vintage_year: number
+        }[]
+      }
+      get_candidate_capital_events_for_review: {
+        Args: {
+          p_firm_record_id?: string
+          p_limit?: number
+          p_status?: string[]
+        }
+        Returns: {
+          candidate_headline: string
+          confidence_breakdown: Json
+          confidence_score: number
+          event_type_guess: string
+          evidence_count: number
+          firm_record_id: string
+          id: string
+          latest_seen_at: string
+          normalized_fund_label: string
+          official_source_present: boolean
+          published_at: string
+          publisher: string
+          raw_firm_name: string
+          review_reason: string
+          source_diversity: number
+          source_url: string
+          status: string
+        }[]
+      }
+      get_capital_heatmap_backend: {
+        Args: { p_window_days?: number }
+        Returns: {
+          average_confidence: number
+          dimension_kind: string
+          dimension_value: string
+          official_source_hits: number
+          signal_count: number
+          total_size_usd: number
+          weighted_score: number
+          window_days: number
+        }[]
+      }
       get_collaborative_recommendations: {
         Args: { _current_founder_id: string }
         Returns: {
@@ -7703,7 +9700,169 @@ export type Database = {
           peer_save_count: number
         }[]
       }
+      get_firm_funds: {
+        Args: { p_firm_record_id: string }
+        Returns: {
+          active_deployment_window_end: string
+          active_deployment_window_start: string
+          announced_date: string
+          announcement_title: string
+          announcement_url: string
+          close_date: string
+          currency: string
+          estimated_check_max_usd: number
+          estimated_check_min_usd: number
+          field_confidence: Json
+          field_provenance: Json
+          final_size_usd: number
+          fund_name: string
+          fund_sequence_number: number
+          fund_type: string
+          geography_focus: string[]
+          is_new_fund_signal: boolean
+          last_signal_at: string
+          likely_actively_deploying: boolean
+          metadata: Json
+          normalized_name: string
+          sector_focus: string[]
+          source_confidence: number
+          source_count: number
+          stage_focus: string[]
+          status: Database["public"]["Enums"]["vc_fund_status_enum"]
+          target_size_usd: number
+          vc_fund_id: string
+          vintage_year: number
+        }[]
+      }
+      get_firms_with_fresh_capital_backend: {
+        Args: { p_limit?: number; p_window_days?: number }
+        Returns: {
+          active_fund_count: number
+          active_fund_vintage: number
+          capital_freshness_boost_score: number
+          firm_name: string
+          firm_record_id: string
+          fresh_capital_priority_score: number
+          has_fresh_capital: boolean
+          last_capital_signal_at: string
+          last_fund_announcement_date: string
+          latest_fund_size_usd: number
+          likely_actively_deploying: boolean
+        }[]
+      }
+      get_fresh_capital_firms: {
+        Args: {
+          p_days?: number
+          p_firm_type?: string[]
+          p_fund_size_max?: number
+          p_fund_size_min?: number
+          p_geography?: string[]
+          p_limit?: number
+          p_sector?: string[]
+          p_stage?: string[]
+        }
+        Returns: {
+          active_fund_count: number
+          active_fund_vintage: number
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          estimated_check_range_json: Json
+          firm_name: string
+          firm_record_id: string
+          fresh_capital_priority_score: number
+          has_fresh_capital: boolean
+          last_capital_signal_at: string
+          last_fund_announcement_date: string
+          latest_fund_size_usd: number
+        }[]
+      }
       get_my_company_ids: { Args: never; Returns: string[] }
+      get_new_vc_funds: {
+        Args: {
+          p_days?: number
+          p_firm_type?: string[]
+          p_fund_size_max?: number
+          p_fund_size_min?: number
+          p_geography?: string[]
+          p_limit?: number
+          p_sector?: string[]
+          p_stage?: string[]
+        }
+        Returns: {
+          announced_date: string
+          announcement_title: string
+          announcement_url: string
+          close_date: string
+          final_size_usd: number
+          firm_aum_usd: number
+          firm_domain: string
+          firm_location: string
+          firm_logo_url: string
+          firm_name: string
+          firm_record_id: string
+          firm_website_url: string
+          fresh_capital_priority_score: number
+          fund_name: string
+          fund_sequence_number: number
+          fund_type: string
+          geography_focus: string[]
+          has_fresh_capital: boolean
+          likely_actively_deploying: boolean
+          sector_focus: string[]
+          source_confidence: number
+          stage_focus: string[]
+          status: Database["public"]["Enums"]["vc_fund_status_enum"]
+          target_size_usd: number
+          vc_fund_id: string
+          vintage_year: number
+        }[]
+      }
+      get_recent_fresh_capital_backend: {
+        Args: { p_limit?: number; p_window_days?: number }
+        Returns: {
+          confidence: number
+          display_priority: number
+          event_date: string
+          firm_name: string
+          firm_record_id: string
+          fresh_capital_priority_score: number
+          fund_name: string
+          headline: string
+          official_source_present: boolean
+          representative_size_usd: number
+          signal_type: Database["public"]["Enums"]["vc_fund_signal_type_enum"]
+          source_url: string
+          summary: string
+          vc_fund_id: string
+          vc_fund_signal_id: string
+        }[]
+      }
+      get_recent_fund_signals: {
+        Args: {
+          p_days?: number
+          p_firm_type?: string[]
+          p_fund_size_max?: number
+          p_fund_size_min?: number
+          p_geography?: string[]
+          p_limit?: number
+          p_sector?: string[]
+          p_stage?: string[]
+        }
+        Returns: {
+          confidence: number
+          display_priority: number
+          event_date: string
+          firm_name: string
+          firm_record_id: string
+          fund_name: string
+          headline: string
+          metadata: Json
+          signal_type: Database["public"]["Enums"]["vc_fund_signal_type_enum"]
+          source_url: string
+          summary: string
+          vc_fund_id: string
+          vc_fund_signal_id: string
+        }[]
+      }
       get_recent_funding_feed: {
         Args: { p_limit?: number }
         Returns: {
@@ -7711,11 +9870,14 @@ export type Database = {
           announced_at: string
           co_investors: string[]
           company_name: string
+          confidence_score: number
+          confirmation_status: string
           id: string
           lead_investor: string
           lead_website_url: string
           round_kind: string
           sector: string
+          source_type: string
           source_url: string
           website_url: string
         }[]
@@ -7811,6 +9973,10 @@ export type Database = {
           thesis_verticals: string[]
         }[]
       }
+      my_connector_manageable_owner_context_ids: {
+        Args: never
+        Returns: string[]
+      }
       my_owner_context_ids: { Args: never; Returns: string[] }
       normalize_tag_value: { Args: { v: string }; Returns: string }
       paths_to_organization: {
@@ -7843,6 +10009,10 @@ export type Database = {
           tracking_count: number
           website: string
         }[]
+      }
+      refresh_firm_capital_derived_fields: {
+        Args: { p_firm_record_id?: string; p_fresh_window_days?: number }
+        Returns: number
       }
       reject_identity: {
         Args: { p_owner_context_id: string; p_person_id: string }
@@ -8023,6 +10193,7 @@ export type Database = {
         | "portfolio_link"
         | "portfolio_company_match"
         | "portfolio_firm_mapping"
+        | "firm_focus"
       review_status: "pending" | "approved" | "rejected" | "merged"
       sector_classification: "generalist" | "sector_focused" | "multi_sector"
       sector_scope_enum: "Generalist" | "Specialized"
@@ -8101,6 +10272,20 @@ export type Database = {
         | "Northeast"
         | "Northwest"
         | "International"
+      vc_fund_signal_type_enum:
+        | "new_fund_announced"
+        | "fund_closed"
+        | "fund_target_updated"
+        | "new_vehicle_detected"
+        | "fresh_capital_inferred"
+        | "fund_size_updated"
+      vc_fund_status_enum:
+        | "announced"
+        | "target"
+        | "first_close"
+        | "final_close"
+        | "inferred_active"
+        | "historical"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8389,6 +10574,7 @@ export const Constants = {
         "portfolio_link",
         "portfolio_company_match",
         "portfolio_firm_mapping",
+        "firm_focus",
       ],
       review_status: ["pending", "approved", "rejected", "merged"],
       sector_classification: ["generalist", "sector_focused", "multi_sector"],
@@ -8475,7 +10661,22 @@ export const Constants = {
         "Northwest",
         "International",
       ],
+      vc_fund_signal_type_enum: [
+        "new_fund_announced",
+        "fund_closed",
+        "fund_target_updated",
+        "new_vehicle_detected",
+        "fresh_capital_inferred",
+        "fund_size_updated",
+      ],
+      vc_fund_status_enum: [
+        "announced",
+        "target",
+        "first_close",
+        "final_close",
+        "inferred_active",
+        "historical",
+      ],
     },
   },
 } as const
-
