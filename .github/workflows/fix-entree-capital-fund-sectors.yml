@@ -1,0 +1,75 @@
+name: Fix Entrée Capital Fund I sector_focus
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Update Entrée Capital Fund I sector_focus in vc_funds
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          const SECTORS = [
+            "AI-Native", "Vertical AI", "AI Infrastructure", "Deep-Tech",
+            "Quantum", "Data", "B2B Productivity", "Crypto", "Frontier", "Defense",
+          ];
+
+          // Find Entrée Capital in firm_records (handles accent and no-accent variants)
+          const { data: firms, error: fe } = await sb
+            .from("firm_records")
+            .select("id, firm_name")
+            .ilike("firm_name", "entr_e capital")
+            .is("deleted_at", null);
+
+          if (fe) { console.error("❌ firm_records query:", fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Entrée Capital not found in firm_records"); process.exit(0); }
+
+          console.log(`Found ${firms.length} firm_records row(s): ${firms.map(f => `"${f.firm_name}"`).join(", ")}`);
+
+          const firmIds = firms.map(f => f.id);
+
+          // Find Fund I (or any active fund) for these firms
+          const { data: funds, error: ffe } = await sb
+            .from("vc_funds")
+            .select("id, name, sector_focus")
+            .in("firm_record_id", firmIds)
+            .is("deleted_at", null);
+
+          if (ffe) { console.error("❌ vc_funds query:", ffe.message); process.exit(1); }
+          if (!funds?.length) { console.log("⚠️  No vc_funds rows found for Entrée Capital"); process.exit(0); }
+
+          console.log(`Found ${funds.length} fund(s): ${funds.map(f => `"${f.name}"`).join(", ")}`);
+
+          for (const fund of funds) {
+            const { error: ue } = await sb
+              .from("vc_funds")
+              .update({ sector_focus: SECTORS, updated_at: new Date().toISOString() })
+              .eq("id", fund.id);
+            if (ue) { console.error(`❌ update "${fund.name}" (${fund.id}):`, ue.message); }
+            else console.log(`✅ "${fund.name}" sector_focus updated`);
+          }
+          EOF

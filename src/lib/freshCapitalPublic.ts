@@ -118,9 +118,16 @@ const FLYBRIDGE_SECTOR_FOCUS_DISPLAY = [
   "Consumer",
 ] as const;
 
+const ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY = [
+  "AI-Native", "Vertical AI", "AI Infrastructure", "Deep-Tech",
+  "Quantum", "Data", "B2B Productivity", "Crypto", "Frontier", "Defense",
+] as const;
+
 const SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[]> = {
   flybridge: [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
   "flybridge ventures": [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
+  "entrée capital": [...ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY],
+  "entree capital": [...ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY],
 };
 
 /** Theme chips — prefers firm-specific overrides when present. */
