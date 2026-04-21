@@ -34,6 +34,7 @@ import {
   type FreshCapitalStageFilter,
   type HeatmapBucket,
 } from "@/lib/freshCapitalPublic";
+import { buildOutboundUrl } from "@/lib/outboundUrl";
 
 /** Aligns live feed surfaces with `/access` (AccessRequestForm + “What happens next” card). */
 const ACCESS_CARD = cn(
@@ -127,6 +128,7 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
   const outletFromUrl = announcementUrl ? prettySourceLabelFromUrl(announcementUrl) : null;
   const showSourceBadge = hasArticle || Boolean(title);
 
+<<<<<<< HEAD
   const aumText = formatFundSizeUsd(freshCapitalFirmAumUsd(row)) ?? "Undisclosed";
 
   const pieces = [
@@ -139,6 +141,16 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
         className="text-inherit underline-offset-2 hover:underline"
       >
         {websiteDisplay}
+=======
+  const firmOutboundHref = buildOutboundUrl(websiteUrl, "firm_website", "fresh_funds", row.vc_fund_id);
+  const articleOutboundHref = buildOutboundUrl(announcementUrl, "funding_article", "fresh_funds", row.vc_fund_id);
+
+  const pieces = [
+    location ? <span key="location">{location}</span> : null,
+    firmOutboundHref && websiteLabel ? (
+      <a key="website" href={firmOutboundHref} target="_blank" rel="noopener" className="text-inherit underline-offset-2 hover:underline">
+        {websiteLabel}
+>>>>>>> origin/claude/add-link-tracking-R7MGF
       </a>
     ) : null,
     location ? <span key="location">{location}</span> : null,
@@ -150,7 +162,7 @@ function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
         <SourceOutletBadge
           hasArticle={hasArticle}
           outletLabel={hasArticle ? outletFromUrl ?? sourceFromTitle ?? null : null}
-          href={announcementUrl}
+          href={articleOutboundHref}
           noLinkFallbackLabel={hasArticle ? null : sourceFromTitle ?? null}
         />
       </span>
