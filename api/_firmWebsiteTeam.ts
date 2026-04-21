@@ -169,7 +169,7 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       const maybeAvatar = pickIncomingString(inv.avatar_url, p.profile_image_url);
       if (maybeAvatar) patch.avatar_url = maybeAvatar;
       if (!Object.keys(patch).length) continue;
-      updates.push(admin.from("firm_investors").update(patch).eq("id", String(inv.id)));
+      updates.push(admin.from("firm_investors").update(patch).eq("id", String(inv.id)) as unknown as Promise<unknown>);
       continue;
     }
 
@@ -190,7 +190,7 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       is_active: true,
       ready_for_live: true,
     };
-    updates.push(admin.from("firm_investors").insert(insertRow));
+    updates.push(admin.from("firm_investors").insert(insertRow) as unknown as Promise<unknown>);
   }
 
   if (updates.length) {
@@ -766,7 +766,7 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
 }
 
 function linkedInProfileSlugUsed(byName: Map<string, FirmWebsiteTeamPerson>, slug: string): boolean {
-  for (const p of byName.values()) {
+  for (const p of Array.from(byName.values())) {
     const s = linkedInSlugFromUrl(p.linkedin_url);
     if (s && s === slug) return true;
   }
