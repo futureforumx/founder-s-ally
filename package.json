@@ -63,6 +63,8 @@
     "db:enrich:wikipedia": "tsx scripts/enrich-wikipedia.ts",
     "db:enrich:wikipedia:dry": "WIKI_DRY_RUN=1 tsx scripts/enrich-wikipedia.ts",
     "db:enrich:firm-focus": "tsx scripts/enrich-firm-focus.ts",
+    "db:enrich:firm-exa": "tsx scripts/enrich-firm-records-exa.ts",
+    "db:enrich:firm-exa:dry": "DRY_RUN=1 tsx scripts/enrich-firm-records-exa.ts",
     "enrich:firm-logos": "tsx scripts/enrich-firm-logos.ts",
     "enrich:firm-logos:dry": "LOGO_DRY_RUN=1 tsx scripts/enrich-firm-logos.ts",
     "db:backfill:firm-logos-website": "tsx scripts/backfill-firm-logos-from-website.ts",

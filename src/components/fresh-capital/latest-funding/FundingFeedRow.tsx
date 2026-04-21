@@ -55,7 +55,7 @@ function FundingDealMetaRow({
   row: RecentFundingRound;
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
-  const host = prettyWebsiteHost(row.websiteUrl);
+  const host = prettyWebsiteHost(row.websiteUrl)?.toLowerCase() ?? null;
   const webHref = normalizeWebsiteUrl(row.websiteUrl);
   const outlet = prettyOutletFromSourceUrl(row.sourceUrl);
   const hasArticle = Boolean(row.sourceUrl?.trim());

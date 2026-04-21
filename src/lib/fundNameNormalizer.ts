@@ -89,6 +89,103 @@ const ORDINAL_RE = /\b(\d+)(?:st|nd|rd|th)\b/gi;
  *   normalizeFundName("Accel Leaders Fund III")
  *   // → "accel leaders 3"
  */
+function escapeRegexChars(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function tokenizeFirmWords(firmName: string): string[] {
+  return firmName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Tokenize a fund name the same way as firm names (alphanumeric runs only).
+ */
+function tokenizeFundWords(fundName: string): string[] {
+  return fundName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * When the fund name begins with the first K words of the firm name (same
+ * tokens, case-insensitive), strip only those words — e.g. "Sequoia Capital"
+ * + "Sequoia Expansion Strategy Fund" → "Expansion Strategy Fund".
+ */
+function stripLeadingSharedFirmWordTokens(firmName: string, fundName: string): string | null {
+  const firmToks = tokenizeFirmWords(firmName);
+  const fundToks = tokenizeFundWords(fundName);
+  if (!firmToks.length || !fundToks.length) return null;
+
+  let k = 0;
+  while (k < firmToks.length && k < fundToks.length && firmToks[k] === fundToks[k]) {
+    k++;
+  }
+  if (k === 0) return null;
+
+  const wordRe = /\b[A-Za-z0-9]+\b/g;
+  let matched = 0;
+  let endPos = 0;
+  let m: RegExpExecArray | null;
+  while (matched < k && (m = wordRe.exec(fundName))) {
+    if (m[0].toLowerCase() !== firmToks[matched]) return null;
+    matched++;
+    endPos = m.index + m[0].length;
+  }
+  if (matched !== k) return null;
+
+  let tail = fundName.slice(endPos).replace(/^[\s,;:|\-–—[\]()]+/, "").trim();
+  // If we stopped after "Capital" but the source had "Capital's", the slice starts with "'s".
+  tail = tail.replace(/^['\u2019]s\b/i, "").trim();
+  if (!tail) return null;
+  return tail;
+}
+
+/**
+ * Strip repeated leading firm branding from a fund vehicle name for display.
+ *
+ * Handles possessives ("Acme Ventures' Acme Ventures Fund II") and duplicated
+ * firm tokens ("RING CAPITAL'S RING CAPITAL ALTITUDE II" → "ALTITUDE II").
+ *
+ * If stripping would erase the entire string, returns the original fund name.
+ */
+export function stripRedundantFirmPrefixFromFundName(firmName: string, fundName: string): string {
+  const raw = fundName.trim();
+  if (!raw) return raw;
+  const firmWords = tokenizeFirmWords(firmName);
+  if (firmWords.length === 0) return raw;
+
+  const partial = stripLeadingSharedFirmWordTokens(firmName, raw);
+  let current = partial !== null ? partial : raw;
+
+  for (let pass = 0; pass < 12; pass++) {
+    const next = stripOneLeadingFirmPrefix(current, firmWords).trim();
+    if (!next) return raw;
+    if (next === current) break;
+    current = next;
+  }
+  return current.trim() || raw;
+}
+
+/** Remove one leading instance of the firm name (last word may end with ’s / 's). */
+function stripOneLeadingFirmPrefix(fundName: string, firmWords: string[]): string {
+  const parts = firmWords.map((w, i) => {
+    const e = escapeRegexChars(w);
+    const isLast = i === firmWords.length - 1;
+    return isLast ? `${e}(?:['\u2019]s)?` : e;
+  });
+  const gap = "[^a-z0-9]+";
+  const core =
+    parts.length === 1 ? parts[0] : parts.slice(0, -1).join(gap) + gap + parts[parts.length - 1];
+
+  const re = new RegExp(`^[\\s\\-–—:|[("']*(?:the\\s+)?${core}[^a-z0-9]*`, "i");
+  const trimmed = fundName.trim();
+  return trimmed.replace(re, "").trim();
+}
+
 export function normalizeFundName(raw: string): string {
   let s = raw.trim().toLowerCase();
 

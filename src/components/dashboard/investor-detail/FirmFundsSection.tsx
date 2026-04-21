@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { cn, safeLower, safeTrim } from "@/lib/utils";
 
 type FundRow = {
@@ -169,7 +170,7 @@ export function FirmFundsSection({ firmRecordsId, firmName, isActivelyDeploying,
                 {/* Header row: fund name + status badges */}
                 <div className="flex flex-wrap items-start justify-between gap-2 gap-y-1">
                   <p className="text-sm font-semibold text-foreground leading-tight">
-                    {f.fund_name}
+                    {stripRedundantFirmPrefixFromFundName(firmName ?? "", f.fund_name)}
                   </p>
                   <div className="flex flex-wrap gap-1 justify-end">
                     {f.fund_status ? (

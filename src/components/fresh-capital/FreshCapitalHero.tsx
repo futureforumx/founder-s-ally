@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
+import MuxPlayer from "@mux/mux-player-react";
+import type MuxPlayerElement from "@mux/mux-player";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,12 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 import { trackFreshCapitalGetFullAccess, trackFreshCapitalViewLatestFunds } from "@/lib/freshCapitalAnalytics";
 
-/** Playback ID from `https://stream.mux.com/GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld2bxSywt3M` — embed via `https://player.mux.com/{id}`. */
+/** Same asset as auth rotation (`AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS`) — use MuxPlayer, not iframe (iframe often blocked / zero-size). */
 const FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID = "GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld2bxSywt3M";
-
-/** Same delegated permissions as `/auth` Mux iframe (muted autoplay, esp. Safari). */
-const MUX_IFRAME_ALLOW =
-  "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen";
 
 type Props = {
   onScrollToFeed: () => void;
@@ -30,42 +28,51 @@ const HERO_EXPLORE_ITEM = cn(
   "focus:bg-white/[0.06] focus:text-zinc-50 data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-zinc-50",
 );
 
-/** Iframe query: muted autoplay + hide control UI via CSS vars (Mux iframe embed — customize look-and-feel). */
-function buildFreshCapitalMuxEmbedSrc(): string {
-  const id = FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID;
-  const params = new URLSearchParams();
-  params.set("autoplay", "muted");
-  params.set("muted", "true");
-  params.set("loop", "true");
-  params.set("playsinline", "true");
-  params.set("controls", "false");
-  params.set("nohotkeys", "true");
-  params.set(
-    "style",
-    "--controls: none; --play-button: none; --center-controls: none; --bottom-play-button: none; --loading-indicator: none; --dialog: none;",
-  );
-  return `https://player.mux.com/${id}?${params.toString()}`;
-}
-
 export function FreshCapitalHero({ onScrollToFeed }: Props) {
-  const muxEmbedSrc = useMemo(() => buildFreshCapitalMuxEmbedSrc(), []);
+  const muxRef = useRef<MuxPlayerElement | null>(null);
+
+  /** Same autoplay kick as `/auth` — Safari / Low Power Mode need explicit play(). */
+  useEffect(() => {
+    const el = muxRef.current;
+    if (!el) return;
+    el.defaultMuted = true;
+    el.muted = true;
+    const kick = () => {
+      void el.play().catch(() => {
+        /* autoplay policies */
+      });
+    };
+    kick();
+    el.addEventListener("loadeddata", kick, { once: true });
+    el.addEventListener("canplay", kick, { once: true });
+    return () => {
+      el.removeEventListener("loadeddata", kick);
+      el.removeEventListener("canplay", kick);
+    };
+  }, []);
 
   return (
     <header className="relative ml-[calc(50%-50vw)] w-screen max-w-none shrink-0 min-h-[min(40vh,420px)] border-b border-zinc-800 bg-black">
-      {/* Background fills header; header is viewport-wide so Mux is not clipped by a narrow ancestor. */}
-      <div className="pointer-events-none absolute inset-0 z-0 min-h-[min(40vh,420px)]" aria-hidden>
-        <div className="auth-hero-mux relative h-full min-h-full w-full overflow-hidden">
-          <iframe
-            src={muxEmbedSrc}
+      {/* Background: mux-player-react (same stack as Auth) — fills pinned stage; veil on top for readable copy */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+        <div className="absolute inset-0 min-h-[min(40vh,420px)] bg-black" />
+        <div className="auth-hero-mux absolute inset-0 min-h-[min(40vh,420px)] overflow-hidden">
+          <MuxPlayer
+            ref={muxRef}
+            playbackId={FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID}
             title="Fresh capital background video"
-            className="auth-hero-mux-player"
-            allow={MUX_IFRAME_ALLOW}
-            loading="eager"
-            tabIndex={-1}
+            className="auth-hero-mux-player block h-full w-full pointer-events-none border-0"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            nohotkeys
+            streamType="on-demand"
+            metadata={{ video_title: "Fresh capital hero" }}
           />
         </div>
-        {/* Black veil over video (readable copy on top at z-10). */}
-        <div className="absolute inset-0 bg-black/65" />
+        <div className="absolute inset-0 bg-black/45" aria-hidden />
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-6 pt-8 sm:gap-7 sm:px-6 sm:pb-8 sm:pt-10">
