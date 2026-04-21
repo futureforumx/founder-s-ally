@@ -345,6 +345,15 @@ describe("Battery Ventures XV / Thrive Capital X stage labels", () => {
     ).toBe("Thrive X");
   });
 
+  it('shows fund name as "Thrive X" for Fund X on Thrive Capital rows', () => {
+    expect(
+      fundNameForDisplay({
+        firm_name: "Thrive Capital",
+        fund_name: "Fund X",
+      }),
+    ).toBe("Thrive X");
+  });
+
   it('maps Growth to "Series C+" for Battery Ventures XV', () => {
     expect(
       stageFocusForDisplay({
