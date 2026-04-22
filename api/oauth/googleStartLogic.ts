@@ -5,10 +5,13 @@ import { signGoogleOAuthState } from "../_oauthStateSigned";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 
-function googleScopes(connector: "gmail" | "gcal"): string {
+function googleScopes(connector: "gmail" | "gcal" | "gsheets"): string {
   const email = "https://www.googleapis.com/auth/userinfo.email openid";
   if (connector === "gmail") {
     return ["https://www.googleapis.com/auth/gmail.readonly", email].join(" ");
+  }
+  if (connector === "gsheets") {
+    return ["https://www.googleapis.com/auth/spreadsheets.readonly", email].join(" ");
   }
   return ["https://www.googleapis.com/auth/calendar.readonly", email].join(" ");
 }
@@ -27,11 +30,12 @@ export async function buildGoogleOAuthStartResponse(input: {
   }
 
   const connectorRaw = (input.connector ?? "").trim();
-  const connector = connectorRaw === "gcal" ? "gcal" : connectorRaw === "gmail" ? "gmail" : null;
+  const connector =
+    connectorRaw === "gcal" ? "gcal" : connectorRaw === "gmail" ? "gmail" : connectorRaw === "gsheets" ? "gsheets" : null;
   const ownerContextId = (input.owner_context_id ?? "").trim();
 
   if (!connector) {
-    return { kind: "json", status: 400, body: { error: "Invalid connector (use gmail or gcal)" } };
+    return { kind: "json", status: 400, body: { error: "Invalid connector (use gmail, gcal, or gsheets)" } };
   }
   if (!isUuid(ownerContextId)) {
     return { kind: "json", status: 400, body: { error: "owner_context_id must be a UUID" } };

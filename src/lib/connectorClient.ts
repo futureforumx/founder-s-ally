@@ -93,7 +93,7 @@ async function connectorPostJson(
 }
 
 export async function startGoogleOAuthRedirect(params: {
-  connector: "gmail" | "gcal";
+  connector: "gmail" | "gcal" | "gsheets";
   ownerContextId: string;
   getToken: () => Promise<string | null>;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -148,6 +148,12 @@ export function startGoogleCalendarOAuthRedirect(
   params: Omit<Parameters<typeof startGoogleOAuthRedirect>[0], "connector">,
 ) {
   return startGoogleOAuthRedirect({ ...params, connector: "gcal" });
+}
+
+export function startGoogleSheetsOAuthRedirect(
+  params: Omit<Parameters<typeof startGoogleOAuthRedirect>[0], "connector">,
+) {
+  return startGoogleOAuthRedirect({ ...params, connector: "gsheets" });
 }
 
 export async function uploadLinkedinCsv(params: {
@@ -233,6 +239,15 @@ export async function runConnectorConnectAction(input: {
     return { outcome: "google_oauth_redirect" };
   }
 
+  if (integrationKey === "google_sheets") {
+    if (!isOwnerContextUuid(ownerContextId)) {
+      return { outcome: "blocked", message: "Google Sheets connect requires a real owner context UUID." };
+    }
+    const r = await startGoogleOAuthRedirect({ connector: "gsheets", ownerContextId, getToken });
+    if (!r.ok) return { outcome: "blocked", message: r.message };
+    return { outcome: "google_oauth_redirect" };
+  }
+
   if (isCrmPlaceholderKey(integrationKey)) {
     logConnectorClientPlaceholder({ kind: "connect", integrationKey, ownerContextId });
     return { outcome: "stub_only" };
@@ -257,7 +272,7 @@ export async function runConnectorDisconnectAction(input: {
 
   const oc = ownerContextId.trim();
 
-  if (integrationKey === "google") {
+  if (integrationKey === "google" || integrationKey === "google_sheets") {
     const r = await connectorPostJson("/api/connectors/google/disconnect", { owner_context_id: oc }, getToken);
     if (!r.ok) return { ok: false, message: r.message };
     return { ok: true };

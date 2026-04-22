@@ -13,7 +13,7 @@ export type GoogleOAuthStatePayload = {
   v: 1;
   uid: string;
   oc: string;
-  connector: "gmail" | "gcal";
+  connector: "gmail" | "gcal" | "gsheets";
   exp: number;
 };
 
@@ -36,7 +36,9 @@ export function verifyGoogleOAuthState(token: string): GoogleOAuthStatePayload |
     const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as GoogleOAuthStatePayload;
     if (parsed.v !== 1) return null;
     if (typeof parsed.uid !== "string" || typeof parsed.oc !== "string") return null;
-    if (parsed.connector !== "gmail" && parsed.connector !== "gcal") return null;
+    if (parsed.connector !== "gmail" && parsed.connector !== "gcal" && parsed.connector !== "gsheets") {
+      return null;
+    }
     if (typeof parsed.exp !== "number" || Date.now() > parsed.exp) return null;
     return parsed;
   } catch {
