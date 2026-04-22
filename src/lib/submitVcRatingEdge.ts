@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/functions-js";
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
 import { getClerkBrowserSessionToken } from "@/lib/edgeFunctionAuth";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
