@@ -39,11 +39,13 @@ import {
   logConnectorClientPlaceholder,
   runConnectorDisconnectAction,
   startGoogleOAuthRedirect,
+  startGoogleSheetsOAuthRedirect,
 } from "@/lib/connectorClient";
 import { SettingsTour } from "@/components/settings/SettingsTour";
 import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
+import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -1162,7 +1164,7 @@ function loadPersonalConnected(scopeId: string): Record<string, boolean> {
     const raw = localStorage.getItem(contextScopedStorageKey(PERSONAL_CONNECTIONS_BASE, scopeId));
     if (raw) return JSON.parse(raw);
   } catch {}
-  return { linkedin: false, twitter: false, google: false };
+  return { linkedin: false, twitter: false, google: false, google_sheets: false };
 }
 function savePersonalConnected(scopeId: string, s: Record<string, boolean>) {
   try {
@@ -1195,18 +1197,54 @@ const PERSONAL_INTEGRATIONS = [
     description: "Connect Google (Gmail + Calendar) for the active owner context.",
     connectedLabel: "Personal account linked",
   },
+  {
+    key: "google_sheets",
+    label: "Google Sheets",
+    icon: "https://cdn.simpleicons.org/googlesheets/34A853",
+    fallbackIcon: FileText,
+    description: "Connect Google Sheets for the active owner context with read-only spreadsheet access.",
+    connectedLabel: "Sheets account linked",
+  },
 ] as const;
 
 function PersonalNetworkSection() {
   const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
   const { getToken } = useClerkAuthForConnectors();
   const queryClient = useQueryClient();
+  const { data: remoteAccounts = [] } = useConnectedAccounts(activeContextId);
   const [connected, setConnected] = useState(() => loadPersonalConnected(activeContextId));
   const [syncing, setSyncing] = useState<string | null>(null);
 
   useEffect(() => {
     setConnected(loadPersonalConnected(activeContextId));
   }, [activeContextId]);
+
+  useEffect(() => {
+    if (!isOwnerContextUuid(activeContextId)) return;
+    const hasGoogleWorkspace = remoteAccounts.some(
+      (a) => a.provider === "gmail" || a.provider === "google_calendar",
+    );
+    const hasGoogleSheets = remoteAccounts.some((a) => a.provider === "google_sheets");
+    if (!hasGoogleWorkspace && !hasGoogleSheets) return;
+
+    setConnected((prev) => {
+      let next = prev;
+      let changed = false;
+
+      if (hasGoogleWorkspace && !next.google) {
+        next = { ...next, google: true };
+        changed = true;
+      }
+      if (hasGoogleSheets && !next.google_sheets) {
+        next = { ...next, google_sheets: true };
+        changed = true;
+      }
+
+      if (!changed) return prev;
+      savePersonalConnected(activeContextId, next);
+      return next;
+    });
+  }, [activeContextId, remoteAccounts]);
 
   const handleToggle = useCallback(
     async (key: string) => {
@@ -1250,6 +1288,22 @@ function PersonalNetworkSection() {
         });
         return;
       }
+      if (key === "google_sheets" && isOwnerContextUuid(activeContextId)) {
+        setSyncing(key);
+        const r = await startGoogleSheetsOAuthRedirect({
+          ownerContextId: activeContextId,
+          getToken,
+        });
+        setSyncing(null);
+        if (!r.ok) {
+          toast.error(r.message);
+          return;
+        }
+        toast.message("Redirecting to Google", {
+          description: "Complete sign-in to link Google Sheets for this owner context.",
+        });
+        return;
+      }
       logConnectorClientPlaceholder({ kind: "connect", integrationKey: key, ownerContextId: activeContextId });
       setSyncing(key);
       setTimeout(() => {
@@ -1278,7 +1332,7 @@ function PersonalNetworkSection() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {PERSONAL_INTEGRATIONS.map((integration) => {
           const isConnected = connected[integration.key];
           const isSyncing = syncing === integration.key;

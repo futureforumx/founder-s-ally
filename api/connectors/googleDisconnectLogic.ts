@@ -48,7 +48,7 @@ export async function runGoogleDisconnect(input: {
     .from("connected_accounts")
     .select("id, provider, metadata")
     .eq("owner_context_id", ownerContextId)
-    .in("provider", ["gmail", "google_calendar"]);
+    .in("provider", ["gmail", "google_calendar", "google_sheets"]);
 
   if (selErr) {
     return { status: 500, json: { error: "Failed to load accounts", detail: selErr.message } };
@@ -67,7 +67,7 @@ export async function runGoogleDisconnect(input: {
     .from("connected_accounts")
     .delete()
     .eq("owner_context_id", ownerContextId)
-    .in("provider", ["gmail", "google_calendar"]);
+    .in("provider", ["gmail", "google_calendar", "google_sheets"]);
 
   if (delErr) {
     return { status: 500, json: { error: "Failed to remove accounts", detail: delErr.message } };

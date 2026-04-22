@@ -30,6 +30,7 @@ export type RecordType =
 export type ConnectorProvider =
   | "gmail"
   | "google_calendar"
+  | "google_sheets"
   | "outlook"
   | "hubspot"
   | "salesforce"

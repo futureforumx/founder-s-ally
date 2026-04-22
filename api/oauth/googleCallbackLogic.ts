@@ -85,7 +85,12 @@ export async function buildGoogleOAuthCallbackResponse(input: {
   const externalId = (uiJson.id && String(uiJson.id)) || payload.uid;
   const email = uiJson.email ? String(uiJson.email) : null;
 
-  const provider = payload.connector === "gcal" ? "google_calendar" : "gmail";
+  const provider =
+    payload.connector === "gcal"
+      ? "google_calendar"
+      : payload.connector === "gsheets"
+        ? "google_sheets"
+        : "gmail";
   const metadata = {
     google_oauth: {
       scope: tokenJson.scope ?? null,

@@ -8,6 +8,7 @@ type AccountRow = { id: string; provider: string; metadata: unknown };
 /**
  * Google resync: creates per-account sync_runs, pulls Gmail/Calendar via Google APIs,
  * inserts connector_source_records, and invokes `source-record-created` for staging + graph promotion.
+ * Google Sheets accounts can be linked, but they are not part of the ingest/resync pipeline yet.
  */
 export async function runGoogleResync(input: {
   authorization: string | undefined;
