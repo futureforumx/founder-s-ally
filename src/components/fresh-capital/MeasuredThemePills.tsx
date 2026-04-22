@@ -87,7 +87,9 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
       return node?.offsetWidth ?? 0;
     };
 
-    setFitCount(maxFullChipsThatFit({ cw, chipWidths, overflowWidthByRemaining, gapPx }));
+    const MIN_ALWAYS_VISIBLE = 2;
+    const computed = maxFullChipsThatFit({ cw, chipWidths, overflowWidthByRemaining, gapPx });
+    setFitCount(Math.max(Math.min(MIN_ALWAYS_VISIBLE, chipWidths.length), computed));
   }, []);
 
   useLayoutEffect(() => {
