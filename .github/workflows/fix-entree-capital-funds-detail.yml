@@ -1,0 +1,86 @@
+name: Fix Entrée Capital fund details (sectors, amounts, stages)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Update Entrée Capital Early Fund + Follow-on Fund
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          const SECTORS = [
+            "AI-Native", "Vertical AI", "AI Infrastructure", "Deep-Tech",
+            "Quantum", "Data", "B2B Productivity", "Crypto", "Frontier", "Defense",
+          ];
+
+          const FUND_SPECS = {
+            "early fund":     { target_size_usd: 125_000_000, stage_focus: ["Pre-Seed", "Seed"],       sector_focus: SECTORS },
+            "follow-on fund": { target_size_usd: 175_000_000, stage_focus: ["Series A", "Series B"],   sector_focus: SECTORS },
+          };
+
+          // Find Entrée Capital firm_records
+          const { data: firms, error: fe } = await sb
+            .from("firm_records")
+            .select("id, firm_name")
+            .ilike("firm_name", "entr_e capital")
+            .is("deleted_at", null);
+
+          if (fe) { console.error("❌ firm_records:", fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Entrée Capital not found"); process.exit(0); }
+
+          const firmIds = firms.map(f => f.id);
+
+          // Get all non-deleted funds for these firms
+          const { data: funds, error: ffe } = await sb
+            .from("vc_funds")
+            .select("id, name, target_size_usd, stage_focus, sector_focus")
+            .in("firm_record_id", firmIds)
+            .is("deleted_at", null);
+
+          if (ffe) { console.error("❌ vc_funds:", ffe.message); process.exit(1); }
+          console.log(`Found funds: ${(funds ?? []).map(f => `"${f.name}"`).join(", ")}`);
+
+          for (const fund of funds ?? []) {
+            const spec = FUND_SPECS[fund.name.toLowerCase().trim()];
+            if (!spec) {
+              console.log(`  ⏭️  "${fund.name}" — no spec, updating sectors only`);
+              await sb.from("vc_funds")
+                .update({ sector_focus: SECTORS, updated_at: new Date().toISOString() })
+                .eq("id", fund.id);
+              continue;
+            }
+            const { error: ue } = await sb.from("vc_funds").update({
+              target_size_usd: spec.target_size_usd,
+              stage_focus:     spec.stage_focus,
+              sector_focus:    spec.sector_focus,
+              updated_at:      new Date().toISOString(),
+            }).eq("id", fund.id);
+            if (ue) console.error(`  ❌ "${fund.name}":`, ue.message);
+            else console.log(`  ✅ "${fund.name}" → $${spec.target_size_usd / 1e6}M, stages: ${spec.stage_focus.join(", ")}, sectors updated`);
+          }
+          EOF

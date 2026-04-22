@@ -19,6 +19,8 @@ export interface VCFirm {
   website_url: string | null;
   /** Searchable nicknames and alternate names (e.g. ["a16z"] for Andreessen Horowitz). */
   aliases: string[] | null;
+  hq_city: string | null;
+  hq_state: string | null;
 }
 
 // ── Enums ──
@@ -415,6 +417,8 @@ function normalizeFirmRow(row: Record<string, unknown>): VCFirm | null {
     logo_url: logoOverride || (typeof row.logo_url === "string" ? row.logo_url : null),
     website_url: websiteFromRow,
     aliases: toStringArray(row.aliases) ?? null,
+    hq_city: typeof row.hq_city === "string" ? row.hq_city : null,
+    hq_state: typeof row.hq_state === "string" ? row.hq_state : null,
   };
 }
 

@@ -286,6 +286,11 @@ const FLYBRIDGE_SECTOR_FOCUS_DISPLAY = [
   "Consumer",
 ] as const;
 
+const ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY = [
+  "AI-Native", "Vertical AI", "AI Infrastructure", "Deep-Tech",
+  "Quantum", "Data", "B2B Productivity", "Crypto", "Frontier", "Defense",
+] as const;
+
 const VIOLA_VENTURES_SECTOR_FOCUS_DISPLAY = [
   "Vertical AI",
   "AI Infrastructure",
@@ -295,10 +300,20 @@ const VIOLA_VENTURES_SECTOR_FOCUS_DISPLAY = [
   "Defense",
 ] as const;
 
+const AISIN_SECTOR_FOCUS_DISPLAY = [
+  "Physical AI",
+  "Energy",
+  "Healthtech",
+  "Sustainability",
+] as const;
+
 const SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME: Record<string, readonly string[]> = {
   flybridge: [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
   "flybridge ventures": [...FLYBRIDGE_SECTOR_FOCUS_DISPLAY],
+  "entrée capital": [...ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY],
+  "entree capital": [...ENTREE_CAPITAL_SECTOR_FOCUS_DISPLAY],
   "viola ventures": [...VIOLA_VENTURES_SECTOR_FOCUS_DISPLAY],
+  aisin: [...AISIN_SECTOR_FOCUS_DISPLAY],
 };
 
 const HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY = [

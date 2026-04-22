@@ -49,7 +49,7 @@ export async function buildGoogleOAuthStartResponse(input: {
 
   const gate = await assertConnectorManagementForUser(supabase, userId, ownerContextId);
   if (!gate.ok) {
-    return { kind: "json", status: 403, body: { error: gate.message } };
+    return { kind: "json", status: 403, body: { error: (gate as { ok: false; message: string }).message } };
   }
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;

@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "http";
-import busboy from "busboy";
+import * as busboy from "busboy";
 import { randomUUID } from "node:crypto";
 import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest";
 import { getSupabaseServiceClient } from "../_supabaseServiceClient";
@@ -27,7 +27,7 @@ function parseLinkedinUpload(req: IncomingMessage): Promise<
     let fileName = "upload.csv";
     const chunks: Buffer[] = [];
 
-    const bb = busboy({
+    const bb = (busboy as unknown as (c: unknown) => any)({
       headers: req.headers,
       limits: { fileSize: MAX_BYTES, files: 1, fields: 24 },
     });
@@ -78,7 +78,7 @@ export async function runLinkedinCsvUpload(
 ): Promise<{ status: number; json: Record<string, unknown> }> {
   const parsed = await parseLinkedinUpload(req);
   if (!parsed.ok) {
-    return { status: 400, json: { error: parsed.error } };
+    return { status: 400, json: { error: (parsed as { ok: false; error: string }).error } };
   }
 
   if (!isUuid(parsed.owner_context_id)) {
@@ -97,7 +97,7 @@ export async function runLinkedinCsvUpload(
 
   const gate = await assertConnectorManagementForUser(supabase, userId, parsed.owner_context_id);
   if (!gate.ok) {
-    return { status: 403, json: { error: gate.message } };
+    return { status: 403, json: { error: (gate as { ok: false; message: string }).message } };
   }
 
   const rowCount = Math.max(0, countCsvLines(parsed.fileData));

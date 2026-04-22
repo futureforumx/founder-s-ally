@@ -1,0 +1,50 @@
+name: Fix AISIN Fund sector_focus
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Set AISIN Fund sector_focus to Physical AI, Energy, Healthtech
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing env vars"); process.exit(1); }
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          const SECTORS = ["Physical AI", "Energy", "Healthtech", "Sustainability"];
+
+          const { data: funds, error } = await sb
+            .from("vc_funds")
+            .select("id, name")
+            .ilike("name", "aisin fund")
+            .is("deleted_at", null);
+
+          if (error) { console.error("❌", error.message); process.exit(1); }
+          if (!funds?.length) { console.log("⚠️  AISIN Fund not found"); process.exit(0); }
+
+          for (const fund of funds) {
+            const { error: ue } = await sb.from("vc_funds")
+              .update({ sector_focus: SECTORS, updated_at: new Date().toISOString() })
+              .eq("id", fund.id);
+            if (ue) console.error(`❌ "${fund.name}":`, ue.message);
+            else console.log(`✅ "${fund.name}" sector_focus → ${SECTORS.join(", ")}`);
+          }
+          EOF

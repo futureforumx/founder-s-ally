@@ -1,0 +1,44 @@
+name: Fix Entrée Capital AUM in firm_records
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Set Entrée Capital AUM to $1.5B in firm_records
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+          const sb = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+          const { data: rows, error } = await sb
+            .from("firm_records")
+            .select("id, firm_name, aum")
+            .ilike("firm_name", "entr_e capital")
+            .is("deleted_at", null);
+
+          if (error) { console.error("❌", error.message); process.exit(1); }
+          if (!rows?.length) { console.log("⚠️  Entrée Capital not found"); process.exit(0); }
+
+          for (const row of rows) {
+            const { error: ue } = await sb.from("firm_records")
+              .update({ aum: "$1.5B", aum_usd: 1_500_000_000, updated_at: new Date().toISOString() })
+              .eq("id", row.id);
+            if (ue) console.error(`❌ "${row.firm_name}":`, ue.message);
+            else console.log(`✅ "${row.firm_name}" AUM → $1.5B`);
+          }
+          EOF

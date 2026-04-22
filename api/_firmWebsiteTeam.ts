@@ -25,7 +25,9 @@ const IMG_OPEN_TAG_RE = /<img\b([^>]*)\/?>/gi;
 const SOCIAL_LINK_RE = /href=["']([^"']*(?:linkedin\.com|x\.com|twitter\.com)[^"']*)["']/gi;
 const MAILTO_RE = /mailto:([^"'? ]+)/i;
 // Unicode letters for names like "Peter Hébert", "José García"
+// @ts-ignore — unicode property escapes require ES2018+; runtime is Node 18+ so this is safe
 const NAME_ONE_RE = /\b([A-Z][\p{L}\p{M}]+(?:\s+[A-Z][\p{L}\p{M}.'-]+){1,4}(?:,\s*(?:PhD|MD|MBA|JD|CPA|CFA))?)\b/u;
+// @ts-ignore
 const NAME_RE = new RegExp(NAME_ONE_RE.source, "gu");
 
 
@@ -169,7 +171,7 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       const maybeAvatar = pickIncomingString(inv.avatar_url, p.profile_image_url);
       if (maybeAvatar) patch.avatar_url = maybeAvatar;
       if (!Object.keys(patch).length) continue;
-      updates.push(admin.from("firm_investors").update(patch).eq("id", String(inv.id)));
+      updates.push(admin.from("firm_investors").update(patch).eq("id", String(inv.id)) as unknown as Promise<unknown>);
       continue;
     }
 
@@ -190,7 +192,7 @@ async function persistWebsiteTeamToFirmInvestors(websiteUrl: string, people: Fir
       is_active: true,
       ready_for_live: true,
     };
-    updates.push(admin.from("firm_investors").insert(insertRow));
+    updates.push(admin.from("firm_investors").insert(insertRow) as unknown as Promise<unknown>);
   }
 
   if (updates.length) {
@@ -766,7 +768,7 @@ function parsePersonBlock(block: string, pageUrl: string, index: number): FirmWe
 }
 
 function linkedInProfileSlugUsed(byName: Map<string, FirmWebsiteTeamPerson>, slug: string): boolean {
-  for (const p of byName.values()) {
+  for (const p of Array.from(byName.values())) {
     const s = linkedInSlugFromUrl(p.linkedin_url);
     if (s && s === slug) return true;
   }

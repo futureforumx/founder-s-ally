@@ -1,0 +1,68 @@
+name: Fix Thrive Capital fund name (X → Thrive X)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/add-corazon-hq-location-USEPs
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Fix Thrive X fund name in vc_funds
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node --input-type=module << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const URL = process.env.VITE_SUPABASE_URL;
+          const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!URL || !KEY) { console.error("Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
+
+          const sb = createClient(URL, KEY, { auth: { persistSession: false } });
+
+          // vc_funds uses "name" (not "fund_name") and "firm_record_id" FK (not "firm_name").
+          // Step 1: get Thrive Capital's firm_record_id
+          const { data: firms, error: fe } = await sb
+            .from("firm_records")
+            .select("id")
+            .ilike("firm_name", "Thrive Capital")
+            .is("deleted_at", null);
+
+          if (fe) { console.error("❌ firm_records query:", fe.message); process.exit(1); }
+          if (!firms?.length) { console.log("⚠️  Thrive Capital not found in firm_records"); process.exit(0); }
+
+          const firmIds = firms.map(f => f.id);
+
+          // Step 2: find vc_funds rows named "X" for those firm IDs
+          const { data: rows, error: re } = await sb
+            .from("vc_funds")
+            .select("id, name")
+            .in("firm_record_id", firmIds)
+            .ilike("name", "X")
+            .is("deleted_at", null);
+
+          if (re) { console.error("❌ vc_funds query:", re.message); process.exit(1); }
+          if (!rows?.length) { console.log("⚠️  No vc_funds row found where name='X' for Thrive Capital — already fixed or not present"); process.exit(0); }
+
+          for (const row of rows) {
+            const { error: ue } = await sb
+              .from("vc_funds")
+              .update({ name: "Thrive X", updated_at: new Date().toISOString() })
+              .eq("id", row.id);
+            if (ue) { console.error(`❌ update ${row.id}:`, ue.message); }
+            else console.log(`✅ vc_funds ${row.id}: "${row.name}" → "Thrive X"`);
+          }
+          EOF

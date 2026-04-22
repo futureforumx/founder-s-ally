@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const out = await fetchProxiedExternalImage(target);
   if (!out.ok) {
-    return res.status(out.status).setHeader("Content-Type", "text/plain").send(out.message);
+    return res.status((out as { ok: false; status: number; message: string }).status).setHeader("Content-Type", "text/plain").send((out as { ok: false; status: number; message: string }).message);
   }
 
   res.setHeader("Content-Type", out.contentType);
