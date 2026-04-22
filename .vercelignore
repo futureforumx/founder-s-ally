@@ -11,6 +11,8 @@ dist-ssr
 .adv-cache
 .agents
 .vercel
+!.vercel/output
+!.vercel/output/**
 logs
 docs
 tests
@@ -30,7 +32,10 @@ scripts
 run.sh
 run.sh.save
 bun.lock
-pnpm-lock.yaml
 playwright.config.ts
 playwright-fixture.ts
+api/connectors/google/disconnect.ts
+api/connectors/google/resync.ts
+api/connectors/linkedin/disconnect.ts
+api/connectors/linkedin/upload.ts
 vite.nossl.config.ts

@@ -2,7 +2,7 @@
  * GET /api/oauth/google/callback?code=…&state=…
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildGoogleOAuthCallbackResponse } from "./googleCallbackLogic";
+import { buildGoogleOAuthCallbackResponse } from "./_googleCallbackLogic";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const r = await buildGoogleOAuthCallbackResponse({

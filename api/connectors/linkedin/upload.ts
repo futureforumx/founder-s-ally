@@ -2,7 +2,7 @@
  * POST /api/connectors/linkedin/upload — multipart form: owner_context_id, file (.csv)
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runLinkedinCsvUpload } from "./linkedinUploadLogic";
+import { runLinkedinCsvUpload } from "../_linkedinUploadLogic";
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
