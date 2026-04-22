@@ -30,7 +30,7 @@ export async function runGoogleResync(input: {
 
   const gate = await assertConnectorManagementForUser(supabase, userId, ownerContextId);
   if (!gate.ok) {
-    return { status: 403, json: { error: gate.message } };
+    return { status: 403, json: { error: (gate as { ok: false; message: string }).message } };
   }
 
   const { data: accounts, error: accErr } = await supabase

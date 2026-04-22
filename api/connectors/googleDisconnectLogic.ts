@@ -41,7 +41,7 @@ export async function runGoogleDisconnect(input: {
 
   const gate = await assertConnectorManagementForUser(supabase, userId, ownerContextId);
   if (!gate.ok) {
-    return { status: 403, json: { error: gate.message } };
+    return { status: 403, json: { error: (gate as { ok: false; message: string }).message } };
   }
 
   const { data: rows, error: selErr } = await supabase
