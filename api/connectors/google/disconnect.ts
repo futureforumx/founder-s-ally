@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { readJsonBody } from "../../_readJsonBody";
-import { runGoogleDisconnect } from "../googleDisconnectLogic";
+import { runGoogleDisconnect } from "../_googleDisconnectLogic";
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");

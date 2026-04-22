@@ -10,12 +10,12 @@ import { handleFirmWebsiteHqPost } from "./api/handleFirmWebsiteHqPost";
 import { mirrorFirmInvestorHeadshotsForFirm, supabaseAdminForMirror } from "./api/_mirrorFirmInvestorHeadshots";
 import { fetchProxiedExternalImage, parseProxyTargetUrl } from "./api/_proxyExternalImage";
 import { ensureFirmElevatorPitchSaved, supabaseAdminForElevatorPitch } from "./api/_ensureFirmElevatorPitch";
-import { buildGoogleOAuthStartResponse } from "./api/oauth/googleStartLogic";
-import { buildGoogleOAuthCallbackResponse } from "./api/oauth/googleCallbackLogic";
-import { runLinkedinCsvUpload } from "./api/connectors/linkedinUploadLogic";
-import { runGoogleDisconnect } from "./api/connectors/googleDisconnectLogic";
-import { runGoogleResync } from "./api/connectors/googleResyncLogic";
-import { runLinkedinCsvDisconnect } from "./api/connectors/linkedinDisconnectLogic";
+import { buildGoogleOAuthStartResponse } from "./api/oauth/_googleStartLogic";
+import { buildGoogleOAuthCallbackResponse } from "./api/oauth/_googleCallbackLogic";
+import { runLinkedinCsvUpload } from "./api/connectors/_linkedinUploadLogic";
+import { runGoogleDisconnect } from "./api/connectors/_googleDisconnectLogic";
+import { runGoogleResync } from "./api/connectors/_googleResyncLogic";
+import { runLinkedinCsvDisconnect } from "./api/connectors/_linkedinDisconnectLogic";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { readJsonBody } from "../../_readJsonBody";
-import { runLinkedinCsvDisconnect } from "../linkedinDisconnectLogic";
+import { runLinkedinCsvDisconnect } from "../_linkedinDisconnectLogic";
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");

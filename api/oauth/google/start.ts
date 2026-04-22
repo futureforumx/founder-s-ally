@@ -1,9 +1,9 @@
 /**
- * GET /api/oauth/google/start?connector=gmail|gcal&owner_context_id=<uuid>
+ * GET /api/oauth/google/start?connector=gmail|gcal|gsheets&owner_context_id=<uuid>
  * Requires Authorization: Bearer <Clerk JWT> (SPA uses fetch + redirect: manual).
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildGoogleOAuthStartResponse } from "./googleStartLogic";
+import { buildGoogleOAuthStartResponse } from "./_googleStartLogic";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") {

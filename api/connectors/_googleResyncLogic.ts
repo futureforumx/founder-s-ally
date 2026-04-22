@@ -1,7 +1,7 @@
 import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest";
 import { getSupabaseServiceClient } from "../_supabaseServiceClient";
 import { assertConnectorManagementForUser, isUuid } from "../_ownerContextAccess";
-import { ingestGoogleConnectedAccount } from "./googleIngestWorker";
+import { ingestGoogleConnectedAccount } from "./_googleIngestWorker";
 
 type AccountRow = { id: string; provider: string; metadata: unknown };
 
