@@ -4,10 +4,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { TrendingUp, TrendingDown, Minus, Pause, Play, ExternalLink, Landmark, BarChart2, LineChart } from "lucide-react";
-import { supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Pause,
+  Play,
+  ExternalLink,
+  Landmark,
+  BarChart2,
+  LineChart,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { supabase, supabasePublicDirectory, supabaseVcDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { FirmDeal } from "@/hooks/useInvestorProfile";
+import { fetchFreshCapitalLive, parseFreshCapitalFundRow, type FreshCapitalFundRow } from "@/lib/freshCapitalPublic";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { safeLower, safeTrim } from "@/lib/utils";
 
@@ -56,6 +69,8 @@ interface ActivityDashboardProps {
   firmName: string;
   firmDisplayName?: string | null;
   firmRecordsId?: string | null;
+  /** Strongest `firm_records.id` hint from the panel (`databaseFirmId` / live profile). */
+  databaseFirmRecordId?: string | null;
   vcDirectoryFirmId?: string | null;
   companySector?: string;
   /** Pre-loaded deals from liveProfile — supplements DB query */
@@ -68,6 +83,12 @@ interface ActivityDashboardProps {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const DB = supabaseVcDirectory as unknown as { from: (t: string) => any };
+/** Same anon transport as `/fresh-capital` — avoids JWT/RLS mismatches on `vc_funds` reads. */
+const PUBLIC_DB = supabasePublicDirectory as unknown as { from: (t: string) => any; rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
+
+type RpcLike = {
+  rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -179,25 +200,257 @@ async function resolveFirmRecordId(
 
 // ── Data hooks ───────────────────────────────────────────────────────────────
 
-function useActiveFund(firmRecordsId: string | null, vcDirectoryFirmId: string | null, firmDisplayName: string | null) {
-  return useQuery<FundRecord | null>({
-    queryKey: ["activity-active-fund", firmRecordsId, vcDirectoryFirmId, safeLower(firmDisplayName)],
-    queryFn: async () => {
-      const resolvedId = await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName);
-      if (!resolvedId) return null;
+function parseNumericUsd(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v.replace(/[^0-9.\-eE]/g, ""));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
 
-      const { data, error } = await DB
-        .from("fund_records")
-        .select("id, fund_name, fund_status, vintage_year, size_usd, actively_deploying, deployed_pct, strategy")
-        .eq("firm_id", resolvedId)
-        .is("deleted_at", null)
-        .order("vintage_year", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) return null;
-      return (data as FundRecord | null) ?? null;
+/** Maps Fresh Capital canonical `vc_funds` rows into the Activity card shape. */
+function mapVcFundRowToFundRecord(row: Record<string, unknown>): FundRecord {
+  const final = parseNumericUsd(row.final_size_usd);
+  const target = parseNumericUsd(row.target_size_usd);
+  const size_usd = final ?? target ?? null;
+  const deploying = row.likely_actively_deploying;
+  return {
+    id: String(row.id ?? ""),
+    fund_name: String(row.name ?? "").trim() || "Fund",
+    fund_status: typeof row.status === "string" ? row.status : null,
+    vintage_year: typeof row.vintage_year === "number" ? row.vintage_year : null,
+    size_usd,
+    actively_deploying: typeof deploying === "boolean" ? deploying : null,
+    deployed_pct: null,
+    strategy: null,
+  };
+}
+
+function freshCapitalRowToFundRecord(row: FreshCapitalFundRow): FundRecord {
+  const final = parseNumericUsd(row.final_size_usd);
+  const target = parseNumericUsd(row.target_size_usd);
+  const size_usd = final ?? target ?? null;
+  return {
+    id: row.vc_fund_id,
+    fund_name: safeTrim(row.fund_name) || "Fund",
+    fund_status: row.status ?? null,
+    vintage_year: row.vintage_year ?? null,
+    size_usd,
+    actively_deploying: row.likely_actively_deploying ?? null,
+    deployed_pct: null,
+    strategy: null,
+  };
+}
+
+/** Same rows as DB `vc_funds` for one firm — `SECURITY DEFINER` RPC (see migration `get_firm_funds`). */
+function mapGetFirmFundsRpcRow(row: Record<string, unknown>): FundRecord {
+  const final = parseNumericUsd(row.final_size_usd);
+  const target = parseNumericUsd(row.target_size_usd);
+  const deploying = row.likely_actively_deploying;
+  const statusRaw = row.status;
+  return {
+    id: String(row.vc_fund_id ?? ""),
+    fund_name: safeTrim(String(row.fund_name ?? "")) || "Fund",
+    fund_status: statusRaw != null && statusRaw !== "" ? String(statusRaw) : null,
+    vintage_year: typeof row.vintage_year === "number" ? row.vintage_year : null,
+    size_usd: final ?? target ?? null,
+    actively_deploying: typeof deploying === "boolean" ? deploying : null,
+    deployed_pct: null,
+    strategy: null,
+  };
+}
+
+async function fetchFundsViaGetFirmFundsOneClient(client: RpcLike, firmRecordId: string): Promise<FundRecord[]> {
+  const res = await client.rpc("get_firm_funds", { p_firm_record_id: firmRecordId });
+  if (res.error || !Array.isArray(res.data) || res.data.length === 0) return [];
+  return (res.data as Record<string, unknown>[]).map(mapGetFirmFundsRpcRow).filter((f) => safeTrim(f.id));
+}
+
+/** Try every Supabase client — anon vs JWT sometimes differ on RPC/table exposure in prod. */
+async function fetchFundsViaGetFirmFundsRpc(firmRecordId: string): Promise<FundRecord[]> {
+  const clients = [
+    PUBLIC_DB as RpcLike,
+    supabaseVcDirectory as unknown as RpcLike,
+    supabase as unknown as RpcLike,
+  ];
+  for (const c of clients) {
+    const rows = await fetchFundsViaGetFirmFundsOneClient(c, firmRecordId);
+    if (rows.length) return rows;
+  }
+  return [];
+}
+
+/**
+ * Exact same RPC stack as `/fresh-capital`; filter to this firm so the Activity card cannot diverge from the feed.
+ */
+async function fetchFundsFromFreshCapitalFeed(
+  resolvedFirmRecordId: string,
+  firmDisplayName: string | null,
+  alternateFirmLabel: string | null,
+): Promise<FundRecord[]> {
+  try {
+    const { funds } = await fetchFreshCapitalLive({
+      stage: "all",
+      sector: null,
+      fundLimit: 200,
+      fundDays: 365,
+    });
+    const byId = funds.filter((f) => f.firm_record_id === resolvedFirmRecordId);
+    if (byId.length) return byId.map(freshCapitalRowToFundRecord);
+    const keys = distinctNameKeys(firmDisplayName, alternateFirmLabel);
+    for (const key of keys) {
+      const hits = funds.filter((f) => safeLower(safeTrim(f.firm_name)) === key);
+      if (hits.length) {
+        const cid = hits[0].firm_record_id;
+        return funds.filter((f) => f.firm_record_id === cid).map(freshCapitalRowToFundRecord);
+      }
+    }
+    for (const key of keys) {
+      if (key.length < 4) continue;
+      const hits = funds.filter((f) => safeLower(safeTrim(f.firm_name)).includes(key));
+      if (hits.length) {
+        const cid = hits[0].firm_record_id;
+        return funds.filter((f) => f.firm_record_id === cid).map(freshCapitalRowToFundRecord);
+      }
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) console.warn("[ActivityDashboard] fetchFundsFromFreshCapitalFeed", e);
+    return [];
+  }
+  return [];
+}
+
+/** Fallback if RPC missing/outdated in an environment — direct `vc_funds` read (anon). */
+async function fetchVcFundsForFirmPublic(firmRecordId: string): Promise<FundRecord[]> {
+  const vcRes = await PUBLIC_DB
+    .from("vc_funds")
+    .select(
+      "id, name, status, vintage_year, target_size_usd, final_size_usd, likely_actively_deploying, announced_date, close_date",
+    )
+    .eq("firm_record_id", firmRecordId)
+    .is("deleted_at", null)
+    .order("announced_date", { ascending: false, nullsFirst: false })
+    .limit(80);
+
+  if (vcRes.error || !Array.isArray(vcRes.data) || vcRes.data.length === 0) return [];
+  return (vcRes.data as Record<string, unknown>[]).map(mapVcFundRowToFundRecord);
+}
+
+function distinctNameKeys(...names: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of names) {
+    const k = safeLower(safeTrim(n));
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(k);
+  }
+  return out;
+}
+
+/**
+ * Canonical vehicles for Activity “Current Fund” — same rows as `/fresh-capital` (`vc_funds` via public read + `get_new_vc_funds` fallback).
+ * Legacy `fund_records` only when no canonical vehicles resolve.
+ */
+function useActivityFundsList(
+  firmRecordsId: string | null,
+  vcDirectoryFirmId: string | null,
+  firmDisplayName: string | null,
+  /** Second spelling for RPC name matching (e.g. panel title vs hero display name). */
+  alternateFirmLabel?: string | null,
+  preferredFirmRecordsUuid?: string | null,
+) {
+  return useQuery<FundRecord[]>({
+    queryKey: [
+      "activity-funds-list",
+      firmRecordsId,
+      vcDirectoryFirmId,
+      safeLower(firmDisplayName),
+      safeLower(alternateFirmLabel),
+      safeLower(preferredFirmRecordsUuid),
+    ],
+    queryFn: async () => {
+      const fromProps =
+        [preferredFirmRecordsUuid, firmRecordsId]
+          .map((x) => safeTrim(x))
+          .find((id) => id && looksLikeFirmRecordsUuid(id)) ?? null;
+      const resolvedId =
+        fromProps ?? (await resolveFirmRecordId(firmRecordsId, vcDirectoryFirmId, firmDisplayName));
+      if (!resolvedId) return [];
+
+      let vcMapped = await fetchFundsViaGetFirmFundsRpc(resolvedId);
+      if (!vcMapped.length) {
+        vcMapped = await fetchVcFundsForFirmPublic(resolvedId);
+      }
+      if (!vcMapped.length) {
+        vcMapped = await fetchFundsFromFreshCapitalFeed(resolvedId, firmDisplayName, alternateFirmLabel ?? null);
+      }
+
+      if (!vcMapped.length) {
+        const rpcArgs = {
+          p_limit: 200,
+          p_days: 365,
+          p_stage: null as string[] | null,
+          p_sector: null as string[] | null,
+          p_geography: null as string[] | null,
+          p_fund_size_min: null as number | null,
+          p_fund_size_max: null as number | null,
+          p_firm_type: null as string[] | null,
+        };
+        const rpcRes = await PUBLIC_DB.rpc("get_new_vc_funds", rpcArgs);
+        if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+          const parsed = rpcRes.data.map(parseFreshCapitalFundRow).filter((x): x is FreshCapitalFundRow => Boolean(x));
+          let canonicalId: string | null = null;
+          const byResolved = parsed.filter((r) => r.firm_record_id === resolvedId);
+          if (byResolved.length) {
+            canonicalId = resolvedId;
+          } else {
+            const keys = distinctNameKeys(firmDisplayName, alternateFirmLabel);
+            for (const key of keys) {
+              const hit = parsed.find((r) => safeLower(safeTrim(r.firm_name)) === key);
+              if (hit) {
+                canonicalId = hit.firm_record_id;
+                break;
+              }
+            }
+          }
+          if (canonicalId) {
+            vcMapped = await fetchFundsViaGetFirmFundsRpc(canonicalId);
+            if (!vcMapped.length) {
+              vcMapped = await fetchVcFundsForFirmPublic(canonicalId);
+            }
+            if (!vcMapped.length) {
+              vcMapped = parsed
+                .filter((r) => r.firm_record_id === canonicalId)
+                .map(freshCapitalRowToFundRecord);
+            }
+          }
+        }
+      }
+
+      if (!vcMapped.length) {
+        const { data: legacy, error: legacyErr } = await DB
+          .from("fund_records")
+          .select("id, fund_name, fund_status, vintage_year, size_usd, actively_deploying, deployed_pct, strategy")
+          .eq("firm_id", resolvedId)
+          .is("deleted_at", null)
+          .order("vintage_year", { ascending: false })
+          .limit(80);
+        if (!legacyErr && legacy?.length) return legacy as FundRecord[];
+      }
+
+      return vcMapped;
     },
-    enabled: Boolean((safeTrim(firmRecordsId) || safeTrim(vcDirectoryFirmId) || safeTrim(firmDisplayName)) && isSupabaseConfigured),
+    enabled: Boolean(
+      (safeTrim(firmRecordsId) ||
+        safeTrim(vcDirectoryFirmId) ||
+        safeTrim(firmDisplayName) ||
+        safeTrim(alternateFirmLabel) ||
+        safeTrim(preferredFirmRecordsUuid)) &&
+        isSupabaseConfigured,
+    ),
+    staleTime: 0,
     retry: false,
   });
 }
@@ -293,18 +546,27 @@ function useEDGARFunds(firmName: string | null) {
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function CurrentFundCard({
-  fund,
+  funds,
+  fundIndex,
+  onPrev,
+  onNext,
   loading,
   fallbackAum,
   fallbackIsActivelyDeploying,
   edgarFallback,
 }: {
-  fund: FundRecord | null | undefined;
+  funds: FundRecord[];
+  fundIndex: number;
+  onPrev: () => void;
+  onNext: () => void;
   loading: boolean;
   fallbackAum?: string | null;
   fallbackIsActivelyDeploying?: boolean | null;
   edgarFallback?: EDGARFundRow | null;
 }) {
+  const idx = funds.length > 0 ? Math.min(Math.max(0, fundIndex), funds.length - 1) : 0;
+  const fund = funds.length > 0 ? funds[idx] : null;
+  const canStep = funds.length > 1;
   const pct = fund?.deployed_pct ?? null;
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
@@ -418,8 +680,35 @@ function CurrentFundCard({
           {pct != null ? `${pct.toFixed(0)}%` : "—"}
         </span>
       </div>
-      <div className="min-w-0">
-        <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Current Fund</p>
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground shrink-0">
+            Current Fund
+          </p>
+          {canStep ? (
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] tabular-nums text-muted-foreground/80">
+                {idx + 1}/{funds.length}
+              </span>
+              <button
+                type="button"
+                className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                aria-label="Previous fund"
+                onClick={onPrev}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                aria-label="Next fund"
+                onClick={onNext}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
+        </div>
         <p className="text-sm font-bold text-foreground leading-tight truncate">{fund.fund_name}</p>
         <p className="text-[10px] text-muted-foreground">
           {fund.vintage_year ? `Vintage ${fund.vintage_year} · ` : ""}
@@ -446,6 +735,7 @@ export function ActivityDashboard({
   firmName,
   firmDisplayName,
   firmRecordsId,
+  databaseFirmRecordId,
   vcDirectoryFirmId,
   companySector,
   deals: dealsProp,
@@ -458,13 +748,16 @@ export function ActivityDashboard({
   const [heatmapMode, setHeatmapMode] = useState<"stage" | "sector">("stage");
   const [focusAutoCycle, setFocusAutoCycle] = useState(true);
   const [focusView, setFocusView] = useState<"stage" | "sector">("stage");
+  const [fundIdx, setFundIdx] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { data: activeFund, isLoading: fundLoading } = useActiveFund(
+  const { data: activityFunds = [], isLoading: fundLoading } = useActivityFundsList(
     firmRecordsId ?? null,
     vcDirectoryFirmId ?? null,
     firmDisplayName ?? firmName,
+    firmName,
+    databaseFirmRecordId ?? null,
   );
   const { data: edgarFunds = [], isLoading: edgarLoading } = useEDGARFunds(firmDisplayName ?? firmName);
   const edgarLatestFund = edgarFunds[0] ?? null;
@@ -480,6 +773,30 @@ export function ActivityDashboard({
     vcDirectoryFirmId ?? null,
     firmDisplayName ?? firmName,
   );
+
+  useEffect(() => {
+    setFundIdx(0);
+  }, [firmRecordsId, vcDirectoryFirmId, firmDisplayName]);
+
+  useEffect(() => {
+    setFundIdx((i) =>
+      activityFunds.length === 0 ? 0 : Math.min(i, activityFunds.length - 1),
+    );
+  }, [activityFunds]);
+
+  const stepFundPrev = useCallback(() => {
+    setFundIdx((i) =>
+      activityFunds.length <= 1 ? 0 : (i - 1 + activityFunds.length) % activityFunds.length,
+    );
+  }, [activityFunds.length]);
+
+  const stepFundNext = useCallback(() => {
+    setFundIdx((i) =>
+      activityFunds.length <= 1 ? 0 : (i + 1) % activityFunds.length,
+    );
+  }, [activityFunds.length]);
+
+  const showEdgarOnMainCard = activityFunds.length === 0;
 
   // Merge DB deals with prop deals (prop deals may have more context)
   const allDeals = useMemo((): DealRow[] => {
@@ -582,13 +899,16 @@ export function ActivityDashboard({
       {/* Row 1: Fund Pulse Bento */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
-        {/* Card 1: Current Fund — fund_records primary, fund_data (EDGAR) fallback */}
+        {/* Card 1: Funds from vc_funds (Fresh Capital parity), legacy fund_records fallback, EDGAR last */}
         <CurrentFundCard
-          fund={activeFund}
-          loading={fundLoading || (activeFund == null && edgarLoading)}
+          funds={activityFunds}
+          fundIndex={fundIdx}
+          onPrev={stepFundPrev}
+          onNext={stepFundNext}
+          loading={fundLoading || (showEdgarOnMainCard && edgarLoading)}
           fallbackAum={fallbackAum}
           fallbackIsActivelyDeploying={fallbackIsActivelyDeploying}
-          edgarFallback={edgarLatestFund}
+          edgarFallback={showEdgarOnMainCard ? edgarLatestFund : undefined}
         />
 
         {/* Card 2: Investment Pace (live from deal data) */}

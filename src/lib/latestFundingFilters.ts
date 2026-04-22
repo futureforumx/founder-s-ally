@@ -2,6 +2,38 @@ import type { FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
 
 /**
+ * Converts raw DB round_kind values (snake_case or mixed) to display labels.
+ * e.g. "series_a" → "Series A", "pre_seed" → "Pre-Seed", "Series B" → "Series B"
+ */
+const ROUND_KIND_DISPLAY: Record<string, string> = {
+  pre_seed: "Pre-Seed",
+  seed: "Seed",
+  series_a: "Series A",
+  series_b: "Series B",
+  series_c: "Series C",
+  series_d: "Series D",
+  series_e: "Series E",
+  series_f: "Series F",
+  growth: "Growth",
+  strategic: "Strategic",
+  venture: "Venture",
+  angel: "Angel",
+  bridge: "Bridge",
+  convertible: "Convertible Note",
+  safe: "SAFE",
+  ipo: "IPO",
+  secondary: "Secondary",
+};
+
+export function formatRoundKind(raw: string): string {
+  if (!raw) return raw;
+  const key = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return ROUND_KIND_DISPLAY[key] ?? raw
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
  * Maps free-text round labels to the same coarse buckets as the Fresh Capital stage chips.
  * Kept intentionally conservative on substrings (e.g. avoids classifying "venture debt" as growth).
  */

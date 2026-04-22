@@ -16,13 +16,11 @@ import {
   Facebook,
   Instagram,
   Youtube,
-  Globe,
 } from "lucide-react";
 import { extractXHandle } from "@/lib/extractXHandle";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConnectionsGate } from "./ConnectionsGate";
 import { ContactRevealButton } from "./ContactRevealButton";
 import { supabase } from "@/integrations/supabase/client";
 import { safeTrim } from "@/lib/utils";
@@ -52,6 +50,39 @@ function normalizeExternalHref(url: string): string {
   return `https://${t.replace(/^\/+/, "")}`;
 }
 
+/** Curated CB org URLs when `firm_records.crunchbase_url` is unset (normalized website host → URL). */
+const CRUNCHBASE_URL_BY_WEBSITE_HOST: Record<string, string> = {
+  "gradient.com": "https://www.crunchbase.com/organization/gradient-ventures",
+  "www.gradient.com": "https://www.crunchbase.com/organization/gradient-ventures",
+};
+
+function crunchbaseOrgUrlFromWebsite(websiteUrl: string | null | undefined): string | null {
+  const w = safeTrim(websiteUrl);
+  if (!w) return null;
+  try {
+    const host = new URL(normalizeExternalHref(w)).hostname.toLowerCase();
+    return CRUNCHBASE_URL_BY_WEBSITE_HOST[host] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Crunchbase wordmark icon (Simple Icons path, monochrome). */
+function CrunchbaseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M21.6 0H2.4A2.41 2.41 0 0 0 0 2.4v19.2A2.41 2.41 0 0 0 2.4 24h19.2a2.41 2.41 0 0 0 2.4-2.4V2.4A2.41 2.41 0 0 0 21.6 0zM7.045 14.465A2.11 2.11 0 0 0 9.84 13.42h1.66a3.69 3.69 0 1 1 0-1.75H9.84a2.11 2.11 0 1 0-2.795 2.795zm11.345.845a3.55 3.55 0 0 1-1.06.63 3.68 3.68 0 0 1-3.39-.38v.38h-1.51V5.37h1.5v4.11a3.74 3.74 0 0 1 1.8-.63H16a3.67 3.67 0 0 1 2.39 6.46zm-.223-2.766a2.104 2.104 0 1 1-4.207 0 2.104 2.104 0 0 1 4.207 0z" />
+    </svg>
+  );
+}
+
 function xProfileHref(xUrl: string): string | null {
   const t = xUrl.trim();
   if (!t) return null;
@@ -79,6 +110,8 @@ interface ConnectionsTabProps {
   instagramUrl?: string | null;
   youtubeUrl?: string | null;
   websiteUrl?: string | null;
+  /** Firm Crunchbase organization URL (`firm_records.crunchbase_url`). */
+  crunchbaseUrl?: string | null;
 }
 
 const WARM_PATHS = [
@@ -100,6 +133,7 @@ export function ConnectionsTab({
   instagramUrl,
   youtubeUrl,
   websiteUrl,
+  crunchbaseUrl,
 }: ConnectionsTabProps) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,13 +223,18 @@ export function ConnectionsTab({
   const youtubeHref = resolvedYoutubeUrl ? normalizeExternalHref(resolvedYoutubeUrl) : null;
   const wTrim = safeTrim(websiteUrl);
   const websiteHref = wTrim ? normalizeExternalHref(wTrim) : null;
+  const crunchbaseTrim = safeTrim(crunchbaseUrl);
+  const crunchbaseHref =
+    (crunchbaseTrim ? normalizeExternalHref(crunchbaseTrim) : null) ||
+    crunchbaseOrgUrlFromWebsite(websiteUrl);
   const hasSocialLinks = !!(
     linkedinHref ||
     xHref ||
     facebookHref ||
     instagramHref ||
     youtubeHref ||
-    websiteHref
+    websiteHref ||
+    crunchbaseHref
   );
   const hasContactCard =
     !!(investorId || resolvedEmail || safeTrim(location) || hasSocialLinks);
@@ -210,7 +249,6 @@ export function ConnectionsTab({
   }
 
   return (
-    <ConnectionsGate>
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -255,6 +293,18 @@ export function ConnectionsTab({
           )}
           {hasSocialLinks && (
             <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/70">
+              {crunchbaseHref ? (
+                <a
+                  href={crunchbaseHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-[#0288d1] hover:border-[#0288d1]/30 transition-colors"
+                  title="Crunchbase"
+                  aria-label={`${investorName} on Crunchbase`}
+                >
+                  <CrunchbaseIcon className="h-4 w-4" />
+                </a>
+              ) : null}
               {linkedinHref ? (
                 <a
                   href={linkedinHref}
@@ -435,6 +485,5 @@ export function ConnectionsTab({
         </div>
       </div>
     </motion.div>
-    </ConnectionsGate>
   );
 }

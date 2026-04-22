@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
 import {
   formatAumBandLabel,
@@ -23,6 +24,7 @@ import {
   representativeFundUsd,
   resolveAumBandFromUsd,
 } from "@/lib/aumBand";
+import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 
 // ---------------------------------------------------------------------------
 // Article type (matches vc_people.articles JSONB schema)
@@ -220,7 +222,14 @@ const FirmProfile = () => {
   }
 
   const website = typeof firm.website_url === "string" ? firm.website_url : null;
-  const hq = [firm.hq_city, firm.hq_state, firm.hq_country].filter(Boolean).join(", ");
+  const hq =
+    resolveFirmDisplayLocation({
+      hq_city: typeof firm.hq_city === "string" ? firm.hq_city : null,
+      hq_state: typeof firm.hq_state === "string" ? firm.hq_state : null,
+      hq_country: typeof firm.hq_country === "string" ? firm.hq_country : null,
+      legacyLocation: typeof firm.location === "string" ? firm.location : null,
+    }) ??
+    ([firm.hq_city, firm.hq_state, firm.hq_country].filter(Boolean).join(", ") || null);
   const funds = [...(firm.vc_funds ?? [])].sort((a, b) =>
     String(a.fund_name ?? "").localeCompare(String(b.fund_name ?? "")),
   );
@@ -425,7 +434,9 @@ const FirmProfile = () => {
                 <Card key={f.id}>
                   <CardHeader className="pb-2">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <CardTitle className="text-base">{String(f.fund_name ?? "Fund")}</CardTitle>
+                      <CardTitle className="text-base">
+                        {stripRedundantFirmPrefixFromFundName(String(firm.firm_name ?? ""), String(f.fund_name ?? "Fund"))}
+                      </CardTitle>
                       <div className="flex flex-wrap gap-1">
                         {f.fund_status ? <Badge variant="outline">{String(f.fund_status)}</Badge> : null}
                         {f.fund_type ? <Badge variant="secondary">{String(f.fund_type).replace(/_/g, " ")}</Badge> : null}

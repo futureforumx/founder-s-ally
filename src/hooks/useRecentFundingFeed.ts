@@ -5,7 +5,7 @@ import {
   supabasePublicDirectory,
   supabaseVcDirectory,
 } from "@/integrations/supabase/client";
-import { roundKindStageBucket } from "@/lib/latestFundingFilters";
+import { roundKindStageBucket, formatRoundKind } from "@/lib/latestFundingFilters";
 import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
 
 type RpcRow = {
@@ -54,7 +54,7 @@ function mapRow(r: RpcRow): RecentFundingRound {
     companyName: r.company_name,
     websiteUrl: r.website_url || "",
     sector: r.sector,
-    roundKind: r.round_kind,
+    roundKind: formatRoundKind(r.round_kind),
     amountLabel: r.amount_label,
     announcedAt: r.announced_at,
     leadInvestor: stripPublicationFromInvestorDisplay(r.lead_investor || "Unknown"),

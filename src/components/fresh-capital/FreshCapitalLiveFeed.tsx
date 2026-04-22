@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useVcFundSyncFreshness } from "@/hooks/useVcFundSyncFreshness";
 import { Loader2 } from "lucide-react";
 import {
   Select,
@@ -7,19 +8,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FreshCapitalInsightsTab } from "@/components/fresh-capital/FreshCapitalInsightsTab";
+import { MeasuredThemePills } from "@/components/fresh-capital/MeasuredThemePills";
 import { LatestFundingFeed } from "@/components/fresh-capital/latest-funding/LatestFundingFeed";
 import { SourceOutletBadge } from "@/components/fresh-capital/SourceOutletBadge";
 import { buildDedupedSectorChoices } from "@/lib/latestFundingFilters";
 import { cn } from "@/lib/utils";
 import {
+  announcedDateForDisplay,
+  announcementUrlForDisplay,
+  effectiveFirmMarkHost,
+  expandFreshCapitalRowsForDisplay,
+  firstGuessedFirmWebsiteFromName,
   firmMarkCandidateUrls,
-  formatAnnouncedDate,
   formatFundSizeUsd,
+  fundNameForDisplay,
+  freshCapitalFirmAumUsd,
+  freshCapitalFirmLocationLineForDisplay,
+  freshCapitalFirmWebsiteLinkSource,
+  geographyFocusForDisplay,
+  normalizeGeoFocusDisplayChip,
   sectorFocusForDisplay,
   stageFocusForDisplay,
   type FreshCapitalFundRow,
   type FreshCapitalStageFilter,
+  type HeatmapBucket,
 } from "@/lib/freshCapitalPublic";
+import { buildOutboundUrl } from "@/lib/outboundUrl";
 
 /** Aligns live feed surfaces with `/access` (AccessRequestForm + “What happens next” card). */
 const ACCESS_CARD = cn(
@@ -40,6 +55,8 @@ type Props = {
   sector: string | null;
   sectorChoices: string[];
   onSectorChange: (s: string | null) => void;
+  /** Sector heatmap buckets (same cohort as page footer heatmap). */
+  insightsHeatmapBuckets: HeatmapBucket[];
 };
 
 /** `"Headline… | TechCrunch"` — split on last ` | ` so the headline can omit the outlet name in the UI. */
@@ -59,6 +76,7 @@ function prettySourceLabelFromUrl(url: string): string | null {
     const host = hostname.replace(/^www\./i, "");
     if (!host) return null;
     if (host === "tech.eu") return "Tech EU";
+    if (host === "manda.be") return "MandA";
     const segments = host.split(".").filter(Boolean);
     const raw = segments[0];
     if (!raw) return null;
@@ -86,31 +104,55 @@ function prettyWebsiteLabel(url: string | null | undefined): string | null {
   }
 }
 
+/** Domain label next to firm meta — all lowercase on Fresh Capital. */
+function firmWebsiteDisplayLabel(host: string): string {
+  return host.trim().toLowerCase();
+}
+
 function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
-  const location = row.firm_location?.trim() || null;
-  const websiteSource = row.firm_website_url ?? row.firm_domain;
-  const websiteUrl = normalizeWebsiteUrl(websiteSource);
-  const websiteLabel = prettyWebsiteLabel(websiteSource);
-  const announcementUrl = row.announcement_url?.trim() || null;
+  const location = freshCapitalFirmLocationLineForDisplay(row);
+  const hintedHost = effectiveFirmMarkHost(row);
+  /** Same resolution order as favicon marks: RPC + hydrated `firm_records.website_url`, curated hints, then token-guess. */
+  const websiteLinkSource =
+    freshCapitalFirmWebsiteLinkSource(row) ||
+    (hintedHost ? `https://${hintedHost}` : null) ||
+    firstGuessedFirmWebsiteFromName(row.firm_name);
+  const websiteUrl = normalizeWebsiteUrl(websiteLinkSource);
+  const rawHost =
+    prettyWebsiteLabel(websiteLinkSource) ?? (hintedHost ? hintedHost.replace(/^www\./i, "").toLowerCase() : null);
+  const websiteDisplay = rawHost ? firmWebsiteDisplayLabel(rawHost) : null;
+  const announcementUrl = announcementUrlForDisplay(row);
   const title = row.announcement_title?.trim() || "";
   const { sourceFromTitle } = splitAnnouncementTitleHeadAndSource(title);
   const hasArticle = Boolean(announcementUrl);
   const outletFromUrl = announcementUrl ? prettySourceLabelFromUrl(announcementUrl) : null;
   const showSourceBadge = hasArticle || Boolean(title);
+  const aumText = formatFundSizeUsd(freshCapitalFirmAumUsd(row)) ?? "Undisclosed";
+  const firmOutboundHref = buildOutboundUrl(websiteUrl, "firm_website", "fresh_funds", row.vc_fund_id);
+  const articleOutboundHref = buildOutboundUrl(announcementUrl, "funding_article", "fresh_funds", row.vc_fund_id);
 
   const pieces = [
     location ? <span key="location">{location}</span> : null,
-    websiteUrl && websiteLabel ? (
-      <a key="website" href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-inherit underline-offset-2 hover:underline">
-        {websiteLabel}
+    firmOutboundHref && websiteDisplay ? (
+      <a
+        key="website"
+        href={firmOutboundHref}
+        target="_blank"
+        rel="noopener"
+        className="text-inherit underline-offset-2 hover:underline"
+      >
+        {websiteDisplay}
       </a>
     ) : null,
+    <span key="aum" className="tabular-nums">
+      AUM {aumText}
+    </span>,
     showSourceBadge ? (
       <span key="source">
         <SourceOutletBadge
           hasArticle={hasArticle}
           outletLabel={hasArticle ? outletFromUrl ?? sourceFromTitle ?? null : null}
-          href={announcementUrl}
+          href={articleOutboundHref}
           noLinkFallbackLabel={hasArticle ? null : sourceFromTitle ?? null}
         />
       </span>
@@ -196,24 +238,7 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
 
 function ThemePills({ row }: { row: FreshCapitalFundRow }) {
   const themes = sectorFocusForDisplay(row);
-
-  if (themes.length === 0) {
-    return <span className="text-sm text-[#b3b3b3]">—</span>;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {themes.map((theme) => (
-        <span
-          key={theme}
-          title={theme}
-          className="rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary"
-        >
-          {theme.toUpperCase()}
-        </span>
-      ))}
-    </div>
-  );
+  return <MeasuredThemePills themes={themes} rowKey={row.vc_fund_id} />;
 }
 
 /** Stage focus column — compact chips (distinct from theme pills). */
@@ -239,34 +264,51 @@ function StageFocusChips({ stages }: { stages: string[] | null | undefined }) {
   );
 }
 
-/** Shorter chip text for long geo labels; full value stays on `title`. */
-function geoChipDisplayLabel(geo: string): string {
-  const t = geo.trim();
-  if (/^Global\s*\(/i.test(t)) return "Global";
-  return t;
-}
-
 /** Geo focus column — same chip treatment as {@link StageFocusChips}. */
 function GeoFocusChips({ geos }: { geos: string[] | null | undefined }) {
-  const list = (geos ?? []).filter(Boolean).slice(0, 4);
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of geos ?? []) {
+    const t = typeof raw === "string" ? raw.trim() : "";
+    if (!t) continue;
+    const chip = normalizeGeoFocusDisplayChip(t);
+    if (!chip || seen.has(chip)) continue;
+    seen.add(chip);
+    labels.push(chip);
+    if (labels.length >= 4) break;
+  }
 
-  if (list.length === 0) {
+  if (labels.length === 0) {
     return <span className="text-sm text-[#b3b3b3]">—</span>;
   }
 
   return (
     <div className="flex min-w-0 flex-wrap gap-1.5">
-      {list.map((geo, i) => (
+      {labels.map((chip, i) => (
         <span
-          key={`${geo}-${i}`}
-          title={geo}
+          key={`${chip}-${i}`}
+          title={chip}
           className="inline-flex max-w-full shrink-0 truncate rounded-full border border-zinc-600/75 bg-zinc-950/90 px-2 py-0.5 text-2xs font-medium text-[#c4c4c4] shadow-sm"
         >
-          {geoChipDisplayLabel(geo)}
+          {chip}
         </span>
       ))}
     </div>
   );
+}
+
+/** Format a UTC ISO timestamp as e.g. `Apr 21, 10:32 AM` in the viewer's local timezone. */
+function formatSyncTimestamp(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return "";
+  }
 }
 
 /** Dark analogue of CommunityView global tabs: `rounded-full border … bg-secondary/35 p-1`. */
@@ -296,6 +338,7 @@ const SECTOR_SELECT_ITEM =
 const FEED_MAIN_TABS = [
   { id: "fresh_funds" as const, label: "Fresh funds" },
   { id: "latest_funding" as const, label: "Latest funding" },
+  { id: "insights" as const, label: "Insights" },
 ];
 
 const PRIMARY_SEGMENT_LIST = cn(
@@ -314,8 +357,14 @@ export function FreshCapitalLiveFeed({
   sector,
   sectorChoices,
   onSectorChange,
+  insightsHeatmapBuckets,
 }: Props) {
+  const displayRows = useMemo(() => expandFreshCapitalRowsForDisplay(rows), [rows]);
   const [mainTab, setMainTab] = useState<(typeof FEED_MAIN_TABS)[number]["id"]>("fresh_funds");
+  const { data: freshnessData } = useVcFundSyncFreshness();
+  const lastUpdatedLabel = freshnessData?.completedAt
+    ? `New funds added daily · Last updated ${formatSyncTimestamp(freshnessData.completedAt)}`
+    : "New funds added daily";
   const [latestFundingSectors, setLatestFundingSectors] = useState<string[]>([]);
 
   /** Latest funding tab: union VC + deal sectors, then cluster / dedupe for a shorter list. */
@@ -358,13 +407,21 @@ export function FreshCapitalLiveFeed({
           })}
         </div>
 
-        {mainTab === "fresh_funds" ? (
+        {mainTab === "fresh_funds" && (
           <>
             <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-2xs font-medium uppercase tracking-wider text-primary">Live intelligence</p>
                 <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#eeeeee]">Live fund feed</h2>
-                <p className="mt-1 text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
+                {/* Freshness indicator — pulse dot + status line, sits between heading and description */}
+                <div className="mt-2 flex items-center gap-2" aria-label={lastUpdatedLabel}>
+                  <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  <span className="text-xs text-zinc-500">{lastUpdatedLabel}</span>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
                   Recent raises, sorted for signal—updated as new funds hit the wire.
                 </p>
               </div>
@@ -450,9 +507,9 @@ export function FreshCapitalLiveFeed({
                 <span>Themes</span>
               </div>
               <ul className="divide-y divide-zinc-800">
-                {rows.map((row) => {
+                {displayRows.map((row) => {
                   const size = formatFundSizeUsd(row.final_size_usd ?? row.target_size_usd ?? null) ?? "Undisclosed";
-                  const displayDate = row.announced_date ?? row.close_date ?? null;
+                  const fundDisplay = fundNameForDisplay(row);
 
                   return (
                     <li key={row.vc_fund_id} className="px-4 py-4 md:px-0 md:py-0">
@@ -465,14 +522,14 @@ export function FreshCapitalLiveFeed({
                             <span className="min-w-0 break-words font-medium leading-snug text-[#eeeeee]">{row.firm_name}</span>
                           </span>
                           <span className="min-w-0">
-                            <span title={row.fund_name} className="block break-words text-sm leading-snug text-[#b3b3b3]">
-                              {row.fund_name}
+                            <span title={fundDisplay} className="block break-words text-sm leading-snug text-[#b3b3b3]">
+                              {fundDisplay}
                             </span>
                           </span>
                           <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{size}</span>
-                          <span className="text-sm text-[#b3b3b3]">{formatAnnouncedDate(displayDate)}</span>
+                          <span className="text-sm text-[#b3b3b3]">{announcedDateForDisplay(row)}</span>
                           <StageFocusChips stages={stageFocusForDisplay(row)} />
-                          <GeoFocusChips geos={row.geography_focus} />
+                          <GeoFocusChips geos={geographyFocusForDisplay(row)} />
                           <ThemePills row={row} />
                         </div>
                         <div className="border-t border-zinc-800 px-4 pb-3.5 pt-2">
@@ -487,11 +544,11 @@ export function FreshCapitalLiveFeed({
                             </span>
                             <span className="min-w-0 break-words font-medium leading-snug text-[#eeeeee]">{row.firm_name}</span>
                           </span>
-                          <span className="text-2xs tabular-nums text-[#b3b3b3]">{formatAnnouncedDate(displayDate)}</span>
+                          <span className="text-2xs tabular-nums text-[#b3b3b3]">{announcedDateForDisplay(row)}</span>
                         </div>
                         <div className="min-w-0 text-sm text-[#b3b3b3]">
-                          <span title={row.fund_name} className="block break-words leading-snug">
-                            {row.fund_name}
+                          <span title={fundDisplay} className="block break-words leading-snug">
+                            {fundDisplay}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-[#b3b3b3]">
@@ -508,7 +565,7 @@ export function FreshCapitalLiveFeed({
                             <span className="shrink-0 text-2xs font-medium uppercase tracking-wide text-zinc-500">
                               Geo
                             </span>
-                            <GeoFocusChips geos={row.geography_focus} />
+                            <GeoFocusChips geos={geographyFocusForDisplay(row)} />
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
@@ -525,7 +582,9 @@ export function FreshCapitalLiveFeed({
           )}
             </div>
           </>
-        ) : (
+        )}
+
+        {mainTab === "latest_funding" && (
           <>
             <div className="mb-5 flex min-w-0 flex-nowrap items-center gap-2 sm:gap-3">
               <div className="min-h-[38px] min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
@@ -555,7 +614,7 @@ export function FreshCapitalLiveFeed({
 
               <div className="shrink-0">
                 {(() => {
-                  const choices = mainTab === "latest_funding" ? mergedLatestSectorChoices : sectorChoices;
+                  const choices = mergedLatestSectorChoices;
                   return (
                     <Select
                       value={sector ?? SECTOR_SELECT_ALL}
@@ -608,6 +667,8 @@ export function FreshCapitalLiveFeed({
             />
           </>
         )}
+
+        {mainTab === "insights" && <FreshCapitalInsightsTab buckets={insightsHeatmapBuckets} />}
       </div>
     </section>
   );
