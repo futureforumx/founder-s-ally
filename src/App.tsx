@@ -270,6 +270,7 @@ const App = () => (
                   </Suspense>
                 }
               />
+              <Route path="/FRESH-CAPITAL" element={<Navigate to="/fresh-capital" replace />} />
               <Route
                 path="/fresh-capital"
                 element={
