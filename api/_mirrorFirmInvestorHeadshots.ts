@@ -119,7 +119,9 @@ async function fetchImageBytes(url: string): Promise<{ buffer: Buffer; contentTy
 }
 
 async function putHeadshotIfMissing(bucket: string, keyWithExt: string, body: Buffer, contentType: string): Promise<string> {
-  const s3 = s3Client();
+  const s3 = s3Client() as S3Client & {
+    send(command: HeadObjectCommand | PutObjectCommand): Promise<unknown>;
+  };
   const base = publicBaseHeadshots();
   try {
     await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: keyWithExt }));

@@ -15,7 +15,7 @@ const ROUND_KIND_DISPLAY: Record<string, string> = {
   series_e: "Series E",
   series_f: "Series F",
   growth: "Growth",
-  strategic: "Strategic",
+  strategic: "Growth",
   venture: "Venture",
   angel: "Angel",
   bridge: "Bridge",
