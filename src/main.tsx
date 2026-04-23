@@ -1,9 +1,11 @@
 import * as Sentry from "@sentry/react";
 import { ClerkProvider } from "@clerk/clerk-react";
+import { AuthKitProvider } from "@workos-inc/authkit-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { isWorkOSConfigured, readAuthProvider, readWorkOSConfig } from "@/lib/authProvider";
 import { clerkLocalization } from "@/lib/clerkLocalization";
 import { readClerkPublishableKeyWithSource } from "@/lib/clerkPublishableKey";
 import { initMixpanel } from "@/lib/mixpanel";
@@ -29,7 +31,9 @@ Sentry.init({
 });
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+const authProvider = readAuthProvider();
 const { key: clerkKey, source: clerkKeySource } = readClerkPublishableKeyWithSource();
+const workosConfig = readWorkOSConfig();
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
 
 // #region agent log
@@ -67,6 +71,7 @@ if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
 /** Demo mode without a publishable key: skip ClerkProvider; Auth route redirects home (see Auth.tsx). */
 const demoWithoutClerk = DEMO_MODE && !clerkKey;
 const shouldMountClerk = Boolean(clerkKey);
+const shouldMountWorkOS = authProvider === "workos" && isWorkOSConfigured();
 
 const appShell = (inner: ReactNode) => (
   <div className="flex min-h-screen flex-col">
@@ -76,7 +81,17 @@ const appShell = (inner: ReactNode) => (
 
 const appTree = demoWithoutClerk
   ? appShell(<App />)
-  : shouldMountClerk
+  : shouldMountWorkOS
+    ? appShell(
+        <AuthKitProvider
+          clientId={workosConfig.clientId}
+          apiHostname={workosConfig.apiHostname || undefined}
+          devMode={workosConfig.devMode}
+        >
+          <App />
+        </AuthKitProvider>,
+      )
+    : shouldMountClerk
     ? appShell(
         <ClerkProvider publishableKey={clerkKey} localization={clerkLocalization}>
           <App />
@@ -84,9 +99,17 @@ const appTree = demoWithoutClerk
       )
     : (
         <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#050506] px-6 text-center">
-          <p className="text-sm font-medium text-zinc-100">Clerk publishable key missing</p>
+          <p className="text-sm font-medium text-zinc-100">
+            {authProvider === "workos" ? "WorkOS config missing" : "Clerk publishable key missing"}
+          </p>
           <p className="max-w-md text-sm text-zinc-400">
-            {import.meta.env.DEV ? (
+            {authProvider === "workos" ? (
+              <>
+                Add <code className="rounded bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-zinc-100">VITE_WORKOS_CLIENT_ID</code> and either{" "}
+                <code className="rounded bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-zinc-100">VITE_WORKOS_API_HOSTNAME</code> or{" "}
+                <code className="rounded bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-zinc-100">VITE_WORKOS_DEV_MODE=true</code> in your environment, then redeploy.
+              </>
+            ) : import.meta.env.DEV ? (
               <>
                 Add <code className="rounded bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-zinc-100">VITE_CLERK_PUBLISHABLE_KEY</code> or, for local dev,{" "}
                 <code className="rounded bg-zinc-800/90 px-1.5 py-0.5 font-mono text-xs text-zinc-100">VITE_CLERK_PUBLISHABLE_KEY_DEV</code>{" "}

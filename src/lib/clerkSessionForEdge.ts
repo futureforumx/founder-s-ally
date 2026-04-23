@@ -1,17 +1,17 @@
-/**
- * Clerk default session JWT (for edge functions that only need `sub`).
- * Separate from the Supabase-signed JWT used for PostgREST RLS.
- */
-let clerkSessionGetter: () => Promise<string | null> = async () => null;
+/** Provider session JWT / access token used by app APIs and edge functions. */
+let authSessionGetter: () => Promise<string | null> = async () => null;
 
-export function registerClerkSessionTokenGetter(fn: () => Promise<string | null>) {
-  clerkSessionGetter = fn;
+export function registerAuthSessionTokenGetter(fn: () => Promise<string | null>) {
+  authSessionGetter = fn;
 }
 
-export async function getClerkSessionToken(): Promise<string | null> {
+export async function getAuthSessionToken(): Promise<string | null> {
   try {
-    return await clerkSessionGetter();
+    return await authSessionGetter();
   } catch {
     return null;
   }
 }
+
+export const registerClerkSessionTokenGetter = registerAuthSessionTokenGetter;
+export const getClerkSessionToken = getAuthSessionToken;

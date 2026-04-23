@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import { Loader2 } from "lucide-react";
 import MuxPlayer from "@mux/mux-player-react";
 import type MuxPlayerElement from "@mux/mux-player";
+import { readAuthProvider } from "@/lib/authProvider";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const clerkAppearance = {
@@ -578,8 +580,93 @@ function AuthWithClerk() {
   );
 }
 
+function AuthWithWorkOS() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isLoading, signIn, signUp } = useWorkOSAuth();
+  const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
+  const [heroCopyIndex, setHeroCopyIndex] = useState(0);
+
+  useEffect(() => {
+    setHeroCopyIndex(0);
+  }, [isSignUpRoute]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setHeroCopyIndex((prev) => (prev + 1) % AUTH_HERO_MARKETING_COPY.length);
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (isSignUpRoute) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "1");
+      } else if (location.pathname.startsWith("/auth")) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "0");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [isSignUpRoute, location.pathname]);
+
+  useEffect(() => {
+    if (!isLoading && user) navigate("/", { replace: true });
+  }, [isLoading, navigate, user]);
+
+  if (isLoading) {
+    return shell(
+      <div className="flex min-h-[320px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+      </div>,
+      isSignUpRoute,
+      heroCopyIndex,
+    );
+  }
+
+  return shell(
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-6">
+      <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+        {isSignUpRoute ? "Create your account" : "Welcome Back."}
+      </h1>
+      <p className="mt-2 text-sm text-zinc-400">
+        {isSignUpRoute
+          ? "Continue with WorkOS AuthKit to create your Vekta account."
+          : "Sign in with WorkOS AuthKit to continue into Vekta."}
+      </p>
+      <div className="mt-8 flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            const returnTo = `${location.pathname}${location.search}`;
+            void (isSignUpRoute ? signUp({ state: { returnTo } }) : signIn({ state: { returnTo } }));
+          }}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-zinc-100 px-4 text-[15px] font-medium text-zinc-950 transition hover:bg-zinc-200"
+        >
+          {isSignUpRoute ? "Continue with WorkOS" : "Sign in with WorkOS"}
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(isSignUpRoute ? "/auth" : "/auth/sign-up")}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
+        >
+          {isSignUpRoute ? "Already have an account?" : "Need an account?"}
+        </button>
+      </div>
+      <p className="mt-5 text-xs leading-6 text-zinc-500">
+        Configure WorkOS with this app&apos;s <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[11px] text-zinc-200">/auth</code> route as both the redirect URI and sign-in endpoint.
+      </p>
+    </div>,
+    isSignUpRoute,
+    heroCopyIndex,
+  );
+}
+
 /** When VITE_DEMO_MODE is true and no publishable key, `main.tsx` omits ClerkProvider — redirect home. */
 export default function Auth() {
+  if (readAuthProvider() === "workos") {
+    return <AuthWithWorkOS />;
+  }
   const demoNoClerk = import.meta.env.VITE_DEMO_MODE === "true" && !readClerkPublishableKey().trim();
   if (demoNoClerk) {
     return <Navigate to="/" replace />;

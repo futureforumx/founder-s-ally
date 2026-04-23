@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { FundingFeedEmptyState } from "./FundingFeedEmptyState";
 import { FundingFeedRow } from "./FundingFeedRow";
 import { FundingFeedSkeleton } from "./FundingFeedSkeleton";
+import { LATEST_FUNDING_DESKTOP_GRID_CLASS } from "./latestFundingLayout";
 
 const PANEL = cn(
   "rounded-2xl border border-zinc-800 bg-[#000000] shadow-lg shadow-black/50 backdrop-blur-sm",
@@ -77,10 +78,15 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
         <FundingFeedEmptyState variant={emptyVariant} />
       ) : (
         <>
-          <div className="hidden grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] gap-3 border-b border-zinc-800 bg-[#0a0a0a] px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-[#b3b3b3] md:grid">
+          <div
+            className={cn(
+              "hidden gap-x-3 gap-y-2 border-b border-zinc-800 bg-[#0a0a0a] px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-[#b3b3b3] md:grid",
+              LATEST_FUNDING_DESKTOP_GRID_CLASS,
+            )}
+          >
             <span>Company</span>
             <span>Round</span>
-            <span className="text-right">Amount</span>
+            <span>Amount</span>
             <span>Announced</span>
             <span>Sector</span>
             <span>Lead</span>
