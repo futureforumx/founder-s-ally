@@ -12,8 +12,8 @@ interface BrandLogoProps {
 }
 
 const LOGO_BLACK = "/brand/vekta-black.svg";
-const LOGO_WHITE_EXPANDED = "/brand/vekta-sidebar-expanded.png";
-const LOGO_WHITE_COLLAPSED = "/brand/vekta-sidebar-collapsed.png";
+const LOGO_WHITE_EXPANDED = "/brand/vekta-hero-wordmark.svg";
+const LOGO_WHITE_COLLAPSED = "/brand/vekta-symbol-light.svg";
 
 function logoSrc(variant: "black" | "white", sidebarMode?: "expanded" | "collapsed"): string {
   if (variant === "black") return LOGO_BLACK;
