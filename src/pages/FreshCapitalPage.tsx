@@ -29,7 +29,7 @@ export default function FreshCapitalPage() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = "Fresh capital · Vekta";
+    document.title = "Fund Watch · Vekta";
     return () => {
       document.title = prev;
     };
@@ -74,12 +74,12 @@ export default function FreshCapitalPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[hsl(210_20%_99%)] font-sans text-zinc-950 antialiased">
+    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
       <FreshCapitalHero onScrollToFeed={scrollToFeed} />
 
       {demo ? (
-        <div className="border-b border-amber-200/80 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 sm:px-6">
-          Demo data enabled (<code className="rounded bg-amber-100/80 px-1">VITE_FRESH_CAPITAL_DEMO=true</code>, non-production
+        <div className="border-b border-amber-500/30 bg-amber-500/8 px-4 py-2 text-center text-xs text-amber-200 sm:px-6">
+          Demo data enabled (<code className="rounded bg-amber-900/50 px-1 text-amber-100">VITE_FRESH_CAPITAL_DEMO=true</code>, non-production
           only). Configure Supabase for the live feed.
         </div>
       ) : null}
@@ -104,12 +104,12 @@ export default function FreshCapitalPage() {
       <FreshCapitalHeatmap buckets={heatmapBuckets} />
       <FreshCapitalConversion />
 
-      <footer className="border-t border-zinc-200/80 bg-white py-8 text-center text-xs text-zinc-500">
+      <footer className="border-t border-zinc-800/90 bg-[#060709] py-8 text-center text-xs text-zinc-400">
         <p>
           © {new Date().getFullYear()} Vekta ·{" "}
           <Link
             to={signupHref}
-            className="font-medium text-zinc-700 underline-offset-2 hover:underline"
+            className="font-medium text-zinc-200 underline-offset-2 hover:underline"
             onClick={() => trackFreshCapitalJoinVekta({ cta_location: "footer_create_account" })}
           >
             Create an account

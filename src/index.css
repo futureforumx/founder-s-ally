@@ -10,24 +10,24 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 215 25% 12%;
+    --background: 0 0% 3%;
+    --foreground: 220 12% 93%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 25% 12%;
+    --card: 220 12% 8%;
+    --card-foreground: 220 12% 93%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 12%;
+    --popover: 220 12% 8%;
+    --popover-foreground: 220 12% 93%;
 
     /* Brand primary purple #5B5CFF */
     --primary: 239 100% 68%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 95%;
-    --secondary-foreground: 215 25% 12%;
+    --secondary: 220 10% 14%;
+    --secondary-foreground: 220 15% 88%;
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 10% 14%;
+    --muted-foreground: 220 10% 62%;
 
     --accent: 239 100% 68%;
     --accent-foreground: 0 0% 100%;
@@ -37,42 +37,42 @@
 
     /* Brand green accent #2EE6A6 */
     --success: 159 79% 54%;
-    --success-foreground: 165 90% 11%;
+    --success-foreground: 158 92% 8%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 210 20% 92%;
-    --input: 210 20% 92%;
-    --ring: 239 100% 68%;
+    --border: 220 10% 20%;
+    --input: 220 10% 20%;
+    --ring: 220 14% 70%;
 
     --radius: 0.75rem;
 
-    --shadow-sm: 0 0 0 1px rgba(0,0,0,.03), 0 1px 2px rgba(0,0,0,.04);
-    --shadow-md: 0 0 0 1px rgba(0,0,0,.03), 0 4px 6px -1px rgba(0,0,0,.04), 0 2px 4px -1px rgba(0,0,0,.02);
-    --shadow-lg: 0 0 0 1px rgba(0,0,0,.03), 0 10px 15px -3px rgba(0,0,0,.05), 0 4px 6px -2px rgba(0,0,0,.02);
+    --shadow-sm: 0 0 0 1px rgba(255,255,255,.03), 0 1px 2px rgba(0,0,0,.35);
+    --shadow-md: 0 0 0 1px rgba(255,255,255,.03), 0 4px 10px -2px rgba(0,0,0,.42), 0 2px 4px -1px rgba(0,0,0,.25);
+    --shadow-lg: 0 0 0 1px rgba(255,255,255,.03), 0 10px 18px -4px rgba(0,0,0,.5), 0 4px 8px -3px rgba(0,0,0,.32);
 
     /* #222222 — app rail */
-    --sidebar-background: 0 0% 13.33%;
-    --sidebar-foreground: 210 20% 85%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 220 10% 84%;
     --sidebar-primary: 239 100% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 12% 25%;
-    --sidebar-accent-foreground: 200 15% 92%;
-    --sidebar-border: 200 10% 26%;
+    --sidebar-accent: 220 10% 15%;
+    --sidebar-accent-foreground: 220 12% 94%;
+    --sidebar-border: 220 10% 18%;
     --sidebar-ring: 239 100% 68%;
 
     /* App shell: sidebar width (AppSidebar updates on collapse; GlobalTopNav offsets from this). */
     --app-sidebar-width: 216px;
 
-    --heat-0: 210 20% 95%;
-    --heat-1: 239 55% 88%;
-    --heat-2: 239 85% 72%;
-    --heat-3: 239 100% 58%;
-    --heat-4: 239 70% 32%;
+    --heat-0: 220 10% 18%;
+    --heat-1: 239 42% 36%;
+    --heat-2: 239 62% 52%;
+    --heat-3: 239 88% 66%;
+    --heat-4: 239 95% 76%;
 
-    --ai-pending: 239 55% 88%;
-    --ai-pending-foreground: 239 45% 32%;
+    --ai-pending: 239 30% 28%;
+    --ai-pending-foreground: 239 92% 90%;
     --ai-approved: 239 90% 58%;
     --ai-approved-foreground: 0 0% 100%;
 
@@ -110,6 +110,66 @@
     --ls-normal: 0em;
     --ls-wide: 0.01em;
     --ls-uppercase: 0.05em;
+  }
+
+  :root.light {
+    --background: 210 20% 98%;
+    --foreground: 215 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 12%;
+
+    --primary: 239 100% 68%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 95%;
+    --secondary-foreground: 215 25% 12%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 239 100% 68%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 44%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 159 79% 54%;
+    --success-foreground: 165 90% 11%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 210 20% 92%;
+    --input: 210 20% 92%;
+    --ring: 239 100% 68%;
+
+    --shadow-sm: 0 0 0 1px rgba(0, 0, 0, .03), 0 1px 2px rgba(0, 0, 0, .04);
+    --shadow-md: 0 0 0 1px rgba(0, 0, 0, .03), 0 4px 6px -1px rgba(0, 0, 0, .04), 0 2px 4px -1px rgba(0, 0, 0, .02);
+    --shadow-lg: 0 0 0 1px rgba(0, 0, 0, .03), 0 10px 15px -3px rgba(0, 0, 0, .05), 0 4px 6px -2px rgba(0, 0, 0, .02);
+
+    --sidebar-background: 0 0% 13.33%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 239 100% 68%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 12% 25%;
+    --sidebar-accent-foreground: 200 15% 92%;
+    --sidebar-border: 200 10% 26%;
+    --sidebar-ring: 239 100% 68%;
+
+    --heat-0: 210 20% 95%;
+    --heat-1: 239 55% 88%;
+    --heat-2: 239 85% 72%;
+    --heat-3: 239 100% 58%;
+    --heat-4: 239 70% 32%;
+
+    --ai-pending: 239 55% 88%;
+    --ai-pending-foreground: 239 45% 32%;
+    --ai-approved: 239 90% 58%;
+    --ai-approved-foreground: 0 0% 100%;
   }
 }
 

@@ -78,6 +78,53 @@ function rpcRowsFromPayload(data: unknown): RpcRow[] {
   return [];
 }
 
+function canonicalDealKey(r: RecentFundingRound): string {
+  const company = String(r.companyName ?? "").trim().toLowerCase();
+  const amount = String(r.amountLabel ?? "").trim().toLowerCase();
+  const date = String(r.announcedAt ?? "").trim().slice(0, 10);
+  const lead = String(r.leadInvestor ?? "").trim().toLowerCase();
+  return `${company}__${amount}__${date}__${lead}`;
+}
+
+function announcedAtTs(dateLike: string): number {
+  const t = Date.parse(dateLike);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function mergeRecentFundingRows(primary: RecentFundingRound[], fallback: RecentFundingRound[]): RecentFundingRound[] {
+  const merged = new Map<string, RecentFundingRound>();
+
+  for (const row of fallback) {
+    if (!isRenderableDeal(row)) continue;
+    merged.set(canonicalDealKey(row), row);
+  }
+  for (const row of primary) {
+    if (!isRenderableDeal(row)) continue;
+    const key = canonicalDealKey(row);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, row);
+      continue;
+    }
+
+    // Ingest rows win overall, but keep curated fields when ingest values are empty.
+    merged.set(key, {
+      ...existing,
+      ...row,
+      websiteUrl: row.websiteUrl?.trim() ? row.websiteUrl : existing.websiteUrl,
+      companyGallerySlug: row.companyGallerySlug?.trim() ? row.companyGallerySlug : existing.companyGallerySlug,
+      sourceUrl: row.sourceUrl?.trim() ? row.sourceUrl : existing.sourceUrl,
+      leadWebsiteUrl: row.leadWebsiteUrl?.trim() ? row.leadWebsiteUrl : existing.leadWebsiteUrl,
+      coInvestors:
+        Array.isArray(row.coInvestors) && row.coInvestors.length > 0
+          ? row.coInvestors
+          : existing.coInvestors,
+    });
+  }
+
+  return [...merged.values()].sort((a, b) => announcedAtTs(b.announcedAt) - announcedAtTs(a.announcedAt));
+}
+
 /** Drop stub rows; deals without article URLs are kept and shown as non-clickable in the UI. */
 function isRenderableDeal(r: RecentFundingRound): boolean {
   return Boolean(String(r.id ?? "").trim()) && Boolean(String(r.companyName ?? "").trim());
@@ -118,7 +165,7 @@ async function fetchRecentFundingFeed(limit: number): Promise<RecentFundingRound
   return mapValid(vc.data);
 }
 
-export type RecentFundingDataSource = "ingest" | "seed_dev";
+export type RecentFundingDataSource = "ingest" | "seed_dev" | "ingest_plus_seed" | "seed_fallback";
 
 export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: number }) {
   const limit = options?.limit ?? 80;
@@ -136,9 +183,8 @@ export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: num
   const liveRows = query.data ?? [];
 
   /**
-   * Seed data is only used when there is no Supabase client (local/demo without keys).
-   * When Supabase is configured, never substitute seed on RPC failure or empty results—
-   * that would silently mask production outages or an empty pipeline.
+   * We always keep curated startups.gallery rows in the set for Latest Funding coverage,
+   * then overlay ingest rows on top when available.
    */
   let rows: RecentFundingRound[];
   let dataSource: RecentFundingDataSource;
@@ -147,14 +193,14 @@ export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: num
     rows = RECENT_FUNDING_ROUNDS;
     dataSource = "seed_dev";
   } else if (query.isError) {
-    rows = [];
-    dataSource = "ingest";
+    rows = RECENT_FUNDING_ROUNDS;
+    dataSource = "seed_fallback";
   } else if (query.isLoading) {
-    rows = [];
+    rows = RECENT_FUNDING_ROUNDS;
     dataSource = "ingest";
   } else {
-    rows = liveRows;
-    dataSource = "ingest";
+    rows = mergeRecentFundingRows(liveRows, RECENT_FUNDING_ROUNDS);
+    dataSource = liveRows.length > 0 ? "ingest_plus_seed" : "seed_fallback";
   }
 
   const ingestEmpty = isSupabaseConfigured && query.isSuccess && liveRows.length === 0;

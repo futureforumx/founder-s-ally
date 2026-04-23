@@ -151,6 +151,13 @@ function isKpSelectIVDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "f
   return /\bkp\s*select\s*(iv|4)\b/i.test(fundRaw) || /\bselect\s*(iv|4)\b/i.test(fundRaw);
 }
 
+function isHeartlandVenturesFundIIIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
+  const firm = row.firm_name?.trim().toLowerCase() ?? "";
+  const fundRaw = row.fund_name?.trim() ?? "";
+  if (!firm.includes("heartland ventures")) return false;
+  return /^fund\s*iii$/i.test(fundRaw) || /\bfund\s*iii\b/i.test(fundRaw);
+}
+
 function isAntlerUSFundIIDisplayCase(row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name">): boolean {
   const firm = row.firm_name?.trim().toLowerCase() ?? "";
   const fund = row.fund_name?.trim().toLowerCase() ?? "";
@@ -267,10 +274,11 @@ export function stageFocusForDisplay(
 
 /** Geo-focus chips — display-only overrides when RPC/geo tags are noisy or stale. */
 export function geographyFocusForDisplay(
-  row: Pick<FreshCapitalFundRow, "firm_name" | "geography_focus">,
+  row: Pick<FreshCapitalFundRow, "firm_name" | "geography_focus" | "fund_name">,
 ): string[] | null | undefined {
   const firmLc = row.firm_name?.trim().toLowerCase() ?? "";
   if (firmLc.includes("credo ventures")) return ["Europe"];
+  if (isHeartlandVenturesFundIIIDisplayCase(row)) return ["U.S."];
   return row.geography_focus ?? null;
 }
 

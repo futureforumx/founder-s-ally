@@ -788,7 +788,12 @@ export default defineConfig(async ({ mode }) => {
               return "react-vendor";
             }
             if (id.includes("framer-motion")) return "framer-motion";
-            if (id.includes("@radix-ui/")) return "radix";
+            /**
+             * Keep Radix with the main React vendor graph.
+             * A separate `radix` chunk can end up importing from `react-vendor`
+             * while `react-vendor` also reaches back into `radix`, which breaks
+             * boot on production deploys with `undefined.useLayoutEffect`.
+             */
             if (id.includes("@supabase/") || id.includes("@clerk/") || id.includes("@auth0/")) return "auth-data";
             if (id.includes("@tanstack/react-query")) return "query";
           },

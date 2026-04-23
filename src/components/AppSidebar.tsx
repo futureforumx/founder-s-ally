@@ -101,10 +101,10 @@ function SidebarHint({ collapsed, label, children }: { collapsed: boolean; label
 }
 
 const activeNavStyle = {
-  backgroundColor: "#d1d5db",
-  borderColor: "#4b5563",
-  color: "#1f2937",
-  boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.1)",
+  backgroundColor: "rgba(255, 255, 255, 0.08)",
+  borderColor: "rgba(255, 255, 255, 0.18)",
+  color: "#f5f7fa",
+  boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.07)",
 } as const;
 
 export function AppSidebar({
@@ -507,7 +507,7 @@ export function AppSidebar({
                     href="https://tryvekta.com/aurora"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+                    className="font-medium text-violet-300 underline underline-offset-2 hover:text-violet-200"
                   >
                     Learn more
                   </a>
