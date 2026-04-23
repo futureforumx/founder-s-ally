@@ -1,25 +1,27 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import { SignIn, SignUp, useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import { Loader2 } from "lucide-react";
 import MuxPlayer from "@mux/mux-player-react";
 import type MuxPlayerElement from "@mux/mux-player";
+import { readAuthProvider, readWorkOSConfig } from "@/lib/authProvider";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const clerkAppearance = {
   elements: {
     rootBox: "w-full flex justify-start",
     socialButtonsBlockButton:
-      "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 h-10",
-    formButtonPrimary: "bg-zinc-900 hover:bg-zinc-800 text-[15px] font-medium h-11",
-    formFieldInput: "border-zinc-300 bg-white",
-    dividerLine: "bg-zinc-200",
-    dividerText: "text-zinc-400",
+      "h-10 border-zinc-700/90 bg-zinc-900 text-zinc-100 hover:bg-zinc-800",
+    formButtonPrimary: "h-11 bg-zinc-100 text-[15px] font-medium text-zinc-950 hover:bg-zinc-200",
+    formFieldInput: "border-zinc-700 bg-zinc-950 text-zinc-100",
+    dividerLine: "bg-zinc-800",
+    dividerText: "text-zinc-500",
   },
 };
 
 const fallback = (
-  <div className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/80 px-4 py-10">
+  <div className="flex min-h-[280px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/60 px-4 py-10">
     <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
     <p className="text-center text-xs text-zinc-500">Loading…</p>
   </div>
@@ -313,7 +315,7 @@ function AuthHeroCopy({ copyIndex }: { copyIndex: number }) {
 function shell(children: ReactNode, isSignUp: boolean, heroCopyIndex: number) {
   const leftPadMd = isSignUp ? "md:py-14" : "md:py-10";
   return (
-    <div className="fixed inset-0 z-[100] flex h-dvh max-h-dvh min-h-0 w-full flex-col overflow-hidden bg-zinc-50 md:grid md:grid-cols-2 md:grid-rows-1">
+    <div className="fixed inset-0 z-[100] flex h-dvh max-h-dvh min-h-0 w-full flex-col overflow-hidden bg-[#050506] md:grid md:grid-cols-2 md:grid-rows-1">
       <div
         className={`order-2 min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 sm:px-10 md:order-1 md:h-full md:max-h-full md:flex-none ${leftPadMd} py-8 md:py-10`}
       >
@@ -478,12 +480,12 @@ function AuthWithClerk() {
 
   if (showLocalPreviewFallback) {
     return shell(
-      <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Preview mode</h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-500">
+      <div className="rounded-2xl border border-zinc-700/80 bg-zinc-900 p-6 shadow-sm sm:p-8">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-100">Preview mode</h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-400">
           This localhost build is using a production Clerk key, so sign-in cannot load here. Add{" "}
-          <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_…</code> in{" "}
-          <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">.env.local</code>.
+          <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-100">VITE_CLERK_PUBLISHABLE_KEY_DEV=pk_test_…</code> in{" "}
+          <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-xs text-zinc-100">.env.local</code>.
         </p>
       </div>,
       isSignUpRoute,
@@ -494,7 +496,7 @@ function AuthWithClerk() {
   if (!isLoaded && !clerkLoadTimedOut) {
     return shell(
       <div className="flex min-h-[320px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
       </div>,
       isSignUpRoute,
       heroCopyIndex
@@ -505,17 +507,17 @@ function AuthWithClerk() {
     isSignUpRoute ? (
       <>
         {clerkLoadTimedOut && (
-          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+          <div className="mb-5 rounded-xl border border-amber-500/35 bg-amber-500/8 px-4 py-3 text-xs leading-6 text-amber-200">
             <p>
               Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
               add this domain in Clerk → <span className="font-semibold">Domains</span>, allow the URL in{" "}
               <span className="font-semibold">Redirect URLs</span> (for Google/GitHub), disable blockers, and hard-refresh.
             </p>
             {isVercelHost ? (
-              <p className="mt-2 border-t border-amber-200/80 pt-2 text-amber-950/90">
+              <p className="mt-2 border-t border-amber-400/25 pt-2 text-amber-100/90">
                 <span className="font-semibold">Vercel preview:</span> in Vercel → Project → Settings → Environment Variables, ensure{" "}
-                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
-                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_*</code> secrets) are enabled for{" "}
+                <code className="rounded bg-amber-950/50 px-1 py-0.5 font-mono text-[11px] text-amber-100">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
+                <code className="rounded bg-amber-950/50 px-1 py-0.5 font-mono text-[11px] text-amber-100">VITE_*</code> secrets) are enabled for{" "}
                 <span className="font-semibold">Preview</span>, not only Production—then redeploy.
               </p>
             ) : null}
@@ -523,8 +525,8 @@ function AuthWithClerk() {
         )}
         {!isSignUpVerifyEmailRoute && (
           <>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Create your account</h1>
-            <p className="mt-2 text-sm text-zinc-500">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Create your account</h1>
+            <p className="mt-2 text-sm text-zinc-400">
               Get started in a few steps. You can also continue with Google or other providers if enabled in Clerk.
             </p>
           </>
@@ -543,24 +545,24 @@ function AuthWithClerk() {
     ) : (
       <>
         {clerkLoadTimedOut && (
-          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+          <div className="mb-5 rounded-xl border border-amber-500/35 bg-amber-500/8 px-4 py-3 text-xs leading-6 text-amber-200">
             <p>
               Clerk is still initializing for <span className="font-semibold">{currentOrigin}</span>. If sign-in does not appear,
               add this domain in Clerk → <span className="font-semibold">Domains</span>, allow the URL in{" "}
               <span className="font-semibold">Redirect URLs</span> (for Google/GitHub), disable blockers, and hard-refresh.
             </p>
             {isVercelHost ? (
-              <p className="mt-2 border-t border-amber-200/80 pt-2 text-amber-950/90">
+              <p className="mt-2 border-t border-amber-400/25 pt-2 text-amber-100/90">
                 <span className="font-semibold">Vercel preview:</span> in Vercel → Project → Settings → Environment Variables, ensure{" "}
-                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
-                <code className="rounded bg-amber-100/90 px-1 py-0.5 font-mono text-[11px]">VITE_*</code> secrets) are enabled for{" "}
+                <code className="rounded bg-amber-950/50 px-1 py-0.5 font-mono text-[11px] text-amber-100">VITE_CLERK_PUBLISHABLE_KEY</code> (and other{" "}
+                <code className="rounded bg-amber-950/50 px-1 py-0.5 font-mono text-[11px] text-amber-100">VITE_*</code> secrets) are enabled for{" "}
                 <span className="font-semibold">Preview</span>, not only Production—then redeploy.
               </p>
             ) : null}
           </div>
         )}
-        <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-900">Welcome Back.</h1>
-        <p className="hidden md:block mt-2 text-sm text-zinc-500">Your founder co-pilot awaits.</p>
+        <h1 className="hidden md:block text-2xl font-semibold tracking-tight text-zinc-100">Welcome Back.</h1>
+        <p className="hidden md:block mt-2 text-sm text-zinc-400">Your founder co-pilot awaits.</p>
         <div className="mt-6 w-full min-w-0">
           <SignIn
             routing="path"
@@ -578,8 +580,109 @@ function AuthWithClerk() {
   );
 }
 
+function AuthWithWorkOS() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isLoading, signIn, signUp } = useWorkOSAuth();
+  const workosConfig = readWorkOSConfig();
+  const debugRedirectUri =
+    typeof window !== "undefined"
+      ? (() => {
+          const url = new URL(window.location.href);
+          if (url.hostname === "127.0.0.1") {
+            url.hostname = "localhost";
+          }
+          return `${url.origin}/auth`;
+        })()
+      : workosConfig.redirectUri;
+  const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
+  const [heroCopyIndex, setHeroCopyIndex] = useState(0);
+
+  useEffect(() => {
+    setHeroCopyIndex(0);
+  }, [isSignUpRoute]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setHeroCopyIndex((prev) => (prev + 1) % AUTH_HERO_MARKETING_COPY.length);
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (isSignUpRoute) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "1");
+      } else if (location.pathname.startsWith("/auth")) {
+        sessionStorage.setItem("vekta_mp_signup_intent", "0");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [isSignUpRoute, location.pathname]);
+
+  useEffect(() => {
+    if (!isLoading && user) navigate("/", { replace: true });
+  }, [isLoading, navigate, user]);
+
+  if (isLoading) {
+    return shell(
+      <div className="flex min-h-[320px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+      </div>,
+      isSignUpRoute,
+      heroCopyIndex,
+    );
+  }
+
+  return shell(
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-6">
+      <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+        {isSignUpRoute ? "Create your account" : "Welcome Back."}
+      </h1>
+      <p className="mt-2 text-sm text-zinc-400">
+        {isSignUpRoute
+          ? "Continue with WorkOS AuthKit to create your Vekta account."
+          : "Sign in with WorkOS AuthKit to continue into Vekta."}
+      </p>
+      <div className="mt-8 flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            const returnTo = `${location.pathname}${location.search}`;
+            void (isSignUpRoute ? signUp({ state: { returnTo } }) : signIn({ state: { returnTo } }));
+          }}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-zinc-100 px-4 text-[15px] font-medium text-zinc-950 transition hover:bg-zinc-200"
+        >
+          {isSignUpRoute ? "Continue with WorkOS" : "Sign in with WorkOS"}
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(isSignUpRoute ? "/auth" : "/auth/sign-up")}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-100 transition hover:bg-zinc-800"
+        >
+          {isSignUpRoute ? "Already have an account?" : "Need an account?"}
+        </button>
+      </div>
+      <p className="mt-5 text-xs leading-6 text-zinc-500">
+        Configure WorkOS with this app&apos;s <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[11px] text-zinc-200">/auth</code> route as both the redirect URI and sign-in endpoint.
+      </p>
+      {import.meta.env.DEV ? (
+        <p className="mt-2 break-all text-[11px] leading-5 text-zinc-500">
+          Runtime WorkOS debug: client=<span className="font-mono">{workosConfig.clientId || "(missing)"}</span> redirect=<span className="font-mono">{debugRedirectUri || "(missing)"}</span>
+        </p>
+      ) : null}
+    </div>,
+    isSignUpRoute,
+    heroCopyIndex,
+  );
+}
+
 /** When VITE_DEMO_MODE is true and no publishable key, `main.tsx` omits ClerkProvider — redirect home. */
 export default function Auth() {
+  if (readAuthProvider() === "workos") {
+    return <AuthWithWorkOS />;
+  }
   const demoNoClerk = import.meta.env.VITE_DEMO_MODE === "true" && !readClerkPublishableKey().trim();
   if (demoNoClerk) {
     return <Navigate to="/" replace />;

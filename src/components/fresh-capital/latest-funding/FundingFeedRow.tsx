@@ -6,28 +6,57 @@ import { roundKindStageBucket } from "@/lib/latestFundingFilters";
 import { formatAnnouncedDate } from "@/lib/freshCapitalPublic";
 import { buildOutboundUrl } from "@/lib/outboundUrl";
 import { cn } from "@/lib/utils";
+import { getPremiumTableBadgeTone, premiumTableBadgeVariants, type PremiumTableBadgeKind } from "@/components/ui/badge-styles";
 import { CompanyRowMark } from "./CompanyRowMark";
+import { LATEST_FUNDING_DESKTOP_GRID_CLASS } from "./latestFundingLayout";
 
-/** Matches `ThemePills` on Fresh Funds — single sector label. */
-function SectorThemePill({ label }: { label: string }) {
+const FUND_WATCH_THEME_PILL_CLASS =
+  "inline-flex shrink-0 rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary";
+
+function formatSectorLabel(label: string): string {
+  return label.replace(/_/g, " ").trim();
+}
+
+function FundingBadge({
+  kind,
+  label,
+  title,
+  className,
+}: {
+  kind: PremiumTableBadgeKind;
+  label: string;
+  title?: string;
+  className?: string;
+}) {
+  const tone = getPremiumTableBadgeTone(kind, label);
+
   return (
     <span
-      className="inline-block max-w-[12rem] truncate rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary"
-      title={label}
+      className={cn(
+        premiumTableBadgeVariants({
+          kind: tone === "graphite" ? "neutral" : kind,
+          tone,
+        }),
+        "max-w-[12rem] truncate",
+        className,
+      )}
+      title={title ?? label}
     >
-      {label.toUpperCase()}
+      {label}
     </span>
   );
 }
 
-/** Pill for the funding round stage — e.g. Series A, Pre-Seed. */
 function RoundKindPill({ label, title }: { label: string; title?: string }) {
+  return <FundingBadge kind="round" label={label} title={title} className="max-w-max" />;
+}
+
+/** Matches `ThemePills` on Fresh Funds — single sector label. */
+function SectorThemePill({ label }: { label: string }) {
+  const displayLabel = formatSectorLabel(label);
   return (
-    <span
-      className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-2xs font-medium text-sky-300"
-      title={title ?? label}
-    >
-      {label}
+    <span className={cn(FUND_WATCH_THEME_PILL_CLASS, "max-w-[12rem] truncate")} title={displayLabel}>
+      {displayLabel.toUpperCase()}
     </span>
   );
 }
@@ -59,7 +88,7 @@ function RumorBadge() {
 
 /** Same grid proportions as Fresh Funds desktop feed. */
 const DESKTOP_GRID =
-  "grid grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] items-center gap-3 px-4 py-3.5";
+  cn("grid items-start gap-x-3 gap-y-2 px-4 py-3", LATEST_FUNDING_DESKTOP_GRID_CLASS);
 
 function FundingDealMetaRow({
   row,
@@ -163,15 +192,17 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
         onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
       >
         <div className={DESKTOP_GRID}>
-          <span className="inline-flex min-w-0 items-center gap-2">
+          <span className="inline-flex min-w-0 items-start gap-2">
             <CompanyRowMark row={row} />
             <span className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="min-w-0 truncate font-medium text-[#eeeeee]">{row.companyName}</span>
+              <span className="min-w-0 whitespace-normal break-words text-sm font-medium leading-tight text-[#eeeeee]">
+                {row.companyName}
+              </span>
               {showRumorBadge ? <RumorBadge /> : null}
             </span>
           </span>
           <RoundKindPill label={row.roundKind} title={roundKindTitle} />
-          <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
+          <span className="text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
           <span className="text-sm text-[#b3b3b3]">{displayDate}</span>
           <SectorThemePill label={row.sector} />
           <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={row.leadInvestor}>

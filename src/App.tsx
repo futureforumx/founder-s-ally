@@ -24,6 +24,7 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
+const AiAgentsPage = lazy(() => import("./pages/AiAgentsPage.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -246,7 +247,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <SpeedInsights />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <ActiveContextProvider>
           <BackgroundProfileProvider>
@@ -280,10 +281,51 @@ const App = () => (
                 }
               />
               <Route
+                path="/fund-watch"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/freshcapital"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/fundwatch"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/newfunds"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/outbound"
                 element={
                   <Suspense fallback={null}>
                     <OutboundPage />
+                  </Suspense>
+                }
+              />
+              <Route path="/AI-AGENTS" element={<Navigate to="/ai-agents" replace />} />
+              <Route
+                path="/ai-agents"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <AiAgentsPage />
                   </Suspense>
                 }
               />

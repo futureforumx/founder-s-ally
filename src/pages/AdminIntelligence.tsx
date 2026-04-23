@@ -2,18 +2,20 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, X } from "lucide-react";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, X, Newspaper } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger } from "@/components/admin/AdminAiDebugger";
 import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
 import { AdminRecordUpdates } from "@/components/admin/AdminRecordUpdates";
+import { AdminFreshCapitalEditor } from "@/components/admin/AdminFreshCapitalEditor";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
   { key: "users", label: "Users", icon: Users },
   { key: "record-updates", label: "Record updates", icon: History },
+  { key: "fresh-capital", label: "Fresh Capital", icon: Newspaper },
   { key: "api-health", label: "API Health", icon: Wifi },
   { key: "sync-logs", label: "Sync Logs", icon: ScrollText },
   { key: "ai-debugger", label: "AI Debugger", icon: Brain },
@@ -110,6 +112,7 @@ export default function AdminIntelligence() {
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
+        {activeView === "fresh-capital" && <AdminFreshCapitalEditor />}
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
         {activeView === "ai-debugger" && <AdminAiDebugger />}

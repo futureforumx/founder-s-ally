@@ -10,37 +10,14 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import { getAuthUserIdFromAuthHeader } from "./_clerkFromRequest.js";
 
 function setCors(res: VercelResponse): VercelResponse {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "authorization, content-type");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   return res;
-}
-
-// Clerk JWKS — verify against the instance's actual JWKS so no secret key is needed.
-// Falls back to the generic Clerk API JWKS which works for most deployments.
-function clerkJwks() {
-  const clerkDomain = process.env.VITE_CLERK_PUBLISHABLE_KEY
-    ? decodeClerkDomain(process.env.VITE_CLERK_PUBLISHABLE_KEY)
-    : null;
-  const jwksUrl = clerkDomain
-    ? `https://${clerkDomain}/.well-known/jwks.json`
-    : "https://api.clerk.com/v1/jwks";
-  return createRemoteJWKSet(new URL(jwksUrl));
-}
-
-function decodeClerkDomain(pk: string): string | null {
-  try {
-    const b64 = pk.replace(/^pk_(live|test)_/, "");
-    const decoded = Buffer.from(b64, "base64").toString("utf8").replace(/\0/g, "").trim();
-    // decoded looks like "https://clerk.vekta.so$" — strip protocol and trailing $
-    return decoded.replace(/^https?:\/\//, "").replace(/\$$/, "").trim() || null;
-  } catch {
-    return null;
-  }
 }
 
 const ALLOWED_KEYS = [
@@ -73,34 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return setCors(res).status(400).json({ error: "Invalid JSON body" });
   }
 
-  // Verify Clerk JWT; fall back to _uid body hint (validated to Clerk ID format)
   const authHeader = req.headers.authorization ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-
-  let userId: string | null = null;
-  if (token) {
-    try {
-      const { payload } = await jwtVerify(token, clerkJwks());
-      const sub = payload.sub;
-      if (sub && typeof sub === "string") userId = sub;
-    } catch {
-      // JWT signature verification failed (e.g. Clerk JWKS not reachable) — try _uid hint
-    }
-    // Decode sub without verification as fallback
-    if (!userId) {
-      try {
-        const parts = token.split(".");
-        if (parts.length >= 2) {
-          let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-          while (b64.length % 4) b64 += "=";
-          const pl = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
-          if (typeof pl.sub === "string" && /^user_[A-Za-z0-9]{20,}$/.test(pl.sub)) {
-            userId = pl.sub;
-          }
-        }
-      } catch { /* ok */ }
-    }
-  }
+  let userId = await getAuthUserIdFromAuthHeader(authHeader);
 
   // Last resort: _uid field in body (Clerk user ID format only)
   if (!userId) {

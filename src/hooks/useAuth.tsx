@@ -9,9 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth as useClerkAuth, useUser, useClerk, useSession } from "@clerk/clerk-react";
+import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import type { User, Session } from "@supabase/supabase-js";
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
-import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
+import { registerAuthSessionTokenGetter } from "@/lib/clerkSessionForEdge";
+import { readAuthProvider } from "@/lib/authProvider";
 import {
   mixpanelIdentify,
   mixpanelReset,
@@ -56,6 +58,10 @@ function authMethodLabel(
   if (oauth) return oauth;
   if (clerkUser.primaryEmailAddressId) return "email";
   return "unknown";
+}
+
+function authMethodLabelFromWorkOSUser(): string {
+  return "workos";
 }
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
@@ -120,6 +126,30 @@ function buildSession(u: User | null): Session | null {
   } as Session;
 }
 
+function workosUserToCompatUser(
+  workosUser: { id: string; email?: string | null; firstName?: string | null; lastName?: string | null } | null | undefined,
+): User | null {
+  if (!workosUser?.id) return null;
+  const fullName = [workosUser.firstName, workosUser.lastName].filter(Boolean).join(" ").trim();
+  return {
+    id: workosUser.id,
+    aud: "authenticated",
+    role: "authenticated",
+    email: workosUser.email ?? "",
+    email_confirmed_at: null,
+    phone: "",
+    confirmed_at: null,
+    last_sign_in_at: null,
+    app_metadata: {},
+    user_metadata: fullName ? { full_name: fullName } : {},
+    identities: [],
+    created_at: "",
+    updated_at: "",
+    is_anonymous: false,
+    factors: null,
+  } as User;
+}
+
 function DemoAuthProvider({ children }: { children: ReactNode }) {
   const [user] = useState<User | null>(DEMO_USER);
   const [session] = useState<Session | null>(() => buildSession(DEMO_USER));
@@ -161,7 +191,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
 
   // Register before paint so edge-function calls right after sign-in see real tokens (not stale null getters).
   useLayoutEffect(() => {
-    registerClerkSessionTokenGetter(async () => {
+    registerAuthSessionTokenGetter(async () => {
       if (!isLoaded || !isSignedIn) return null;
       try {
         return (await getTokenRef.current()) ?? null;
@@ -215,7 +245,10 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
       );
       return null;
     });
-    return () => setSupabaseAccessTokenGetter(null);
+    return () => {
+      setSupabaseAccessTokenGetter(null);
+      registerAuthSessionTokenGetter(async () => null);
+    };
   }, [isLoaded, isSignedIn, clerkSession?.id]);
 
   const user = useMemo(() => clerkUserToCompatUser(clerkUser), [clerkUser]);
@@ -285,9 +318,98 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+function WorkOSAuthProvider({ children }: { children: ReactNode }) {
+  const { user: workosUser, isLoading, getAccessToken, signOut } = useWorkOSAuth();
+  const getAccessTokenRef = useRef(getAccessToken);
+  getAccessTokenRef.current = getAccessToken;
+
+  useLayoutEffect(() => {
+    registerAuthSessionTokenGetter(async () => {
+      if (isLoading || !workosUser) return null;
+      try {
+        return (await getAccessTokenRef.current()) ?? null;
+      } catch {
+        return null;
+      }
+    });
+
+    setSupabaseAccessTokenGetter(async () => {
+      if (isLoading || !workosUser) return null;
+      try {
+        return (await getAccessTokenRef.current()) ?? null;
+      } catch {
+        return null;
+      }
+    });
+
+    return () => {
+      setSupabaseAccessTokenGetter(null);
+      registerAuthSessionTokenGetter(async () => null);
+    };
+  }, [isLoading, workosUser?.id]);
+
+  const user = useMemo(() => workosUserToCompatUser(workosUser), [workosUser]);
+  const session = useMemo(() => buildSession(user), [user]);
+  const lastUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (!workosUser) {
+      if (lastUserIdRef.current) mixpanelReset();
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    if (lastUserIdRef.current === workosUser.id) return;
+    lastUserIdRef.current = workosUser.id;
+
+    const email = workosUser.email ?? "";
+    if (readSignupIntent() === "1") {
+      trackMixpanelEvent("Sign Up", {
+        user_id: workosUser.id,
+        email,
+        signup_method: authMethodLabelFromWorkOSUser(),
+        ...utmFromLocation(),
+      });
+      clearSignupIntent();
+    } else {
+      trackMixpanelEvent("Sign In", {
+        user_id: workosUser.id,
+        login_method: authMethodLabelFromWorkOSUser(),
+        email,
+        ...utmFromLocation(),
+      });
+    }
+
+    const displayName = [workosUser.firstName, workosUser.lastName].filter(Boolean).join(" ").trim();
+    mixpanelIdentify(workosUser.id, {
+      ...(email ? { $email: email } : {}),
+      ...(displayName ? { $name: displayName } : {}),
+    });
+  }, [isLoading, workosUser]);
+
+  const value = useMemo<AuthCtx>(
+    () => ({
+      user,
+      session,
+      loading: isLoading,
+      signOut: async () => {
+        await signOut();
+        mixpanelReset();
+      },
+    }),
+    [isLoading, session, signOut, user],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   if (DEMO_MODE) return <DemoAuthProvider>{children}</DemoAuthProvider>;
-  return <ClerkAuthProvider>{children}</ClerkAuthProvider>;
+  return readAuthProvider() === "workos"
+    ? <WorkOSAuthProvider>{children}</WorkOSAuthProvider>
+    : <ClerkAuthProvider>{children}</ClerkAuthProvider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

@@ -1,11 +1,13 @@
 import { getSupabaseAccessToken } from "@/integrations/supabase/client";
-import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
+import { getAuthSessionToken } from "@/lib/clerkSessionForEdge";
+import { readAuthProvider } from "@/lib/authProvider";
 
 /**
  * Active Clerk session JWT from the loaded Clerk.js runtime (`sub` = Clerk user id).
  * Prefer this over the registered getter so we never submit with a stale or null closure.
  */
 export async function getClerkBrowserSessionToken(): Promise<string | null> {
+  if (readAuthProvider() !== "clerk") return null;
   if (typeof window === "undefined") return null;
   type ClerkWin = {
     load?: () => Promise<unknown>;
@@ -39,7 +41,7 @@ export async function getClerkBrowserSessionToken(): Promise<string | null> {
 export async function getEdgeFunctionAuthToken(): Promise<string | null> {
   return (
     (await getClerkBrowserSessionToken()) ||
-    (await getClerkSessionToken()) ||
+    (await getAuthSessionToken()) ||
     (await getSupabaseAccessToken())
   );
 }

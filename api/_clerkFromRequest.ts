@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { getWorkOSUserIdFromAccessToken } from "../src/lib/workosAuth.js";
 
 function clerkJwks() {
   const clerkDomain = process.env.VITE_CLERK_PUBLISHABLE_KEY
@@ -20,11 +21,14 @@ function decodeClerkDomain(pk: string): string | null {
   }
 }
 
-/** Extract Clerk user id (e.g. user_2abc…) from Authorization: Bearer JWT. */
-export async function getClerkUserIdFromAuthHeader(authHeader: string | undefined): Promise<string | null> {
+/** Extract the current auth user id from Authorization: Bearer JWT. Supports WorkOS and Clerk. */
+export async function getAuthUserIdFromAuthHeader(authHeader: string | undefined): Promise<string | null> {
   const raw = authHeader ?? "";
   const token = raw.startsWith("Bearer ") ? raw.slice(7).trim() : "";
   if (!token) return null;
+
+  const workosSub = await getWorkOSUserIdFromAccessToken(token);
+  if (workosSub) return workosSub;
 
   try {
     const { payload } = await jwtVerify(token, clerkJwks());
@@ -47,3 +51,5 @@ export async function getClerkUserIdFromAuthHeader(authHeader: string | undefine
   }
   return null;
 }
+
+export const getClerkUserIdFromAuthHeader = getAuthUserIdFromAuthHeader;

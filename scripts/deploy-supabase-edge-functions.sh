@@ -51,5 +51,6 @@ npx supabase@latest functions deploy complete-founder-onboarding --project-ref "
 npx supabase@latest functions deploy waitlist-signup --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy waitlist-status --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy founder-waitlist-snapshot --project-ref "$REF" --no-verify-jwt --use-api
+npx supabase@latest functions deploy admin-fresh-capital --project-ref "$REF" --use-api
 
 echo "Done."

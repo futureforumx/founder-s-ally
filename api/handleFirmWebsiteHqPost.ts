@@ -5,7 +5,7 @@ import {
   buildMergedLocationsForPersist,
   parseAddressLineToStructured,
 } from "./_firmWebsiteHq.js";
-import { augmentFirmRecordsPatchWithSupabase } from "./_firmRecordsCanonicalHqPolicy";
+import { augmentFirmRecordsPatchWithSupabase } from "./_firmRecordsCanonicalHqPolicy.js";
 
 function safeTrim(s: string | null | undefined): string {
   return typeof s === "string" ? s.trim() : "";
