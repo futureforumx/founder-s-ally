@@ -19,6 +19,7 @@ Set these in `.env.local` for local work and in Vercel for the target environmen
 ```bash
 VITE_AUTH_PROVIDER=workos
 VITE_WORKOS_CLIENT_ID=client_...
+VITE_WORKOS_REDIRECT_URI=http://localhost:5173/auth
 
 # Recommended if you have a custom auth domain configured in WorkOS
 VITE_WORKOS_API_HOSTNAME=auth.vekta.so

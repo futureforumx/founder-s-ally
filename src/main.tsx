@@ -34,33 +34,18 @@ const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 const authProvider = readAuthProvider();
 const { key: clerkKey, source: clerkKeySource } = readClerkPublishableKeyWithSource();
 const workosConfig = readWorkOSConfig();
+// Keep WorkOS redirect locked to /auth in every environment to prevent stale callback URIs.
+const workosRedirectUri =
+  typeof window !== "undefined"
+    ? (() => {
+        const url = new URL(window.location.href);
+        if (url.hostname === "127.0.0.1") {
+          url.hostname = "localhost";
+        }
+        return `${url.origin}/auth`;
+      })()
+    : (workosConfig.redirectUri || "/auth");
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
-
-// #region agent log
-if (import.meta.env.DEV) {
-  const pk = clerkKey;
-  const keyKind = !pk ? "empty" : pk.startsWith("pk_live_") ? "live" : pk.startsWith("pk_test_") ? "test" : "other";
-  fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "4b2f23" },
-    body: JSON.stringify({
-      sessionId: "4b2f23",
-      location: "main.tsx:clerk",
-      message: "clerk key resolution",
-      data: {
-        source: clerkKeySource,
-        hasKey: Boolean(pk),
-        keyKind,
-        vercelEnv: String(import.meta.env.VITE_VERCEL_ENV ?? ""),
-        prod: import.meta.env.PROD,
-      },
-      timestamp: Date.now(),
-      hypothesisId: "H-PREVIEW-KEY",
-      runId: "key-resolution",
-    }),
-  }).catch(() => {});
-}
-// #endregion
 
 if (import.meta.env.DEV && clerkKey?.startsWith("pk_live_")) {
   console.warn(
@@ -86,6 +71,7 @@ const appTree = demoWithoutClerk
         <AuthKitProvider
           clientId={workosConfig.clientId}
           apiHostname={workosConfig.apiHostname || undefined}
+          redirectUri={workosRedirectUri}
           devMode={workosConfig.devMode}
         >
           <App />

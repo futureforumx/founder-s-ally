@@ -5,7 +5,7 @@ import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import { Loader2 } from "lucide-react";
 import MuxPlayer from "@mux/mux-player-react";
 import type MuxPlayerElement from "@mux/mux-player";
-import { readAuthProvider } from "@/lib/authProvider";
+import { readAuthProvider, readWorkOSConfig } from "@/lib/authProvider";
 import { readClerkPublishableKey } from "@/lib/clerkPublishableKey";
 
 const clerkAppearance = {
@@ -584,6 +584,17 @@ function AuthWithWorkOS() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading, signIn, signUp } = useWorkOSAuth();
+  const workosConfig = readWorkOSConfig();
+  const debugRedirectUri =
+    typeof window !== "undefined"
+      ? (() => {
+          const url = new URL(window.location.href);
+          if (url.hostname === "127.0.0.1") {
+            url.hostname = "localhost";
+          }
+          return `${url.origin}/auth`;
+        })()
+      : workosConfig.redirectUri;
   const isSignUpRoute = location.pathname.startsWith("/auth/sign-up");
   const [heroCopyIndex, setHeroCopyIndex] = useState(0);
 
@@ -656,6 +667,11 @@ function AuthWithWorkOS() {
       <p className="mt-5 text-xs leading-6 text-zinc-500">
         Configure WorkOS with this app&apos;s <code className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[11px] text-zinc-200">/auth</code> route as both the redirect URI and sign-in endpoint.
       </p>
+      {import.meta.env.DEV ? (
+        <p className="mt-2 break-all text-[11px] leading-5 text-zinc-500">
+          Runtime WorkOS debug: client=<span className="font-mono">{workosConfig.clientId || "(missing)"}</span> redirect=<span className="font-mono">{debugRedirectUri || "(missing)"}</span>
+        </p>
+      ) : null}
     </div>,
     isSignUpRoute,
     heroCopyIndex,

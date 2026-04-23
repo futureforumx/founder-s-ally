@@ -246,7 +246,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <SpeedInsights />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <ActiveContextProvider>
           <BackgroundProfileProvider>
