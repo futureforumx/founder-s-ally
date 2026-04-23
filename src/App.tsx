@@ -288,6 +288,7 @@ const App = () => (
                   </Suspense>
                 }
               />
+              <Route path="/AI-AGENTS" element={<Navigate to="/ai-agents" replace />} />
               <Route
                 path="/ai-agents"
                 element={
