@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { formatCanonicalHqLine } from "../src/lib/formatCanonicalHqLine";
+import { formatCanonicalHqLine } from "../src/lib/formatCanonicalHqLine.js";
 
 const FIRM_RECORD_HQ_WRITE_KEYS = [
   "hq_city",
