@@ -291,11 +291,9 @@ const App = () => (
               <Route
                 path="/ai-agents"
                 element={
-                  <ProtectedRoute>
-                    <Suspense fallback={<RouteLoader fullscreen={false} label="Loading AI agents…" />}>
-                      <AiAgentsPage />
-                    </Suspense>
-                  </ProtectedRoute>
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <AiAgentsPage />
+                  </Suspense>
                 }
               />
               <Route path="/" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
