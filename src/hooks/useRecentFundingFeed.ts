@@ -6,6 +6,7 @@ import {
   supabaseVcDirectory,
 } from "@/integrations/supabase/client";
 import { roundKindStageBucket, formatRoundKind } from "@/lib/latestFundingFilters";
+import { inferWebsiteUrlFromCompanyName, normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
 import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
 
 type RpcRow = {
@@ -49,16 +50,21 @@ function mapConfirmationStatus(
 
 function mapRow(r: RpcRow): RecentFundingRound {
   const rumorFromRpc = r.rumor_status ?? r.confirmation_status;
+  const websiteUrl = normalizeWebsiteUrl(r.website_url)
+    ?? inferWebsiteUrlFromCompanyName(r.company_name)
+    ?? "";
+  const leadWebsiteUrl = normalizeWebsiteUrl(r.lead_website_url);
+
   return {
     id: r.id,
     companyName: r.company_name,
-    websiteUrl: r.website_url || "",
+    websiteUrl,
     sector: r.sector,
     roundKind: formatRoundKind(r.round_kind),
     amountLabel: r.amount_label,
     announcedAt: r.announced_at,
     leadInvestor: stripPublicationFromInvestorDisplay(r.lead_investor || "Unknown"),
-    leadWebsiteUrl: r.lead_website_url?.trim() || null,
+    leadWebsiteUrl,
     coInvestors: Array.isArray(r.co_investors)
       ? r.co_investors.filter(Boolean).map(stripPublicationFromInvestorDisplay)
       : [],

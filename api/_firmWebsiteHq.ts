@@ -3,8 +3,8 @@
  * Does not call third-party logo CDNs — HTML fetch only.
  */
 
-import type { FirmLocationOfficeEntry, FirmLocationsWebsiteScrapeV1 } from "../src/lib/firmLocationsJson";
-import { FIRM_LOCATIONS_JSON_VERSION, mergeWebsiteScrapeIntoLocations } from "../src/lib/firmLocationsJson";
+import type { FirmLocationOfficeEntry, FirmLocationsWebsiteScrapeV1 } from "../src/lib/firmLocationsJson.js";
+import { FIRM_LOCATIONS_JSON_VERSION, mergeWebsiteScrapeIntoLocations } from "../src/lib/firmLocationsJson.js";
 
 const BLOCKED_HOSTS = new Set([
   "linkedin.com",
