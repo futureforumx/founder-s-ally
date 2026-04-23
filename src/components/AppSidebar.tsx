@@ -18,6 +18,7 @@ import {
   Orbit,
   ChevronLeft,
   ChevronRight,
+  Bot,
 } from "lucide-react";
 import { NETWORK_SURFACE_SECTION_HEADING } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
@@ -273,6 +274,27 @@ export function AppSidebar({
                 </TooltipContent>
               </Tooltip>
             )}
+          </div>
+
+          <div className={rail}>
+            <SidebarHint collapsed={collapsed} label="AI Agents">
+              <button
+                type="button"
+                aria-label="AI Agents"
+                onClick={() => navigate("/ai-agents")}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap border border-transparent",
+                  location.pathname === "/ai-agents"
+                    ? "border text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                  collapsed && "justify-center px-1.5",
+                )}
+                style={location.pathname === "/ai-agents" ? activeNavStyle : undefined}
+              >
+                <Bot className="h-4 w-4 shrink-0" />
+                {!collapsed && "AI Agents"}
+              </button>
+            </SidebarHint>
           </div>
 
           <div className={sectionLabel}>{NETWORK_SURFACE_SECTION_HEADING}</div>

@@ -24,6 +24,7 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
+const AiAgentsPage = lazy(() => import("./pages/AiAgentsPage.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -317,6 +318,16 @@ const App = () => (
                   <Suspense fallback={null}>
                     <OutboundPage />
                   </Suspense>
+                }
+              />
+              <Route
+                path="/ai-agents"
+                element={
+                  <ProtectedRoute>
+                    <Suspense fallback={<RouteLoader fullscreen={false} label="Loading AI agents…" />}>
+                      <AiAgentsPage />
+                    </Suspense>
+                  </ProtectedRoute>
                 }
               />
               <Route path="/" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
