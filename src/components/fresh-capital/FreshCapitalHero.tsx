@@ -60,7 +60,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
           <MuxPlayer
             ref={muxRef}
             playbackId={FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID}
-            title="Fresh capital background video"
+            title="Fund Watch background video"
             className="auth-hero-mux-player block h-full w-full pointer-events-none border-0"
             autoPlay
             muted
@@ -69,7 +69,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
             preload="auto"
             nohotkeys
             streamType="on-demand"
-            metadata={{ video_title: "Fresh capital hero" }}
+            metadata={{ video_title: "Fund Watch hero" }}
           />
         </div>
         <div className="absolute inset-0 bg-black/45" aria-hidden />
@@ -119,7 +119,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
         </div>
 
         <div className="max-w-2xl space-y-4">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-primary">Fresh capital</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-primary">Fund Watch</p>
           <h1 className="text-balance text-[30px] font-semibold leading-tight tracking-tight text-[#eeeeee] sm:leading-[1.1]">
             See which investors just raised fresh capital
           </h1>

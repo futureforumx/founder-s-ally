@@ -279,6 +279,38 @@ const App = () => (
                 }
               />
               <Route
+                path="/fund-watch"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/freshcapital"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/fundwatch"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/newfunds"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
                 path="/outbound"
                 element={
                   <Suspense fallback={null}>

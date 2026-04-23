@@ -5,7 +5,26 @@ import { prettyWebsiteHost } from "@/lib/latestFundingDisplay";
 function faviconCandidates(host: string): string[] {
   const h = host.trim().toLowerCase();
   if (!h) return [];
-  return [`https://img.logo.dev/${encodeURIComponent(h)}?size=64&format=png&fallback=404`];
+
+  const hostCandidates = new Set<string>([h]);
+  if (!h.startsWith("www.")) hostCandidates.add(`www.${h}`);
+  const rootParts = h.split(".");
+  if (rootParts.length >= 2) {
+    const rootHost = rootParts.slice(-2).join(".");
+    hostCandidates.add(rootHost);
+    hostCandidates.add(`www.${rootHost}`);
+  }
+
+  const urls: string[] = [];
+  for (const candidateHost of hostCandidates) {
+    // Primary logo provider.
+    urls.push(`https://img.logo.dev/${encodeURIComponent(candidateHost)}?size=64&format=png&fallback=404`);
+    // Secondary logo provider.
+    urls.push(`https://logo.clearbit.com/${encodeURIComponent(candidateHost)}`);
+    // Fallback provider.
+    urls.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(candidateHost)}&sz=128`);
+  }
+  return urls;
 }
 
 export function CompanyRowMark({ row }: { row: RecentFundingRound }) {

@@ -12,7 +12,7 @@ import {
   Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
   X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, UserCircle, Settings2, SlidersHorizontal, LogOut,
+  User, UserCircle, Settings2, SlidersHorizontal, LogOut, Sun, Moon,
   type LucideIcon,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
@@ -42,6 +42,7 @@ import { rpcSearchFirmInvestors, rpcSearchFirmRecords } from "@/lib/firmSearchRp
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 import { collapseStagesToRangePreferringSpecificOverEarly } from "@/lib/stageUtils";
+import { applyTheme, readStoredTheme, toggleTheme, type AppTheme } from "@/lib/theme";
 
 type ViewType =
   | "home"
@@ -670,6 +671,12 @@ export function GlobalTopNav({
   onInvestorSuggestionSelect,
   analysisResult,
 }: GlobalTopNavProps) {
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("light") ? "light" : "dark";
+    }
+    return readStoredTheme();
+  });
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeChip, setActiveChip] = useState("all");
@@ -720,6 +727,12 @@ export function GlobalTopNav({
       requestAnimationFrame(() => requestAnimationFrame(scrollToCohorts));
     }
   }, [pulse, routeView, location.pathname, navigate, onInvestorSearchChipChange]);
+
+  const handleThemeToggle = useCallback(() => {
+    const next = toggleTheme(theme);
+    applyTheme(next);
+    setTheme(next);
+  }, [theme]);
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -1640,6 +1653,30 @@ export function GlobalTopNav({
 
         {/* ── Right: Help + Persona Switcher ── */}
         <div className="flex shrink-0 items-center gap-4">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleThemeToggle}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border/55 bg-muted/30 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground"
+                aria-label={theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
+                title={theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-3.5 w-3.5" />
+                ) : (
+                  <Moon className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">{theme === "dark" ? "Old View" : "Dark"}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
