@@ -336,7 +336,7 @@ const SECTOR_SELECT_ITEM =
   "text-[11px] font-medium uppercase tracking-[0.12em] focus:bg-white/[0.08] focus:text-[#eeeeee]";
 
 const FEED_MAIN_TABS = [
-  { id: "fresh_funds" as const, label: "Fresh funds" },
+  { id: "fresh_funds" as const, label: "Fund Watch" },
   { id: "latest_funding" as const, label: "Latest funding" },
   { id: "insights" as const, label: "Insights" },
 ];
