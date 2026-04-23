@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
-import { useAuth as useClerkAuth } from "@clerk/clerk-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Network, X, Mail, Upload, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useActiveContext } from "@/context/ActiveContext";
+import { getAuthSessionToken } from "@/lib/clerkSessionForEdge";
 import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
 import {
   invalidateConnectorSurfaceQueries,
@@ -20,7 +20,7 @@ interface IntroPathfinderProps {
 export function IntroPathfinder({ investorName, firmName = "1855 Capital" }: IntroPathfinderProps) {
   const [bannerVisible, setBannerVisible] = useState(true);
   const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
-  const { getToken } = useClerkAuth();
+  const getToken = async () => (await getAuthSessionToken())?.trim() || null;
   const queryClient = useQueryClient();
   const csvInputRef = useRef<HTMLInputElement>(null);
 

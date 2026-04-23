@@ -8,10 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useAuth as useClerkAuth, useUser, useClerk, useSession } from "@clerk/clerk-react";
+import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import type { User, Session } from "@supabase/supabase-js";
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
-import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
+import { registerAuthSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import {
   mixpanelIdentify,
   mixpanelReset,
@@ -49,15 +49,6 @@ function utmFromLocation(): {
   return { utm_source, utm_medium, utm_campaign };
 }
 
-function authMethodLabel(
-  clerkUser: NonNullable<ReturnType<typeof useUser>["user"]>
-): string {
-  const oauth = clerkUser.externalAccounts?.[0]?.provider;
-  if (oauth) return oauth;
-  if (clerkUser.primaryEmailAddressId) return "email";
-  return "unknown";
-}
-
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 
 const DEMO_USER = {
@@ -69,11 +60,23 @@ const DEMO_USER = {
   created_at: new Date().toISOString(),
 } as unknown as User;
 
+export interface UserMetadata {
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  avatar_url?: string;
+  [key: string]: unknown;
+}
+
 interface AuthCtx {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  provider: "workos" | "demo";
+  user_metadata?: UserMetadata;
 }
 
 const AuthContext = createContext<AuthCtx>({
@@ -81,28 +84,38 @@ const AuthContext = createContext<AuthCtx>({
   session: null,
   loading: true,
   signOut: async () => {},
+  provider: "workos",
+  user_metadata: {},
 });
 
-function clerkUserToCompatUser(clerkUser: ReturnType<typeof useUser>["user"]): User | null {
-  if (!clerkUser) return null;
-  const email = clerkUser.primaryEmailAddress?.emailAddress ?? "";
+function workosUserToCompatUser(workosUser: unknown): User | null {
+  if (!workosUser || typeof workosUser !== "object") return null;
+  const u = workosUser as Record<string, unknown>;
+  const id = typeof u.id === "string" ? u.id : "";
+  if (!id) return null;
+
+  const email = typeof u.email === "string" ? u.email : "";
+  const firstName = typeof u.firstName === "string" ? u.firstName : "";
+  const lastName = typeof u.lastName === "string" ? u.lastName : "";
+
   return {
-    id: clerkUser.id,
+    id,
     aud: "authenticated",
     role: "authenticated",
     email,
-    email_confirmed_at:
-      clerkUser.primaryEmailAddress?.verification?.status === "verified"
-        ? new Date().toISOString()
-        : null,
+    email_confirmed_at: email ? new Date().toISOString() : null,
     phone: "",
     confirmed_at: null,
     last_sign_in_at: null,
     app_metadata: {},
-    user_metadata: {},
+    user_metadata: {
+      first_name: firstName,
+      last_name: lastName,
+      full_name: [firstName, lastName].filter(Boolean).join(" "),
+    },
     identities: [],
-    created_at: clerkUser.createdAt?.toISOString?.() ?? "",
-    updated_at: clerkUser.updatedAt?.toISOString?.() ?? "",
+    created_at: "",
+    updated_at: "",
     is_anonymous: false,
     factors: null,
   } as User;
@@ -127,6 +140,7 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSupabaseAccessTokenGetter(null);
+    registerAuthSessionTokenGetter(async () => null);
   }, []);
 
   useEffect(() => {
@@ -142,144 +156,105 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       signOut: async () => {},
+      provider: "demo",
+      user_metadata: (user?.user_metadata as UserMetadata) ?? {},
     }),
-    [user, session, loading]
+    [user, session, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function ClerkAuthProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, getToken, sessionId } = useClerkAuth();
-  const { session: clerkSession } = useSession();
-  const { user: clerkUser } = useUser();
-  const { signOut } = useClerk();
-  const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
-  const clerkSessionRef = useRef(clerkSession);
-  clerkSessionRef.current = clerkSession;
+function WorkOSAuthProvider({ children }: { children: ReactNode }) {
+  const { isLoading, user, getAccessToken, signOut } = useWorkOSAuth();
+  const tokenGetterRef = useRef(getAccessToken);
+  tokenGetterRef.current = getAccessToken;
 
-  // Register before paint so edge-function calls right after sign-in see real tokens (not stale null getters).
   useLayoutEffect(() => {
-    registerClerkSessionTokenGetter(async () => {
-      if (!isLoaded || !isSignedIn) return null;
+    registerAuthSessionTokenGetter(async () => {
       try {
-        return (await getTokenRef.current()) ?? null;
+        const token = await tokenGetterRef.current();
+        return token?.trim() ? token : null;
       } catch {
         return null;
       }
     });
 
     setSupabaseAccessTokenGetter(async () => {
-      if (!isLoaded || !isSignedIn) return null;
-      const gt = getTokenRef.current;
-      // Default: Clerk **session** JWT first — matches Supabase “Third-party auth → Clerk” (recommended in our .env.example).
-      // Legacy: JWT template named `supabase` first — set VITE_SUPABASE_JWT_TEMPLATE_FIRST=true if a misconfigured
-      // template previously shadowed a good session token, or you only trust the template.
-      const templateFirst = import.meta.env.VITE_SUPABASE_JWT_TEMPLATE_FIRST === "true";
-      const trySessionJwt = async (): Promise<string | null> => {
-        try {
-          const s = clerkSessionRef.current;
-          const sessionJwt = s ? await s.getToken() : ((await gt()) ?? null);
-          return sessionJwt?.trim() ? sessionJwt : null;
-        } catch {
-          return null;
-        }
-      };
-      const tryTemplateJwt = async (): Promise<string | null> => {
-        try {
-          const templateJwt = await gt({ template: "supabase" });
-          return templateJwt?.trim() ? templateJwt : null;
-        } catch {
-          return null;
-        }
-      };
-      const sessionJwt = await trySessionJwt();
-      const templateJwt = await tryTemplateJwt();
-      if (import.meta.env.VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE === "true") {
-        if (sessionJwt) return sessionJwt;
-        console.warn(
-          "[Supabase + Clerk] VITE_USE_CLERK_SESSION_JWT_FOR_SUPABASE=true but no session JWT — sign in again or fix Clerk session.",
-        );
+      try {
+        const token = await tokenGetterRef.current();
+        return token?.trim() ? token : null;
+      } catch {
         return null;
       }
-      if (templateFirst) {
-        if (templateJwt) return templateJwt;
-        if (sessionJwt) return sessionJwt;
-      } else {
-        if (sessionJwt) return sessionJwt;
-        if (templateJwt) return templateJwt;
-      }
-      console.warn(
-        "[Supabase + Clerk] No Supabase-compatible JWT. Add Clerk in Supabase → Authentication → Third-party auth (session JWT), and/or a Clerk JWT template named `supabase`. Docs: https://supabase.com/docs/guides/auth/third-party/clerk",
-      );
-      return null;
     });
-    return () => setSupabaseAccessTokenGetter(null);
-  }, [isLoaded, isSignedIn, clerkSession?.id]);
 
-  const user = useMemo(() => clerkUserToCompatUser(clerkUser), [clerkUser]);
-  const session = useMemo(() => buildSession(isSignedIn && user ? user : null), [isSignedIn, user]);
+    return () => {
+      setSupabaseAccessTokenGetter(null);
+      registerAuthSessionTokenGetter(async () => null);
+    };
+  }, []);
 
-  const sessionBootstrapRef = useRef(false);
-  const lastSessionIdRef = useRef<string | null>(null);
+  const compatUser = useMemo(() => workosUserToCompatUser(user), [user]);
+  const session = useMemo(() => buildSession(compatUser), [compatUser]);
+  const userId = compatUser?.id ?? null;
+  const email = compatUser?.email ?? "";
+
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (!sessionBootstrapRef.current) {
-      sessionBootstrapRef.current = true;
-      lastSessionIdRef.current = sessionId ?? null;
-      return;
-    }
+    if (isLoading) return;
 
-    if (!isSignedIn || !sessionId) {
-      if (lastSessionIdRef.current) {
+    if (!userId) {
+      if (lastUserIdRef.current) {
         mixpanelReset();
       }
-      lastSessionIdRef.current = null;
+      lastUserIdRef.current = null;
       return;
     }
 
-    if (!clerkUser) return;
-    if (lastSessionIdRef.current === sessionId) return;
+    if (lastUserIdRef.current === userId) return;
 
-    lastSessionIdRef.current = sessionId;
+    const previous = lastUserIdRef.current;
+    lastUserIdRef.current = userId;
 
-    const email = clerkUser.primaryEmailAddress?.emailAddress ?? "";
-    if (readSignupIntent() === "1") {
-      trackMixpanelEvent("Sign Up", {
-        user_id: clerkUser.id,
-        email,
-        signup_method: authMethodLabel(clerkUser),
-        ...utmFromLocation(),
-      });
-      clearSignupIntent();
-    } else {
-      trackMixpanelEvent("Sign In", {
-        user_id: clerkUser.id,
-        login_method: authMethodLabel(clerkUser),
-        success: true,
-      });
-    }
-  }, [isLoaded, isSignedIn, sessionId, clerkUser]);
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !clerkUser) return;
-    const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ").trim();
-    mixpanelIdentify(clerkUser.id, {
-      $email: clerkUser.primaryEmailAddress?.emailAddress,
-      ...(displayName ? { $name: displayName } : {}),
+    const fullName = (compatUser?.user_metadata as UserMetadata | undefined)?.full_name;
+    mixpanelIdentify(userId, {
+      $email: email || undefined,
+      ...(fullName ? { $name: fullName } : {}),
     });
-  }, [isLoaded, isSignedIn, clerkUser]);
+
+    if (!previous) {
+      if (readSignupIntent() === "1") {
+        trackMixpanelEvent("Sign Up", {
+          user_id: userId,
+          email,
+          signup_method: "workos",
+          ...utmFromLocation(),
+        });
+        clearSignupIntent();
+      } else {
+        trackMixpanelEvent("Sign In", {
+          user_id: userId,
+          login_method: "workos",
+          success: true,
+        });
+      }
+    }
+  }, [isLoading, userId, email, compatUser]);
 
   const value = useMemo<AuthCtx>(
     () => ({
-      user: isSignedIn && user ? user : null,
-      session: isSignedIn ? session : null,
-      loading: !isLoaded,
-      signOut: () => signOut({ redirectUrl: "/auth" }),
+      user: compatUser,
+      session,
+      loading: isLoading,
+      signOut: async () => {
+        await signOut();
+      },
+      provider: "workos",
+      user_metadata: (compatUser?.user_metadata as UserMetadata) ?? {},
     }),
-    [isLoaded, isSignedIn, user, session, signOut]
+    [compatUser, session, isLoading, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -287,7 +262,7 @@ function ClerkAuthProvider({ children }: { children: ReactNode }) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   if (DEMO_MODE) return <DemoAuthProvider>{children}</DemoAuthProvider>;
-  return <ClerkAuthProvider>{children}</ClerkAuthProvider>;
+  return <WorkOSAuthProvider>{children}</WorkOSAuthProvider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

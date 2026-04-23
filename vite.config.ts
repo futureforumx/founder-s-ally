@@ -789,7 +789,7 @@ export default defineConfig(async ({ mode }) => {
             }
             if (id.includes("framer-motion")) return "framer-motion";
             if (id.includes("@radix-ui/")) return "radix";
-            if (id.includes("@supabase/") || id.includes("@clerk/") || id.includes("@auth0/")) return "auth-data";
+            if (id.includes("@supabase/") || id.includes("@auth0/")) return "auth-data";
             if (id.includes("@tanstack/react-query")) return "query";
           },
         },

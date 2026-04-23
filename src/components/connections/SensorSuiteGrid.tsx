@@ -49,7 +49,7 @@ import {
   MailOpen, Palette, Megaphone,
   LineChart, Eye, UserCheck, Search
 } from "lucide-react";
-import { useAuth as useClerkAuth } from "@clerk/clerk-react";
+import { getAuthSessionToken } from "@/lib/clerkSessionForEdge";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -619,7 +619,7 @@ interface SensorSuiteGridProps {
 
 export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
   const { activeContextId, activeContextLabel, canManageConnectorIntegrations } = useActiveContext();
-  const { getToken } = useClerkAuth();
+  const getToken = useCallback(async () => (await getAuthSessionToken())?.trim() || null, []);
   const queryClient = useQueryClient();
   const { data: remoteAccounts = [], isFetched: remoteAccountsFetched } = useConnectedAccounts(activeContextId);
 

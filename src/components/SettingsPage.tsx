@@ -16,9 +16,9 @@ import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useClerk, useAuth as useClerkAuthForConnectors } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { getAuthSessionToken } from "@/lib/clerkSessionForEdge";
 import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
 import { parseOverallTenFromStarRatings, parseWorkWithThemFromStarRatings } from "@/lib/reviewRateButtonDisplay";
 import { VEKTA_OPEN_VC_REVIEW_EVENT } from "@/lib/vcReviewNavigation";
@@ -1209,7 +1209,7 @@ const PERSONAL_INTEGRATIONS = [
 
 function PersonalNetworkSection() {
   const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
-  const { getToken } = useClerkAuthForConnectors();
+  const getToken = useCallback(async () => (await getAuthSessionToken())?.trim() || null, []);
   const queryClient = useQueryClient();
   const { data: remoteAccounts = [] } = useConnectedAccounts(activeContextId);
   const [connected, setConnected] = useState(() => loadPersonalConnected(activeContextId));
@@ -2330,9 +2330,9 @@ function SecurityTabDemo() {
   );
 }
 
-function SecurityTabClerk() {
+function SecurityTabWorkOS() {
   const { user } = useAuth();
-  const { openUserProfile } = useClerk();
+  const email = user?.email || "No email set";
 
   return (
     <motion.div
@@ -2344,7 +2344,7 @@ function SecurityTabClerk() {
     >
       <div>
         <h3 className="text-sm font-semibold text-foreground">Security</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Email, password, and 2FA are managed in your Clerk account.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Email, password, and 2FA are managed by your WorkOS identity provider.</p>
       </div>
 
       <div className="space-y-3">
@@ -2355,18 +2355,12 @@ function SecurityTabClerk() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">Account email</p>
-              <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{email}</p>
             </div>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-lg text-xs gap-1.5 w-full sm:w-auto"
-            onClick={() => openUserProfile()}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open account & security
-          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            To update credentials or multifactor settings, sign in through your organization's identity provider.
+          </p>
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-border p-4">
@@ -2376,10 +2370,10 @@ function SecurityTabClerk() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-              <p className="text-[10px] text-muted-foreground">Configure in Clerk account settings</p>
+              <p className="text-[10px] text-muted-foreground">Configured with your WorkOS-connected provider</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase font-bold">Clerk</Badge>
+          <Badge variant="outline" className="text-[9px] uppercase font-bold">WorkOS</Badge>
         </div>
       </div>
     </motion.div>
@@ -2388,7 +2382,7 @@ function SecurityTabClerk() {
 
 function SecurityTab() {
   if (import.meta.env.VITE_DEMO_MODE === "true") return <SecurityTabDemo />;
-  return <SecurityTabClerk />;
+  return <SecurityTabWorkOS />;
 }
 
 // ── Subscription Tab ──
