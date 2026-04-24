@@ -63,7 +63,7 @@ export default function ToolsLibraryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fbfcff_0%,#f6f8ff_40%,#ffffff_100%)]">
+    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <Breadcrumbs items={breadcrumbs} />
 
@@ -79,7 +79,7 @@ export default function ToolsLibraryPage() {
         >
           <div className="flex flex-wrap gap-3">
             {Object.entries(TOOL_CATEGORY_SLUGS).map(([label, slug]) => (
-              <Button key={slug} variant="outline" className="rounded-full bg-white/70" asChild>
+              <Button key={slug} variant="outline" className="rounded-full border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100" asChild>
                 <Link to={`/tools/${slug}`}>{label}</Link>
               </Button>
             ))}
@@ -91,21 +91,21 @@ export default function ToolsLibraryPage() {
         <section className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">All tools</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{filteredTools.length} tools match the current search and filter state.</p>
+              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">All tools</h2>
+              <p className="mt-1 text-sm text-zinc-400">{filteredTools.length} tools match the current search and filter state.</p>
             </div>
           </div>
           <ToolGrid tools={filteredTools} />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+          <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-orange-500" />
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Featured and trending tools</h2>
+                <Flame className="h-4 w-4 text-orange-400" />
+                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Featured and trending tools</h2>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-zinc-400">
                 High-signal pages to start with if you want a faster view of what founders and operators are actively searching.
               </p>
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -113,38 +113,38 @@ export default function ToolsLibraryPage() {
                   <Link
                     key={tool.slug}
                     to={`/tools/${tool.slug}`}
-                    className="rounded-2xl border border-border/70 bg-muted/30 p-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-primary/40 hover:bg-primary/10"
                   >
                     <div className="flex flex-wrap gap-2">
                       {tool.featured ? <Badge variant="default-sm">Featured</Badge> : null}
                       {tool.trending ? <Badge variant="warning-sm">Trending</Badge> : null}
                     </div>
-                    <div className="mt-3 font-medium text-foreground">{tool.name}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{tool.shortDescription}</div>
+                    <div className="mt-3 font-medium text-zinc-100">{tool.name}</div>
+                    <div className="mt-1 text-sm text-zinc-400">{tool.shortDescription}</div>
                   </Link>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+          <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-primary" />
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Recently added</h2>
+                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Recently added</h2>
               </div>
               <div className="mt-5 space-y-3">
                 {recentlyAdded.map((tool) => (
                   <Link
                     key={tool.slug}
                     to={`/tools/${tool.slug}`}
-                    className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/10"
                   >
                     <div>
-                      <div className="font-medium text-foreground">{tool.name}</div>
-                      <div className="text-sm text-muted-foreground">{tool.subcategory}</div>
+                      <div className="font-medium text-zinc-100">{tool.name}</div>
+                      <div className="text-sm text-zinc-400">{tool.subcategory}</div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    <ArrowRight className="h-4 w-4 text-zinc-500" />
                   </Link>
                 ))}
               </div>
@@ -155,7 +155,7 @@ export default function ToolsLibraryPage() {
         <section className="space-y-5">
           <div className="flex items-center gap-2">
             <LibraryBig className="h-4 w-4 text-primary" />
-            <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Popular categories</h2>
+            <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Popular categories</h2>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -165,22 +165,22 @@ export default function ToolsLibraryPage() {
                 <Link
                   key={slug}
                   to={`/tools/${slug}`}
-                  className="rounded-[1.5rem] border border-border/70 bg-white/90 p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40"
+                  className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900 p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40"
                 >
-                  <div className="font-clash text-xl font-semibold tracking-tight text-foreground">{category}</div>
-                  <div className="mt-2 text-sm leading-6 text-muted-foreground">{intro.description}</div>
+                  <div className="font-clash text-xl font-semibold tracking-tight text-zinc-100">{category}</div>
+                  <div className="mt-2 text-sm leading-6 text-zinc-400">{intro.description}</div>
                   <div className="mt-4 text-sm font-medium text-primary">Open category</div>
                 </Link>
               );
             })}
           </div>
 
-          <div className="rounded-[1.75rem] border border-border/70 bg-white/90 p-6 shadow-sm">
-            <div className="text-sm font-medium text-foreground">Top subcategories</div>
+          <div className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
+            <div className="text-sm font-medium text-zinc-100">Top subcategories</div>
             <div className="mt-4 flex flex-wrap gap-2">
               {popularSubcategories.map((item) => (
-                <div key={item.subcategory} className="rounded-full border border-border/70 bg-muted/30 px-3 py-2 text-sm text-foreground">
-                  {item.subcategory} <span className="text-muted-foreground">({item.count})</span>
+                <div key={item.subcategory} className="rounded-full border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-300">
+                  {item.subcategory} <span className="text-zinc-500">({item.count})</span>
                 </div>
               ))}
             </div>
