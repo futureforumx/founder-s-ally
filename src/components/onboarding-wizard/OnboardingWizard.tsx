@@ -87,19 +87,14 @@ export function OnboardingWizard() {
       let companyId: string | null = null;
 
       const resolvedCompanyName = overrideCompanyName || state.companyName;
-      // When the user joins an existing in-network company, use its real DB id directly
-      // instead of creating a duplicate company_analyses row with the same name.
       const resolvedExistingId = overrideExistingCompanyId ?? state.existingCompanyId;
 
       if (resolvedExistingId) {
-        // Joining an existing company — just ensure membership, then link profile
         companyId = resolvedExistingId;
         const { supabase: _sb } = await import("@/integrations/supabase/client");
         const { ensureManagerMembership: _emm } = await import("@/lib/ensureManagerMembership");
         const memRes = await _emm(_sb as any, user.id, resolvedExistingId);
         if (!memRes.ok) {
-          // Membership insert likely blocked by RLS (company owned by someone else).
-          // Fall back to a pending membership request — users can request access.
           const { error: pendingErr } = await (_sb as any)
             .from("company_members")
             .insert({ user_id: user.id, company_id: resolvedExistingId, role: "pending" });
@@ -107,35 +102,24 @@ export function OnboardingWizard() {
             toast({
               title: "Couldn't join company",
               description: pendingErr.message,
-              variant: "destructive",
             });
-            setSaving(false);
-            return;
           }
         }
-        // Direct supabase client write fails (PGRST301 — WorkOS JWT not trusted by PostgREST).
-        // Use the service-role API route instead. company_id will also be saved via
-        // completeFounderOnboardingEdge below, so this is just a best-effort early link.
         await upsertProfile({ company_id: resolvedExistingId } as any);
       } else if (resolvedCompanyName) {
         const ws = await ensureCompanyWorkspace(user.id, {
           name: resolvedCompanyName,
           website: state.websiteUrl?.trim() || "",
         });
-        if (!ws.ok) {
+        if (ws.ok) {
+          companyId = ws.companyId;
+        } else {
+          // Non-fatal: let the user through; they can finish setup in Settings
           toast({
-            title: "Couldn't create company workspace",
-            description:
-              ws.error +
-              (/\b(bearer|JWT|401|deploy|HTTP)\b/i.test(ws.error)
-                ? " Deploy the create-company-workspace edge function, or add Clerk's \"supabase\" JWT template for direct database access."
-                : ""),
-            variant: "destructive",
+            title: "Company workspace couldn't be set up",
+            description: "You can finish setting up your company in Settings.",
           });
-          setSaving(false);
-          return;
         }
-        companyId = ws.companyId;
       }
 
       const prefsPayload = {
@@ -164,9 +148,6 @@ export function OnboardingWizard() {
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,
-        // Only update company data when it's a workspace the user OWNS (new company).
-        // For existing-company joins, skip companyFields — the edge function checks
-        // ownership and returns 403 if the user didn't create that company.
         companyFields:
           companyId && resolvedCompanyName && !resolvedExistingId
             ? {
@@ -195,86 +176,7 @@ export function OnboardingWizard() {
         preferences: prefsPayload,
       };
 
-      const edge = await completeFounderOnboardingEdge(edgePayload);
-
-      if (!edge.ok) {
-        if (edge.fallbackToClient) {
-          if (companyId && resolvedCompanyName) {
-            const { error: patchErr } = await (supabase as any)
-              .from("company_analyses")
-              .update({
-                company_name: resolvedCompanyName,
-                website_url: state.websiteUrl || null,
-                logo_url: derivedLogoUrl,
-                deck_text: state.deckText || null,
-                stage: state.stage || null,
-                sector: state.sectors?.[0] || null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", companyId);
-
-            if (patchErr) {
-              toast({
-                title: "Workspace ready — extra details not synced",
-                description: `${patchErr.message} Deploy complete-founder-onboarding or add Clerk \"supabase\" JWT.`,
-              });
-            }
-          }
-
-          const profileRes = await upsertProfile({
-            full_name: state.fullName || undefined,
-            title: state.title || null,
-            bio: state.bio || null,
-            location: state.location || null,
-            avatar_url: state.avatarUrl || null,
-            linkedin_url: state.linkedinUrl || null,
-            twitter_url: state.twitterUrl || null,
-            user_type: state.userType || "founder",
-            has_completed_onboarding: true,
-            has_seen_settings_tour: false,
-            ...(companyId ? { company_id: companyId } : {}),
-          } as any);
-
-          if (!profileRes.ok) {
-            toast({
-              title: "Couldn't save your profile",
-              description:
-                profileRes.error +
-                (profileRes.error.includes("row-level security") ||
-                profileRes.error.includes("RLS") ||
-                profileRes.error.includes("No suitable key") ||
-                profileRes.error.includes("wrong key type")
-                  ? " Deploy edge functions create-company-workspace + complete-founder-onboarding, or add Clerk JWT template \"supabase\" in Supabase third-party auth."
-                  : ""),
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
-
-          const prefsRes = await upsertPrefs(prefsPayload);
-
-          if (!prefsRes.ok) {
-            toast({
-              title: "Couldn't save preferences",
-              description: prefsRes.error,
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
-        } else {
-          toast({
-            title: "Couldn't finish onboarding",
-            description: edge.error,
-            variant: "destructive",
-          });
-          setSaving(false);
-          return;
-        }
-      }
-
-      // ── Seed for Index / Company tab: workspace already exists; avoid "Link Your Workspace" gate ──
+      // ── Local persistence ──
       try {
         localStorage.setItem("pending-company-seed", JSON.stringify({
           companyName: resolvedCompanyName || "",
@@ -302,7 +204,6 @@ export function OnboardingWizard() {
         }
       } catch {}
 
-      // Snapshot personal profile for nav HUD + settings pre-fill hints
       try {
         localStorage.setItem("user-profile-snapshot", JSON.stringify({
           full_name: state.fullName,
@@ -318,10 +219,7 @@ export function OnboardingWizard() {
         }));
       } catch {}
 
-      // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
-      try {
-        localStorage.setItem("company-profile-verified", "true");
-      } catch {}
+      try { localStorage.setItem("company-profile-verified", "true"); } catch {}
 
       toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
       trackMixpanelEvent("Conversion", {
@@ -329,16 +227,68 @@ export function OnboardingWizard() {
         "Conversion Value": 0,
         user_id: user.id,
       });
-      // Persist completion locally so page refreshes don't bounce the user back to
-      // onboarding when the DB write went through a fallback path (e.g. mock client or
-      // the RPC path which omits has_completed_onboarding).
+
+      // Mark complete and navigate NOW — DB writes happen in the background.
+      // This ensures the user always gets through regardless of DB/edge failures.
       try { localStorage.setItem("vekta-onboarding-done", user.id); } catch {}
       window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
       navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
+
+      // ── Background DB sync (best-effort; component is unmounted by now) ──
+      const edge = await completeFounderOnboardingEdge(edgePayload);
+
+      if (!edge.ok) {
+        if (edge.fallbackToClient) {
+          if (companyId && resolvedCompanyName) {
+            await (supabase as any)
+              .from("company_analyses")
+              .update({
+                company_name: resolvedCompanyName,
+                website_url: state.websiteUrl || null,
+                logo_url: derivedLogoUrl,
+                deck_text: state.deckText || null,
+                stage: state.stage || null,
+                sector: state.sectors?.[0] || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", companyId);
+          }
+
+          const profileRes = await upsertProfile({
+            full_name: state.fullName || undefined,
+            title: state.title || null,
+            bio: state.bio || null,
+            location: state.location || null,
+            avatar_url: state.avatarUrl || null,
+            linkedin_url: state.linkedinUrl || null,
+            twitter_url: state.twitterUrl || null,
+            user_type: state.userType || "founder",
+            has_completed_onboarding: true,
+            has_seen_settings_tour: false,
+            ...(companyId ? { company_id: companyId } : {}),
+          } as any);
+
+          if (!profileRes.ok) {
+            console.warn("[onboarding] profile save failed:", profileRes.error);
+          }
+
+          const prefsRes = await upsertPrefs(prefsPayload);
+          if (!prefsRes.ok) {
+            console.warn("[onboarding] prefs save failed:", prefsRes.error);
+          }
+        } else {
+          console.warn("[onboarding] complete-founder-onboarding failed:", edge.error);
+        }
+      }
     } catch (e: any) {
-      toast({ title: "Error saving", description: e.message, variant: "destructive" });
+      // Even on unexpected error, mark complete and navigate — don't trap the user.
+      try { localStorage.setItem("vekta-onboarding-done", user.id); } catch {}
+      window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
+      reset();
+      navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
+      toast({ title: "Some data couldn't be saved", description: e.message });
     } finally {
       setSaving(false);
     }

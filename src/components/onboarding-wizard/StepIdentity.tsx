@@ -127,18 +127,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       toast({ title: "Required fields", description: `Please fill in: ${missing.join(", ")}.`, variant: "destructive" });
       return;
     }
-    if (!hasSocialProfile) {
-      if (showSocialHint) {
-        // User already saw the hint and clicked again — let them skip social sync.
-        onNext();
-        return;
-      }
-      setSocialShake(true);
-      setShowSocialHint(true);
-      setTimeout(() => setSocialShake(false), 600);
-      return;
-    }
-    setShowSocialHint(false);
+    // Social profiles are optional — sync if provided, proceed regardless
 
     const liFromInput = url.trim() ? formatSocialUrl("linkedin_personal", url) : "";
     const linkedinUrlToSync = liFromInput;
@@ -366,9 +355,9 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                   <div className="flex items-center gap-2">
                     <Linkedin className="h-3.5 w-3.5 text-primary" />
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Social Profiles <span className="text-destructive">*</span>
+                      Social Profiles
                     </span>
-                    <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
+                    <span className="text-[9px] text-muted-foreground/60 ml-auto">Optional — helps personalize your experience</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <HelpCircle className="h-3 w-3 text-muted-foreground/50 cursor-help" />
