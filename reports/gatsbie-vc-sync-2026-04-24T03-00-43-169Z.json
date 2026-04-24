@@ -1,0 +1,265 @@
+{
+  "generated_at": "2026-04-24T03:00:43.168Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18048,
+  "matched_firms": 237,
+  "unmatched_firms": 263,
+  "firm_creates": 253,
+  "firm_updates": 41,
+  "investor_updates": 0,
+  "investor_inserts": 20,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "A5 Capital Partners",
+      "website": "https://a5capital.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Zubi Capital",
+      "website": "https://zubicapital.com/about-us/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Relay Investments",
+      "website": "https://www.relayinvestments.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "12/12 Ventures",
+      "website": "https://www.1212.vc",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "The Global Leaders",
+      "website": "http://www.tgleaders.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Cling",
+      "website": "http://Clingbrands.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Assurance Financial",
+      "website": "https://assurancemortgage.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Al Khayyat Investments (AKI)",
+      "website": "https://www.akigroup.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "de Pury Pictet Turrettini & Sie",
+      "website": "ppt.ch",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Reinicke Family Office",
+      "website": "r-fo.de",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Ares Management",
+      "website": "https://www.aresmgmt.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Sapphire Sport (Sapphire Ventures)",
+      "website": "https://sapphireventures.com/contact/",
+      "reason": "ambiguous_domain:sapphireventures.com"
+    },
+    {
+      "gatsbie_name": "Panoptic Capital Partners",
+      "website": "http://panopticcap.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "SenaHill Partners",
+      "website": "www.senahill.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "AJ Capital",
+      "website": "https://ajcapital.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Oxygen Ventures",
+      "website": "https://www.oxygenventures.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Foxhaven",
+      "website": "http://foxhavencap.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Bayes Ventures",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "The Spofford Group",
+      "website": "https://spoffordgroup.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Kingfisher Investment Advisors",
+      "website": "https://www.kingfisherinvestment.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Lone Star Ventures, LLC",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Blue Scorpion Investments",
+      "website": "http://www.bluescorpioninv.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Farris Capital Group",
+      "website": "https://www.farriscapitalgroup.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Hopwood Financial Services",
+      "website": "https://www.hopwoodfinancial.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Sweater",
+      "website": "sweaterventures.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Four Cities Capital",
+      "website": "https://fourcitiescapital.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Welch Capital",
+      "website": "http://www.welchintl.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Phabriq Development",
+      "website": "http://www.phabriq.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Far East Organization",
+      "website": "http://www.fareast.com.sg",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Aditya Vuchi's family office",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Se13 Advisors",
+      "website": "http://www.se13.capital",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Buchwald Capital Advisors",
+      "website": "https://www.buchwaldcapital.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Alignd Venture Partners, Inc.",
+      "website": "https://aligndventures.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Mulberry Investment Group",
+      "website": "https://www.mulberryinvestments.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Stripes",
+      "website": "https://www.stripes.co",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Trailyn VC",
+      "website": "https://trailynvc.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Rodriguez LLC",
+      "website": "http://www.rodriguezllc.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Taylor Morgan Capital Management",
+      "website": "https://www.taylormorgancapital.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Kingsley Asset Management",
+      "website": "http://www.kingsleykorea.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Hackers + Founders",
+      "website": "hf.cx",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "AbCellera",
+      "website": "https://www.abcellera.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "ROC Ventures",
+      "website": "https://www.rocventures.org/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Green Egg Ventures",
+      "website": "www.greenegg.vc",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Frisch Capital Partners",
+      "website": "https://www.frischcapital.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "INROADS Capital Partners",
+      "website": "https://www.inroads.org/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "makesense",
+      "website": "https://www.makesense.org",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Bunny Capital",
+      "website": "https://bunny.capital",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "AngelMD",
+      "website": "https://www.angelmd.co/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Konnected",
+      "website": "https://www.konnected.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Abril Plug and Play",
+      "website": "http://www.abrilplugandplay.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    }
+  ]
+}

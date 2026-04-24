@@ -6,11 +6,45 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 30;
+const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+// ── Edge-function helper ───────────────────────────────────────────────────────
+// Supabase gateway rejects RS256 (WorkOS) JWTs even with verify_jwt=false.
+// Fix: anon key (HS256) in Authorization so the gateway accepts the request,
+//      WorkOS JWT in X-User-Auth for our own admin identity check inside the function.
+
+async function callMarketIntel(params: Record<string, string>): Promise<{ rows: unknown[]; total: number; error?: string }> {
+  if (!SUPABASE_URL) return { rows: [], total: 0, error: "Supabase not configured" };
+
+  const userToken = await getSupabaseBearerForFunctions();
+  const anonKey   = SUPABASE_ANON_KEY ?? "";
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${anonKey}`,
+    "Content-Type": "application/json",
+  };
+  if (userToken && userToken !== anonKey) {
+    headers["X-User-Auth"] = `Bearer ${userToken}`;
+  }
+
+  const qs  = new URLSearchParams(params).toString();
+  const url = `${SUPABASE_URL}/functions/v1/admin-market-intel${qs ? `?${qs}` : ""}`;
+
+  try {
+    const res  = await fetch(url, { method: "GET", headers });
+    const json = await res.json().catch(() => ({})) as { rows?: unknown[]; total?: number; error?: string };
+    if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
+    return { rows: json.rows ?? [], total: json.total ?? 0 };
+  } catch (e: unknown) {
+    return { rows: [], total: 0, error: (e as Error)?.message ?? "Network error" };
+  }
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -153,32 +187,23 @@ function CompaniesPanel() {
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      let q = (supabase as any)
-        .from("startups")
-        .select(
-          "id, company_name, sector, stage, status, hq_city, hq_state, hq_country, " +
-          "total_raised_usd, last_round_type, headcount, momentum_score, investor_fit_score, " +
-          "company_url, description_short, yc_batch, created_at",
-          { count: "exact" }
-        )
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const params: Record<string, string> = {
+      entity: "companies",
+      limit:  String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    };
+    if (dSearch)              params.search = dSearch;
+    if (filterStage  !== "all") params.stage  = filterStage;
+    if (filterStatus !== "all") params.status = filterStatus;
 
-      if (dSearch) q = q.ilike("company_name", `%${dSearch}%`);
-      if (filterStage !== "all") q = q.eq("stage", filterStage);
-      if (filterStatus !== "all") q = q.eq("status", filterStatus);
-
-      const { data, error: err, count } = await q;
-      if (err) throw err;
-      setRows(data ?? []);
-      setTotal(count ?? 0);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load companies");
-    } finally {
-      setLoading(false);
+    const { rows: data, total: cnt, error: fetchErr } = await callMarketIntel(params);
+    if (fetchErr) {
+      setError(fetchErr);
+    } else {
+      setRows(data as StartupRow[]);
+      setTotal(cnt);
     }
+    setLoading(false);
   }, [dSearch, filterStage, filterStatus, page]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
@@ -391,33 +416,25 @@ function FoundersPanel() {
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      let q = (supabase as any)
-        .from("startup_founders")
-        .select(
-          "id, full_name, role, startup_id, is_repeat_founder, has_prior_exit, " +
-          "operator_to_founder, track_record_score, location, domain_expertise, " +
-          "prior_companies, founder_archetype, linkedin_url, email, created_at",
-          { count: "exact" }
-        )
-        .order("track_record_score", { ascending: false, nullsFirst: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const params: Record<string, string> = {
+      entity: "founders",
+      limit:  String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    };
+    if (dSearch)             params.search = dSearch;
+    if (filterRepeat === "yes") params.repeat = "true";
+    if (filterRepeat === "no")  params.repeat = "false";
+    if (filterExit   === "yes") params.exit   = "true";
+    if (filterExit   === "no")  params.exit   = "false";
 
-      if (dSearch) q = q.ilike("full_name", `%${dSearch}%`);
-      if (filterRepeat === "yes") q = q.eq("is_repeat_founder", true);
-      if (filterRepeat === "no") q = q.eq("is_repeat_founder", false);
-      if (filterExit === "yes") q = q.eq("has_prior_exit", true);
-      if (filterExit === "no") q = q.eq("has_prior_exit", false);
-
-      const { data, error: err, count } = await q;
-      if (err) throw err;
-      setRows(data ?? []);
-      setTotal(count ?? 0);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load founders");
-    } finally {
-      setLoading(false);
+    const { rows: data, total: cnt, error: fetchErr } = await callMarketIntel(params);
+    if (fetchErr) {
+      setError(fetchErr);
+    } else {
+      setRows(data as FounderRow[]);
+      setTotal(cnt);
     }
+    setLoading(false);
   }, [dSearch, filterRepeat, filterExit, page]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
@@ -621,33 +638,24 @@ function OperatorsPanel() {
   const fetchRows = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      let q = (supabase as any)
-        .from("operator_profiles")
-        .select(
-          "id, full_name, title, sector_focus, expertise, prior_companies, " +
-          "completeness_score, enrichment_status, is_available, ready_for_live, " +
-          "city, state, country, linkedin_url, email, stage_focus, source, updated_at",
-          { count: "exact" }
-        )
-        .is("deleted_at", null)
-        .order("completeness_score", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const params: Record<string, string> = {
+      entity: "operators",
+      limit:  String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    };
+    if (dSearch)              params.search     = dSearch;
+    if (filterAvail === "yes")  params.available  = "true";
+    if (filterAvail === "no")   params.available  = "false";
+    if (filterEnrich !== "all") params.enrichment = filterEnrich;
 
-      if (dSearch) q = q.ilike("full_name", `%${dSearch}%`);
-      if (filterAvail === "yes") q = q.eq("is_available", true);
-      if (filterAvail === "no") q = q.eq("is_available", false);
-      if (filterEnrich !== "all") q = q.eq("enrichment_status", filterEnrich);
-
-      const { data, error: err, count } = await q;
-      if (err) throw err;
-      setRows(data ?? []);
-      setTotal(count ?? 0);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load operators");
-    } finally {
-      setLoading(false);
+    const { rows: data, total: cnt, error: fetchErr } = await callMarketIntel(params);
+    if (fetchErr) {
+      setError(fetchErr);
+    } else {
+      setRows(data as OperatorRow[]);
+      setTotal(cnt);
     }
+    setLoading(false);
   }, [dSearch, filterAvail, filterEnrich, page]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);

@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { trackFreshCapitalGetFullAccess, trackFreshCapitalViewLatestFunds } from "@/lib/freshCapitalAnalytics";
 
-/** Same asset as auth rotation (`AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS`) — use MuxPlayer, not iframe (iframe often blocked / zero-size). */
+/** Same asset as auth rotation — use MuxPlayer, not iframe (iframe often blocked / zero-size). */
 const FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID = "GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld2bxSywt3M";
 
 type Props = {
@@ -53,7 +53,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
 
   return (
     <header className="relative ml-[calc(50%-50vw)] w-screen max-w-none shrink-0 min-h-[min(40vh,420px)] border-b border-zinc-800 bg-black">
-      {/* Background: mux-player-react (same stack as Auth) — fills pinned stage; veil on top for readable copy */}
+      {/* Background: mux-player-react fills pinned stage; veil on top for readable copy */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
         <div className="absolute inset-0 min-h-[min(40vh,420px)] bg-black" />
         <div className="auth-hero-mux absolute inset-0 min-h-[min(40vh,420px)] overflow-hidden">
@@ -110,9 +110,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
                 <Link to="/?view=directory">Trending companies</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                <a href="https://tryvekta.com/aurora" target="_blank" rel="noopener noreferrer">
-                  Agent Library
-                </a>
+                <Link to="/ai-agents">Agent Library</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

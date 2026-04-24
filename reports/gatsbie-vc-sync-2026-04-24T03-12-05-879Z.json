@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-04-24T03:12:05.878Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18302,
+  "matched_firms": 500,
+  "unmatched_firms": 0,
+  "firm_creates": 0,
+  "firm_updates": 33,
+  "investor_updates": 0,
+  "investor_inserts": 2,
+  "unmatched_examples": []
+}

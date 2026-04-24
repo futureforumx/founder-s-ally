@@ -176,7 +176,11 @@ async function bootstrapApp() {
 
 async function bootstrap() {
   const path = window.location.pathname;
-  if (path.startsWith("/fresh-capital")) {
+  // If WorkOS is redirecting back with an auth code, always use the full app
+  // bootstrap so AuthKitProvider can process the callback — even if the redirect
+  // URI path happens to be /fresh-capital.
+  const hasAuthCode = new URLSearchParams(window.location.search).has("code");
+  if (path.startsWith("/fresh-capital") && !hasAuthCode) {
     await bootstrapFreshCapital();
     return;
   }

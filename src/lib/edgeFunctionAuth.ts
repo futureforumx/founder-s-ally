@@ -1,45 +1,20 @@
 import { getSupabaseAccessToken } from "@/integrations/supabase/client";
-import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
+import { getAuthSessionToken } from "@/lib/clerkSessionForEdge";
 
 /**
- * Active Clerk session JWT from the loaded Clerk.js runtime (`sub` = Clerk user id).
- * Prefer this over the registered getter so we never submit with a stale or null closure.
+ * JWT for edge functions. Returns the WorkOS access token registered by WorkOSAuthProvider,
+ * falling back to the Supabase bearer (publishable key).
+ *
+ * The token `sub` matches `useAuth().user.id` so DB rows keyed by user_id resolve correctly.
  */
-export async function getClerkBrowserSessionToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  type ClerkWin = {
-    load?: () => Promise<unknown>;
-    loaded?: boolean;
-    session?: { getToken: (o?: { skipCache?: boolean }) => Promise<string | null> };
-  };
-  for (let attempt = 0; attempt < 12; attempt++) {
-    try {
-      const clerk = (window as unknown as { Clerk?: ClerkWin }).Clerk;
-      if (clerk?.load && clerk.loaded !== true) {
-        await clerk.load();
-      }
-      if (clerk?.session?.getToken) {
-        const t = await clerk.session.getToken({ skipCache: true });
-        if (t) return t;
-      }
-    } catch {
-      /* ignore */
-    }
-    await new Promise((r) => setTimeout(r, 80));
-  }
-  return null;
+export async function getEdgeFunctionAuthToken(): Promise<string | null> {
+  return (await getAuthSessionToken()) || (await getSupabaseAccessToken());
 }
 
 /**
- * JWT for edge functions that map DB rows with `user_id` = Clerk id (`user_…`).
- * Prefer the Clerk **session** token so JWT `sub` matches `useAuth().user.id`.
- * The Clerk "supabase" template often uses a different `sub` (e.g. Supabase auth UUID), which breaks
- * company_analyses / profiles keyed by Clerk id.
+ * @deprecated Use getEdgeFunctionAuthToken() instead.
+ * Kept for call-sites that import getClerkBrowserSessionToken by name.
  */
-export async function getEdgeFunctionAuthToken(): Promise<string | null> {
-  return (
-    (await getClerkBrowserSessionToken()) ||
-    (await getClerkSessionToken()) ||
-    (await getSupabaseAccessToken())
-  );
+export async function getClerkBrowserSessionToken(): Promise<string | null> {
+  return getEdgeFunctionAuthToken();
 }

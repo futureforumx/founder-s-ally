@@ -23,6 +23,9 @@ const ALIASES: Record<string, string[]> = {
 };
 
 // ── Upsert Apify results into firm_records so admin stays in sync ──────────────
+// DB has a partial unique index: lower(trim(firm_name)) WHERE deleted_at IS NULL
+// PostgREST can't target partial indexes for conflict resolution, so we check
+// existence first then only insert genuinely new firms.
 
 async function upsertApifyResults(
   items: Array<{ name: string; location: string; logoUrl: string; stage: string; verticals: string[] }>,
@@ -31,32 +34,48 @@ async function upsertApifyResults(
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!SUPABASE_URL || !SERVICE_KEY || !items.length) return;
 
-  const rows = items
-    .filter((r) => r.name && r.name !== "Unknown Fund")
-    .map((r) => ({
-      firm_name: r.name,
-      location: r.location || null,
-      logo_url: r.logoUrl || null,
-      thesis_verticals: r.verticals?.length ? r.verticals : null,
-      enrichment_status: "pending",
-      // Don't set ready_for_live — admin must review before going live
-      ready_for_live: false,
-      needs_review: true,
-    }));
-
-  if (!rows.length) return;
+  const candidates = items.filter((r) => r.name && r.name !== "Unknown Fund");
+  if (!candidates.length) return;
 
   try {
-    // Upsert on firm_name — don't overwrite richer existing data
+    // 1. Check which names already exist (case-insensitive, matching the DB index)
+    const nameFilter = candidates
+      .map((r) => `firm_name.ilike.${encodeURIComponent(r.name)}`)
+      .join(",");
+    const checkUrl = `${SUPABASE_URL}/rest/v1/firm_records?or=(${nameFilter})&select=firm_name&deleted_at=is.null`;
+    const checkRes = await fetch(checkUrl, {
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+      },
+    });
+    const existing: Array<{ firm_name: string }> = checkRes.ok ? await checkRes.json() : [];
+    const existingLower = new Set(existing.map((r) => r.firm_name.toLowerCase().trim()));
+
+    // 2. Only insert firms that don't already exist
+    const newRows = candidates
+      .filter((r) => !existingLower.has(r.name.toLowerCase().trim()))
+      .map((r) => ({
+        firm_name: r.name,
+        location: r.location || null,
+        logo_url: r.logoUrl || null,
+        thesis_verticals: r.verticals?.length ? r.verticals : null,
+        enrichment_status: "pending",
+        ready_for_live: false,   // admin must review before going live
+        needs_review: true,
+      }));
+
+    if (!newRows.length) return; // all already in DB — nothing to do
+
     await fetch(`${SUPABASE_URL}/rest/v1/firm_records`, {
       method: "POST",
       headers: {
         apikey: SERVICE_KEY,
         Authorization: `Bearer ${SERVICE_KEY}`,
         "Content-Type": "application/json",
-        Prefer: "resolution=ignore-duplicates,return=minimal",
+        Prefer: "return=minimal",
       },
-      body: JSON.stringify(rows),
+      body: JSON.stringify(newRows),
     });
   } catch (e) {
     // Fire-and-forget — never let this block the search response

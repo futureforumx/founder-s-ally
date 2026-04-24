@@ -1,0 +1,49 @@
+{
+  "name": "mem0",
+  "version": "[TODO: 0.1.0]",
+  "description": "Mem0 plugin for productivity workflows in the VEKTA APP workspace.",
+  "author": {
+    "name": "[TODO: Author Name]",
+    "email": "[TODO: author@example.com]",
+    "url": "[TODO: https://github.com/author]"
+  },
+  "homepage": "[TODO: https://docs.example.com/plugin]",
+  "repository": "[TODO: https://github.com/author/plugin]",
+  "license": "[TODO: MIT]",
+  "keywords": [
+    "mem0",
+    "memory",
+    "productivity"
+  ],
+  "skills": "[TODO: ./skills/]",
+  "hooks": "[TODO: ./hooks.json]",
+  "mcpServers": "[TODO: ./.mcp.json]",
+  "apps": "[TODO: ./.app.json]",
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Memory-powered productivity plugin.",
+    "longDescription": "Add memory-oriented productivity capabilities to Codex using a local Mem0 plugin scaffold.",
+    "developerName": "[TODO: Developer Name]",
+    "category": "Productivity",
+    "capabilities": [
+      "Organize",
+      "Write"
+    ],
+    "websiteURL": "[TODO: https://openai.com/]",
+    "privacyPolicyURL": "[TODO: https://openai.com/policies/row-privacy-policy/]",
+    "termsOfServiceURL": "[TODO: https://openai.com/policies/row-terms-of-use/]",
+    "defaultPrompt": [
+      "Help me organize information with Mem0.",
+      "Use Mem0 to keep track of important project context.",
+      "Support productivity workflows backed by memory."
+    ],
+    "brandColor": "[TODO: #3B82F6]",
+    "composerIcon": "[TODO: ./assets/icon.png]",
+    "logo": "[TODO: ./assets/logo.png]",
+    "screenshots": [
+      "[TODO: ./assets/screenshot1.png]",
+      "[TODO: ./assets/screenshot2.png]",
+      "[TODO: ./assets/screenshot3.png]"
+    ]
+  }
+}

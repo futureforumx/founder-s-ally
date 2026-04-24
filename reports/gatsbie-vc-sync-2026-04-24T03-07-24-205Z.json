@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-04-24T03:07:24.204Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18302,
+  "matched_firms": 496,
+  "unmatched_firms": 4,
+  "firm_creates": 0,
+  "firm_updates": 21,
+  "investor_updates": 0,
+  "investor_inserts": 0,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "Sapphire Sport (Sapphire Ventures)",
+      "website": "https://sapphireventures.com/contact/",
+      "reason": "ambiguous_domain:sapphireventures.com"
+    },
+    {
+      "gatsbie_name": "NewView Capital",
+      "website": "https://nvp.com",
+      "reason": "ambiguous_domain:nvp.com"
+    },
+    {
+      "gatsbie_name": "Inovo",
+      "website": "http://inovo.vc/",
+      "reason": "ambiguous_domain:inovo.vc"
+    },
+    {
+      "gatsbie_name": "Sequoia Capital",
+      "website": "https://sequoiacap.com",
+      "reason": "ambiguous_domain:sequoiacap.com"
+    }
+  ]
+}

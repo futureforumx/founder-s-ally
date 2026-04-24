@@ -22,6 +22,8 @@ Required front-end variables:
 
 > ⚠️ **Never commit `.env` to git.** It is listed in `.gitignore`.
 
+For WorkOS AuthKit environment setup, see [docs/WORKOS_SETUP.md](/Users/matthewthompson/VEKTA%20APP/docs/WORKOS_SETUP.md).
+
 ---
 
 ## Supabase Clone Pipeline
@@ -158,4 +160,3 @@ npm run build    # Production build
 npm run test     # Run unit tests
 npm run lint     # ESLint
 ```
-

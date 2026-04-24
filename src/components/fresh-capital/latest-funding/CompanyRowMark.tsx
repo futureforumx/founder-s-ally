@@ -5,7 +5,10 @@ import { prettyWebsiteHost } from "@/lib/latestFundingDisplay";
 function faviconCandidates(host: string): string[] {
   const h = host.trim().toLowerCase();
   if (!h) return [];
-  return [`https://img.logo.dev/${encodeURIComponent(h)}?size=64&format=png&fallback=404`];
+  return [
+    `https://logo.clearbit.com/${encodeURIComponent(h)}`,
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`,
+  ];
 }
 
 export function CompanyRowMark({ row }: { row: RecentFundingRound }) {

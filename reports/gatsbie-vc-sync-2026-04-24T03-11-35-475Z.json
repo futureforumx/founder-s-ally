@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-24T03:11:35.473Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18302,
+  "matched_firms": 499,
+  "unmatched_firms": 1,
+  "firm_creates": 0,
+  "firm_updates": 33,
+  "investor_updates": 0,
+  "investor_inserts": 2,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "DCVC",
+      "website": "https://dcvc.com",
+      "reason": "ambiguous_domain:dcvc.com"
+    }
+  ]
+}

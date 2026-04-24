@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
+const Login = lazy(() => import("./pages/Login.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
@@ -100,10 +101,17 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
           return;
         }
         const completed = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
+        // If the DB returned no row (data === null), it may be because RLS is blocking the
+        // SELECT (WorkOS JWT not yet recognized by Supabase Third Party Auth). In that case,
+        // fall back to the localStorage cache that onboarding sets on completion so we don't
+        // incorrectly bounce a user who just finished back to /onboarding.
+        const cachedState = data === null ? readCachedOnboardingState() : null;
         setState({
           isKnown: true,
           loading: false,
-          needsOnboarding: !data || !completed,
+          needsOnboarding: data === null
+            ? (cachedState?.isKnown ? false : true)
+            : !completed,
         });
       });
 
@@ -155,13 +163,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   if (loading && authTimedOut) {
-    return <Navigate to="/auth?timeout=1" replace />;
+    return <Navigate to="/login?timeout=1" replace />;
   }
 
   if (loading) {
     return <RouteLoader />;
   }
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -254,6 +262,7 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
+              <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Login /></Suspense>} />
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               <Route
                 path="/access"

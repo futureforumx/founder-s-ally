@@ -1,12 +1,13 @@
 /**
- * admin-fresh-capital-write  — Admin CRUD for vc_funds and fi_deals_canonical
+ * admin-fresh-capital-write  — Admin CRUD + run observability for Fresh Capital
  *
  * Auth: Any JWT whose `sub` is present in `user_roles` with permission in
  *       ('admin', 'god'). WorkOS JWT subs (user_xxxxx) and legacy UUIDs both work.
  *
  * Methods:
- *   GET    ?table=vc_funds|fi_deals_canonical&limit=N&search=text
+ *   GET    ?table=vc_funds|fi_deals_canonical|pipeline_source_config|vc_fund_sync_runs|fi_fetch_runs&limit=N&search=text
  *   POST   ?table=...   body: record object → INSERT, returns inserted row
+ *   POST   ?table=fi_fetch_runs&action=run body:{limit?,source?} → proxy manual latest-funding ingest
  *   PATCH  ?table=...&id=uuid                body: partial update → UPDATE, returns updated row
  *   DELETE ?table=...&id=uuid                → soft-delete (sets deleted_at) or hard delete for fi_deals_canonical
  */
@@ -16,13 +17,20 @@ import { jwtSub } from "../_shared/jwt-sub.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-auth",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
-const ALLOWED_TABLES = ["vc_funds", "fi_deals_canonical", "pipeline_source_config"] as const;
+const ALLOWED_TABLES = [
+  "vc_funds",
+  "fi_deals_canonical",
+  "pipeline_source_config",
+  "vc_fund_sync_runs",
+  "fi_fetch_runs",
+] as const;
 type AllowedTable = (typeof ALLOWED_TABLES)[number];
 const SOURCE_TABLES = new Set<AllowedTable>(["pipeline_source_config"]);
+const RUN_TABLES = new Set<AllowedTable>(["vc_fund_sync_runs", "fi_fetch_runs"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -36,9 +44,11 @@ function err(message: string, status = 400) {
 }
 
 async function assertAdmin(
-  authHeader: string | null,
+  req: Request,
   adminClient: ReturnType<typeof createClient>,
 ): Promise<string | null> {
+  const xUserAuth = req.headers.get("X-User-Auth") ?? req.headers.get("x-user-auth");
+  const authHeader = xUserAuth ?? req.headers.get("Authorization");
   const sub = jwtSub(authHeader);
   if (!sub) return "Missing or invalid bearer token";
 
@@ -62,8 +72,7 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  const authHeader = req.headers.get("Authorization");
-  const authErr = await assertAdmin(authHeader, adminClient);
+  const authErr = await assertAdmin(req, adminClient);
   if (authErr) return err(authErr, 403);
 
   const url = new URL(req.url);
@@ -75,6 +84,7 @@ Deno.serve(async (req) => {
 
   const table = tableParam;
   const id = url.searchParams.get("id");
+  const action = url.searchParams.get("action")?.trim() ?? "";
 
   // ── GET ──────────────────────────────────────────────────────────────────
   if (req.method === "GET") {
@@ -173,10 +183,114 @@ Deno.serve(async (req) => {
       if (error) return err(error.message, 500);
       return json({ rows: data ?? [] });
     }
+
+    if (table === "vc_fund_sync_runs") {
+      const phase = url.searchParams.get("phase")?.trim();
+      let q = adminClient
+        .from("vc_fund_sync_runs")
+        .select(`
+          id,
+          phase,
+          status,
+          dry_run,
+          scope_firm_id,
+          scope_cluster_key,
+          options,
+          stats,
+          error_message,
+          started_at,
+          completed_at,
+          updated_at
+        `)
+        .order("started_at", { ascending: false })
+        .limit(limit);
+
+      if (phase) q = q.eq("phase", phase);
+
+      const { data, error } = await q;
+      if (error) return err(error.message, 500);
+      return json({ rows: data ?? [] });
+    }
+
+    if (table === "fi_fetch_runs") {
+      const status = url.searchParams.get("status")?.trim();
+      const sourceSlug = url.searchParams.get("source")?.trim();
+      let q = adminClient
+        .from("fi_fetch_runs")
+        .select(`
+          id,
+          source_id,
+          run_mode,
+          status,
+          started_at,
+          completed_at,
+          docs_fetched,
+          docs_parsed,
+          deals_raw,
+          deals_upserted,
+          error_count,
+          error_summary,
+          metadata,
+          fi_sources!inner(
+            slug,
+            name,
+            base_url,
+            source_type,
+            last_fetched_at
+          )
+        `)
+        .order("started_at", { ascending: false })
+        .limit(limit);
+
+      if (status) q = q.eq("status", status);
+      if (sourceSlug) q = q.eq("fi_sources.slug", sourceSlug);
+
+      const { data, error } = await q;
+      if (error) return err(error.message, 500);
+      return json({ rows: data ?? [] });
+    }
   }
 
   // ── POST (insert) ─────────────────────────────────────────────────────────
   if (req.method === "POST") {
+    if (table === "fi_fetch_runs" && action === "run") {
+      let body: Record<string, unknown>;
+      try {
+        body = await req.json();
+      } catch {
+        body = {};
+      }
+
+      const source = typeof body.source === "string" && body.source.trim() ? body.source.trim() : null;
+      const limitRaw = typeof body.limit === "number" ? body.limit : parseInt(String(body.limit ?? "30"), 10);
+      const limitValue = Number.isFinite(limitRaw) ? Math.max(1, Math.min(80, limitRaw)) : 30;
+
+      const fnRes = await fetch(`${supabaseUrl}/functions/v1/funding-ingest`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: source ? "single" : "run",
+          ...(source ? { source } : {}),
+          limit: limitValue,
+        }),
+      });
+
+      const payload = await fnRes.json().catch(() => ({}));
+      if (!fnRes.ok) {
+        const message = (payload as { error?: string; message?: string }).error
+          ?? (payload as { message?: string }).message
+          ?? `Funding ingest failed with HTTP ${fnRes.status}`;
+        return err(message, fnRes.status);
+      }
+      return json(payload);
+    }
+
+    if (RUN_TABLES.has(table)) {
+      return err("Run rows are system-managed. Use GET to inspect them.", 400);
+    }
     if (SOURCE_TABLES.has(table)) return err("Source rows are seeded — use PATCH to update them.", 400);
     let body: Record<string, unknown>;
     try {
@@ -242,6 +356,7 @@ Deno.serve(async (req) => {
 
   // ── PATCH (update) ────────────────────────────────────────────────────────
   if (req.method === "PATCH") {
+    if (RUN_TABLES.has(table)) return err("Run rows are system-managed and cannot be edited here.", 400);
     if (!id) return err("id query param is required for PATCH");
 
     let body: Record<string, unknown>;
@@ -264,6 +379,7 @@ Deno.serve(async (req) => {
 
   // ── DELETE ────────────────────────────────────────────────────────────────
   if (req.method === "DELETE") {
+    if (RUN_TABLES.has(table)) return err("Run rows are system-managed and cannot be deleted here.", 400);
     if (SOURCE_TABLES.has(table)) return err("Sources cannot be deleted. Use PATCH to disable them.", 400);
     if (!id) return err("id query param is required for DELETE");
 

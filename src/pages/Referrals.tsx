@@ -100,9 +100,7 @@ export default function Referrals() {
                 <Link to="/?view=directory">Trending companies</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM} onSelect={(e) => e.preventDefault()}>
-                <a href="https://tryvekta.com/aurora" target="_blank" rel="noopener noreferrer">
-                  Agent Library
-                </a>
+                <Link to="/ai-agents">Agent Library</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

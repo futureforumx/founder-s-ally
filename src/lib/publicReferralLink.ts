@@ -13,8 +13,5 @@ export function resolvePublicReferralLink(part: {
   if (fromApi) return fromApi;
   const code = typeof part.referral_code === "string" ? part.referral_code.trim() : "";
   if (!code) return "";
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}/access?ref=${encodeURIComponent(code)}`;
-  }
   return `${PUBLIC_REFERRAL_SHARE_ORIGIN}/access?ref=${encodeURIComponent(code)}`;
 }

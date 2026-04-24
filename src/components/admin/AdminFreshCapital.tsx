@@ -416,6 +416,429 @@ type SourceEdit = {
   notes?: string | null;
 };
 
+type FundSyncRunRow = {
+  id: string;
+  phase: "detect" | "verify" | "promote" | "rederive" | "mirror" | "daily";
+  status: "running" | "completed" | "failed";
+  dry_run: boolean;
+  scope_firm_id: string | null;
+  scope_cluster_key: string | null;
+  options: Record<string, unknown> | null;
+  stats: unknown;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+  updated_at: string;
+};
+
+type FundingFetchRunRow = {
+  id: string;
+  source_id: string;
+  run_mode: "incremental" | "backfill" | "retry";
+  status: "running" | "completed" | "failed" | "partial";
+  started_at: string;
+  completed_at: string | null;
+  docs_fetched: number;
+  docs_parsed: number;
+  deals_raw: number;
+  deals_upserted: number;
+  error_count: number;
+  error_summary: string | null;
+  metadata: Record<string, unknown> | null;
+  fi_sources?: {
+    slug: string;
+    name: string;
+    base_url: string | null;
+    source_type: string | null;
+    last_fetched_at: string | null;
+  };
+};
+
+function formatDateTime(ts: string | null | undefined): string {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDuration(startedAt: string | null | undefined, completedAt: string | null | undefined): string {
+  if (!startedAt || !completedAt) return "—";
+  const start = new Date(startedAt).getTime();
+  const end = new Date(completedAt).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return "—";
+  const seconds = Math.round((end - start) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem ? `${minutes}m ${rem}s` : `${minutes}m`;
+}
+
+function statusPillColor(status: string): "teal" | "amber" | "zinc" {
+  if (status === "completed") return "teal";
+  if (status === "running" || status === "partial") return "amber";
+  return "zinc";
+}
+
+function numberFromUnknown(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function summarizeFundSyncStats(stats: unknown): string {
+  if (typeof stats === "number" && Number.isFinite(stats)) return `${stats} records`;
+  if (!stats || typeof stats !== "object" || Array.isArray(stats)) return "No stats";
+  const s = stats as Record<string, unknown>;
+  const fetched = numberFromUnknown(s.fetched);
+  const parsed = numberFromUnknown(s.parsed);
+  const promoted = numberFromUnknown(s.promotedCandidates);
+  const verified = numberFromUnknown(s.verifiedCandidates);
+  const failures = numberFromUnknown(s.failures);
+  const parts = [
+    fetched != null ? `${fetched} fetched` : null,
+    parsed != null ? `${parsed} parsed` : null,
+    verified != null ? `${verified} verified` : null,
+    promoted != null ? `${promoted} promoted` : null,
+    failures != null ? `${failures} failures` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "No stats";
+}
+
+function MetricCard({ label, value, subtext }: { label: string; value: string; subtext?: string }) {
+  return (
+    <div
+      className="rounded-lg border px-3 py-3"
+      style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: "rgba(255,255,255,0.28)" }}>
+        {label}
+      </div>
+      <div className="mt-1 text-[15px] font-semibold text-white/85">{value}</div>
+      {subtext ? (
+        <div className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,0.36)" }}>
+          {subtext}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FreshFundsRunPanel() {
+  const [rows, setRows] = useState<FundSyncRunRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setApiError(null);
+    const { data, error } = await callAdminFreshCapital("GET", {
+      table: "vc_fund_sync_runs",
+      limit: "12",
+    });
+    if (error) {
+      setApiError(error);
+      setLoading(false);
+      return;
+    }
+    setRows(((data as { rows: FundSyncRunRow[] })?.rows) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const latestDaily = rows.find((row) => row.phase === "daily");
+  const latestFailure = rows.find((row) => row.status === "failed");
+  const completedCount = rows.filter((row) => row.status === "completed").length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.42)" }}>
+            Fresh Funds Runs
+          </div>
+          <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.34)" }}>
+            Recent `vc_fund_sync_runs` across detect, verify, promote, rederive, mirror, and daily orchestration.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
+        >
+          <RefreshCw className="h-3 w-3" />
+          Refresh runs
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MetricCard
+          label="Latest Daily Run"
+          value={latestDaily ? formatDateTime(latestDaily.completed_at ?? latestDaily.started_at) : "No runs"}
+          subtext={latestDaily ? `${latestDaily.status} · ${summarizeFundSyncStats(latestDaily.stats)}` : "No daily run logged yet"}
+        />
+        <MetricCard
+          label="Completed Runs"
+          value={String(completedCount)}
+          subtext={rows.length ? `Showing the latest ${rows.length} run entries` : "No recent run history"}
+        />
+        <MetricCard
+          label="Latest Failure"
+          value={latestFailure ? formatDateTime(latestFailure.started_at) : "None recent"}
+          subtext={latestFailure?.error_message ?? "No failed runs in the current window"}
+        />
+      </div>
+
+      {apiError ? (
+        <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[12px] text-red-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{apiError}</span>
+        </div>
+      ) : null}
+
+      <div className="overflow-hidden rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-white/70">
+            <thead>
+              <tr style={{ background: "#0a0a0a", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Phase</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Status</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Started</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Duration</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center">
+                    <Loader2 className="mx-auto h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    No Fresh Funds runs logged yet
+                  </td>
+                </tr>
+              ) : rows.map((row) => (
+                <tr key={row.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td className={CELL}>
+                    <div className="flex items-center gap-2">
+                      <Pill label={row.phase} color="sky" />
+                      {row.dry_run ? <Pill label="dry run" color="amber" /> : null}
+                    </div>
+                  </td>
+                  <td className={CELL}>
+                    <Pill label={row.status} color={statusPillColor(row.status)} />
+                  </td>
+                  <td className={CELL}>{formatDateTime(row.started_at)}</td>
+                  <td className={CELL}>{formatDuration(row.started_at, row.completed_at)}</td>
+                  <td className={CELL}>
+                    <div className="max-w-[360px]">
+                      <div>{summarizeFundSyncStats(row.stats)}</div>
+                      {row.error_message ? (
+                        <div className="mt-1 text-[11px] text-red-300/80">{row.error_message}</div>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LatestFundingRunPanel({ onRunComplete }: { onRunComplete?: () => void | Promise<void> }) {
+  const [rows, setRows] = useState<FundingFetchRunRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [runMessage, setRunMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setApiError(null);
+    const { data, error } = await callAdminFreshCapital("GET", {
+      table: "fi_fetch_runs",
+      limit: "12",
+    });
+    if (error) {
+      setApiError(error);
+      setLoading(false);
+      return;
+    }
+    setRows(((data as { rows: FundingFetchRunRow[] })?.rows) ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const triggerRun = async () => {
+    setRunning(true);
+    setApiError(null);
+    setRunMessage(null);
+    const { data, error } = await callAdminFreshCapital(
+      "POST",
+      { table: "fi_fetch_runs", action: "run" },
+      { limit: 20 },
+    );
+    if (error) {
+      setApiError(error);
+      setRunning(false);
+      return;
+    }
+    const payload = data as { total_deals_upserted?: number; ran?: number; total_errors?: number } | undefined;
+    setRunMessage(
+      `Manual ingest finished${payload?.ran != null ? ` across ${payload.ran} sources` : ""}` +
+      `${payload?.total_deals_upserted != null ? ` · ${payload.total_deals_upserted} deals upserted` : ""}` +
+      `${payload?.total_errors ? ` · ${payload.total_errors} errors` : ""}`,
+    );
+    await load();
+    if (onRunComplete) await onRunComplete();
+    setRunning(false);
+  };
+
+  const latestRun = rows[0] ?? null;
+  const latestSuccess = rows.find((row) => row.status === "completed");
+  const recentDeals = rows.reduce((sum, row) => sum + (row.deals_upserted || 0), 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.42)" }}>
+            Latest Funding Runs
+          </div>
+          <p className="mt-1 text-[12px]" style={{ color: "rgba(255,255,255,0.34)" }}>
+            Recent `fi_fetch_runs` from the canonical funding-ingest pipeline, plus a manual ingest trigger.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh runs
+          </button>
+          <button
+            type="button"
+            onClick={() => void triggerRun()}
+            disabled={running}
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-opacity disabled:opacity-50"
+            style={{ background: "#2EE6A6", color: "#000" }}
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Run ingest now
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MetricCard
+          label="Latest Run"
+          value={latestRun ? formatDateTime(latestRun.started_at) : "No runs"}
+          subtext={latestRun ? `${latestRun.status} · ${latestRun.fi_sources?.name ?? "pipeline"}` : "No run history yet"}
+        />
+        <MetricCard
+          label="Latest Success"
+          value={latestSuccess ? formatDateTime(latestSuccess.completed_at ?? latestSuccess.started_at) : "None recent"}
+          subtext={latestSuccess ? `${latestSuccess.deals_upserted} deals upserted` : "No completed runs in the current window"}
+        />
+        <MetricCard
+          label="Deals Upserted"
+          value={String(recentDeals)}
+          subtext={rows.length ? `Across the latest ${rows.length} fetch runs` : "No recent fetch runs"}
+        />
+      </div>
+
+      {runMessage ? (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-200">
+          {runMessage}
+        </div>
+      ) : null}
+
+      {apiError ? (
+        <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[12px] text-red-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{apiError}</span>
+        </div>
+      ) : null}
+
+      <div className="overflow-hidden rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-white/70">
+            <thead>
+              <tr style={{ background: "#0a0a0a", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Source</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Mode</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Status</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Started</th>
+                <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Results</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center">
+                    <Loader2 className="mx-auto h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    No Latest Funding runs logged yet
+                  </td>
+                </tr>
+              ) : rows.map((row) => (
+                <tr key={row.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <td className={CELL}>
+                    <div className="font-medium text-white/80">{row.fi_sources?.name ?? row.source_id}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {row.fi_sources?.slug ?? "unknown_source"}
+                    </div>
+                  </td>
+                  <td className={CELL}>
+                    <Pill label={row.run_mode} color="sky" />
+                  </td>
+                  <td className={CELL}>
+                    <Pill label={row.status} color={statusPillColor(row.status)} />
+                  </td>
+                  <td className={CELL}>
+                    <div>{formatDateTime(row.started_at)}</div>
+                    <div className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {formatDuration(row.started_at, row.completed_at)}
+                    </div>
+                  </td>
+                  <td className={CELL}>
+                    <div>
+                      {row.docs_fetched} docs · {row.deals_upserted} deals
+                      {row.error_count ? ` · ${row.error_count} errors` : ""}
+                    </div>
+                    {row.error_summary ? (
+                      <div className="mt-1 text-[11px] text-red-300/80">{row.error_summary}</div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CRON_PRESETS = [
   { label: "Hourly",      value: "0 * * * *" },
   { label: "Daily 6am",  value: "0 6 * * *" },
@@ -1059,6 +1482,8 @@ function FundWatchSection() {
         </div>
       )}
 
+      <FreshFundsRunPanel />
+
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-xs">
@@ -1542,6 +1967,8 @@ function LatestFundingSection() {
           {toast}
         </div>
       )}
+
+      <LatestFundingRunPanel onRunComplete={load} />
 
       {/* Toolbar */}
       <div className="flex items-center gap-2">

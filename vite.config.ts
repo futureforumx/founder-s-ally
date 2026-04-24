@@ -17,6 +17,219 @@ import { runGoogleDisconnect } from "./api/connectors/_googleDisconnectLogic";
 import { runGoogleResync } from "./api/connectors/_googleResyncLogic";
 import { runLinkedinCsvDisconnect } from "./api/connectors/_linkedinDisconnectLogic";
 
+function freshCapitalStandaloneDevPlugin() {
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fresh Capital</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(61,180,242,0.22), transparent 32%),
+          radial-gradient(circle at top right, rgba(16,185,129,0.18), transparent 28%),
+          linear-gradient(135deg, #050505 0%, #0b0f14 45%, #050505 100%);
+        color: #f5f5f5;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 56px 24px 80px;
+      }
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #67e8f9;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(38px, 6vw, 68px);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+      }
+      .lede {
+        max-width: 760px;
+        margin: 18px 0 0;
+        font-size: 18px;
+        line-height: 1.65;
+        color: #d4d4d8;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 9999px;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .button-primary {
+        background: white;
+        color: #050505;
+      }
+      .button-secondary {
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+      }
+      .panel {
+        margin-top: 48px;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 28px;
+        background: rgba(0,0,0,0.6);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+        overflow: hidden;
+      }
+      .panel-head {
+        padding: 24px 24px 0;
+      }
+      .panel-title {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #a1a1aa;
+      }
+      .panel-body {
+        padding: 24px;
+      }
+      .feed-card {
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 22px;
+        padding: 28px;
+        background: #050505;
+      }
+      .feed-card strong {
+        color: white;
+      }
+      .sections {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 22px;
+      }
+      .section {
+        border-radius: 22px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+        padding: 20px;
+      }
+      .section h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+      .section p {
+        margin: 0;
+        color: #d4d4d8;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Fresh Capital</p>
+      <h1>See which investors just raised fresh capital</h1>
+      <p class="lede">
+        This standalone dev page bypasses the app shell and WorkOS entirely so the route stays available while the main
+        React implementation is repaired.
+      </p>
+      <div class="actions">
+        <a class="button button-primary" href="/access">Get full access</a>
+        <a class="button button-secondary" href="/">Back home</a>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <p class="panel-title">Live Intelligence</p>
+        </div>
+        <div class="panel-body">
+          <div class="feed-card">
+            <p style="margin:0;font-size:18px;line-height:1.65;color:#d4d4d8;">
+              <strong>The Fresh Capital route is now hard-isolated in dev.</strong> If you can see this page, the URL is working
+              and auth redirects are no longer able to hijack <code>/fresh-capital</code> during local development.
+            </p>
+          </div>
+          <div class="sections">
+            <article class="section">
+              <h2>Why This Matters</h2>
+              <p>Investors are most responsive right after raising a new fund. Timing matters.</p>
+            </article>
+            <article class="section">
+              <h2>Inside Vekta</h2>
+              <p>We’re keeping this page stable first, then restoring the richer live feed safely.</p>
+            </article>
+            <article class="section">
+              <h2>Status</h2>
+              <p>The standalone route is active only in dev and is meant to prevent this failure mode from blocking you again.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+  const redirectHtml = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=/fresh-capital" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting…</title>
+  </head>
+  <body style="font-family: system-ui, sans-serif; padding: 24px;">
+    <p>Redirecting to <a href="/fresh-capital">/fresh-capital</a>…</p>
+  </body>
+</html>`;
+
+  return {
+    name: "fresh-capital-standalone-dev",
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        const url = req.url || "/";
+        // /fresh-capital is now a real React page — let Vite serve index.html normally.
+        // (static HTML bypass removed; main.tsx bootstrapFreshCapital() handles the route)
+        if (
+          req.method === "GET" &&
+          (
+            url === "/auth" ||
+            url.startsWith("/auth?") ||
+            url === "/auth/" ||
+            url === "/login" ||
+            url.startsWith("/login?") ||
+            url === "/login/"
+          )
+        ) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(redirectHtml);
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
  * works the same as the deployed Vercel serverless function.
@@ -182,7 +395,7 @@ function saveProfileDevPlugin(env: Record<string, string>) {
         let body: Record<string, unknown> = {};
         try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
 
-        // Get user ID from Clerk JWT (decode sub without verification for dev convenience)
+        // Get user ID from WorkOS JWT (decode sub without verification for dev convenience)
         const authHeader = (req.headers.authorization ?? "") as string;
         const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
         if (!token) {
@@ -198,17 +411,17 @@ function saveProfileDevPlugin(env: Record<string, string>) {
             let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
             while (b64.length % 4) b64 += "=";
             const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
-            userId = typeof payload.sub === "string" ? payload.sub : null;
+            userId = typeof payload.sub === "string" && payload.sub.trim() ? payload.sub.trim() : null;
           }
         } catch { /* ok */ }
 
-        // Body _uid as fallback hint (validated against same pattern)
+        // Body _uid as fallback hint
         const bodyUid = typeof body._uid === "string" ? body._uid.trim() : "";
         if (!userId && bodyUid) userId = bodyUid;
 
-        if (!userId || !/^user_[A-Za-z0-9]{20,}$/.test(userId)) {
+        if (!userId) {
           res.writeHead(401, cors);
-          res.end(JSON.stringify({ error: "Could not extract valid Clerk user ID from token" }));
+          res.end(JSON.stringify({ error: "Could not extract user ID from token" }));
           return;
         }
 
@@ -724,6 +937,7 @@ export default defineConfig(async ({ mode }) => {
   }
   const plugins = [
     react(),
+    mode === "development" && freshCapitalStandaloneDevPlugin(),
     mode === "development" && componentTagger(),
     mode === "development" && saveProfileDevPlugin(env),
     mode === "development" && connectorsOauthDevPlugin(),
@@ -737,7 +951,7 @@ export default defineConfig(async ({ mode }) => {
     mode === "development" && personWebsiteProfileDevPlugin(),
   ].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
-  const devHost = process.env.DEV_HOST || "127.0.0.1";
+  const devHost = process.env.DEV_HOST || "localhost";
   const devPort = Number(process.env.DEV_PORT || "5173");
 
   if (enableHttps) {

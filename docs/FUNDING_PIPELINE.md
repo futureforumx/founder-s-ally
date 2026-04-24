@@ -101,7 +101,27 @@ All normalization is in `_shared/funding/normalize.ts`:
 
 ## Cron / scheduling
 
-Add a cron job in the Supabase dashboard (**Database → Cron Jobs**) or via pg_cron:
+The repo now includes a migration that provisions the `funding-ingest` cron jobs
+for you:
+
+- `supabase/migrations/20260611010000_ensure_funding_ingest_cron.sql`
+
+It recreates two jobs idempotently:
+
+- incremental poll every 30 minutes
+- weekly backfill on Sunday at 02:00 UTC
+
+Before applying that migration, set these database settings once:
+
+```sql
+ALTER DATABASE postgres SET "app.supabase_url" = 'https://<ref>.supabase.co';
+ALTER DATABASE postgres SET "app.funding_ingest_cron_secret" = '<your-random-secret>';
+```
+
+If those settings are missing, the migration safely skips scheduling instead of
+failing deploys.
+
+Manual equivalent if you need to inspect or recreate jobs yourself:
 
 ```sql
 -- Incremental poll every 30 minutes

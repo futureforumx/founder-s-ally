@@ -1,140 +1,153 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  autoPermissionForEmail,
-  clampGodModeToDesignatedEmail,
-  hasAdminConsoleAccess,
-  isGodModeEmail,
-  type AppPermission,
-} from "../_shared/app-admin-email.ts";
-import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
-import { clerkGetUser, clerkPrimaryEmail } from "../_shared/clerk-backend.ts";
+/**
+ * admin-update-permission — Upsert a user's permission in user_roles.
+ *
+ * Auth: WorkOS JWT in X-User-Auth (anon key in Authorization to pass gateway).
+ * Body: { target_user_id: string, permission: "god" | "admin" | "member" }
+ *
+ * WorkOS roles: GOD | ADMIN | MEMBER
+ * "member" is stored as "member" in user_roles (replaces legacy "user" / "manager").
+ */
 
-const corsHeaders = {
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-auth",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function asPermission(v: unknown): AppPermission | null {
-  const p = String(v ?? "").toLowerCase();
-  if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
+const ADMIN_EMAIL_DOMAINS = ["vekta.so", "tryvekta.com"];
+const VALID_PERMISSIONS = ["god", "admin", "member"] as const;
+type Permission = (typeof VALID_PERMISSIONS)[number];
+
+// ── Inline JWT helpers ────────────────────────────────────────────────────────
+
+function jwtPayload(authHeader: string | null): Record<string, unknown> | null {
+  if (!authHeader?.toLowerCase().startsWith("bearer ")) return null;
+  const parts = authHeader.slice(7).trim().split(".");
+  if (parts.length < 2) return null;
+  try {
+    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const rem = b64.length % 4;
+    if (rem) b64 += "=".repeat(4 - rem);
+    return JSON.parse(atob(b64)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function jwtSub(p: Record<string, unknown>): string | null {
+  const s = p.sub;
+  if (typeof s === "string" && s.trim()) return s.trim();
+  if (typeof s === "number" && Number.isFinite(s)) return String(s);
   return null;
 }
 
-function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
-  const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
-  let best: AppPermission = "user";
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (rank[candidate] > rank[best]) best = candidate;
+function jwtEmail(p: Record<string, unknown>): string | null {
+  for (const key of ["email", "primary_email_address"]) {
+    const v = p[key];
+    if (typeof v === "string" && v.includes("@")) return v.toLowerCase().trim();
   }
-  return best;
+  return null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+function jwtRole(p: Record<string, unknown>): string | null {
+  const r = p.role;
+  return typeof r === "string" && r.trim() ? r.trim().toLowerCase() : null;
+}
 
-  try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
+function isAdminEmail(email: string | null): boolean {
+  if (!email) return false;
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  return ADMIN_EMAIL_DOMAINS.includes(domain);
+}
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+async function assertAdmin(
+  req: Request,
+  adminClient: ReturnType<typeof createClient>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userAuthHeader = req.headers.get("X-User-Auth") ?? req.headers.get("Authorization");
+  const payload = jwtPayload(userAuthHeader);
+  if (!payload) return { ok: false, error: "Missing or invalid user token" };
 
-    const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseKey);
-    if ("error" in resolved) throw new Error(resolved.error);
+  // 1. WorkOS role claim
+  const role = jwtRole(payload);
+  if (role === "god" || role === "admin") return { ok: true };
 
-    const adminClient = createClient(supabaseUrl, serviceKey);
+  // 2. Email domain
+  const email = jwtEmail(payload);
+  if (isAdminEmail(email)) return { ok: true };
 
-    const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
-    const { data: roleRows } = await adminClient.from("user_roles").select("permission").in("user_id", roleIds);
-    let roleFromDb: AppPermission | null = null;
-    for (const row of roleRows ?? []) {
-      roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
-    }
-
-    // If email wasn't in the JWT, resolve it via the Clerk API before checking permissions.
-    let callerEmail = resolved.email;
-    if (!callerEmail && resolved.id.startsWith("user_")) {
-      const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
-      if (clerkSecret) {
-        try {
-          const u = await clerkGetUser(clerkSecret, resolved.id);
-          callerEmail = u ? (clerkPrimaryEmail(u) || null) : null;
-        } catch (emailErr) {
-          throw new Error(
-            `Admin access denied: Clerk API returned an error resolving caller identity ` +
-            `(${(emailErr as Error).message}). ` +
-            `Ensure CLERK_SECRET_KEY is a live key (sk_live_...) matching your Clerk instance.`,
-          );
-        }
-      }
-    }
-
-    const callerPermission = clampGodModeToDesignatedEmail(
-      highestPermission(
-        roleFromDb,
-        asPermission(resolved.user_metadata?.role),
-        autoPermissionForEmail(callerEmail),
-      ),
-      callerEmail,
-    );
-    if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
-
-    const { target_user_id, permission } = await req.json();
-    if (!target_user_id || !["user", "manager", "admin", "god"].includes(permission)) {
-      throw new Error("Invalid payload: need target_user_id and valid permission");
-    }
-
-    const { data: targetUserData, error: targetUserError } = await adminClient.auth.admin.getUserById(target_user_id);
-    let targetEmail: string | null = targetUserData?.user?.email ?? null;
-    if (targetUserError || !targetEmail) {
-      const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
-      if (!clerkSecret) {
-        throw new Error("Target user not found (set CLERK_SECRET_KEY to manage Clerk users)");
-      }
-      const clerkUser = await clerkGetUser(clerkSecret, target_user_id);
-      if (!clerkUser) throw new Error("Target user not found");
-      targetEmail = clerkPrimaryEmail(clerkUser);
-      if (!targetEmail) throw new Error("Target user has no email in Clerk");
-    }
-
-    // GOD MODE is reserved for one user.
-    if (permission === "god" && !isGodModeEmail(targetEmail)) {
-      throw new Error("GOD MODE can only be assigned to matt@vekta.so");
-    }
-    if (isGodModeEmail(targetEmail) && permission !== "god") {
-      throw new Error("matt@vekta.so must retain GOD MODE");
-    }
-
-    // Only GOD can assign GOD.
-    if (permission === "god" && callerPermission !== "god") {
-      throw new Error("Only GOD-level admins can assign GOD permission");
-    }
-
-    // Upsert role
-    const { error: upsertError } = await adminClient
+  // 3. DB lookup
+  const sub = jwtSub(payload);
+  if (sub) {
+    const { data, error } = await adminClient
       .from("user_roles")
-      .upsert({ user_id: target_user_id, permission, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      .select("permission")
+      .eq("user_id", sub)
+      .in("permission", ["admin", "god"]);
+    if (!error && data?.length) return { ok: true };
+  }
 
-    if (upsertError) throw upsertError;
+  return { ok: false, error: "Not authorized" };
+}
 
-    // Supabase Auth row (legacy); skip when the ID is Clerk-only.
-    if (!targetUserError && targetUserData?.user) {
-      await adminClient.auth.admin.updateUserById(target_user_id, {
-        user_metadata: { role: permission === "user" ? "user" : permission },
-      });
-    }
+// ── Handler ───────────────────────────────────────────────────────────────────
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminClient = createClient(supabaseUrl, serviceKey);
+
+  const authResult = await assertAdmin(req, adminClient);
+  if (!authResult.ok) {
+    return new Response(JSON.stringify({ error: authResult.error }), {
+      status: 403,
+      headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
+
+  let body: { target_user_id?: string; permission?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+
+  const { target_user_id, permission } = body;
+  if (!target_user_id?.trim()) {
+    return new Response(JSON.stringify({ error: "target_user_id is required" }), {
+      status: 400,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+  if (!permission || !(VALID_PERMISSIONS as readonly string[]).includes(permission)) {
+    return new Response(
+      JSON.stringify({ error: `permission must be one of: ${VALID_PERMISSIONS.join(", ")}` }),
+      { status: 400, headers: { ...CORS, "Content-Type": "application/json" } },
+    );
+  }
+
+  const { error } = await adminClient
+    .from("user_roles")
+    .upsert(
+      { user_id: target_user_id.trim(), permission: permission as Permission },
+      { onConflict: "user_id" },
+    );
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { ...CORS, "Content-Type": "application/json" },
+  });
 });

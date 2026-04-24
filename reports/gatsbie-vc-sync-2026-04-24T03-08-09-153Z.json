@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-04-24T03:08:09.152Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18302,
+  "matched_firms": 498,
+  "unmatched_firms": 2,
+  "firm_creates": 0,
+  "firm_updates": 32,
+  "investor_updates": 0,
+  "investor_inserts": 2,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "Sapphire Sport (Sapphire Ventures)",
+      "website": "https://sapphireventures.com/contact/",
+      "reason": "ambiguous_domain:sapphireventures.com"
+    },
+    {
+      "gatsbie_name": "Inovo",
+      "website": "http://inovo.vc/",
+      "reason": "ambiguous_domain:inovo.vc"
+    }
+  ]
+}

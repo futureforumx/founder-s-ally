@@ -1,190 +1,289 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  autoPermissionForEmail,
-  clampGodModeToDesignatedEmail,
-  hasAdminConsoleAccess,
-  type AppPermission,
-} from "../_shared/app-admin-email.ts";
-import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
-import { clerkListAllUsers, clerkUserToListedAuthFields, clerkGetUser, clerkPrimaryEmail } from "../_shared/clerk-backend.ts";
+/**
+ * admin-list-users — WorkOS-compatible user listing for the admin console.
+ *
+ * Auth priority (first match wins):
+ *   1. WorkOS `role` claim in JWT ("god" or "admin" → granted)
+ *   2. Email domain check (@vekta.so / @tryvekta.com)
+ *   3. user_roles DB lookup
+ *
+ * Calling convention: anon key in Authorization (passes Supabase gateway),
+ * WorkOS JWT in X-User-Auth (used for identity here).
+ *
+ * WorkOS roles: GOD → "god" | ADMIN → "admin" | MEMBER → "member"
+ * (stored in user_roles; "user" treated as "member" for backwards compat)
+ *
+ * Optional env secrets:
+ *   WORKOS_API_KEY  — fetches real emails + last_sign_in via WorkOS Users API
+ *   WORKOS_ORG_ID   — also fetches org-membership roles from WorkOS
+ */
 
-const corsHeaders = {
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-auth",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-function asPermission(v: unknown): AppPermission | null {
-  const p = String(v ?? "").toLowerCase();
-  if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
-  return null;
-}
+const ADMIN_EMAIL_DOMAINS = ["vekta.so", "tryvekta.com"];
+const GOD_MODE_EMAIL = "matt@vekta.so";
 
-function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
-  const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
-  let best: AppPermission = "user";
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (rank[candidate] > rank[best]) best = candidate;
+type AppPermission = "god" | "admin" | "member";
+const PERM_RANK: Record<AppPermission, number> = { member: 0, admin: 1, god: 2 };
+
+function highest(...candidates: Array<AppPermission | null>): AppPermission {
+  let best: AppPermission = "member";
+  for (const c of candidates) {
+    if (c && PERM_RANK[c] > PERM_RANK[best]) best = c;
   }
   return best;
 }
 
+function normalisePermission(raw: unknown): AppPermission {
+  const s = String(raw ?? "").toLowerCase();
+  if (s === "god") return "god";
+  if (s === "admin") return "admin";
+  return "member"; // "user", "manager", "member" → member
+}
+
+// ── Inline JWT helpers ────────────────────────────────────────────────────────
+
+function jwtPayload(authHeader: string | null): Record<string, unknown> | null {
+  if (!authHeader?.toLowerCase().startsWith("bearer ")) return null;
+  const parts = authHeader.slice(7).trim().split(".");
+  if (parts.length < 2) return null;
+  try {
+    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const rem = b64.length % 4;
+    if (rem) b64 += "=".repeat(4 - rem);
+    return JSON.parse(atob(b64)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function jwtSub(p: Record<string, unknown>): string | null {
+  const s = p.sub;
+  if (typeof s === "string" && s.trim()) return s.trim();
+  if (typeof s === "number" && Number.isFinite(s)) return String(s);
+  return null;
+}
+
+function jwtEmail(p: Record<string, unknown>): string | null {
+  for (const key of ["email", "primary_email_address"]) {
+    const v = p[key];
+    if (typeof v === "string" && v.includes("@")) return v.toLowerCase().trim();
+  }
+  return null;
+}
+
+function jwtRole(p: Record<string, unknown>): string | null {
+  const r = p.role;
+  return typeof r === "string" && r.trim() ? r.trim().toLowerCase() : null;
+}
+
+function isAdminEmail(email: string | null): boolean {
+  if (!email) return false;
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  return ADMIN_EMAIL_DOMAINS.includes(domain);
+}
+
+function autoPermForEmail(email: string | null): AppPermission | null {
+  if (!email) return null;
+  const norm = email.toLowerCase().trim();
+  if (norm === GOD_MODE_EMAIL) return "god";
+  if (isAdminEmail(norm)) return "admin";
+  return null;
+}
+
+function clampGod(perm: AppPermission, email: string | null): AppPermission {
+  if (perm !== "god") return perm;
+  return email?.toLowerCase().trim() === GOD_MODE_EMAIL ? "god" : "admin";
+}
+
+async function assertAdmin(
+  req: Request,
+  adminClient: ReturnType<typeof createClient>,
+): Promise<{ ok: true; sub: string | null; email: string | null } | { ok: false; error: string }> {
+  const userAuthHeader = req.headers.get("X-User-Auth") ?? req.headers.get("Authorization");
+  const payload = jwtPayload(userAuthHeader);
+  if (!payload) return { ok: false, error: "Missing or invalid user token" };
+
+  const sub = jwtSub(payload);
+  const email = jwtEmail(payload);
+  const role = jwtRole(payload);
+
+  // 1. WorkOS role claim (fastest — no DB round-trip)
+  if (role === "god" || role === "admin") return { ok: true, sub, email };
+
+  // 2. Email domain
+  if (isAdminEmail(email)) return { ok: true, sub, email };
+
+  // 3. DB lookup
+  if (sub) {
+    const { data, error } = await adminClient
+      .from("user_roles")
+      .select("permission")
+      .eq("user_id", sub)
+      .in("permission", ["admin", "god"]);
+    if (!error && data?.length) return { ok: true, sub, email };
+  }
+
+  return { ok: false, error: `Not authorized. role=${role ?? "none"} email=${email ?? "none"} sub=${sub ?? "none"}` };
+}
+
+// ── WorkOS Management API ─────────────────────────────────────────────────────
+
+type WorkOSUser = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  profile_picture_url: string | null;
+};
+
+type WorkOSOrgMembership = {
+  user_id: string;
+  role: { slug: string };
+  status: string;
+};
+
+async function fetchAllPages<T>(
+  apiKey: string,
+  url: string,
+): Promise<T[]> {
+  const results: T[] = [];
+  let after: string | null = null;
+  for (let page = 0; page < 20; page++) {
+    const qs = new URLSearchParams({ limit: "100" });
+    if (after) qs.set("after", after);
+    const res = await fetch(`${url}?${qs}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) throw new Error(`WorkOS API ${res.status}: ${await res.text()}`);
+    const json = await res.json() as { data: T[]; list_metadata: { after: string | null } };
+    results.push(...json.data);
+    after = json.list_metadata?.after ?? null;
+    if (!after) break;
+  }
+  return results;
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const adminClient = createClient(supabaseUrl, serviceKey);
+
+  const authResult = await assertAdmin(req, adminClient);
+  if (!authResult.ok) {
+    return new Response(JSON.stringify({ error: authResult.error }), {
+      status: 403,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
+    const [profilesResult, rolesResult, activityResult] = await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("user_id, full_name, title, avatar_url, user_type, linkedin_url, twitter_url, location, created_at"),
+      adminClient.from("user_roles").select("user_id, permission"),
+      adminClient.from("user_activity").select("user_id, total_time_seconds, api_calls_count, last_active_at"),
+    ]);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseKey);
-    if ("error" in resolved) throw new Error(resolved.error);
-
-    const adminClient = createClient(supabaseUrl, serviceKey);
-    const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
-    const { data: roleRows } = await adminClient.from("user_roles").select("permission").in("user_id", roleIds);
-    let roleFromDb: AppPermission | null = null;
-    for (const row of roleRows ?? []) {
-      roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
-    }
-
-    // If email wasn't in the JWT, resolve it via the Clerk API before checking permissions.
-    let callerEmail = resolved.email;
-    if (!callerEmail && resolved.id.startsWith("user_")) {
-      const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
-      if (clerkSecret) {
-        try {
-          const u = await clerkGetUser(clerkSecret, resolved.id);
-          callerEmail = u ? (clerkPrimaryEmail(u) || null) : null;
-          console.log("[admin-list-users] resolved caller email:", callerEmail, "for id:", resolved.id);
-        } catch (emailErr) {
-          throw new Error(
-            `Admin access denied: Clerk API returned an error resolving caller identity ` +
-            `(${(emailErr as Error).message}). ` +
-            `Ensure CLERK_SECRET_KEY is a live key (sk_live_...) matching your Clerk instance.`,
-          );
-        }
-      }
-    }
-
-    const callerPermission = clampGodModeToDesignatedEmail(
-      highestPermission(
-        roleFromDb,
-        asPermission(resolved.user_metadata?.role),
-        autoPermissionForEmail(callerEmail),
-      ),
-      callerEmail,
+    const profileMap = new Map((profilesResult.data ?? []).map((p) => [p.user_id, p]));
+    const dbRoleMap = new Map(
+      (rolesResult.data ?? []).map((r) => [r.user_id, normalisePermission(r.permission)]),
     );
+    const activityMap = new Map((activityResult.data ?? []).map((a) => [a.user_id, a]));
 
-    if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
+    // Optional WorkOS data
+    let workosUserMap = new Map<string, WorkOSUser>();
+    let workosRoleMap = new Map<string, AppPermission>();
+    const workosKey = Deno.env.get("WORKOS_API_KEY")?.trim() ?? "";
+    const workosOrgId = Deno.env.get("WORKOS_ORG_ID")?.trim() ?? "";
 
-    // Clerk (third-party) users are not in auth.users — listUsers is often empty. Use profiles as source of truth.
-    const { data: profiles } = await adminClient
-      .from("profiles")
-      .select("user_id, full_name, title, avatar_url, user_type, linkedin_url, twitter_url, location, created_at");
-
-    const { data: roles } = await adminClient
-      .from("user_roles")
-      .select("user_id, permission");
-
-    const { data: activity } = await adminClient
-      .from("user_activity")
-      .select("user_id, total_time_seconds, api_calls_count, last_active_at");
-
-    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
-    const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
-    const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
-
-    const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
-
-    type ListedUser = {
-      id: string;
-      email?: string | null;
-      last_sign_in_at?: string | null;
-      created_at?: string;
-      user_metadata?: Record<string, unknown>;
-      image_url?: string | null;
-    };
-
-    let authUsers: ListedUser[] = [];
-
-    if (clerkSecret) {
+    if (workosKey) {
       try {
-        const clerkUsers = await clerkListAllUsers(clerkSecret);
-        authUsers = clerkUsers.map(clerkUserToListedAuthFields);
-      } catch (e) {
-        console.error("[admin-list-users] Clerk list:", (e as Error).message);
-        throw new Error(
-          "Failed to list users from Clerk. Check CLERK_SECRET_KEY matches your Clerk instance (test vs live).",
+        const wUsers = await fetchAllPages<WorkOSUser>(
+          workosKey,
+          "https://api.workos.com/user_management/users",
         );
-      }
-    } else {
-      console.warn(
-        "[admin-list-users] CLERK_SECRET_KEY unset — falling back to Supabase auth.users + profiles (empty when using Clerk-only auth).",
-      );
-      const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
-      if (listError) {
-        console.error("[admin-list-users] auth.admin.listUsers:", listError.message);
-      } else {
-        authUsers = (listData?.users ?? []) as ListedUser[];
+        workosUserMap = new Map(wUsers.map((u) => [u.id, u]));
+
+        if (workosOrgId) {
+          const memberships = await fetchAllPages<WorkOSOrgMembership>(
+            workosKey,
+            `https://api.workos.com/user_management/organization_memberships`,
+          );
+          for (const m of memberships) {
+            if (m.status === "active") {
+              workosRoleMap.set(m.user_id, normalisePermission(m.role.slug));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[admin-list-users] WorkOS fetch failed:", (e as Error).message);
       }
     }
 
-    const authById = new Map(authUsers.map((u) => [u.id, u]));
-
+    // Union of all known user IDs
     const idSet = new Set<string>();
-    if (clerkSecret) {
-      for (const u of authUsers) idSet.add(u.id);
-    } else {
-      for (const p of profiles || []) idSet.add(p.user_id);
-      for (const u of authUsers) idSet.add(u.id);
-    }
+    for (const p of profilesResult.data ?? []) idSet.add(p.user_id);
+    for (const r of rolesResult.data ?? []) idSet.add(r.user_id);
+    for (const [id] of workosUserMap) idSet.add(id);
 
-    const enrichedUsers = [...idSet].map((id) => {
+    const users = [...idSet].map((id) => {
       const profile = profileMap.get(id);
-      const u = authById.get(id);
+      const workos = workosUserMap.get(id);
       const act = activityMap.get(id);
-      const meta = u?.user_metadata as { full_name?: string } | undefined;
+      const dbPerm = dbRoleMap.get(id) ?? null;
+      const wosPerm = workosRoleMap.get(id) ?? null;
+      const email = workos?.email ?? null;
+
+      const finalPerm = clampGod(
+        highest(wosPerm, dbPerm, autoPermForEmail(email)),
+        email,
+      );
+
       return {
         id,
-        email: u?.email ?? "",
-        last_sign_in_at: u?.last_sign_in_at ?? null,
-        created_at: u?.created_at ?? profile?.created_at ?? new Date(0).toISOString(),
-        full_name: profile?.full_name || meta?.full_name || "",
-        avatar_url: profile?.avatar_url ?? u?.image_url ?? null,
+        email: email ?? "",
+        last_sign_in_at: workos?.last_sign_in_at ?? null,
+        created_at: workos?.created_at ?? profile?.created_at ?? new Date(0).toISOString(),
+        full_name:
+          profile?.full_name ||
+          [workos?.first_name, workos?.last_name].filter(Boolean).join(" ") ||
+          "",
+        avatar_url: profile?.avatar_url ?? workos?.profile_picture_url ?? null,
         user_type: profile?.user_type ?? "founder",
         title: profile?.title ?? null,
         linkedin_url: profile?.linkedin_url ?? null,
         twitter_url: profile?.twitter_url ?? null,
         location: profile?.location ?? null,
-        permission: clampGodModeToDesignatedEmail(
-          highestPermission(
-            asPermission(roleMap.get(id)),
-            asPermission(u?.user_metadata?.role),
-            autoPermissionForEmail(u?.email),
-          ),
-          u?.email,
-        ),
+        permission: finalPerm,
         total_time_seconds: act?.total_time_seconds ?? 0,
         api_calls_count: act?.api_calls_count ?? 0,
         last_active_at: act?.last_active_at ?? null,
       };
     });
 
-    enrichedUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    users.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    return new Response(JSON.stringify({ users: enrichedUsers }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ users }), {
+      headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (e) {
+    console.error("[admin-list-users] error:", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
 });

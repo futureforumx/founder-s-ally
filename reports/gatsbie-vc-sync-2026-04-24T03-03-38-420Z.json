@@ -1,0 +1,265 @@
+{
+  "generated_at": "2026-04-24T03:03:38.417Z",
+  "dry_run": false,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18156,
+  "matched_firms": 346,
+  "unmatched_firms": 154,
+  "firm_creates": 144,
+  "firm_updates": 41,
+  "investor_updates": 0,
+  "investor_inserts": 20,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "Sapphire Sport (Sapphire Ventures)",
+      "website": "https://sapphireventures.com/contact/",
+      "reason": "ambiguous_domain:sapphireventures.com"
+    },
+    {
+      "gatsbie_name": "Seven Seven Six 7️⃣7️⃣6️⃣",
+      "website": "www.sevensevensix.com",
+      "reason": "ambiguous_domain:sevensevensix.com"
+    },
+    {
+      "gatsbie_name": "Alven",
+      "website": "https://www.linkedin.com/in/rodolphemenegaux",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "NewView Capital",
+      "website": "https://nvp.com",
+      "reason": "ambiguous_domain:nvp.com"
+    },
+    {
+      "gatsbie_name": "Lindell Investments Inc.",
+      "website": "https://lindellinvestments.com/about/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Nextech Invest Ltd.",
+      "website": "http://www.nextechinvest.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Evolve Capital",
+      "website": "http://evolvecapital.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Satori Venture",
+      "website": "https://www.satorivc.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "FastFin",
+      "website": "http://fastfin.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Tippet Venture Partners",
+      "website": "http://www.tippetventurepartners.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Whiteboard Capital",
+      "website": "http://whiteboardcap.com/index.html",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "odyssey venture partners",
+      "website": "http://odysseyvp.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Incofin Investment Management",
+      "website": "http://www.incofin.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Better",
+      "website": "www.onezerocapital.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "RIC Capital Management",
+      "website": "http://www.ric-cap.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Zone Startups Vietnam",
+      "website": "https://vietnam.zonestartups.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Crossover VC",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "ATTA Ventures",
+      "website": "https://attaventures.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "NU BANX LLC",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Gershon Capital",
+      "website": "https://gershoncapital.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Real Ventures",
+      "website": "https://www.linkedin.com/in/johnstokes",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "JP Capital Partners",
+      "website": "http://www.jp-cap.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "TheArtemisFund",
+      "website": "www.theartemisfund.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Lyceum Capital",
+      "website": "https://www.lyceumcapital.co.uk/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "West Quad Ventures",
+      "website": "www.westquad.vc",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "OSS Capital",
+      "website": "https://OSS.Capital/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Riviera Capital Partners",
+      "website": "https://rivieracp.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Tullius Partners",
+      "website": "https://tullius.com//?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Swingbridge",
+      "website": "http://www.swingbridgellc.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Iron Creek Partners",
+      "website": "https://ironcreek.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "AI Ninja",
+      "website": "https://aininja.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Helvetic Trust",
+      "website": "helvetic-trust.ch",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Ingk Labs",
+      "website": "http://ingk.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Virgin Green Fund",
+      "website": "www.activatecp.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "MGV",
+      "website": "www.mgv.vc",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Tisana Ventures",
+      "website": null,
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Titanium Birch",
+      "website": "https://www.titaniumbirch.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Silverstone Capital Advisors",
+      "website": "https://www.silverstoneadv.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "JM Search",
+      "website": "http://www.jmsearch.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Olive Tree Capital",
+      "website": "www.olivetreecapital.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Aramco Ventures",
+      "website": "https://aramcoventures.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Girls Into VC",
+      "website": "https://girlsintovc.com/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Kairos Capital Group",
+      "website": "https://kairos-cp.com",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Essence Venture Capital",
+      "website": "http://www.essencevc.fund",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "SierraMaya360",
+      "website": "www.sierramaya360.vc",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Menomadin Foundation",
+      "website": "https://menomadin.com/",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Buzko Krasnov",
+      "website": "https://www.buzko.legal/?utm_source=evelinherrera&utm_medium=evelinherrera&utm_campaign=evelinherrera",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "Inovo",
+      "website": "http://inovo.vc/",
+      "reason": "ambiguous_domain:inovo.vc"
+    },
+    {
+      "gatsbie_name": "China Asset Management",
+      "website": "http://www.chinaamc.com.hk",
+      "reason": "no_match"
+    },
+    {
+      "gatsbie_name": "ONeil Capital Management India",
+      "website": "https://oneilcapital.in",
+      "reason": "no_match"
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-04-24T03:04:08.515Z",
+  "dry_run": true,
+  "gatsbie_firm_count": 500,
+  "gatsbie_contact_count": 500,
+  "local_firm_count": 18300,
+  "matched_firms": 490,
+  "unmatched_firms": 10,
+  "firm_creates": 0,
+  "firm_updates": 21,
+  "investor_updates": 0,
+  "investor_inserts": 0,
+  "unmatched_examples": [
+    {
+      "gatsbie_name": "Sapphire Sport (Sapphire Ventures)",
+      "website": "https://sapphireventures.com/contact/",
+      "reason": "ambiguous_domain:sapphireventures.com"
+    },
+    {
+      "gatsbie_name": "Seven Seven Six 7️⃣7️⃣6️⃣",
+      "website": "www.sevensevensix.com",
+      "reason": "ambiguous_domain:sevensevensix.com"
+    },
+    {
+      "gatsbie_name": "Alven",
+      "website": "https://www.linkedin.com/in/rodolphemenegaux",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "NewView Capital",
+      "website": "https://nvp.com",
+      "reason": "ambiguous_domain:nvp.com"
+    },
+    {
+      "gatsbie_name": "Real Ventures",
+      "website": "https://www.linkedin.com/in/johnstokes",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "Inovo",
+      "website": "http://inovo.vc/",
+      "reason": "ambiguous_domain:inovo.vc"
+    },
+    {
+      "gatsbie_name": "Sequoia Capital",
+      "website": "https://sequoiacap.com",
+      "reason": "ambiguous_domain:sequoiacap.com"
+    },
+    {
+      "gatsbie_name": "Mylktree Family Office",
+      "website": "https://www.linkedin.com/company/mylktree-familyoffice/?originalSubdomain=in",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "InVenture Partners",
+      "website": "https://www.linkedin.com/company/inventure-partners/people/",
+      "reason": "ambiguous_domain:linkedin.com"
+    },
+    {
+      "gatsbie_name": "Alumni Ventures – Sports & Humans First Fund",
+      "website": "https://www.av.vc/funds/sports",
+      "reason": "ambiguous_domain:av.vc"
+    }
+  ]
+}
