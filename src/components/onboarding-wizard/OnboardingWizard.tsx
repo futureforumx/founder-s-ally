@@ -110,7 +110,6 @@ export function OnboardingWizard() {
       user_id: userId,
     });
 
-    reset();
     try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
     navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
 
