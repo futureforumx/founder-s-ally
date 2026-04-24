@@ -1,4 +1,4 @@
-import { Wifi, ScrollText, Brain, ArrowRight, History, Users } from "lucide-react";
+import { Wifi, ScrollText, Brain, ArrowRight, History, Users, Building2 } from "lucide-react";
 
 const STATS = [
   { label: "Active Integrations", value: "7/7", color: "#2EE6A6" },
@@ -7,7 +7,7 @@ const STATS = [
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
 
-type AdminView = "overview" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
+type AdminView = "overview" | "users" | "firm-records" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
 
 interface AdminOverviewProps {
   onNavigate: (view: AdminView) => void;
@@ -42,9 +42,10 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {[
           { key: "users", icon: Users, title: "Users", desc: "Manage permissions and monitor user activity" },
+          { key: "firm-records", icon: Building2, title: "Firm Records", desc: "Search, view and manually update any firm record" },
           { key: "record-updates", icon: History, title: "Record updates", desc: "Latest changes across firms, investors, companies, users" },
           { key: "api-health", icon: Wifi, title: "API Health", desc: "Monitor 7 integration endpoints" },
           { key: "sync-logs", icon: ScrollText, title: "Sync Logs", desc: "Search the sync black box" },

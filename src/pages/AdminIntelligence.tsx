@@ -2,21 +2,25 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, X } from "lucide-react";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, TrendingUp, Building2, X } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger } from "@/components/admin/AdminAiDebugger";
 import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
 import { AdminRecordUpdates } from "@/components/admin/AdminRecordUpdates";
+import { AdminFreshCapital } from "@/components/admin/AdminFreshCapital";
+import { AdminFirmRecords } from "@/components/admin/AdminFirmRecords";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
   { key: "users", label: "Users", icon: Users },
+  { key: "firm-records", label: "Firm Records", icon: Building2 },
   { key: "record-updates", label: "Record updates", icon: History },
   { key: "api-health", label: "API Health", icon: Wifi },
   { key: "sync-logs", label: "Sync Logs", icon: ScrollText },
   { key: "ai-debugger", label: "AI Debugger", icon: Brain },
+  { key: "fresh-capital", label: "Fresh Capital", icon: TrendingUp },
 ] as const;
 
 type AdminView = (typeof NAV_ITEMS)[number]["key"];
@@ -109,10 +113,12 @@ export default function AdminIntelligence() {
         </button>
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
+        {activeView === "firm-records" && <AdminFirmRecords />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
         {activeView === "ai-debugger" && <AdminAiDebugger />}
+        {activeView === "fresh-capital" && <AdminFreshCapital />}
       </main>
     </div>
   );
