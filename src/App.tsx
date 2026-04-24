@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { flushSync } from "react-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -75,7 +76,11 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     const handleOnboardingComplete = () => {
-      setState({ isKnown: true, loading: false, needsOnboarding: false });
+      // flushSync forces React to commit this state update synchronously so that
+      // AppIndexRoute sees needsOnboarding:false before navigate() re-renders it.
+      flushSync(() => {
+        setState({ isKnown: true, loading: false, needsOnboarding: false });
+      });
     };
     window.addEventListener("vekta:onboarding-complete", handleOnboardingComplete);
     return () => window.removeEventListener("vekta:onboarding-complete", handleOnboardingComplete);

@@ -128,6 +128,11 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
       return;
     }
     if (!hasSocialProfile) {
+      if (showSocialHint) {
+        // User already saw the hint and clicked again — let them skip social sync.
+        onNext();
+        return;
+      }
       setSocialShake(true);
       setShowSocialHint(true);
       setTimeout(() => setSocialShake(false), 600);
