@@ -74,6 +74,14 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
   }));
 
   useEffect(() => {
+    const handleOnboardingComplete = () => {
+      setState({ isKnown: true, loading: false, needsOnboarding: false });
+    };
+    window.addEventListener("vekta:onboarding-complete", handleOnboardingComplete);
+    return () => window.removeEventListener("vekta:onboarding-complete", handleOnboardingComplete);
+  }, []);
+
+  useEffect(() => {
     if (DEMO_MODE) {
       setState({ isKnown: true, loading: false, needsOnboarding: false });
       return;
