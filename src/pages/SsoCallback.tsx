@@ -1,11 +1,16 @@
-import { AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
-import { readSsoReturnPath } from "@/lib/clerkSocialLink";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
-/**
- * OAuth redirect target for Clerk `createExternalAccount` (e.g. LinkedIn / X linking during onboarding).
- * Add `/sso-callback` to Clerk Dashboard → Paths → Allowed redirect URLs if required.
- */
+/** WorkOS handles SSO callbacks at the configured redirectUri — this page just redirects home. */
 export default function SsoCallback() {
-  const fallback = readSsoReturnPath();
-  return <AuthenticateWithRedirectCallback signInFallbackRedirectUrl={fallback} signUpFallbackRedirectUrl={fallback} />;
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate("/", { replace: true });
+  }, [navigate]);
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#050506]">
+      <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+    </div>
+  );
 }

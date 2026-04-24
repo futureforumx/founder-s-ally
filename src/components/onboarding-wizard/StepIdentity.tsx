@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useUser, useReverification } from "@clerk/clerk-react";
-import { isClerkRuntimeError, isReverificationCancelledError } from "@clerk/clerk-react/errors";
 import { Linkedin, HelpCircle, ArrowRight, Loader2, Users, UserCog, Briefcase, CheckCircle2, Search, X, Building2, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -17,13 +15,6 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatSocialUrl } from "@/lib/socialFormat";
-import {
-  clerkUserHasLinkedIn,
-  clerkUserHasXOrTwitter,
-  clerkSuggestedLinkedInUrl,
-  clerkSuggestedXUrl,
-  rememberSsoReturnPath,
-} from "@/lib/clerkSocialLink";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { InvestorWaitlistForm } from "./InvestorWaitlistForm";
 import type { OnboardingState } from "./types";
@@ -42,20 +33,9 @@ const USER_TYPES = [
 
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const { user } = useAuth();
-  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
-  const createExternalAccountWithReverification = useReverification(
-    (params: { strategy: string; redirectUrl: string }) => {
-      if (!clerkUser) return Promise.reject(new Error("Not signed in"));
-      return clerkUser.createExternalAccount({
-        strategy: params.strategy as "oauth_linkedin" | "oauth_linkedin_oidc" | "oauth_x" | "oauth_twitter",
-        redirectUrl: params.redirectUrl,
-      });
-    },
-  );
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState(state.linkedinUrl);
   const [xUrl, setXUrl] = useState(state.twitterUrl);
-  const [oauthBusy, setOauthBusy] = useState<"linkedin" | "x" | null>(null);
   const [socialShake, setSocialShake] = useState(false);
   const [showSocialHint, setShowSocialHint] = useState(false);
 
@@ -129,14 +109,8 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     if (Object.keys(updates).length > 0) update(updates);
   }, [user]);
 
-  const linkedInOAuthVerified = useMemo(
-    () => (clerkLoaded && clerkUser ? clerkUserHasLinkedIn(clerkUser) : false),
-    [clerkLoaded, clerkUser],
-  );
-  const xOAuthVerified = useMemo(
-    () => (clerkLoaded && clerkUser ? clerkUserHasXOrTwitter(clerkUser) : false),
-    [clerkLoaded, clerkUser],
-  );
+  const linkedInOAuthVerified = false;
+  const xOAuthVerified = false;
   const hasSocialProfile =
     state.linkedinUrl.trim().length > 0 ||
     state.twitterUrl.trim().length > 0 ||
@@ -162,13 +136,10 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     setShowSocialHint(false);
 
     const liFromInput = url.trim() ? formatSocialUrl("linkedin_personal", url) : "";
-    const liFromClerk =
-      !liFromInput && linkedInOAuthVerified && clerkUser ? clerkSuggestedLinkedInUrl(clerkUser) : null;
-    const linkedinUrlToSync = liFromInput || liFromClerk || "";
+    const linkedinUrlToSync = liFromInput;
 
     const xFromInput = xUrl.trim() ? formatSocialUrl("x", xUrl) : "";
-    const xFromClerk = !xFromInput && xOAuthVerified && clerkUser ? clerkSuggestedXUrl(clerkUser) : null;
-    const xUrlToSync = xFromInput || xFromClerk || "";
+    const xUrlToSync = xFromInput;
 
     if (linkedinUrlToSync) {
       if (linkedinUrlToSync !== url) setUrl(linkedinUrlToSync);
@@ -222,59 +193,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     onNext();
   };
 
-  const linkLinkedInForConfirm = async () => {
-    if (!clerkUser) {
-      toast({ variant: "destructive", title: "Sign in required", description: "Complete sign-in before linking LinkedIn." });
-      return;
-    }
-    setOauthBusy("linkedin");
-    rememberSsoReturnPath();
-    const redirectUrl = `${window.location.origin}/sso-callback`;
-    const strategies = ["oauth_linkedin_oidc", "oauth_linkedin"] as const;
-    let lastErr: unknown;
-    for (const strategy of strategies) {
-      try {
-        await createExternalAccountWithReverification({ strategy, redirectUrl });
-        return;
-      } catch (e) {
-        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
-          setOauthBusy(null);
-          return;
-        }
-        lastErr = e;
-      }
-    }
-    setOauthBusy(null);
-    const msg = lastErr instanceof Error ? lastErr.message : "Enable LinkedIn under Clerk → User & authentication → Social connections.";
-    toast({ variant: "destructive", title: "Could not start LinkedIn", description: msg });
-  };
-
-  const linkXForConfirm = async () => {
-    if (!clerkUser) {
-      toast({ variant: "destructive", title: "Sign in required", description: "Complete sign-in before linking X." });
-      return;
-    }
-    setOauthBusy("x");
-    rememberSsoReturnPath();
-    const redirectUrl = `${window.location.origin}/sso-callback`;
-    const strategies = ["oauth_x", "oauth_twitter"] as const;
-    let lastErr: unknown;
-    for (const strategy of strategies) {
-      try {
-        await createExternalAccountWithReverification({ strategy, redirectUrl });
-        return;
-      } catch (e) {
-        if (isClerkRuntimeError(e) && isReverificationCancelledError(e)) {
-          setOauthBusy(null);
-          return;
-        }
-        lastErr = e;
-      }
-    }
-    setOauthBusy(null);
-    const msg = lastErr instanceof Error ? lastErr.message : "Enable X (Twitter) under Clerk → User & authentication → Social connections.";
-    toast({ variant: "destructive", title: "Could not start X", description: msg });
-  };
 
   const enrichXProfile = async (twitterUrl: string, opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
@@ -473,23 +391,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                         }}
                         verifyState={linkedInOAuthVerified ? "verified" : "idle"}
                       />
-                      {!linkedInOAuthVerified && (
-                        <button
-                          type="button"
-                          onClick={linkLinkedInForConfirm}
-                          disabled={oauthBusy !== null || !clerkLoaded}
-                          className="text-left text-[10px] font-medium text-accent hover:text-accent/80 disabled:pointer-events-none disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {oauthBusy === "linkedin" ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                              Opening LinkedIn…
-                            </>
-                          ) : (
-                            "Confirm profile — sign in with LinkedIn"
-                          )}
-                        </button>
-                      )}
                     </div>
                     <div className="space-y-1.5">
                       <MorphingUrlInput
@@ -507,23 +408,6 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                         }}
                         verifyState={xOAuthVerified ? "verified" : "idle"}
                       />
-                      {!xOAuthVerified && (
-                        <button
-                          type="button"
-                          onClick={linkXForConfirm}
-                          disabled={oauthBusy !== null || !clerkLoaded}
-                          className="text-left text-[10px] font-medium text-accent hover:text-accent/80 disabled:pointer-events-none disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          {oauthBusy === "x" ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                              Opening X…
-                            </>
-                          ) : (
-                            "Confirm profile — sign in with X"
-                          )}
-                        </button>
-                      )}
                     </div>
                   </div>
 

@@ -16,7 +16,6 @@ import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useClerk, useAuth as useClerkAuthForConnectors } from "@clerk/clerk-react";
 import { useProfile } from "@/hooks/useProfile";
 import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
@@ -1209,7 +1208,7 @@ const PERSONAL_INTEGRATIONS = [
 
 function PersonalNetworkSection() {
   const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
-  const { getToken } = useClerkAuthForConnectors();
+  const { getAccessToken: getToken } = useAuth();
   const queryClient = useQueryClient();
   const { data: remoteAccounts = [] } = useConnectedAccounts(activeContextId);
   const [connected, setConnected] = useState(() => loadPersonalConnected(activeContextId));
@@ -2332,7 +2331,6 @@ function SecurityTabDemo() {
 
 function SecurityTabClerk() {
   const { user } = useAuth();
-  const { openUserProfile } = useClerk();
 
   return (
     <motion.div
@@ -2362,7 +2360,7 @@ function SecurityTabClerk() {
             type="button"
             size="sm"
             className="rounded-lg text-xs gap-1.5 w-full sm:w-auto"
-            onClick={() => openUserProfile()}
+            onClick={() => window.open("https://id.workos.com", "_blank")}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Open account & security

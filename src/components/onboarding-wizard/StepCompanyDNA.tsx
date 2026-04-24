@@ -401,6 +401,37 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
           </div>
         </div>
 
+        {/* Website URL */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Website <span className="normal-case text-muted-foreground/50">(optional)</span>
+          </label>
+          <div className="relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
+            <Input
+              value={state.websiteUrl}
+              onChange={(e) => {
+                if (isWebsiteSuggested) setIsWebsiteSuggested(false);
+                update({ websiteUrl: e.target.value });
+              }}
+              placeholder="https://yourcompany.com"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
+              className={cn("pl-10", isWebsiteSuggested && "text-[#6C44FC]")}
+            />
+          </div>
+          {isWebsiteSuggested && (
+            <p className="text-[11px] font-medium text-[#6C44FC]">Is this your correct URL?</p>
+          )}
+          {websiteDomain && (
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <img src={faviconSrc(websiteDomain)} alt="" className="h-3 w-3 rounded-sm" />
+              {websiteDomain}
+            </div>
+          )}
+        </div>
+
       </div>
 
       <div className="flex justify-between pt-2">

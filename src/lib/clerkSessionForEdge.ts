@@ -1,16 +1,16 @@
 /**
- * Clerk default session JWT (for edge functions that only need `sub`).
- * Separate from the Supabase-signed JWT used for PostgREST RLS.
+ * WorkOS session token getter for edge functions.
+ * Registered by WorkOSAuthProvider in useAuth.tsx via setSupabaseAccessTokenGetter.
  */
-let clerkSessionGetter: () => Promise<string | null> = async () => null;
+let sessionGetter: () => Promise<string | null> = async () => null;
 
 export function registerClerkSessionTokenGetter(fn: () => Promise<string | null>) {
-  clerkSessionGetter = fn;
+  sessionGetter = fn;
 }
 
 export async function getClerkSessionToken(): Promise<string | null> {
   try {
-    return await clerkSessionGetter();
+    return await sessionGetter();
   } catch {
     return null;
   }

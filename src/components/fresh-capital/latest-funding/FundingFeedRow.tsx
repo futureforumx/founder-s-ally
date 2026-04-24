@@ -10,24 +10,30 @@ import { CompanyRowMark } from "./CompanyRowMark";
 
 /** Matches `ThemePills` on Fresh Funds — single sector label. */
 function SectorThemePill({ label }: { label: string }) {
+  const trimmed = label?.trim();
+  if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") return null;
+
   return (
     <span
       className="inline-block max-w-[12rem] truncate rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary"
-      title={label}
+      title={trimmed}
     >
-      {label.toUpperCase()}
+      {trimmed.toUpperCase()}
     </span>
   );
 }
 
 /** Pill for the funding round stage — e.g. Series A, Pre-Seed. */
 function RoundKindPill({ label, title }: { label: string; title?: string }) {
+  const trimmed = label?.trim();
+  if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") return null;
+
   return (
     <span
       className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-2xs font-medium text-sky-300"
-      title={title ?? label}
+      title={title ?? trimmed}
     >
-      {label}
+      {trimmed}
     </span>
   );
 }
@@ -147,6 +153,8 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
 
   const coSummary =
     coShown.length > 0 ? `${coShown.join(", ")}${coExtra > 0 ? ` +${coExtra}` : ""}` : "—";
+  const hasRoundKind = Boolean(row.roundKind?.trim()) && row.roundKind.trim() !== "—" && row.roundKind.trim().toLowerCase() !== "unknown";
+  const hasSector = Boolean(row.sector?.trim()) && row.sector.trim() !== "—" && row.sector.trim().toLowerCase() !== "unknown";
 
   return (
     <li className="px-4 py-4 md:px-0 md:py-0">
@@ -170,10 +178,14 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
               {showRumorBadge ? <RumorBadge /> : null}
             </span>
           </span>
-          <RoundKindPill label={row.roundKind} title={roundKindTitle} />
+          <div className="min-w-0">
+            {hasRoundKind ? <RoundKindPill label={row.roundKind} title={roundKindTitle} /> : null}
+          </div>
           <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
           <span className="text-sm text-[#b3b3b3]">{displayDate}</span>
-          <SectorThemePill label={row.sector} />
+          <div className="min-w-0">
+            {hasSector ? <SectorThemePill label={row.sector} /> : null}
+          </div>
           <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={row.leadInvestor}>
             {leadHref ? (
               <a
@@ -222,15 +234,17 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
           <span className="text-2xs tabular-nums text-[#b3b3b3]">{displayDate}</span>
         </div>
         <div className="min-w-0">
-          <RoundKindPill label={row.roundKind} title={roundKindTitle} />
+          {hasRoundKind ? <RoundKindPill label={row.roundKind} title={roundKindTitle} /> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
           <span className="tabular-nums">{row.amountLabel}</span>
-          <span className="text-zinc-600">·</span>
-          <span className="inline-flex items-center gap-2">
-            <span className="text-zinc-600">Sector</span>
-            <SectorThemePill label={row.sector} />
-          </span>
+          {hasSector ? <span className="text-zinc-600">·</span> : null}
+          {hasSector ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="text-zinc-600">Sector</span>
+              <SectorThemePill label={row.sector} />
+            </span>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
           <span className="truncate" title={row.leadInvestor}>
