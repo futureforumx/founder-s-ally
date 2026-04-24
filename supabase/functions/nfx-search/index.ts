@@ -22,6 +22,48 @@ const ALIASES: Record<string, string[]> = {
   "nea": ["new enterprise associates"],
 };
 
+// ── Upsert Apify results into firm_records so admin stays in sync ──────────────
+
+async function upsertApifyResults(
+  items: Array<{ name: string; location: string; logoUrl: string; stage: string; verticals: string[] }>,
+): Promise<void> {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!SUPABASE_URL || !SERVICE_KEY || !items.length) return;
+
+  const rows = items
+    .filter((r) => r.name && r.name !== "Unknown Fund")
+    .map((r) => ({
+      firm_name: r.name,
+      location: r.location || null,
+      logo_url: r.logoUrl || null,
+      thesis_verticals: r.verticals?.length ? r.verticals : null,
+      enrichment_status: "pending",
+      // Don't set ready_for_live — admin must review before going live
+      ready_for_live: false,
+      needs_review: true,
+    }));
+
+  if (!rows.length) return;
+
+  try {
+    // Upsert on firm_name — don't overwrite richer existing data
+    await fetch(`${SUPABASE_URL}/rest/v1/firm_records`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=ignore-duplicates,return=minimal",
+      },
+      body: JSON.stringify(rows),
+    });
+  } catch (e) {
+    // Fire-and-forget — never let this block the search response
+    console.warn("upsertApifyResults failed:", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -60,14 +102,17 @@ serve(async (req) => {
         if (apifyResponse.ok) {
           const items = await apifyResponse.json();
           const results = (Array.isArray(items) ? items : []).slice(0, 8).map((item: Record<string, unknown>) => ({
-            name: item.name || item.firmName || item.title || "Unknown Fund",
-            location: item.location || item.headquarters || item.city || "",
-            logoUrl: item.logoUrl || item.imageUrl || item.logo || "",
-            stage: item.stage || item.preferredStage || "",
-            verticals: item.verticals || item.sectors || [],
+            name: (item.name || item.firmName || item.title || "Unknown Fund") as string,
+            location: (item.location || item.headquarters || item.city || "") as string,
+            logoUrl: (item.logoUrl || item.imageUrl || item.logo || "") as string,
+            stage: (item.stage || item.preferredStage || "") as string,
+            verticals: (item.verticals || item.sectors || []) as string[],
           }));
 
           if (results.length > 0) {
+            // Save Apify results to firm_records in background so admin console stays in sync
+            upsertApifyResults(results);
+
             return new Response(
               JSON.stringify({ results, source: "nfx" }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -121,7 +166,7 @@ async function globalDatabaseSearch(query: string): Promise<Response> {
   }
 
   // Build OR query: ilike on original query + any alias-resolved names
-  let filterParts = [`firm_name.ilike.*${encodeURIComponent(query)}*`];
+  const filterParts = [`firm_name.ilike.*${encodeURIComponent(query)}*`];
   for (const name of resolvedNames) {
     filterParts.push(`firm_name.ilike.*${encodeURIComponent(name)}*`);
   }

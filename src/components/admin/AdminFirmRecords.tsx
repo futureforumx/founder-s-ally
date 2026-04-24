@@ -189,13 +189,18 @@ export function AdminFirmRecords() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="vc">VC</SelectItem>
-            <SelectItem value="micro_vc">Micro VC</SelectItem>
-            <SelectItem value="family_office">Family Office</SelectItem>
-            <SelectItem value="corporate_vc">Corporate VC</SelectItem>
-            <SelectItem value="accelerator">Accelerator</SelectItem>
-            <SelectItem value="angel_network">Angel Network</SelectItem>
-            <SelectItem value="private_equity">Private Equity</SelectItem>
+            <SelectItem value="Institutional">Institutional</SelectItem>
+            <SelectItem value="individual">Individual</SelectItem>
+            <SelectItem value="Solo GP">Solo GP</SelectItem>
+            <SelectItem value="VC">VC</SelectItem>
+            <SelectItem value="MICRO_FUND">Micro Fund</SelectItem>
+            <SelectItem value="Family Office">Family Office</SelectItem>
+            <SelectItem value="Corporate (CVC)">Corporate / CVC</SelectItem>
+            <SelectItem value="CVC">CVC</SelectItem>
+            <SelectItem value="Accelerator / Studio">Accelerator / Studio</SelectItem>
+            <SelectItem value="ACCELERATOR">Accelerator</SelectItem>
+            <SelectItem value="PE">Private Equity</SelectItem>
+            <SelectItem value="OTHER">Other</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(0); }}>
