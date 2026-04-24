@@ -38,8 +38,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
+<<<<<<< Updated upstream
 import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
 import { curatedFirmHqLineForDirectoryName, firmAumDisplayForInvestorPanel } from "@/lib/freshCapitalPublic";
+=======
+import {
+  investorAvatarUrlCandidates,
+  investorHeadshotNeedsOffloadedMirror,
+  isBlockedExternalAvatarUrl,
+} from "@/lib/investorAvatarUrl";
+>>>>>>> Stashed changes
 import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
 import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import {
@@ -634,11 +642,20 @@ export function InvestorDetailPanel({
       return;
     }
 
-    // DB already has a solid team — skip HTML crawl + `/api/firm-website-team` on every open.
+    // Large DB team: skip redundant crawl when everyone already has stable headshots (e.g. R2).
+    // If any row is missing URLs or still points at third-party CDNs, keep fetching so website crawl +
+    // `mirrorWebsiteTeamHeadshotsToR2` can merge ahead of DB in `mergedPartnerPortraitFields`.
     if (liveLoading) return;
-    if ((liveProfile?.partners?.length ?? 0) >= 3) {
-      setWebsitePartners([]);
-      return;
+    const dbPartners = liveProfile?.partners ?? [];
+    if (dbPartners.length >= 3) {
+      const needWebsiteForAvatars = dbPartners.some((p) => {
+        const fields = { avatar_url: p.avatar_url, profile_image_url: p.profile_image_url };
+        return investorAvatarUrlCandidates(fields).length === 0 || investorHeadshotNeedsOffloadedMirror(fields);
+      });
+      if (!needWebsiteForAvatars) {
+        setWebsitePartners([]);
+        return;
+      }
     }
 
     const fetchWebsiteTeam = async (forceRefresh: boolean) => {
@@ -684,7 +701,7 @@ export function InvestorDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [firmWebsiteUrl, liveLoading, liveProfile?.partners?.length]);
+  }, [firmWebsiteUrl, liveLoading, liveProfile?.partners]);
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
