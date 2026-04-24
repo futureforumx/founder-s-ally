@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useMemo, useState, lazy, Suspense } from "react";
-import { flushSync } from "react-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -75,18 +74,6 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
   }));
 
   useEffect(() => {
-    const handleOnboardingComplete = () => {
-      // flushSync forces React to commit this state update synchronously so that
-      // AppIndexRoute sees needsOnboarding:false before navigate() re-renders it.
-      flushSync(() => {
-        setState({ isKnown: true, loading: false, needsOnboarding: false });
-      });
-    };
-    window.addEventListener("vekta:onboarding-complete", handleOnboardingComplete);
-    return () => window.removeEventListener("vekta:onboarding-complete", handleOnboardingComplete);
-  }, []);
-
-  useEffect(() => {
     if (DEMO_MODE) {
       setState({ isKnown: true, loading: false, needsOnboarding: false });
       return;
@@ -107,15 +94,16 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
       .maybeSingle()
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error) {
-          setState({ isKnown: true, loading: false, needsOnboarding: false });
-          return;
-        }
-        const dbCompleted = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
         // Persist completion across page refreshes even when the DB write went through a
         // fallback path that doesn't set has_completed_onboarding (e.g. the RPC path), or
         // when using the mock Supabase client which never writes to the profiles table.
         const localCompleted = localStorage.getItem("vekta-onboarding-done") === user.id;
+        if (error) {
+          // Don't bypass onboarding on a transient DB error — only the local flag can vouch for completion.
+          setState({ isKnown: true, loading: false, needsOnboarding: !localCompleted });
+          return;
+        }
+        const dbCompleted = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
         setState({
           isKnown: true,
           loading: false,
@@ -219,8 +207,16 @@ function AppIndexRoute() {
 
 function AppOnboardingRoute() {
   const { isKnown, needsOnboarding } = useProfileStatus();
+  const { user } = useAuth();
 
-  if (isKnown && !needsOnboarding) {
+  // Belt-and-suspenders: if the user just finished the wizard, the localStorage flag
+  // is set synchronously before navigate() — trust it and bounce out, even if the
+  // BackgroundProfileProvider hasn't refreshed yet.
+  const locallyCompleted = Boolean(
+    user && localStorage.getItem("vekta-onboarding-done") === user.id
+  );
+
+  if (locallyCompleted || (isKnown && !needsOnboarding)) {
     return <Navigate to="/" replace />;
   }
 

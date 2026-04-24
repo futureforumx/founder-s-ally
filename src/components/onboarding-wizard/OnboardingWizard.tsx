@@ -32,7 +32,7 @@ function buildExecutiveSummaryForDb(state: OnboardingState): string | null {
 }
 
 export function OnboardingWizard() {
-  const { state, update, reset } = useOnboardingState();
+  const { state, update } = useOnboardingState();
   const { user } = useAuth();
   const { upsertProfile } = useProfile();
   const { upsertPrefs } = useUserPreferences();
@@ -100,8 +100,9 @@ export function OnboardingWizard() {
     try { localStorage.setItem("company-profile-verified", "true"); } catch {}
 
     // ── Mark complete and navigate NOW — the user must never be blocked by DB/network ──
+    // The localStorage flag is the single source of truth for "just finished onboarding";
+    // both AppIndexRoute and AppOnboardingRoute read it directly, so no event/flushSync needed.
     try { localStorage.setItem("vekta-onboarding-done", userId); } catch {}
-    window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
 
     toast({ title: `Welcome, ${snap.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
     trackMixpanelEvent("Conversion", {
@@ -224,9 +225,10 @@ export function OnboardingWizard() {
       }
     } catch (e: any) {
       console.warn("[onboarding] background sync failed:", e instanceof Error ? e.message : String(e));
-    } finally {
-      setSaving(false);
     }
+    // No setSaving(false) — by the time DB work resolves, the component has unmounted
+    // (navigate() above kicked us off /onboarding). Touching state here triggers a
+    // "set state on unmounted component" warning.
   };
 
   return (
