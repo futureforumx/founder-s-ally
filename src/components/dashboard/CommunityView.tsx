@@ -3378,6 +3378,49 @@ export function CommunityView({
     });
   }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
 
+<<<<<<< Updated upstream
+=======
+  /** Operator directory (Overview): same two-column rail as Network, scoped by entity tabs — no investors. */
+  const operatorDirectoryRailSuggestedRaw = useMemo(() => {
+    if (directorySurface !== "operator" || isInvestorSearch) return [];
+    return scopedSuggested;
+  }, [directorySurface, isInvestorSearch, scopedSuggested]);
+
+  const operatorDirectoryRailTrending = useMemo(() => {
+    if (directorySurface !== "operator" || isInvestorSearch) return [];
+    return scopedTrending;
+  }, [directorySurface, isInvestorSearch, scopedTrending]);
+
+  const operatorDirectoryRailSuggestedRanked = useMemo(() => {
+    const userSector =
+      companyData?.sector?.trim() ||
+      (analysisResult as AnalysisResult & { sectorMapping?: { sector?: string } })?.sectorMapping?.sector?.trim() ||
+      (analysisResult as AnalysisResult & { aiExtracted?: { sector?: string } })?.aiExtracted?.sector?.trim() ||
+      "";
+    const userStage =
+      companyData?.stage?.trim() ||
+      (analysisResult as AnalysisResult & { aiExtracted?: { stage?: string } })?.aiExtracted?.stage?.trim() ||
+      (analysisResult as AnalysisResult & { stageClassification?: { detected_stage?: string } })?.stageClassification
+        ?.detected_stage?.trim() ||
+      "";
+
+    const hasProfileHint = Boolean(userSector || userStage);
+    const withScores = operatorDirectoryRailSuggestedRaw.map((e) => {
+      const computed = hasProfileHint
+        ? computeFirmProfileMatchScoreFromProfile(userSector, userStage, e)
+        : computeFirmProfileMatchScoreFromProfile(null, null, e);
+      const existing = typeof e._matchScore === "number" && !Number.isNaN(e._matchScore) ? e._matchScore : 0;
+      return { ...e, _matchScore: Math.max(computed, existing) };
+    });
+    return [...withScores].sort((a, b) => {
+      const sb = b._matchScore ?? 0;
+      const sa = a._matchScore ?? 0;
+      if (sb !== sa) return sb - sa;
+      return compareInvestorsForSort(a, b, "recommended");
+    });
+  }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
+
+>>>>>>> Stashed changes
   const operatorDirectoryRailTitles = useMemo(() => {
     if (directorySurface !== "operator") {
       return { suggested: "", trending: "" };
@@ -3431,6 +3474,9 @@ export function CommunityView({
     directorySurface === "operator" &&
     !isInvestorSearch &&
     (operatorDirectoryRailSuggestedRanked.length > 0 || operatorDirectoryRailTrending.length > 0);
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
@@ -3644,6 +3690,7 @@ export function CommunityView({
   const handleNetworkRailClick = useCallback(
     (inv: InvestorPreviewModel) => {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       const cat = inv._railRowKind;
       const pool = [...networkRailSuggested, ...networkRailTrending];
       if (cat === "investor") {
@@ -3662,12 +3709,17 @@ export function CommunityView({
     },
     [mergedEntries, networkRailSuggested, networkRailTrending, handleInvestorClick],
 =======
+=======
+>>>>>>> Stashed changes
       const pool = [...operatorDirectoryRailSuggestedRanked, ...operatorDirectoryRailTrending];
       const entry =
         mergedEntries.find((e) => e.name === inv.name && e.category !== "investor") ?? pool.find((e) => e.name === inv.name);
       if (entry) setSelectedFounder(entry);
     },
     [mergedEntries, operatorDirectoryRailSuggestedRanked, operatorDirectoryRailTrending],
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   );
 
@@ -3688,12 +3740,18 @@ export function CommunityView({
     <div className="space-y-2">
       {/* Spacer for global top nav */}
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       {(variant === "investor-search" || isOperatorHubLayout) && <div className="h-2" />}
 =======
+=======
+>>>>>>> Stashed changes
       {(variant === "investor-search" ||
         isOperatorHubLayout ||
         isNetworkCapitalSurface ||
         (directorySurface === "operator" && !isInvestorSearch)) && <div className="h-2" />}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
       {/* Header row */}
@@ -3912,6 +3970,7 @@ export function CommunityView({
       
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       {/* ═══════ Best matches + Trending: investor-search = investors; Network = one rail, content follows All / Companies / Founders / Operators ═══════ */}
       {showInvestorRails || showNetworkRails ? (
         showInvestorRails ? (
@@ -3972,6 +4031,8 @@ export function CommunityView({
         )
       ) : !isInvestorSearch && !showNetworkRails ? (
 =======
+=======
+>>>>>>> Stashed changes
       {/* ═══════ Suggested + Trending: investor-search / Network / Operator directory = 2-col rails; else carousels ═══════ */}
       {showInvestorRails || showOperatorDirectoryRails ? (
         <div className="pt-4">
