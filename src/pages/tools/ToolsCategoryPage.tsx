@@ -69,7 +69,26 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
   });
 
   return (
-    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
+    <div
+      className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased"
+      style={{
+        ["--background" as string]: "0 0% 3%",
+        ["--foreground" as string]: "220 12% 93%",
+        ["--card" as string]: "220 12% 8%",
+        ["--card-foreground" as string]: "220 12% 93%",
+        ["--popover" as string]: "220 12% 8%",
+        ["--popover-foreground" as string]: "220 12% 93%",
+        ["--border" as string]: "220 10% 20%",
+        ["--input" as string]: "220 10% 20%",
+        ["--muted" as string]: "220 10% 14%",
+        ["--muted-foreground" as string]: "220 10% 62%",
+        ["--secondary" as string]: "220 10% 14%",
+        ["--secondary-foreground" as string]: "220 15% 88%",
+        ["--accent" as string]: "239 100% 68%",
+        ["--accent-foreground" as string]: "0 0% 100%",
+        ["--ring" as string]: "220 14% 70%",
+      }}
+    >
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <Breadcrumbs items={breadcrumbs} />
 
