@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +35,6 @@ export function OnboardingWizard() {
   const { user } = useAuth();
   const { upsertProfile } = useProfile();
   const { upsertPrefs } = useUserPreferences();
-  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
@@ -112,10 +110,11 @@ export function OnboardingWizard() {
     });
 
     try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-    navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
 
-    // ── Background DB sync (fire-and-forget; component is unmounted by now) ──
-    try {
+    // Kick off background DB sync. We don't await — we want the user OUT of the
+    // wizard immediately. Fetches that are in flight when window.location.assign
+    // fires usually complete (browsers keep in-flight requests alive across nav).
+    void (async () => { try {
       let companyId: string | null = null;
 
       if (resolvedExistingId) {
@@ -225,10 +224,13 @@ export function OnboardingWizard() {
       }
     } catch (e: any) {
       console.warn("[onboarding] background sync failed:", e instanceof Error ? e.message : String(e));
-    }
-    // No setSaving(false) — by the time DB work resolves, the component has unmounted
-    // (navigate() above kicked us off /onboarding). Touching state here triggers a
-    // "set state on unmounted component" warning.
+    } })();
+
+    // Hard navigation: a full reload sidesteps every React/router race we've hit.
+    // Index re-mounts fresh and reads company-profile + post-onboarding-view from
+    // the localStorage we wrote above. AppOnboardingRoute can't re-show the wizard
+    // because the URL is no longer /onboarding.
+    window.location.assign("/?view=settings&tab=account&tour=true");
   };
 
   return (
