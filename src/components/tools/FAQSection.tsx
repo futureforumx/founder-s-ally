@@ -20,7 +20,7 @@ export function FAQSection({
         {items.map((item, index) => (
           <AccordionItem key={item.question} value={`faq-${index}`}>
             <AccordionTrigger className="text-left text-sm font-medium">{item.question}</AccordionTrigger>
-            <AccordionContent className="text-sm leading-7 text-muted-foreground">{item.answer}</AccordionContent>
+            <AccordionContent className="text-sm leading-7 text-zinc-400">{item.answer}</AccordionContent>
           </AccordionItem>
         ))}
       </Accordion>
