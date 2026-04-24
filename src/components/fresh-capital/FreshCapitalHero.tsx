@@ -110,9 +110,7 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
                 <Link to="/?view=directory">Trending companies</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                <a href="https://tryvekta.com/aurora" target="_blank" rel="noopener noreferrer">
-                  Agent Library
-                </a>
+                <Link to="/tools/ai-agents">Agent Library</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

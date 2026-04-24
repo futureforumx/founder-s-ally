@@ -254,6 +254,8 @@ interface CompanyProfileProps {
   onCompletionChange?: (data: { percent: number; sectionsApproved: number; totalSections: number; allDone: boolean }) => void;
   sectionConfirmedState?: Record<string, boolean>;
   companyData?: CompanyData | null;
+  /** Supabase UUID of the linked company_analyses row. When provided, auto-save also persists to DB. */
+  companyId?: string | null;
 }
 
 interface CompanySyncPayload {
@@ -357,7 +359,7 @@ function FieldBadge({ isAi }: { isAi: boolean }) {
   );
 }
 
-export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, sectionConfirmedState, companyData: parentCompanyData }, ref) {
+export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfileProps>(function CompanyProfile({ onSave, onAnalysis, onSectorChange, onStageClassification, onProfileVerified, onWalkthroughComplete, onSectionConfirmedChange, onCompletionChange, sectionConfirmedState, companyData: parentCompanyData, companyId }, ref) {
   const { user: authUser } = useAuth();
   const [form, setForm] = useState<CompanyData>(() => {
     try {
@@ -572,7 +574,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const completion = getCompletionPercent(form);
   const METRIC_FIELDS: (keyof CompanyData)[] = ["currentARR", "yoyGrowth", "totalHeadcount"];
 
-  // Auto-save
+  // Auto-save (localStorage + DB)
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
@@ -590,9 +592,28 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
         window.dispatchEvent(new Event("company-profile-changed"));
         if (form.name) { setSaveIndicator("Live"); }
       } catch {}
+
+      // Persist core fields to DB when a linked company workspace exists.
+      // RLS: auth.jwt() ->> 'sub' = user_id — WorkOS JWT sub matches, so direct client write works.
+      if (companyId && form.name) {
+        supabase
+          .from("company_analyses")
+          .update({
+            company_name: form.name.trim(),
+            website_url: form.website?.trim() || null,
+            logo_url: logoUrl || null,
+            stage: form.stage || null,
+            sector: form.sector || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", companyId)
+          .then(({ error }) => {
+            if (error) console.warn("[CompanyProfile] DB auto-save failed:", error.message);
+          });
+      }
     }, 800);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [form, userTouched, metricPeriod, sectionConfirmed]);
+  }, [form, userTouched, metricPeriod, sectionConfirmed, companyId, logoUrl]);
 
   // Notify parent of section confirmation changes
   useEffect(() => {

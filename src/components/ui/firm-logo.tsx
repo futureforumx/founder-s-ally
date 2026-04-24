@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
-import { lookupKnownVcDomain, resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 import { safeTrim } from "@/lib/utils";
 
 interface FirmLogoProps {
@@ -39,6 +38,14 @@ const KNOWN_DOMAIN_LOGO_URLS: Record<string, string> = {
     "https://upload.wikimedia.org/wikipedia/commons/7/78/Sequoia_Capital_Logo_2022.svg",
   "1955.capital":
     "https://image.pitchbook.com/dyVy2lGNkma4M3fHJf5FJkCXyYh1764067281169_200x200",
+};
+
+/** Maps lowercase firm name → bare domain for logo/favicon resolution. */
+const KNOWN_VC_DOMAINS: Record<string, string> = {
+  "sequoia capital": "sequoiacap.com",
+  "sequoia capital india": "sequoiacap.com",
+  "sequoia capital china": "sequoiacap.com",
+  "1955 capital": "1955.capital",
 };
 
 /** Prefer DB logo; when absent, use a curated asset for well-known firms with bad favicons. */
