@@ -329,6 +329,10 @@ export function OnboardingWizard() {
         "Conversion Value": 0,
         user_id: user.id,
       });
+      // Persist completion locally so page refreshes don't bounce the user back to
+      // onboarding when the DB write went through a fallback path (e.g. mock client or
+      // the RPC path which omits has_completed_onboarding).
+      try { localStorage.setItem("vekta-onboarding-done", user.id); } catch {}
       window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}

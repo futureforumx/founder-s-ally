@@ -111,11 +111,15 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
           setState({ isKnown: true, loading: false, needsOnboarding: false });
           return;
         }
-        const completed = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
+        const dbCompleted = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
+        // Persist completion across page refreshes even when the DB write went through a
+        // fallback path that doesn't set has_completed_onboarding (e.g. the RPC path), or
+        // when using the mock Supabase client which never writes to the profiles table.
+        const localCompleted = localStorage.getItem("vekta-onboarding-done") === user.id;
         setState({
           isKnown: true,
           loading: false,
-          needsOnboarding: !data || !completed,
+          needsOnboarding: !dbCompleted && !localCompleted,
         });
       });
 
