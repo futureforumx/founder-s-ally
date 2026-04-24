@@ -12,7 +12,7 @@ function booleanBadge(value: boolean | null, truthyLabel: string) {
 
 export function ToolCard({ tool }: { tool: Tool }) {
   return (
-    <Card className="group flex h-full flex-col rounded-[1.5rem] border-border/70 bg-white/90 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
+    <Card className="group flex h-full flex-col rounded-[1.5rem] border-zinc-800 bg-zinc-900 shadow-sm transition-all hover:-translate-y-1 hover:border-zinc-700 hover:shadow-lg">
       <CardHeader className="space-y-4 pb-4">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline-sm">{tool.category}</Badge>
@@ -26,15 +26,15 @@ export function ToolCard({ tool }: { tool: Tool }) {
             <div>
               <Link
                 to={`/tools/${tool.slug}`}
-                className="font-clash text-xl font-semibold tracking-tight text-foreground transition-colors hover:text-primary"
+                className="font-clash text-xl font-semibold tracking-tight text-zinc-100 transition-colors hover:text-primary"
               >
                 {tool.name}
               </Link>
-              <p className="mt-1 text-sm text-muted-foreground">{tool.type}</p>
+              <p className="mt-1 text-sm text-zinc-400">{tool.type}</p>
             </div>
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            <ArrowUpRight className="h-4 w-4 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </div>
-          <p className="text-sm leading-6 text-muted-foreground">{tool.shortDescription}</p>
+          <p className="text-sm leading-6 text-zinc-400">{tool.shortDescription}</p>
         </div>
       </CardHeader>
 
@@ -46,8 +46,8 @@ export function ToolCard({ tool }: { tool: Tool }) {
         </div>
 
         <div>
-          <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Best for</div>
-          <p className="mt-1 text-sm text-foreground">{tool.bestFor.slice(0, 2).join(" • ")}</p>
+          <div className="text-xs uppercase tracking-[0.16em] text-zinc-500">Best for</div>
+          <p className="mt-1 text-sm text-zinc-100">{tool.bestFor.slice(0, 2).join(" • ")}</p>
         </div>
 
         <StarRating rating={tool.userRating} />
@@ -58,13 +58,13 @@ export function ToolCard({ tool }: { tool: Tool }) {
           <Link to={`/tools/${tool.slug}`}>View details</Link>
         </Button>
         {tool.websiteUrl ? (
-          <Button variant="outline" asChild className="rounded-full">
+          <Button variant="outline" asChild className="rounded-full border-zinc-700 text-zinc-100 hover:bg-zinc-800 hover:text-zinc-50">
             <a href={tool.websiteUrl} target="_blank" rel="noreferrer">
               Website
             </a>
           </Button>
         ) : (
-          <div className="text-xs text-muted-foreground">Website unavailable</div>
+          <div className="text-xs text-zinc-500">Website unavailable</div>
         )}
       </CardFooter>
     </Card>

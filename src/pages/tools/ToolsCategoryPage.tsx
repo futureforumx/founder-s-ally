@@ -69,7 +69,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
   });
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fbfcff_0%,#f6f8ff_40%,#ffffff_100%)]">
+    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <Breadcrumbs items={breadcrumbs} />
 
@@ -90,7 +90,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
                 <Button
                   key={subcategory}
                   variant={active ? "default" : "outline"}
-                  className="rounded-full"
+                  className={active ? "rounded-full" : "rounded-full border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"}
                   onClick={() => setFilters((current) => ({ ...current, subcategory: active ? "All" : subcategory }))}
                 >
                   {subcategory}
@@ -105,41 +105,46 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
         <section className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">{category} tools</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{filtered.length} tools match the active filters in this category.</p>
+              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">{category} tools</h2>
+              <p className="mt-1 text-sm text-zinc-400">{filtered.length} tools match the active filters in this category.</p>
             </div>
           </div>
           <ToolGrid tools={filtered} />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-          <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+          <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Related categories</h2>
+              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Related categories</h2>
               <div className="mt-4 grid gap-3">
                 {relatedCategoryMap[category].map((related) => (
                   <Link
                     key={related}
                     to={getCategoryHref(related)}
-                    className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-4 transition-colors hover:border-primary/40 hover:bg-primary/10"
                   >
                     <div>
-                      <div className="font-medium text-foreground">{related}</div>
-                      <div className="text-sm text-muted-foreground">{TOOL_CATEGORY_INTROS[related].meta}</div>
+                      <div className="font-medium text-zinc-100">{related}</div>
+                      <div className="text-sm text-zinc-400">{TOOL_CATEGORY_INTROS[related].meta}</div>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                    <ArrowRight className="h-4 w-4 text-zinc-500" />
                   </Link>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+          <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Browse subcategories</h2>
+              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Browse subcategories</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {subcategories.map((subcategory) => (
-                  <Badge key={subcategory} variant="outline" className="cursor-pointer" onClick={() => setFilters((current) => ({ ...current, subcategory }))}>
+                  <Badge
+                    key={subcategory}
+                    variant="outline"
+                    className="cursor-pointer border-zinc-700 bg-zinc-800/50 text-zinc-300 hover:border-primary/40 hover:bg-primary/10 hover:text-zinc-100"
+                    onClick={() => setFilters((current) => ({ ...current, subcategory }))}
+                  >
                     {subcategory}
                   </Badge>
                 ))}

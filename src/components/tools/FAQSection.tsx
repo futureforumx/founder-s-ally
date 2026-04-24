@@ -14,8 +14,8 @@ export function FAQSection({
   items: ToolFaqItem[];
 }) {
   return (
-    <section className="rounded-[1.75rem] border border-border/70 bg-white/90 p-6 shadow-sm">
-      <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
+    <section className="rounded-[1.75rem] border border-zinc-800 bg-[#060709] p-6 shadow-sm">
+      <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">{title}</h2>
       <Accordion type="single" collapsible className="mt-4">
         {items.map((item, index) => (
           <AccordionItem key={item.question} value={`faq-${index}`}>
