@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, TrendingUp, Building2, X } from "lucide-react";
+import { Loader2, Activity, Wifi, ScrollText, Brain, Users, History, TrendingUp, Building2, X, BarChart2 } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminApiHealth } from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs } from "@/components/admin/AdminSyncLogs";
@@ -11,11 +11,13 @@ import { AdminUserManagement } from "@/components/admin/AdminUserManagement";
 import { AdminRecordUpdates } from "@/components/admin/AdminRecordUpdates";
 import { AdminFreshCapital } from "@/components/admin/AdminFreshCapital";
 import { AdminFirmRecords } from "@/components/admin/AdminFirmRecords";
+import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntelligence";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
   { key: "users", label: "Users", icon: Users },
   { key: "firm-records", label: "Firm Records", icon: Building2 },
+  { key: "market-intel", label: "Market Intel", icon: BarChart2 },
   { key: "record-updates", label: "Record updates", icon: History },
   { key: "api-health", label: "API Health", icon: Wifi },
   { key: "sync-logs", label: "Sync Logs", icon: ScrollText },
@@ -114,6 +116,7 @@ export default function AdminIntelligence() {
         {activeView === "overview" && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users" && <AdminUserManagement />}
         {activeView === "firm-records" && <AdminFirmRecords />}
+        {activeView === "market-intel" && <AdminMarketIntelligence />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
