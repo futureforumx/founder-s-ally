@@ -18,6 +18,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
+  SlidersHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 
@@ -390,6 +392,360 @@ function LogoInput({
   );
 }
 
+// ─── Pipeline Source Config ───────────────────────────────────────────────────
+
+type PipelineSourceRow = {
+  id: string;
+  pipeline: string;
+  source_key: string;
+  name: string;
+  description: string | null;
+  base_url: string | null;
+  enabled: boolean;
+  max_items: number;
+  cron_schedule: string | null;
+  notes: string | null;
+  last_run_at: string | null;
+  updated_at: string;
+};
+
+type SourceEdit = {
+  enabled?: boolean;
+  max_items?: number;
+  cron_schedule?: string | null;
+  notes?: string | null;
+};
+
+const CRON_PRESETS = [
+  { label: "Hourly",      value: "0 * * * *" },
+  { label: "Daily 6am",  value: "0 6 * * *" },
+  { label: "Daily 9am",  value: "0 9 * * *" },
+  { label: "Weekly Mon", value: "0 6 * * 1" },
+];
+
+function SourcesModal({
+  pipeline,
+  onClose,
+}: {
+  pipeline: "fund-watch" | "latest-funding";
+  onClose: () => void;
+}) {
+  const pipelineKey = pipeline === "fund-watch" ? "vc_funds" : "fi_deals";
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [apiErr, setApiErr] = useState<string | null>(null);
+  const [rows, setRows] = useState<PipelineSourceRow[]>([]);
+  const [edits, setEdits] = useState<Record<string, SourceEdit>>({});
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setApiErr(null);
+      const { data, error } = await callAdminFreshCapital("GET", {
+        table: "pipeline_source_config",
+        pipeline: pipelineKey,
+      });
+      if (error) { setApiErr(error); setLoading(false); return; }
+      setRows(((data as { rows: PipelineSourceRow[] })?.rows) ?? []);
+      setLoading(false);
+    })();
+  }, [pipelineKey]);
+
+  const set = (id: string, patch: Partial<SourceEdit>) =>
+    setEdits((e) => ({ ...e, [id]: { ...e[id], ...patch } }));
+
+  const get = <K extends keyof PipelineSourceRow>(
+    row: PipelineSourceRow,
+    k: K,
+  ): PipelineSourceRow[K] => {
+    const ed = edits[row.id];
+    if (ed && k in ed) return (ed as unknown as PipelineSourceRow)[k];
+    return row[k];
+  };
+
+  const hasChanges = Object.keys(edits).length > 0;
+
+  const handleSave = async () => {
+    if (!hasChanges) { onClose(); return; }
+    setSaving(true);
+    setApiErr(null);
+    for (const [id, patch] of Object.entries(edits)) {
+      const { error } = await callAdminFreshCapital(
+        "PATCH",
+        { table: "pipeline_source_config", id },
+        patch,
+      );
+      if (error) { setApiErr(error); setSaving(false); return; }
+    }
+    setSaving(false);
+    onClose();
+  };
+
+  const title = pipeline === "fund-watch" ? "Fund Watch" : "Latest Funding";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="relative w-full max-w-4xl rounded-xl border shadow-2xl"
+        style={{ background: "#0d0d0d", borderColor: "rgba(255,255,255,0.1)" }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between border-b px-5 py-4"
+          style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" style={{ color: "#2EE6A6" }} />
+              <span className="text-[13px] font-semibold text-white/80">
+                {title} — Sources &amp; Schedule
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Toggle sources on/off, set max items per run, and configure cron schedules.
+              Changes apply on the next pipeline run.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 transition-colors hover:bg-white/10"
+          >
+            <X className="h-4 w-4" style={{ color: "rgba(255,255,255,0.5)" }} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-5 space-y-4">
+          {apiErr && (
+            <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {apiErr}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <table className="w-full border-collapse text-white/70">
+                <thead>
+                  <tr style={{ background: "#0a0a0a", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Source</th>
+                    <th className={TH} style={{ color: "rgba(255,255,255,0.35)", width: 90 }}>Max Items</th>
+                    <th className={TH} style={{ color: "rgba(255,255,255,0.35)", width: 180 }}>
+                      Cron Schedule
+                    </th>
+                    <th className={TH} style={{ color: "rgba(255,255,255,0.35)" }}>Notes</th>
+                    <th className={TH} style={{ color: "rgba(255,255,255,0.35)", width: 72 }}>Enabled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const enabled = get(row, "enabled");
+                    const cronVal = String(get(row, "cron_schedule") ?? "");
+                    return (
+                      <tr
+                        key={row.id}
+                        style={{
+                          borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          opacity: enabled ? 1 : 0.45,
+                        }}
+                      >
+                        {/* Source info */}
+                        <td className="px-3 py-3 align-top">
+                          <div className="text-[12px] font-medium text-white/80">{row.name}</div>
+                          {row.base_url && (
+                            <a
+                              href={row.base_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-0.5 text-[10px] hover:underline"
+                              style={{ color: "rgba(255,255,255,0.3)" }}
+                            >
+                              {row.base_url.replace(/^https?:\/\//, "").slice(0, 40)}
+                              {row.base_url.length > 40 && "…"}
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                            </a>
+                          )}
+                          {row.description && (
+                            <p
+                              className="mt-0.5 text-[10px] leading-snug"
+                              style={{ color: "rgba(255,255,255,0.22)" }}
+                            >
+                              {row.description}
+                            </p>
+                          )}
+                        </td>
+
+                        {/* Max items */}
+                        <td className="px-3 py-3 align-top">
+                          <input
+                            type="number"
+                            value={String(get(row, "max_items") ?? 100)}
+                            onChange={(e) =>
+                              set(row.id, { max_items: Math.max(1, parseInt(e.target.value) || 100) })
+                            }
+                            className="w-20 rounded-md border px-2 py-1 text-[12px] outline-none bg-[#0d0d0d] text-white/80"
+                            style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                          />
+                        </td>
+
+                        {/* Cron schedule */}
+                        <td className="px-3 py-3 align-top">
+                          <input
+                            type="text"
+                            value={cronVal}
+                            onChange={(e) =>
+                              set(row.id, { cron_schedule: e.target.value.trim() || null })
+                            }
+                            placeholder="0 6 * * *"
+                            className="w-full rounded-md border px-2 py-1 text-[12px] font-mono outline-none bg-[#0d0d0d] text-white/80 placeholder:text-white/20"
+                            style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                          />
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {CRON_PRESETS.map((p) => (
+                              <button
+                                key={p.value}
+                                type="button"
+                                onClick={() => set(row.id, { cron_schedule: p.value })}
+                                className="rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors"
+                                style={{
+                                  background:
+                                    cronVal === p.value
+                                      ? "rgba(46,230,166,0.15)"
+                                      : "rgba(255,255,255,0.04)",
+                                  color:
+                                    cronVal === p.value
+                                      ? "#2EE6A6"
+                                      : "rgba(255,255,255,0.3)",
+                                  border: "1px solid",
+                                  borderColor:
+                                    cronVal === p.value
+                                      ? "rgba(46,230,166,0.3)"
+                                      : "rgba(255,255,255,0.08)",
+                                }}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+
+                        {/* Notes */}
+                        <td className="px-3 py-3 align-top">
+                          <input
+                            type="text"
+                            value={String(get(row, "notes") ?? "")}
+                            onChange={(e) =>
+                              set(row.id, { notes: e.target.value || null })
+                            }
+                            placeholder="Optional notes…"
+                            className="w-full rounded-md border px-2 py-1 text-[12px] outline-none bg-[#0d0d0d] text-white/80 placeholder:text-white/20"
+                            style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                          />
+                        </td>
+
+                        {/* Enabled toggle */}
+                        <td className="px-3 py-3 align-top text-center">
+                          <button
+                            type="button"
+                            onClick={() => set(row.id, { enabled: !enabled })}
+                            className="inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors"
+                            style={{
+                              background: enabled ? "#2EE6A6" : "rgba(255,255,255,0.1)",
+                              borderColor: enabled ? "#2EE6A6" : "rgba(255,255,255,0.15)",
+                            }}
+                            role="switch"
+                            aria-checked={enabled}
+                          >
+                            <span
+                              className="pointer-events-none my-auto h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform"
+                              style={{ transform: enabled ? "translateX(16px)" : "translateX(2px)" }}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Cron reference */}
+          {!loading && (
+            <div
+              className="rounded-md border px-3 py-2.5"
+              style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}
+            >
+              <p
+                className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                style={{ color: "rgba(255,255,255,0.25)" }}
+              >
+                Cron format&nbsp;&nbsp;
+                <span style={{ color: "rgba(255,255,255,0.18)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                  minute · hour · day-of-month · month · day-of-week
+                </span>
+              </p>
+              <div
+                className="grid grid-cols-4 gap-x-4 gap-y-0.5 text-[10px]"
+                style={{ color: "rgba(255,255,255,0.3)" }}
+              >
+                <span><code className="mr-1.5 text-white/40">0 * * * *</code>Hourly</span>
+                <span><code className="mr-1.5 text-white/40">0 6 * * *</code>Daily 6am</span>
+                <span><code className="mr-1.5 text-white/40">0 9 * * *</code>Daily 9am</span>
+                <span><code className="mr-1.5 text-white/40">0 6 * * 1</code>Weekly Mon</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-between border-t px-5 py-4"
+          style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        >
+          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+            {hasChanges
+              ? `${Object.keys(edits).length} source${Object.keys(edits).length === 1 ? "" : "s"} modified`
+              : "No unsaved changes"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
+              style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-md px-4 py-1.5 text-[12px] font-semibold transition-opacity disabled:opacity-50"
+              style={{ background: "#2EE6A6", color: "#000" }}
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              {hasChanges ? "Save Changes" : "Done"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Fund Watch ───────────────────────────────────────────────────────────────
 
 const FUND_STATUS_OPTIONS = [
@@ -618,6 +974,7 @@ function FundWatchSection() {
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState<FundRow | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -732,7 +1089,20 @@ function FundWatchSection() {
           <Plus className="h-3.5 w-3.5" />
           New Fund
         </button>
+        <button
+          type="button"
+          onClick={() => setShowSources(true)}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-white/5"
+          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Sources
+        </button>
       </div>
+
+      {showSources && (
+        <SourcesModal pipeline="fund-watch" onClose={() => setShowSources(false)} />
+      )}
 
       {apiError && (
         <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[12px] text-red-300">
@@ -1119,6 +1489,7 @@ function LatestFundingSection() {
   const [search, setSearch] = useState("");
   const [editRow, setEditRow] = useState<DealRow | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -1202,7 +1573,20 @@ function LatestFundingSection() {
           <Plus className="h-3.5 w-3.5" />
           New Deal
         </button>
+        <button
+          type="button"
+          onClick={() => setShowSources(true)}
+          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-white/5"
+          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Sources
+        </button>
       </div>
+
+      {showSources && (
+        <SourcesModal pipeline="latest-funding" onClose={() => setShowSources(false)} />
+      )}
 
       {apiError && (
         <div className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-[12px] text-red-300">
