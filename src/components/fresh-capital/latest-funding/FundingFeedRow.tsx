@@ -24,7 +24,7 @@ function SectorThemePill({ label }: { label: string }) {
 function RoundKindPill({ label, title }: { label: string; title?: string }) {
   return (
     <span
-      className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-2xs font-medium text-sky-300"
+      className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-transparent px-2 py-0.5 text-2xs font-medium text-sky-300"
       title={title ?? label}
     >
       {label}
