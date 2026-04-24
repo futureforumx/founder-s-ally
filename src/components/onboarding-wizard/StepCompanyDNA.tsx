@@ -22,6 +22,7 @@ interface StepCompanyDNAProps {
   update: (p: Partial<OnboardingState>) => void;
   onNext: (companyName?: string, existingCompanyId?: string) => void;
   onBack: () => void;
+  saving?: boolean;
 }
 
 interface CompanyResult {
@@ -50,7 +51,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
+export function StepCompanyDNA({ state, update, onNext, onBack, saving = false }: StepCompanyDNAProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
@@ -439,9 +440,11 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
         <Button
           size="sm"
           onClick={handleContinue}
-          disabled={!(searchQuery.trim() || state.companyName.trim())}
+          disabled={saving || !(searchQuery.trim() || state.companyName.trim())}
         >
-          {isJoinMode ? (
+          {saving ? (
+            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
+          ) : isJoinMode ? (
             <><UserPlus className="h-3.5 w-3.5 mr-1" /> Join Company</>
           ) : (
             <><Plus className="h-3.5 w-3.5 mr-1" /> Add Company</>

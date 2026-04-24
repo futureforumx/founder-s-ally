@@ -354,7 +354,7 @@ export function OnboardingWizard() {
             <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
           )}
           {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(1)} />
+            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(1)} saving={saving} />
           )}
         </AnimatePresence>
       </div>

@@ -195,8 +195,15 @@ function BackgroundProfileNotice() {
 
 function AppIndexRoute() {
   const { isKnown, needsOnboarding } = useProfileStatus();
+  const { user } = useAuth();
 
-  if (isKnown && needsOnboarding) {
+  // Direct localStorage check as a belt-and-suspenders guard: if the user just
+  // completed onboarding, don't redirect even if the context state hasn't settled yet.
+  const locallyCompleted = Boolean(
+    user && localStorage.getItem("vekta-onboarding-done") === user.id
+  );
+
+  if (isKnown && needsOnboarding && !locallyCompleted) {
     return <Navigate to="/onboarding" replace />;
   }
 
