@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
-import { getClerkBrowserSessionToken } from "@/lib/edgeFunctionAuth";
+import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
 
@@ -12,7 +12,7 @@ import { isSupabaseConfigured } from "@/integrations/supabase/client";
  * `window.Clerk`, which can be briefly unavailable right after navigation.
  */
 async function getClerkTokenForReviewSubmit(): Promise<string | null> {
-  return (await getClerkSessionToken()) || (await getClerkBrowserSessionToken());
+  return (await getClerkSessionToken()) || (await getEdgeFunctionAuthToken());
 }
 
 function parseFunctionJsonBody(text: string): unknown {
