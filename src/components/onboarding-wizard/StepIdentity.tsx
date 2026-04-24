@@ -34,8 +34,8 @@ const USER_TYPES = [
 export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [url, setUrl] = useState(state.linkedinUrl);
-  const [xUrl, setXUrl] = useState(state.twitterUrl);
+  const [url, setUrl] = useState("");
+  const [xUrl, setXUrl] = useState("");
   const [socialShake, setSocialShake] = useState(false);
   const [showSocialHint, setShowSocialHint] = useState(false);
 
@@ -91,6 +91,12 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
     setCompanyQuery("");
     update({ companyName: "" });
   };
+
+  // Clear social URLs on mount — never auto-populate from previous sessions
+  useEffect(() => {
+    update({ linkedinUrl: "", twitterUrl: "" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pre-fill from auth metadata
   useEffect(() => {
@@ -361,7 +367,7 @@ export function StepIdentity({ state, update, onNext }: StepIdentityProps) {
                   <div className="flex items-center gap-2">
                     <Linkedin className="h-3.5 w-3.5 text-primary" />
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Social Profiles <span className="text-destructive">*</span>
+                      Personal Social Profiles <span className="text-destructive">*</span>
                     </span>
                     <span className="text-[9px] text-muted-foreground/60 ml-auto">At least one required</span>
                     <Tooltip>
