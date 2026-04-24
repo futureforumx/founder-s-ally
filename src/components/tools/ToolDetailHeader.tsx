@@ -29,7 +29,7 @@ export function ToolDetailHeader({
           </div>
 
           <div>
-            <h1 className="font-clash text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">{tool.name}</h1>
+            <h1 className="font-manrope text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">{tool.name}</h1>
             <p className="mt-3 text-base leading-7 text-zinc-400">{tool.shortDescription}</p>
           </div>
 

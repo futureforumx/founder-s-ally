@@ -69,7 +69,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
   });
 
   return (
-    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
+    <div className="min-h-screen bg-[#050506] font-manrope text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <Breadcrumbs items={breadcrumbs} />
 
@@ -105,7 +105,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
         <section className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">{category} tools</h2>
+              <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">{category} tools</h2>
               <p className="mt-1 text-sm text-zinc-400">{filtered.length} tools match the active filters in this category.</p>
             </div>
           </div>
@@ -115,7 +115,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
         <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
           <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Related categories</h2>
+              <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Related categories</h2>
               <div className="mt-4 grid gap-3">
                 {relatedCategoryMap[category].map((related) => (
                   <Link
@@ -136,7 +136,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
 
           <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="p-6">
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Browse subcategories</h2>
+              <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Browse subcategories</h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {subcategories.map((subcategory) => (
                   <Badge

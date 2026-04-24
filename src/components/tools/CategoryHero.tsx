@@ -31,8 +31,8 @@ export function CategoryHero({
       <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.02)_35%,transparent_70%)]" aria-hidden />
       <div className="relative z-10 flex flex-col gap-6">
         <div className="max-w-3xl space-y-3">
-          <p className="font-clash text-xs font-semibold uppercase tracking-[0.22em] text-primary">{eyebrow}</p>
-          <h1 className="font-clash text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">{title}</h1>
+          <p className="font-manrope text-xs font-semibold uppercase tracking-[0.22em] text-primary">{eyebrow}</p>
+          <h1 className="font-manrope text-4xl font-semibold tracking-tight text-zinc-100 sm:text-5xl">{title}</h1>
           <p className="max-w-2xl text-sm leading-7 text-zinc-400 sm:text-base">{description}</p>
         </div>
 

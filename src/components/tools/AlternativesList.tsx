@@ -11,7 +11,7 @@ export function AlternativesList({
 }) {
   return (
     <section className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
-      <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Alternatives</h2>
+      <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Alternatives</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {alternativeNames.length ? (
           alternativeNames.map((name) => {

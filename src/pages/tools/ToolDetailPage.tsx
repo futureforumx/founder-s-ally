@@ -83,7 +83,7 @@ export default function ToolDetailPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
+    <div className="min-h-screen bg-[#050506] font-manrope text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <ToolDetailHeader tool={tool} breadcrumbs={breadcrumbs} />
 
@@ -91,7 +91,7 @@ export default function ToolDetailPage() {
           <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="space-y-5 p-6">
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Use cases</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Use cases</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {tool.useCases.map((useCase) => (
                     <Badge key={useCase} variant="outline">{useCase}</Badge>
@@ -100,7 +100,7 @@ export default function ToolDetailPage() {
               </div>
 
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Best for</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Best for</h2>
                 <ul className="mt-4 space-y-3">
                   {tool.bestFor.map((item) => (
                     <li key={item} className="text-sm leading-7 text-zinc-300">{item}</li>
@@ -109,7 +109,7 @@ export default function ToolDetailPage() {
               </div>
 
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Tags</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Tags</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {tool.tags.map((tag) => (
                     <Badge key={tag} variant="muted">{tag}</Badge>
@@ -136,7 +136,7 @@ export default function ToolDetailPage() {
 
         <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
           <CardContent className="p-6">
-            <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Continue browsing</h2>
+            <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Continue browsing</h2>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link to="/tools" className="rounded-full border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-200 transition-colors hover:border-primary/40 hover:bg-primary/10">
                 All tools

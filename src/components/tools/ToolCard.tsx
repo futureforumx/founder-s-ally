@@ -26,7 +26,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
             <div>
               <Link
                 to={`/tools/${tool.slug}`}
-                className="font-clash text-xl font-semibold tracking-tight text-zinc-100 transition-colors hover:text-primary"
+                className="font-manrope text-xl font-semibold tracking-tight text-zinc-100 transition-colors hover:text-primary"
               >
                 {tool.name}
               </Link>

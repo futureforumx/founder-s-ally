@@ -22,7 +22,7 @@ const items = (tool: Tool) => [
 export function ToolMetadataTable({ tool }: { tool: Tool }) {
   return (
     <section className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
-      <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Tool details</h2>
+      <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Tool details</h2>
       <div className="mt-5 divide-y divide-zinc-800 rounded-[1.25rem] border border-zinc-800">
         {items(tool).map(([label, value]) => (
           <div key={label} className="grid gap-2 px-4 py-3 sm:grid-cols-[180px_1fr]">

@@ -63,7 +63,7 @@ export default function ToolsLibraryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
+    <div className="min-h-screen bg-[#050506] font-manrope text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <Breadcrumbs items={breadcrumbs} />
 
@@ -91,7 +91,7 @@ export default function ToolsLibraryPage() {
         <section className="space-y-5">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">All tools</h2>
+              <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">All tools</h2>
               <p className="mt-1 text-sm text-zinc-400">{filteredTools.length} tools match the current search and filter state.</p>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function ToolsLibraryPage() {
             <CardContent className="p-6">
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-orange-400" />
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Featured and trending tools</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Featured and trending tools</h2>
               </div>
               <p className="mt-1 text-sm text-zinc-400">
                 High-signal pages to start with if you want a faster view of what founders and operators are actively searching.
@@ -131,7 +131,7 @@ export default function ToolsLibraryPage() {
             <CardContent className="p-6">
               <div className="flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-primary" />
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Recently added</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Recently added</h2>
               </div>
               <div className="mt-5 space-y-3">
                 {recentlyAdded.map((tool) => (
@@ -155,7 +155,7 @@ export default function ToolsLibraryPage() {
         <section className="space-y-5">
           <div className="flex items-center gap-2">
             <LibraryBig className="h-4 w-4 text-primary" />
-            <h2 className="font-clash text-2xl font-semibold tracking-tight text-zinc-100">Popular categories</h2>
+            <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Popular categories</h2>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -167,7 +167,7 @@ export default function ToolsLibraryPage() {
                   to={`/tools/${slug}`}
                   className="rounded-[1.5rem] border border-zinc-800 bg-zinc-900 p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40"
                 >
-                  <div className="font-clash text-xl font-semibold tracking-tight text-zinc-100">{category}</div>
+                  <div className="font-manrope text-xl font-semibold tracking-tight text-zinc-100">{category}</div>
                   <div className="mt-2 text-sm leading-6 text-zinc-400">{intro.description}</div>
                   <div className="mt-4 text-sm font-medium text-primary">Open category</div>
                 </Link>
