@@ -8,7 +8,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
-import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
+import { EMPTY_FORM } from "@/components/company-profile/types";
 import type { OnboardingState } from "@/components/onboarding-wizard/types";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { ProgressBar } from "./ProgressBar";
@@ -17,43 +17,6 @@ import { StepCompanyDNA } from "./StepCompanyDNA";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
-
-function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: string): CompanyData {
-  const fundBits = [
-    state.currentlyRaising && "Currently raising",
-    state.targetRaise && `Target raise: ${state.targetRaise}`,
-    state.roundType && `Round: ${state.roundType}`,
-    state.targetCloseDate && `Target close: ${state.targetCloseDate}`,
-  ].filter(Boolean);
-  const opsBits = [
-    state.revenueBand && `Revenue: ${state.revenueBand}`,
-    state.cofounderCount &&
-      (state.cofounderCount === "Solo" ? "Solo founder" : `${state.cofounderCount} founders`),
-    state.superpowers?.length && `Strengths: ${state.superpowers.join(", ")}`,
-    state.role && `Role: ${state.role}`,
-  ].filter(Boolean);
-  const extra = [fundBits.join(" · "), opsBits.join(" · ")].filter(Boolean).join("\n");
-  const description = [state.deckText?.trim(), extra].filter(Boolean).join("\n\n").slice(0, 8000);
-  const teamSize =
-    state.cofounderCount === "Solo"
-      ? "1"
-      : state.cofounderCount && /^\d+$/.test(state.cofounderCount)
-        ? state.cofounderCount
-        : state.cofounderCount || "";
-
-  return {
-    ...EMPTY_FORM,
-    name: resolvedCompanyName.trim(),
-    website: (state.websiteUrl || "").trim(),
-    stage: state.stage || "",
-    sector: state.sectors?.[0] || "",
-    subsectors: state.sectors?.length > 1 ? state.sectors.slice(1) : [],
-    description,
-    currentARR: state.revenueBand || "",
-    totalHeadcount: teamSize,
-    uniqueValueProp: state.superpowers?.length ? state.superpowers.join(" · ") : "",
-  };
-}
 
 function buildExecutiveSummaryForDb(state: OnboardingState): string | null {
   const parts = [
@@ -83,92 +46,142 @@ export function OnboardingWizard() {
     playSound("/sounds/success.wav", 0.6);
     setSaving(true);
 
+    // Capture everything from state synchronously before any async work or reset()
+    const resolvedCompanyName = overrideCompanyName || state.companyName;
+    const resolvedExistingId = overrideExistingCompanyId ?? state.existingCompanyId;
+    const derivedLogoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: state.websiteUrl, size: 128 });
+    const execSummary = buildExecutiveSummaryForDb(state);
+    const snap = { ...state };
+    const userId = user.id;
+
+    // ── Write local caches synchronously — never blocks navigation ──
+    try {
+      localStorage.setItem("pending-company-seed", JSON.stringify({
+        companyName: resolvedCompanyName || "",
+        websiteUrl: snap.websiteUrl || "",
+        deckText: snap.deckText || "",
+        stage: snap.stage || "",
+        sectors: snap.sectors || [],
+      }));
+      if (resolvedCompanyName?.trim()) {
+        localStorage.setItem(
+          "company-profile",
+          JSON.stringify({
+            ...EMPTY_FORM,
+            name: resolvedCompanyName.trim(),
+            website: (snap.websiteUrl || "").trim(),
+            stage: snap.stage || "",
+            sector: snap.sectors?.[0] || "",
+            subsectors: snap.sectors?.length ? snap.sectors.slice(1) : [],
+          }),
+        );
+        if (derivedLogoUrl) {
+          localStorage.setItem("company-logo-url", derivedLogoUrl);
+          window.dispatchEvent(new Event("company-logo-changed"));
+        }
+      }
+    } catch {}
+
+    try {
+      localStorage.setItem("user-profile-snapshot", JSON.stringify({
+        full_name: snap.fullName,
+        first_name: snap.firstName,
+        last_name: snap.lastName,
+        email: snap.email,
+        title: snap.title,
+        bio: snap.bio,
+        location: snap.location,
+        linkedin_url: snap.linkedinUrl,
+        twitter_url: snap.twitterUrl,
+        avatar_url: snap.avatarUrl,
+      }));
+    } catch {}
+
+    try { localStorage.setItem("company-profile-verified", "true"); } catch {}
+
+    // ── Mark complete and navigate NOW — the user must never be blocked by DB/network ──
+    try { localStorage.setItem("vekta-onboarding-done", userId); } catch {}
+    window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
+
+    toast({ title: `Welcome, ${snap.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
+    trackMixpanelEvent("Conversion", {
+      "Conversion Type": "onboarding_complete",
+      "Conversion Value": 0,
+      user_id: userId,
+    });
+
+    reset();
+    try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
+    navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
+
+    // ── Background DB sync (fire-and-forget; component is unmounted by now) ──
     try {
       let companyId: string | null = null;
-
-      const resolvedCompanyName = overrideCompanyName || state.companyName;
-      const resolvedExistingId = overrideExistingCompanyId ?? state.existingCompanyId;
 
       if (resolvedExistingId) {
         companyId = resolvedExistingId;
         const { supabase: _sb } = await import("@/integrations/supabase/client");
         const { ensureManagerMembership: _emm } = await import("@/lib/ensureManagerMembership");
-        const memRes = await _emm(_sb as any, user.id, resolvedExistingId);
+        const memRes = await _emm(_sb as any, userId, resolvedExistingId);
         if (!memRes.ok) {
-          const { error: pendingErr } = await (_sb as any)
+          await (_sb as any)
             .from("company_members")
-            .insert({ user_id: user.id, company_id: resolvedExistingId, role: "pending" });
-          if (pendingErr && pendingErr.code !== "23505") {
-            toast({
-              title: "Couldn't join company",
-              description: pendingErr.message,
-            });
-          }
+            .insert({ user_id: userId, company_id: resolvedExistingId, role: "pending" });
         }
         await upsertProfile({ company_id: resolvedExistingId } as any);
       } else if (resolvedCompanyName) {
-        const ws = await ensureCompanyWorkspace(user.id, {
+        const ws = await ensureCompanyWorkspace(userId, {
           name: resolvedCompanyName,
-          website: state.websiteUrl?.trim() || "",
+          website: snap.websiteUrl?.trim() || "",
         });
-        if (ws.ok) {
-          companyId = ws.companyId;
-        } else {
-          // Non-fatal: let the user through; they can finish setup in Settings
-          toast({
-            title: "Company workspace couldn't be set up",
-            description: "You can finish setting up your company in Settings.",
-          });
-        }
+        if (ws.ok) companyId = ws.companyId;
       }
 
       const prefsPayload = {
         onboarding_data: {
-          stage: state.stage,
-          sectors: state.sectors,
-          revenueBand: state.revenueBand,
-          cofounderCount: state.cofounderCount,
-          superpowers: state.superpowers,
-          currentlyRaising: state.currentlyRaising,
-          targetRaise: state.targetRaise,
-          roundType: state.roundType,
-          targetCloseDate: state.targetCloseDate,
-          connectedIntegrations: state.connectedIntegrations,
+          stage: snap.stage,
+          sectors: snap.sectors,
+          revenueBand: snap.revenueBand,
+          cofounderCount: snap.cofounderCount,
+          superpowers: snap.superpowers,
+          currentlyRaising: snap.currentlyRaising,
+          targetRaise: snap.targetRaise,
+          roundType: snap.roundType,
+          targetCloseDate: snap.targetCloseDate,
+          connectedIntegrations: snap.connectedIntegrations,
         },
         privacy_settings: {
-          aiInboxPaths: state.aiInboxPaths,
-          shareAnonMetrics: state.shareAnonMetrics,
-          discoverableToInvestors: state.discoverableToInvestors,
-          useMeetingNotes: state.useMeetingNotes,
+          aiInboxPaths: snap.aiInboxPaths,
+          shareAnonMetrics: snap.shareAnonMetrics,
+          discoverableToInvestors: snap.discoverableToInvestors,
+          useMeetingNotes: snap.useMeetingNotes,
         },
       };
 
-      const execSummary = buildExecutiveSummaryForDb(state);
-      const derivedLogoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: state.websiteUrl, size: 128 });
       const edgePayload = {
-        userId: user.id,
+        userId,
         companyId: companyId || undefined,
         companyFields:
           companyId && resolvedCompanyName && !resolvedExistingId
             ? {
                 company_name: resolvedCompanyName,
-                website_url: state.websiteUrl || null,
+                website_url: snap.websiteUrl || null,
                 logo_url: derivedLogoUrl,
-                deck_text: state.deckText || null,
-                stage: state.stage || null,
-                sector: state.sectors?.[0] || null,
+                deck_text: snap.deckText || null,
+                stage: snap.stage || null,
+                sector: snap.sectors?.[0] || null,
                 ...(execSummary ? { executive_summary: execSummary } : {}),
               }
             : undefined,
         profile: {
-          full_name: state.fullName || undefined,
-          title: state.title || null,
-          bio: state.bio || null,
-          location: state.location || null,
-          avatar_url: state.avatarUrl || null,
-          linkedin_url: state.linkedinUrl || null,
-          twitter_url: state.twitterUrl || null,
-          user_type: state.userType || "founder",
+          full_name: snap.fullName || undefined,
+          title: snap.title || null,
+          bio: snap.bio || null,
+          location: snap.location || null,
+          avatar_url: snap.avatarUrl || null,
+          linkedin_url: snap.linkedinUrl || null,
+          twitter_url: snap.twitterUrl || null,
+          user_type: snap.userType || "founder",
           has_completed_onboarding: true,
           has_seen_settings_tour: false,
           company_id: companyId,
@@ -176,119 +189,42 @@ export function OnboardingWizard() {
         preferences: prefsPayload,
       };
 
-      // ── Local persistence ──
-      try {
-        localStorage.setItem("pending-company-seed", JSON.stringify({
-          companyName: resolvedCompanyName || "",
-          websiteUrl: state.websiteUrl || "",
-          deckText: state.deckText || "",
-          stage: state.stage || "",
-          sectors: state.sectors || [],
-        }));
-        if (resolvedCompanyName?.trim()) {
-          localStorage.setItem(
-            "company-profile",
-            JSON.stringify({
-              ...EMPTY_FORM,
-              name: resolvedCompanyName.trim(),
-              website: (state.websiteUrl || "").trim(),
-              stage: state.stage || "",
-              sector: state.sectors?.[0] || "",
-              subsectors: state.sectors?.length ? state.sectors.slice(1) : [],
-            }),
-          );
-          if (derivedLogoUrl) {
-            localStorage.setItem("company-logo-url", derivedLogoUrl);
-            window.dispatchEvent(new Event("company-logo-changed"));
-          }
-        }
-      } catch {}
-
-      try {
-        localStorage.setItem("user-profile-snapshot", JSON.stringify({
-          full_name: state.fullName,
-          first_name: state.firstName,
-          last_name: state.lastName,
-          email: state.email,
-          title: state.title,
-          bio: state.bio,
-          location: state.location,
-          linkedin_url: state.linkedinUrl,
-          twitter_url: state.twitterUrl,
-          avatar_url: state.avatarUrl,
-        }));
-      } catch {}
-
-      try { localStorage.setItem("company-profile-verified", "true"); } catch {}
-
-      toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
-      trackMixpanelEvent("Conversion", {
-        "Conversion Type": "onboarding_complete",
-        "Conversion Value": 0,
-        user_id: user.id,
-      });
-
-      // Mark complete and navigate NOW — DB writes happen in the background.
-      // This ensures the user always gets through regardless of DB/edge failures.
-      try { localStorage.setItem("vekta-onboarding-done", user.id); } catch {}
-      window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
-      reset();
-      try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-      navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
-
-      // ── Background DB sync (best-effort; component is unmounted by now) ──
       const edge = await completeFounderOnboardingEdge(edgePayload);
 
-      if (!edge.ok) {
-        if (edge.fallbackToClient) {
-          if (companyId && resolvedCompanyName) {
-            await (supabase as any)
-              .from("company_analyses")
-              .update({
-                company_name: resolvedCompanyName,
-                website_url: state.websiteUrl || null,
-                logo_url: derivedLogoUrl,
-                deck_text: state.deckText || null,
-                stage: state.stage || null,
-                sector: state.sectors?.[0] || null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", companyId);
-          }
-
-          const profileRes = await upsertProfile({
-            full_name: state.fullName || undefined,
-            title: state.title || null,
-            bio: state.bio || null,
-            location: state.location || null,
-            avatar_url: state.avatarUrl || null,
-            linkedin_url: state.linkedinUrl || null,
-            twitter_url: state.twitterUrl || null,
-            user_type: state.userType || "founder",
-            has_completed_onboarding: true,
-            has_seen_settings_tour: false,
-            ...(companyId ? { company_id: companyId } : {}),
-          } as any);
-
-          if (!profileRes.ok) {
-            console.warn("[onboarding] profile save failed:", profileRes.error);
-          }
-
-          const prefsRes = await upsertPrefs(prefsPayload);
-          if (!prefsRes.ok) {
-            console.warn("[onboarding] prefs save failed:", prefsRes.error);
-          }
-        } else {
-          console.warn("[onboarding] complete-founder-onboarding failed:", edge.error);
+      if (!edge.ok && edge.fallbackToClient) {
+        if (companyId && resolvedCompanyName) {
+          await (supabase as any)
+            .from("company_analyses")
+            .update({
+              company_name: resolvedCompanyName,
+              website_url: snap.websiteUrl || null,
+              logo_url: derivedLogoUrl,
+              deck_text: snap.deckText || null,
+              stage: snap.stage || null,
+              sector: snap.sectors?.[0] || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", companyId);
         }
+
+        await upsertProfile({
+          full_name: snap.fullName || undefined,
+          title: snap.title || null,
+          bio: snap.bio || null,
+          location: snap.location || null,
+          avatar_url: snap.avatarUrl || null,
+          linkedin_url: snap.linkedinUrl || null,
+          twitter_url: snap.twitterUrl || null,
+          user_type: snap.userType || "founder",
+          has_completed_onboarding: true,
+          has_seen_settings_tour: false,
+          ...(companyId ? { company_id: companyId } : {}),
+        } as any);
+
+        await upsertPrefs(prefsPayload);
       }
     } catch (e: any) {
-      // Even on unexpected error, mark complete and navigate — don't trap the user.
-      try { localStorage.setItem("vekta-onboarding-done", user.id); } catch {}
-      window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
-      reset();
-      navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
-      toast({ title: "Some data couldn't be saved", description: e.message });
+      console.warn("[onboarding] background sync failed:", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
