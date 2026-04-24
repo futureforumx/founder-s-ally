@@ -42,6 +42,35 @@ export function useProfile() {
     if (!user) { setLoading(false); return; }
     setLoading(true);
     try {
+      // Primary path: service-role API route (bypasses PostgREST JWT verification).
+      // Required because WorkOS JWTs are not configured as a trusted issuer in this
+      // Supabase project, so direct supabase.from() queries return PGRST301.
+      let apiData: Record<string, unknown> | null = null;
+      try {
+        const { getClerkSessionToken: getToken } = await import("@/lib/clerkSessionForEdge");
+        const jwt = await getToken().catch(() => null);
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (jwt) headers["Authorization"] = `Bearer ${jwt}`;
+        const resp = await fetch("/api/get-profile", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ _uid: user.id }),
+        });
+        if (resp.ok) {
+          const json = await resp.json() as { ok?: boolean; profile?: Record<string, unknown> | null };
+          if (json.ok) apiData = json.profile ?? null;
+        }
+      } catch {
+        // API not available — fall through to direct query
+      }
+
+      if (apiData !== null) {
+        setProfile(apiData ? (normalizeProfileRowForRead(apiData) as Profile) : null);
+        return;
+      }
+
+      // Fallback: direct Supabase query (works if WorkOS JWT is a trusted issuer,
+      // or if the profile is public and anon SELECT policy applies).
       const { data, error } = await (supabase as any)
         .from("profiles")
         .select("*")
@@ -82,7 +111,7 @@ export function useProfile() {
           try {
             const apiUrl = "/api/save-profile";
             const body: Record<string, unknown> = { _uid: user.id };
-            const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"] as const;
+            const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url","company_id","has_completed_onboarding","has_seen_settings_tour"] as const;
             for (const k of allowed) if (k in p && p[k] !== undefined) body[k] = p[k];
 
             const resp = await fetch(apiUrl, {
@@ -115,6 +144,29 @@ export function useProfile() {
           } catch {
             // Network error — fall through
           }
+        }
+      }
+
+      // ── Path 1.5: Direct Supabase client write (WorkOS JWT — sub == profiles.user_id) ─
+      // RLS: auth.jwt() ->> 'sub' = user_id  →  WorkOS JWT sub matches, direct write works.
+      // This is the primary path when Clerk is not in use.
+      {
+        const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url","company_id","has_completed_onboarding","has_seen_settings_tour"] as const;
+        const directUpdates: Record<string, unknown> = {};
+        for (const k of allowed) if (k in p && p[k] !== undefined) directUpdates[k] = p[k];
+
+        if (Object.keys(directUpdates).length > 0) {
+          const { error: directError } = await (supabase as any)
+            .from("profiles")
+            .update(directUpdates)
+            .eq("user_id", user.id);
+
+          if (!directError) {
+            await fetchProfile();
+            return { ok: true };
+          }
+          // RLS mismatch or other error — log and fall through
+          console.warn("[upsertProfile] Direct write failed:", directError.message);
         }
       }
 

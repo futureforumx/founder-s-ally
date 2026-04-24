@@ -53,6 +53,9 @@ const ALLOWED_KEYS = [
   "twitter_url",
   "user_type",
   "resume_url",
+  "company_id",
+  "has_completed_onboarding",
+  "has_seen_settings_tour",
 ] as const;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -113,7 +113,10 @@ export function OnboardingWizard() {
             return;
           }
         }
-        await (_sb as any).from("profiles").update({ company_id: resolvedExistingId }).eq("user_id", user.id);
+        // Direct supabase client write fails (PGRST301 — WorkOS JWT not trusted by PostgREST).
+        // Use the service-role API route instead. company_id will also be saved via
+        // completeFounderOnboardingEdge below, so this is just a best-effort early link.
+        await upsertProfile({ company_id: resolvedExistingId } as any);
       } else if (resolvedCompanyName) {
         const ws = await ensureCompanyWorkspace(user.id, {
           name: resolvedCompanyName,
@@ -161,8 +164,11 @@ export function OnboardingWizard() {
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,
+        // Only update company data when it's a workspace the user OWNS (new company).
+        // For existing-company joins, skip companyFields — the edge function checks
+        // ownership and returns 403 if the user didn't create that company.
         companyFields:
-          companyId && resolvedCompanyName
+          companyId && resolvedCompanyName && !resolvedExistingId
             ? {
                 company_name: resolvedCompanyName,
                 website_url: state.websiteUrl || null,
@@ -323,6 +329,7 @@ export function OnboardingWizard() {
         "Conversion Value": 0,
         user_id: user.id,
       });
+      window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
       navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
