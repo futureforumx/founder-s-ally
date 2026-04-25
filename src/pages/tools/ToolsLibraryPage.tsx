@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, ExternalLink, Search } from "lucide-react";
+import { ArrowRight, Bot, ExternalLink, Search, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -275,6 +275,46 @@ export default function ToolsLibraryPage() {
                 Start building with Vekta
               </a>
             </Button>
+          </div>
+        </SectionWrapper>
+
+        <SectionWrapper>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              to="/fresh-capital"
+              className="group flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-manrope text-base font-semibold text-zinc-100">Fresh Funds</h3>
+                  <ArrowRight className="h-4 w-4 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </div>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  Track newly raised VC funds and spot investor mandates before the market does.
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              to="/tools/ai-agents"
+              className="group flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                <Bot className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-manrope text-base font-semibold text-zinc-100">AI Agent Library</h3>
+                  <ArrowRight className="h-4 w-4 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                </div>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  Browse and compare AI agent platforms, frameworks, and tools built for founders.
+                </p>
+              </div>
+            </Link>
           </div>
         </SectionWrapper>
 
