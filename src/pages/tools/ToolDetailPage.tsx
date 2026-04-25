@@ -1,6 +1,15 @@
 import { Navigate, Link, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const TAG_PALETTE = [
+  "border-primary/40 bg-primary/15 text-primary",
+  "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+  "border-rose-400/40 bg-rose-400/10 text-rose-300",
+  "border-cyan-400/40 bg-cyan-400/10 text-cyan-300",
+  "border-violet-400/40 bg-violet-400/10 text-violet-300",
+];
 import { ToolDetailHeader } from "@/components/tools/ToolDetailHeader";
 import { ToolMetadataTable } from "@/components/tools/ToolMetadataTable";
 import { ProsCons } from "@/components/tools/ProsCons";
@@ -83,36 +92,46 @@ export default function ToolDetailPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fbfcff_0%,#f6f8ff_40%,#ffffff_100%)]">
+    <div className="min-h-screen bg-[#050506] font-manrope text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
         <ToolDetailHeader tool={tool} breadcrumbs={breadcrumbs} />
 
         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+          <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
             <CardContent className="space-y-5 p-6">
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Use cases</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Use cases</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {tool.useCases.map((useCase) => (
-                    <Badge key={useCase} variant="outline">{useCase}</Badge>
+                  {tool.useCases.map((useCase, i) => (
+                    <span
+                      key={useCase}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${TAG_PALETTE[i % TAG_PALETTE.length]}`}
+                    >
+                      {useCase}
+                    </span>
                   ))}
                 </div>
               </div>
 
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Best for</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Best for</h2>
                 <ul className="mt-4 space-y-3">
                   {tool.bestFor.map((item) => (
-                    <li key={item} className="text-sm leading-7 text-foreground/90">{item}</li>
+                    <li key={item} className="text-sm leading-7 text-zinc-300">{item}</li>
                   ))}
                 </ul>
               </div>
 
               <div>
-                <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Tags</h2>
+                <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Tags</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {tool.tags.map((tag) => (
-                    <Badge key={tag} variant="muted">{tag}</Badge>
+                  {tool.tags.map((tag, i) => (
+                    <span
+                      key={tag}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${TAG_PALETTE[(i + 2) % TAG_PALETTE.length]}`}
+                    >
+                      {tag}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -134,17 +153,17 @@ export default function ToolDetailPage() {
 
         <FAQSection items={faqItems} />
 
-        <Card className="rounded-[1.75rem] border-border/70 bg-white/90 shadow-sm">
+        <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
           <CardContent className="p-6">
-            <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Continue browsing</h2>
+            <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Continue browsing</h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link to="/tools" className="rounded-full border border-border/70 bg-muted/30 px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5">
+              <Link to="/tools" className="rounded-full border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-200 transition-colors hover:border-primary/40 hover:bg-primary/10">
                 All tools
               </Link>
-              <Link to={categoryPath} className="rounded-full border border-border/70 bg-muted/30 px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5">
+              <Link to={categoryPath} className="rounded-full border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-200 transition-colors hover:border-primary/40 hover:bg-primary/10">
                 {tool.category}
               </Link>
-              <Link to={`/tools/${TOOL_CATEGORY_SLUGS["Startup Tools"]}`} className="rounded-full border border-border/70 bg-muted/30 px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5">
+              <Link to={`/tools/${TOOL_CATEGORY_SLUGS["Startup Tools"]}`} className="rounded-full border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm text-zinc-200 transition-colors hover:border-primary/40 hover:bg-primary/10">
                 Startup tools
               </Link>
             </div>

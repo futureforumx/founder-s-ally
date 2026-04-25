@@ -24,24 +24,31 @@ export function CategoryHero({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[2rem] border border-border/70 bg-[radial-gradient(circle_at_top_left,rgba(91,92,255,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(46,230,166,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,255,0.96))] p-6 shadow-sm sm:p-10",
+        "relative overflow-hidden rounded-[2rem] border border-zinc-800/80 bg-[radial-gradient(ellipse_at_top_left,rgba(91,92,255,0.22),transparent_40%),radial-gradient(ellipse_at_bottom_right,rgba(46,230,166,0.10),transparent_35%),#060709] p-8 shadow-lg sm:p-12",
         className,
       )}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.45)_35%,transparent_70%)]" aria-hidden />
-      <div className="relative z-10 flex flex-col gap-6">
-        <div className="max-w-3xl space-y-3">
-          <p className="font-clash text-xs font-semibold uppercase tracking-[0.22em] text-primary">{eyebrow}</p>
-          <h1 className="font-clash text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{title}</h1>
-          <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">{description}</p>
+      {/* Subtle shimmer overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.025)_40%,transparent_70%)]" aria-hidden />
+      {/* Top edge highlight */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" aria-hidden />
+
+      <div className="relative z-10 flex flex-col gap-8">
+        <div className="max-w-2xl space-y-4">
+          <p className="font-manrope text-xs font-semibold uppercase tracking-[0.24em] text-primary/90">{eyebrow}</p>
+          <h1 className="font-manrope text-4xl font-bold tracking-tight text-white sm:text-5xl">{title}</h1>
+          <p className="max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">{description}</p>
         </div>
 
         {stats.length ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-border/60 bg-white/75 px-4 py-4 shadow-sm">
-                <div className="text-2xl font-semibold tracking-tight text-foreground">{stat.value}</div>
-                <div className="mt-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">{stat.label}</div>
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-zinc-700/50 bg-gradient-to-br from-zinc-800/70 to-zinc-900/60 px-5 py-5 shadow-sm ring-1 ring-white/[0.04]"
+              >
+                <div className="font-manrope text-3xl font-bold tracking-tight text-white">{stat.value}</div>
+                <div className="mt-1.5 text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">{stat.label}</div>
               </div>
             ))}
           </div>

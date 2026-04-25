@@ -43,6 +43,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        manrope: ["Manrope", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
         spaceGrotesk: ['"Space Grotesk"', "ui-sans-serif", "system-ui", "sans-serif"],
       },

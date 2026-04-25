@@ -31,13 +31,13 @@ export function ToolFilters({
   hideCategory?: boolean;
 }) {
   return (
-    <Card className="rounded-[1.75rem] border-border/70 bg-white/85 shadow-sm">
+    <Card className="rounded-[1.75rem] border-zinc-800 bg-zinc-900 shadow-sm">
       <CardContent className="space-y-5 p-5">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-primary" />
           <div>
-            <div className="font-medium text-foreground">Search and filter</div>
-            <div className="text-xs text-muted-foreground">Narrow the directory by workflow, pricing, and tool type.</div>
+            <div className="font-medium text-zinc-100">Search and filter</div>
+            <div className="text-xs text-zinc-400">Narrow the directory by workflow, pricing, and tool type.</div>
           </div>
         </div>
 

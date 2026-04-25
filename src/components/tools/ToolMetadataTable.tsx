@@ -21,13 +21,13 @@ const items = (tool: Tool) => [
 
 export function ToolMetadataTable({ tool }: { tool: Tool }) {
   return (
-    <section className="rounded-[1.75rem] border border-border/70 bg-white/90 p-6 shadow-sm">
-      <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">Tool details</h2>
-      <div className="mt-5 divide-y divide-border/70 rounded-[1.25rem] border border-border/70">
+    <section className="rounded-[1.75rem] border border-zinc-800 bg-zinc-900 p-6 shadow-sm">
+      <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Tool details</h2>
+      <div className="mt-5 divide-y divide-zinc-800 rounded-[1.25rem] border border-zinc-800">
         {items(tool).map(([label, value]) => (
           <div key={label} className="grid gap-2 px-4 py-3 sm:grid-cols-[180px_1fr]">
-            <div className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">{label}</div>
-            <div className="break-all text-sm text-foreground">{value}</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">{label}</div>
+            <div className="break-all text-sm text-zinc-200">{value}</div>
           </div>
         ))}
       </div>

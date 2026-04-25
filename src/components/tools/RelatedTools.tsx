@@ -15,8 +15,8 @@ export function RelatedTools({
   return (
     <section className="space-y-5">
       <div>
-        <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">{title}</h2>
+        <p className="mt-1 text-sm text-zinc-400">{description}</p>
       </div>
       <ToolGrid tools={tools} />
     </section>

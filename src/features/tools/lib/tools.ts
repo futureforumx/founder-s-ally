@@ -10,10 +10,10 @@ export const TOOL_CATEGORY_SLUGS: Record<ToolCategory, string> = {
 
 export const TOOL_CATEGORY_INTROS: Record<ToolCategory, { title: string; description: string; meta: string }> = {
   "AI Agents": {
-    title: "AI Agents Directory",
+    title: "Explore AI Agents for Startups",
     description:
-      "Explore AI agents for browsing, coding, automation, research, and founder workflows. Compare emerging agent products, categories, and related tools in one place.",
-    meta: "Browse AI agents for automation, coding, research, and startup workflows in Vekta's curated directory.",
+      "The most complete directory of AI agents for founders — coding assistants, browser agents, research tools, workflow automators, and multi-agent systems. Compare every major platform in one place.",
+    meta: "Browse and compare AI agents for coding, research, automation, and startup workflows in Vekta's curated directory.",
   },
   "AI Models": {
     title: "AI Models Directory",
@@ -208,6 +208,36 @@ export function buildToolFaq(tool: Tool): ToolFaqItem[] {
 }
 
 export function buildCategoryFaq(category: ToolCategory): ToolFaqItem[] {
+  if (category === "AI Agents") {
+    return [
+      {
+        question: "What is an AI agent?",
+        answer:
+          "An AI agent is software that perceives its environment, plans across multiple steps, and takes actions autonomously — like browsing the web, writing and running code, or managing workflows — without requiring human input at every step.",
+      },
+      {
+        question: "What's the difference between an AI agent and a chatbot?",
+        answer:
+          "A chatbot responds to prompts in a single turn. An AI agent can plan across multiple steps, call external tools, remember context across a session, and adapt its behavior based on intermediate results.",
+      },
+      {
+        question: "Which AI agents are best for founders with no coding experience?",
+        answer:
+          "No-code and low-code platforms are the best starting point. Look for agents with a free tier, visual interfaces, and pre-built workflow templates. Use the skill level filter above to find them quickly.",
+      },
+      {
+        question: "Are there open-source AI agents I can self-host?",
+        answer:
+          "Yes. Several open agent frameworks in this directory are fully open source and self-hostable, giving you control over data and infrastructure while avoiding recurring SaaS costs.",
+      },
+      {
+        question: "How do I evaluate AI agents for my startup?",
+        answer:
+          "Start with use case (research, coding, browser automation, or workflow orchestration), then filter by required skill level, pricing model, and whether a free tier is available. Use the subcategory pills and filters above to narrow the directory fast.",
+      },
+    ];
+  }
+
   const label = category.toLowerCase();
   return [
     {

@@ -12,15 +12,15 @@ export function ToolGrid({
 }) {
   if (!tools.length) {
     return (
-      <div className="rounded-[1.5rem] border border-dashed border-border bg-card/60 p-10 text-center">
-        <h2 className="font-clash text-2xl font-semibold tracking-tight text-foreground">{emptyTitle}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{emptyCopy}</p>
+      <div className="rounded-[1.5rem] border border-dashed border-zinc-700 bg-zinc-900/60 p-10 text-center">
+        <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">{emptyTitle}</h2>
+        <p className="mt-2 text-sm text-zinc-400">{emptyCopy}</p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
       {tools.map((tool) => (
         <ToolCard key={tool.slug} tool={tool} />
       ))}
