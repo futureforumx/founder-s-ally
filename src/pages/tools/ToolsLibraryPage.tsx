@@ -134,9 +134,9 @@ export default function ToolsLibraryPage() {
         <Breadcrumbs items={breadcrumbs} />
 
         {/* 1. Hero */}
-        <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-[radial-gradient(circle_at_top_left,rgba(91,92,255,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(46,230,166,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,255,0.96))] p-8 shadow-sm sm:p-12 lg:p-16">
+        <section className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-[radial-gradient(circle_at_top_left,rgba(91,92,255,0.16),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(46,230,166,0.16),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(244,247,255,0.96))] p-6 shadow-sm sm:p-8">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.45)_35%,transparent_70%)]" aria-hidden />
-          <div className="relative z-10 flex flex-col gap-8">
+          <div className="relative z-10 flex flex-col gap-6">
             <div className="max-w-3xl space-y-4">
               <p className="font-clash text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                 Public directory
