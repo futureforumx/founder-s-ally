@@ -1,6 +1,15 @@
 import { Navigate, Link, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const TAG_PALETTE = [
+  "border-primary/40 bg-primary/15 text-primary",
+  "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+  "border-rose-400/40 bg-rose-400/10 text-rose-300",
+  "border-cyan-400/40 bg-cyan-400/10 text-cyan-300",
+  "border-violet-400/40 bg-violet-400/10 text-violet-300",
+];
 import { ToolDetailHeader } from "@/components/tools/ToolDetailHeader";
 import { ToolMetadataTable } from "@/components/tools/ToolMetadataTable";
 import { ProsCons } from "@/components/tools/ProsCons";
@@ -93,8 +102,13 @@ export default function ToolDetailPage() {
               <div>
                 <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Use cases</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {tool.useCases.map((useCase) => (
-                    <Badge key={useCase} variant="outline">{useCase}</Badge>
+                  {tool.useCases.map((useCase, i) => (
+                    <span
+                      key={useCase}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${TAG_PALETTE[i % TAG_PALETTE.length]}`}
+                    >
+                      {useCase}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -111,8 +125,13 @@ export default function ToolDetailPage() {
               <div>
                 <h2 className="font-manrope text-2xl font-semibold tracking-tight text-zinc-100">Tags</h2>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {tool.tags.map((tag) => (
-                    <Badge key={tag} variant="muted">{tag}</Badge>
+                  {tool.tags.map((tag, i) => (
+                    <span
+                      key={tag}
+                      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${TAG_PALETTE[(i + 2) % TAG_PALETTE.length]}`}
+                    >
+                      {tag}
+                    </span>
                   ))}
                 </div>
               </div>
