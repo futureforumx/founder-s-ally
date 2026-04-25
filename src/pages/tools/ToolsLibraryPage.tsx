@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, BarChart3, Bot, ChevronRight, DollarSign, Flame, Megaphone } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Breadcrumbs } from "@/components/tools/Breadcrumbs";
 import { FAQSection } from "@/components/tools/FAQSection";
 import { ToolFilters } from "@/components/tools/ToolFilters";
@@ -23,44 +22,40 @@ const DISPLAY_CATEGORIES = [
     description: "AI agents, models, and skills powering the next generation of startup workflows.",
     Icon: Bot,
     href: "/tools/ai-agents",
-    gradient: "from-violet-500/8 to-blue-500/8",
-    accent: "text-violet-600",
-    iconBg: "bg-violet-50 border-violet-200/70",
-    hoverBorder: "hover:border-violet-300/60",
-    hoverShadow: "hover:shadow-[0_8px_28px_rgba(139,92,246,0.12)]",
+    accent: "text-violet-400",
+    iconBg: "bg-violet-500/10 border-violet-500/20",
+    glow: "hover:shadow-[0_8px_28px_rgba(139,92,246,0.18)]",
+    border: "hover:border-violet-500/30",
   },
   {
     name: "Market & Finance",
     description: "Analytics, finance, and market intelligence tools to run smarter operations.",
     Icon: BarChart3,
     href: "/tools/startup-tools",
-    gradient: "from-blue-500/8 to-cyan-500/8",
-    accent: "text-blue-600",
-    iconBg: "bg-blue-50 border-blue-200/70",
-    hoverBorder: "hover:border-blue-300/60",
-    hoverShadow: "hover:shadow-[0_8px_28px_rgba(59,130,246,0.12)]",
+    accent: "text-blue-400",
+    iconBg: "bg-blue-500/10 border-blue-500/20",
+    glow: "hover:shadow-[0_8px_28px_rgba(59,130,246,0.18)]",
+    border: "hover:border-blue-500/30",
   },
   {
     name: "Growth & Marketing",
     description: "SEO, content, sales, and marketing tools built for fast-moving startup teams.",
     Icon: Megaphone,
     href: "/tools/startup-tools",
-    gradient: "from-emerald-500/8 to-green-500/8",
-    accent: "text-emerald-600",
-    iconBg: "bg-emerald-50 border-emerald-200/70",
-    hoverBorder: "hover:border-emerald-300/60",
-    hoverShadow: "hover:shadow-[0_8px_28px_rgba(16,185,129,0.12)]",
+    accent: "text-emerald-400",
+    iconBg: "bg-emerald-500/10 border-emerald-500/20",
+    glow: "hover:shadow-[0_8px_28px_rgba(16,185,129,0.18)]",
+    border: "hover:border-emerald-500/30",
   },
   {
     name: "Fundraising",
     description: "Tools to build pitch decks, model financials, and manage investor relations.",
     Icon: DollarSign,
     href: "/tools/startup-tools",
-    gradient: "from-orange-500/8 to-amber-500/8",
-    accent: "text-orange-600",
-    iconBg: "bg-orange-50 border-orange-200/70",
-    hoverBorder: "hover:border-orange-300/60",
-    hoverShadow: "hover:shadow-[0_8px_28px_rgba(249,115,22,0.12)]",
+    accent: "text-orange-400",
+    iconBg: "bg-orange-500/10 border-orange-500/20",
+    glow: "hover:shadow-[0_8px_28px_rgba(249,115,22,0.18)]",
+    border: "hover:border-orange-500/30",
   },
 ];
 
@@ -132,45 +127,43 @@ export default function ToolsLibraryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f8f9ff_0%,#f4f6ff_30%,#fafafa_60%,#ffffff_100%)]">
+    <div className="font-manrope min-h-screen bg-[#08080f]">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-20 px-4 py-8 sm:px-6 sm:py-12">
         <Breadcrumbs items={breadcrumbs} />
 
         {/* ── 1. Hero ── */}
-        <section className="relative overflow-hidden rounded-[2rem] border border-border/50 bg-[radial-gradient(ellipse_80%_60%_at_50%_-5%,rgba(99,102,241,0.11),transparent),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,247,255,0.97))] p-6 shadow-sm sm:p-10">
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_60%,rgba(99,102,241,0.03)_100%)]" aria-hidden />
-          <div className="relative z-10 flex flex-col gap-7">
+        <section className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(91,92,255,0.22),transparent)] p-8 sm:p-12">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_80%_at_80%_50%,rgba(46,230,166,0.06),transparent)]" aria-hidden />
+          <div className="relative z-10 flex flex-col gap-8">
             {/* Eyebrow */}
-            <span className="inline-flex w-fit items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 font-clash text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
+            <span className="inline-flex w-fit items-center rounded-full border border-[#5B5CFF]/30 bg-[#5B5CFF]/10 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#8788FF]">
               Public directory
             </span>
 
-            {/* Headline + subtext */}
-            <div className="max-w-2xl space-y-3">
-              <h1 className="font-clash text-5xl font-bold tracking-tight text-foreground sm:text-6xl">
+            {/* Headline */}
+            <div className="max-w-2xl space-y-4">
+              <h1 className="font-manrope text-5xl font-extrabold tracking-tight text-white sm:text-6xl lg:text-7xl">
                 Startup Tool Library
               </h1>
-              <p className="max-w-lg text-base leading-7 text-muted-foreground">
+              <p className="max-w-lg text-base leading-7 text-white/55 sm:text-lg">
                 A curated toolkit covering AI, marketing, finance, and fundraising — everything a modern startup needs, free to explore.
               </p>
             </div>
 
             {/* CTAs */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Primary: Vekta conversion */}
               <a
                 href="https://vekta.app"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_2px_16px_rgba(99,102,241,0.30)] transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_4px_24px_rgba(99,102,241,0.40)]"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#5B5CFF] to-[#8788FF] px-6 py-2.5 text-sm font-bold text-white shadow-[0_2px_20px_rgba(91,92,255,0.40)] transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_4px_28px_rgba(91,92,255,0.55)]"
               >
                 Start building with Vekta
                 <ArrowRight className="h-4 w-4" />
               </a>
-              {/* Secondary: scroll */}
               <button
                 onClick={scrollToGrid}
-                className="inline-flex items-center rounded-full border border-border/70 bg-white/80 px-6 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-border hover:bg-white hover:shadow"
+                className="inline-flex items-center rounded-full border border-white/15 bg-white/[0.06] px-6 py-2.5 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:border-white/25 hover:bg-white/10 hover:text-white"
               >
                 Browse tools
               </button>
@@ -183,9 +176,9 @@ export default function ToolsLibraryPage() {
                 { value: "4", label: "Top categories" },
                 { value: "Free", label: "To use and explore" },
               ].map((stat) => (
-                <div key={stat.label} className="rounded-2xl border border-border/50 bg-white/80 px-4 py-3.5 shadow-sm">
-                  <div className="font-clash text-2xl font-bold tracking-tight text-foreground">{stat.value}</div>
-                  <div className="mt-0.5 text-xs uppercase tracking-[0.18em] text-muted-foreground">{stat.label}</div>
+                <div key={stat.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-4">
+                  <div className="font-manrope text-2xl font-extrabold text-white">{stat.value}</div>
+                  <div className="mt-0.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/40">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -196,10 +189,10 @@ export default function ToolsLibraryPage() {
         <section className="space-y-7">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">Featured tools</h2>
+              <Flame className="h-4 w-4 text-orange-400" />
+              <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">Featured tools</h2>
             </div>
-            <p className="text-sm text-muted-foreground">High-signal tools founders and operators actively use.</p>
+            <p className="text-sm text-white/45">High-signal tools founders and operators actively use.</p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {featuredTools.map((tool) => (
@@ -211,22 +204,22 @@ export default function ToolsLibraryPage() {
         {/* ── 3. Categories ── */}
         <section className="space-y-7">
           <div className="space-y-1.5">
-            <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">Browse by category</h2>
-            <p className="text-sm text-muted-foreground">Find the right tools for every stage of your startup journey.</p>
+            <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">Browse by category</h2>
+            <p className="text-sm text-white/45">Find the right tools for every stage of your startup journey.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {DISPLAY_CATEGORIES.map(({ name, description, Icon, href, gradient, accent, iconBg, hoverBorder, hoverShadow }) => (
+            {DISPLAY_CATEGORIES.map(({ name, description, Icon, href, accent, iconBg, glow, border }) => (
               <Link
                 key={name}
                 to={href}
-                className={`group rounded-2xl border border-border/50 bg-gradient-to-br ${gradient} p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 ${hoverBorder} ${hoverShadow}`}
+                className={`group rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6 transition-all duration-200 hover:-translate-y-1 hover:bg-white/[0.07] ${border} ${glow}`}
               >
                 <div className={`mb-4 inline-flex rounded-xl border p-2.5 ${iconBg} ${accent}`}>
                   <Icon className="h-5 w-5" />
                 </div>
-                <div className="font-clash text-[1.05rem] font-bold tracking-tight text-foreground">{name}</div>
-                <div className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</div>
-                <div className={`mt-4 flex items-center gap-1 text-sm font-semibold ${accent}`}>
+                <div className={`font-manrope text-base font-bold tracking-tight text-white`}>{name}</div>
+                <div className="mt-1.5 text-sm leading-relaxed text-white/45">{description}</div>
+                <div className={`mt-4 flex items-center gap-1 text-sm font-bold ${accent}`}>
                   Explore
                   <ChevronRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
                 </div>
@@ -237,33 +230,31 @@ export default function ToolsLibraryPage() {
 
         {/* ── 4. Tools Grid ── */}
         <section id="tools-grid" className="space-y-7">
-          <div className="flex items-end justify-between gap-4">
-            <div className="space-y-1.5">
-              <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">All tools</h2>
-              <p className="text-sm text-muted-foreground">
-                {filteredTools.length} tools — search and filter to find what you need.
-              </p>
-            </div>
+          <div className="space-y-1.5">
+            <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">All tools</h2>
+            <p className="text-sm text-white/45">
+              {filteredTools.length} tools — search and filter to find what you need.
+            </p>
           </div>
           <ToolFilters value={filters} onChange={setFilters} options={filterOptions} />
           <ToolGrid tools={filteredTools} />
         </section>
 
         {/* ── 5. Why tools matter ── */}
-        <section className="overflow-hidden rounded-[2rem] border border-border/50 bg-white shadow-sm">
-          <div className="border-b border-border/50 p-8 sm:p-10">
-            <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+          <div className="border-b border-white/[0.08] p-8 sm:p-10">
+            <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">
               Why the right tools matter
             </h2>
-            <p className="mt-2 max-w-xl text-sm leading-7 text-muted-foreground">
-              The best startups don't just move fast — they move smart. The right combination of AI and startup tools can compress months of work into days and let a small team punch well above its weight.
+            <p className="mt-2 max-w-xl text-sm leading-7 text-white/50">
+              The best startups don't just move fast — they move smart. The right tools can compress months of work into days and let a small team punch well above its weight.
             </p>
           </div>
-          <div className="grid divide-y divide-border/40 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="grid divide-y divide-white/[0.06] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {WHY_TOOLS.map((item) => (
               <div key={item.title} className="p-7">
-                <div className="font-clash text-base font-bold tracking-tight text-foreground">{item.title}</div>
-                <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.description}</div>
+                <div className="font-manrope text-base font-bold text-white">{item.title}</div>
+                <div className="mt-2 text-sm leading-relaxed text-white/45">{item.description}</div>
               </div>
             ))}
           </div>
@@ -272,21 +263,21 @@ export default function ToolsLibraryPage() {
         {/* ── 6. Internal Navigation ── */}
         <section className="space-y-7">
           <div className="space-y-1.5">
-            <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">Explore the directory</h2>
-            <p className="text-sm text-muted-foreground">Browse by the top-level categories in the Vekta tool library.</p>
+            <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">Explore the directory</h2>
+            <p className="text-sm text-white/45">Browse by the top-level categories in the Vekta tool library.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {INTERNAL_LINKS.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className="group flex items-center justify-between rounded-2xl border border-border/50 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_4px_16px_rgba(99,102,241,0.08)]"
+                className="group flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#5B5CFF]/30 hover:bg-white/[0.07] hover:shadow-[0_4px_16px_rgba(91,92,255,0.12)]"
               >
                 <div>
-                  <div className="font-clash text-sm font-bold tracking-tight text-foreground">{link.label}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{link.description}</div>
+                  <div className="font-manrope text-sm font-bold text-white">{link.label}</div>
+                  <div className="mt-0.5 text-xs text-white/40">{link.description}</div>
                 </div>
-                <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-primary/60" />
+                <ChevronRight className="h-4 w-4 flex-shrink-0 text-white/25 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-[#5B5CFF]/70" />
               </Link>
             ))}
           </div>
@@ -295,34 +286,33 @@ export default function ToolsLibraryPage() {
         {/* ── 7. Guides ── */}
         <section className="space-y-7">
           <div className="space-y-1.5">
-            <h2 className="font-clash text-2xl font-bold tracking-tight text-foreground">Guides & resources</h2>
-            <p className="text-sm text-muted-foreground">Learn how to get the most from modern startup tools.</p>
+            <h2 className="font-manrope text-2xl font-extrabold tracking-tight text-white">Guides & resources</h2>
+            <p className="text-sm text-white/45">Learn how to get the most from modern startup tools.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {GUIDE_LINKS.map((guide) => (
               <Link
                 key={guide.title}
                 to={guide.href}
-                className="group flex items-center justify-between rounded-2xl border border-border/50 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25"
+                className="group flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#5B5CFF]/30 hover:bg-white/[0.07]"
               >
-                <span className="text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                <span className="text-sm font-semibold text-white/70 transition-colors group-hover:text-white">
                   {guide.title}
                 </span>
-                <ArrowRight className="h-4 w-4 flex-shrink-0 text-muted-foreground/50 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-primary/60" />
+                <ArrowRight className="h-4 w-4 flex-shrink-0 text-white/25 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-[#5B5CFF]/70" />
               </Link>
             ))}
           </div>
         </section>
 
         {/* ── 8. Final CTA ── */}
-        <section className="relative overflow-hidden rounded-[2rem] bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(99,102,241,0.18),transparent),linear-gradient(135deg,#0f172a,#1e1b4b)] p-10 text-center shadow-2xl sm:p-16">
-          {/* Subtle noise / shimmer layer */}
-          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03)_0%,transparent_50%,rgba(255,255,255,0.02)_100%)]" aria-hidden />
+        <section className="relative overflow-hidden rounded-[2rem] border border-[#5B5CFF]/20 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(91,92,255,0.25),transparent),linear-gradient(180deg,#0d0d1a,#08080f)] p-10 text-center sm:p-16">
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(91,92,255,0.04)_0%,transparent_60%)]" aria-hidden />
           <div className="relative z-10 mx-auto max-w-xl space-y-6">
-            <h2 className="font-clash text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            <h2 className="font-manrope text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
               Take this further with Vekta
             </h2>
-            <p className="text-base leading-7 text-white/55">
+            <p className="text-base leading-7 text-white/50">
               The tools are just the starting point. Vekta helps you put them together — AI agents, models, and workflows built for your startup.
             </p>
             <div className="flex flex-wrap justify-center gap-3 pt-2">
@@ -330,14 +320,14 @@ export default function ToolsLibraryPage() {
                 href="https://vekta.app"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-sm font-bold text-slate-900 shadow-[0_2px_20px_rgba(255,255,255,0.18)] transition-all duration-200 hover:scale-[1.03] hover:bg-white/95 hover:shadow-[0_4px_28px_rgba(255,255,255,0.25)]"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#5B5CFF] to-[#8788FF] px-7 py-3 text-sm font-bold text-white shadow-[0_2px_24px_rgba(91,92,255,0.45)] transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_4px_32px_rgba(91,92,255,0.60)]"
               >
                 Start building with Vekta
                 <ArrowRight className="h-4 w-4" />
               </a>
               <button
                 onClick={scrollToGrid}
-                className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-7 py-3 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 hover:text-white"
+                className="inline-flex items-center rounded-full border border-white/15 bg-white/[0.06] px-7 py-3 text-sm font-semibold text-white/70 backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-white/10 hover:text-white"
               >
                 Back to tools
               </button>
@@ -355,19 +345,25 @@ function FeaturedToolCard({ tool }: { tool: Tool }) {
   return (
     <Link
       to={`/tools/${tool.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-b from-white to-slate-50/50 p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_8px_32px_rgba(99,102,241,0.10),0_2px_8px_rgba(0,0,0,0.05)]"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6 transition-all duration-200 hover:-translate-y-1 hover:border-[#5B5CFF]/25 hover:bg-white/[0.07] hover:shadow-[0_8px_32px_rgba(91,92,255,0.15)]"
     >
       <div className="flex flex-wrap gap-1.5">
-        <Badge variant="outline-sm">{tool.category}</Badge>
-        {tool.featured ? <Badge variant="default-sm">Featured</Badge> : null}
+        <span className="inline-flex items-center rounded-full border border-[#5B5CFF]/30 bg-[#5B5CFF]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#8788FF]">
+          {tool.category}
+        </span>
+        {tool.featured ? (
+          <span className="inline-flex items-center rounded-full bg-[#5B5CFF] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+            Featured
+          </span>
+        ) : null}
       </div>
-      <div className="mt-4 font-clash text-[1.1rem] font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
+      <div className="mt-4 font-manrope text-[1.1rem] font-bold tracking-tight text-white transition-colors group-hover:text-[#8788FF]">
         {tool.name}
       </div>
-      <p className="mt-2 flex-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground/80">
+      <p className="mt-2 flex-1 line-clamp-2 text-sm leading-relaxed text-white/50">
         {tool.shortDescription}
       </p>
-      <div className="mt-5 flex items-center gap-1.5 text-sm font-semibold text-primary">
+      <div className="mt-5 flex items-center gap-1.5 font-manrope text-sm font-bold text-[#5B5CFF]">
         Use tool
         <ChevronRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
       </div>
