@@ -1,5 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// Set at module load time — true only on the page load that immediately
+// follows onboarding completion (URL contains ?_ob=1).  A module variable
+// is the most reliable signal: it's on the current URL, requires no storage
+// writes, and can't be poisoned by old values from previous sessions.
+const _justOnboarded = new URLSearchParams(window.location.search).get("_ob") === "1";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
@@ -97,7 +103,9 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
         // Persist completion across page refreshes even when the DB write went through a
         // fallback path that doesn't set has_completed_onboarding (e.g. the RPC path), or
         // when using the mock Supabase client which never writes to the profiles table.
-        const localCompleted = localStorage.getItem("vekta-onboarding-done") === "true";
+        const localCompleted =
+          localStorage.getItem("vekta-onboarding-done") === "true" ||
+          sessionStorage.getItem("vekta-onboarding-done") === "true";
         if (error) {
           // Don't bypass onboarding on a transient DB error — only the local flag can vouch for completion.
           setState({ isKnown: true, loading: false, needsOnboarding: !localCompleted });
@@ -185,11 +193,13 @@ function AppIndexRoute() {
   const { isKnown, needsOnboarding } = useProfileStatus();
   const { user } = useAuth();
 
-  // Direct localStorage check as a belt-and-suspenders guard: if the user just
-  // completed onboarding, don't redirect even if the context state hasn't settled yet.
-  const locallyCompleted = Boolean(
-    user && localStorage.getItem("vekta-onboarding-done") === "true"
-  );
+  // Three independent signals that onboarding was just completed.  Any one is
+  // enough to suppress the redirect — this makes the guard robust against
+  // localStorage failures, user-id mismatches, and stale context state.
+  const locallyCompleted =
+    _justOnboarded ||
+    localStorage.getItem("vekta-onboarding-done") === "true" ||
+    sessionStorage.getItem("vekta-onboarding-done") === "true";
 
   if (isKnown && needsOnboarding && !locallyCompleted) {
     return <Navigate to="/onboarding" replace />;
@@ -209,12 +219,10 @@ function AppOnboardingRoute() {
   const { isKnown, needsOnboarding } = useProfileStatus();
   const { user } = useAuth();
 
-  // Belt-and-suspenders: if the user just finished the wizard, the localStorage flag
-  // is set synchronously before navigate() — trust it and bounce out, even if the
-  // BackgroundProfileProvider hasn't refreshed yet.
-  const locallyCompleted = Boolean(
-    user && localStorage.getItem("vekta-onboarding-done") === "true"
-  );
+  const locallyCompleted =
+    _justOnboarded ||
+    localStorage.getItem("vekta-onboarding-done") === "true" ||
+    sessionStorage.getItem("vekta-onboarding-done") === "true";
 
   if (locallyCompleted || (isKnown && !needsOnboarding)) {
     return <Navigate to="/" replace />;

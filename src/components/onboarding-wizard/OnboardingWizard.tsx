@@ -101,6 +101,7 @@ export function OnboardingWizard() {
     // The localStorage flag is the single source of truth for "just finished onboarding";
     // both AppIndexRoute and AppOnboardingRoute read it directly, so no event/flushSync needed.
     try { localStorage.setItem("vekta-onboarding-done", "true"); } catch {}
+    try { sessionStorage.setItem("vekta-onboarding-done", "true"); } catch {}
 
     toast({ title: `Welcome, ${snap.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
     trackMixpanelEvent("Conversion", {
@@ -230,7 +231,10 @@ export function OnboardingWizard() {
     // Index re-mounts fresh and reads company-profile + post-onboarding-view from
     // the localStorage we wrote above. AppOnboardingRoute can't re-show the wizard
     // because the URL is no longer /onboarding.
-    window.location.assign("/?view=settings&tab=account&tour=true");
+    // _ob=1 is a URL-level completion signal — the most reliable of the three
+    // guards (localStorage, sessionStorage, URL param) because it requires no
+    // storage writes and can't be poisoned by old values from prior sessions.
+    window.location.assign("/?view=settings&tab=account&tour=true&_ob=1");
   };
 
   return (
