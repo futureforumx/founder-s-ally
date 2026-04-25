@@ -80,7 +80,9 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
   }));
 
   useEffect(() => {
-    if (DEMO_MODE) {
+    // If the user just completed onboarding (_ob=1 in URL), skip the DB query
+    // entirely — we know they're done and the DB write is still in flight.
+    if (DEMO_MODE || _justOnboarded) {
       setState({ isKnown: true, loading: false, needsOnboarding: false });
       return;
     }
