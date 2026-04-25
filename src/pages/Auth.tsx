@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@workos-inc/authkit-react";
 import { Loader2 } from "lucide-react";
 
-export default function Auth() {
+const hasWorkOSConfig = Boolean(String(import.meta.env.VITE_WORKOS_CLIENT_ID ?? "").trim());
+
+function WorkOSAuthFlow() {
   const { user, isLoading, signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -22,4 +24,11 @@ export default function Auth() {
       <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
     </div>
   );
+}
+
+export default function Auth() {
+  if (!hasWorkOSConfig) {
+    return <Navigate to="/" replace />;
+  }
+  return <WorkOSAuthFlow />;
 }
