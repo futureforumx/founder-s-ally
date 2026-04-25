@@ -135,8 +135,10 @@ function ToolCard({ tool }: { tool: DirectoryTool }) {
       to={`/tools/${tool.slug}`}
       className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
     >
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="outline-sm">{tool.category}</Badge>
+      <div className="flex flex-wrap gap-1.5">
+        <span className="inline-flex shrink-0 rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary">
+          {tool.category}
+        </span>
         <Badge variant="success-sm">Free</Badge>
       </div>
       <h3 className="mt-4 font-manrope text-lg font-semibold tracking-tight text-zinc-100">{tool.name}</h3>
