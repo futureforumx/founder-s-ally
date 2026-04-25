@@ -280,8 +280,8 @@ export default function ToolsLibraryPage() {
 
         <SectionWrapper>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Link
-              to="/fresh-capital"
+            <a
+              href="/fresh-capital"
               className="group flex items-start gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
@@ -296,7 +296,7 @@ export default function ToolsLibraryPage() {
                   Track newly raised VC funds and spot investor mandates before the market does.
                 </p>
               </div>
-            </Link>
+            </a>
 
             <Link
               to="/tools/ai-agents"
