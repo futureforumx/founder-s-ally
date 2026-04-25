@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Breadcrumbs } from "@/components/tools/Breadcrumbs";
 import { CategoryHero } from "@/components/tools/CategoryHero";
+import { ExploreResources } from "@/components/tools/ExploreResources";
 import { FAQSection } from "@/components/tools/FAQSection";
 import { ToolFilters } from "@/components/tools/ToolFilters";
 import { ToolGrid } from "@/components/tools/ToolGrid";
@@ -129,6 +130,8 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
             <ToolGrid tools={featuredTools} />
           </section>
         )}
+
+        <ExploreResources />
 
         {/* Subcategory pills */}
         <section className="space-y-3">
