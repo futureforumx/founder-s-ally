@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowUpRight, Flame } from "lucide-react";
+import { ArrowUpRight, Flame, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,8 +76,8 @@ export function ToolCard({ tool }: { tool: Tool }) {
           <span className="inline-flex shrink-0 rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary">
             {tool.subcategory}
           </span>
-          {tool.featured ? <Badge variant="default-sm">Featured</Badge> : null}
-          {tool.trending ? <Badge variant="warning-sm"><Flame className="mr-1 h-3 w-3" />Trending</Badge> : null}
+          {tool.featured ? <Badge variant="default-sm"><Star className="h-3 w-3 fill-current" /></Badge> : null}
+          {tool.trending ? <Badge variant="warning-sm"><Flame className="h-3 w-3 fill-current" /></Badge> : null}
         </div>
 
         <p className="text-sm leading-6 text-zinc-400">{tool.shortDescription}</p>
