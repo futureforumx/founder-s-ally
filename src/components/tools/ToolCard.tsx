@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowUpRight, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -14,6 +15,39 @@ function getInitials(name: string): string {
     .join("");
 }
 
+function getDomain(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function ToolAvatar({ name, websiteUrl }: { name: string; websiteUrl: string | null }) {
+  const [errored, setErrored] = useState(false);
+  const domain = websiteUrl ? getDomain(websiteUrl) : null;
+  const logoSrc = domain && !errored ? `https://logo.clearbit.com/${domain}` : null;
+
+  if (logoSrc) {
+    return (
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-800">
+        <img
+          src={logoSrc}
+          alt={name}
+          className="h-8 w-8 object-contain"
+          onError={() => setErrored(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-semibold text-primary">
+      {getInitials(name)}
+    </div>
+  );
+}
+
 function booleanBadge(value: boolean | null, label: string) {
   return value ? <Badge variant="success-sm">{label}</Badge> : null;
 }
@@ -23,9 +57,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
     <Card className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="space-y-3 pb-3">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-semibold text-primary">
-            {getInitials(tool.name)}
-          </div>
+          <ToolAvatar name={tool.name} websiteUrl={tool.websiteUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <Link
