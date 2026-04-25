@@ -55,7 +55,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
 
       <CardFooter className="mt-auto flex items-center justify-between gap-3">
         <Button asChild className="rounded-full">
-          <Link to={`/tools/${tool.slug}`}>View details</Link>
+          <Link to={`/tools/${tool.slug}`}>Use tool</Link>
         </Button>
         {tool.websiteUrl ? (
           <Button variant="outline" asChild className="rounded-full">
