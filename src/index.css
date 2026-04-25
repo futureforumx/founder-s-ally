@@ -3,6 +3,7 @@
 @import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap");
 @import url("https://api.fontshare.com/v2/css?f[]=clash-grotesk@400,500,600,700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -229,6 +230,10 @@
 
   .font-clash {
     font-family: "Clash Grotesk", "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  .font-manrope {
+    font-family: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
   }
 }
 
