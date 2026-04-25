@@ -5,6 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/tools/StarRating";
+import { buildCompanyLogoCandidates } from "@/lib/company-logo";
 import type { Tool } from "@/features/tools/types";
 
 function getInitials(name: string): string {
@@ -15,35 +16,34 @@ function getInitials(name: string): string {
     .join("");
 }
 
-function getDomain(url: string): string | null {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
+/**
+ * Logo waterfall: favicon.ico → gstatic faviconV2 → Google s2/favicons → initials.
+ * Mirrors the same candidate chain used by FirmLogo / buildCompanyLogoCandidates.
+ */
+function ToolLogo({ name, websiteUrl }: { name: string; websiteUrl: string | null }) {
+  const candidates = buildCompanyLogoCandidates({ websiteUrl, size: 64 });
+  const [idx, setIdx] = useState(0);
+  const src = candidates[idx] ?? null;
 
-function ToolAvatar({ name, websiteUrl }: { name: string; websiteUrl: string | null }) {
-  const [errored, setErrored] = useState(false);
-  const domain = websiteUrl ? getDomain(websiteUrl) : null;
-  const logoSrc = domain && !errored ? `https://logo.clearbit.com/${domain}` : null;
-
-  if (logoSrc) {
+  if (!src) {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-800">
-        <img
-          src={logoSrc}
-          alt={name}
-          className="h-8 w-8 object-contain"
-          onError={() => setErrored(true)}
-        />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-semibold text-primary">
+        {getInitials(name)}
       </div>
     );
   }
 
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-sm font-semibold text-primary">
-      {getInitials(name)}
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-800">
+      <img
+        src={src}
+        alt={name}
+        className="h-8 w-8 object-contain"
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setIdx((i) => i + 1)}
+      />
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
     <Card className="group flex h-full flex-col rounded-2xl border border-zinc-800 bg-zinc-900 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="space-y-3 pb-3">
         <div className="flex items-start gap-3">
-          <ToolAvatar name={tool.name} websiteUrl={tool.websiteUrl} />
+          <ToolLogo name={tool.name} websiteUrl={tool.websiteUrl} />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <Link
