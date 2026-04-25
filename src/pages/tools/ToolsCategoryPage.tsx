@@ -80,7 +80,7 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
   });
 
   return (
-    <div className="min-h-screen bg-[#050506] font-manrope text-zinc-100 antialiased">
+    <div className="min-h-screen bg-gradient-to-b from-[#050506] via-[#060609] to-[#07070d] font-manrope text-zinc-100 antialiased">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-12 px-4 py-8 sm:px-6 sm:py-12">
         <Breadcrumbs items={breadcrumbs} />
 
@@ -96,14 +96,18 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
           ]}
         >
           <div className="flex flex-wrap gap-3">
-            <Button asChild size="lg" className="h-11 rounded-full px-6">
+            <Button
+              asChild
+              size="lg"
+              className="h-11 rounded-full px-7 shadow-[0_0_24px_rgba(91,92,255,0.28)] transition-shadow duration-200 hover:shadow-[0_0_32px_rgba(91,92,255,0.42)]"
+            >
               <a href="#all-tools">Browse {isAIAgents ? "agents" : "tools"}</a>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="h-11 rounded-full border-zinc-700 px-6 text-zinc-100 hover:bg-zinc-800 hover:text-zinc-100"
+              className="h-11 rounded-full border-zinc-600 px-7 text-zinc-200 transition-all duration-200 hover:border-primary/50 hover:bg-primary/10 hover:text-zinc-100"
             >
               <a href={VEKTA_CTA_HREF} target="_blank" rel="noreferrer">
                 Start building with Vekta
