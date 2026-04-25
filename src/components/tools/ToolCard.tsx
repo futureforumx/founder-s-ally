@@ -41,7 +41,6 @@ export function ToolCard({ tool }: { tool: Tool }) {
       <CardContent className="flex-1 space-y-4">
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary-sm">{tool.pricing}</Badge>
-          {booleanBadge(tool.freeTier, "Free tier")}
           {booleanBadge(tool.openSource, "Open source")}
         </div>
 

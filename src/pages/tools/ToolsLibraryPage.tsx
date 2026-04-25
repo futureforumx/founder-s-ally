@@ -333,7 +333,6 @@ function FeaturedToolCard({ tool }: { tool: Tool }) {
     >
       <div className="flex flex-wrap gap-2">
         <Badge variant="outline-sm">{tool.category}</Badge>
-        {tool.freeTier ? <Badge variant="success-sm">Free</Badge> : null}
         {tool.featured ? <Badge variant="default-sm">Featured</Badge> : null}
       </div>
       <div className="mt-4 font-clash text-xl font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
