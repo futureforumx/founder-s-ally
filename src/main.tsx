@@ -63,12 +63,13 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
   }
 }
 
-const appTree = hasWorkOSConfig ? (
-  <AuthKitProvider clientId={clientId} redirectUri={redirectUri}>
+// Always wrap App in AuthKitProvider so Auth.tsx can safely call useWorkOSAuth().
+// AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
+// no actual WorkOS API calls are made when the env var is not set.
+const appTree = (
+  <AuthKitProvider clientId={clientId || "unconfigured"} redirectUri={redirectUri}>
     <App />
   </AuthKitProvider>
-) : (
-  <App />
 );
 
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
