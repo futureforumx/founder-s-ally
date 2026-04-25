@@ -59,10 +59,9 @@ export function ToolDetailHeader({
       {/* Back button — upper right */}
       <Link
         to={categoryHref}
-        className="absolute right-6 top-6 flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/60 px-3 py-1.5 text-xs text-zinc-400 transition-all duration-150 hover:border-primary/40 hover:bg-primary/10 hover:text-zinc-200"
+        className="absolute right-6 top-6 flex items-center justify-center rounded-full border border-zinc-700 bg-zinc-800/60 p-2 text-zinc-400 transition-all duration-150 hover:border-primary/40 hover:bg-primary/10 hover:text-zinc-200"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back
+        <ArrowLeft className="h-4 w-4" />
       </Link>
 
       <Breadcrumbs items={breadcrumbs} />
