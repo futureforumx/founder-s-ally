@@ -100,7 +100,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
       </CardContent>
 
       <CardFooter className="mt-auto flex items-center justify-between gap-3 pt-4">
-        <Button asChild className="rounded-full">
+        <Button asChild variant="ghost" className="rounded-full px-0 text-zinc-100 hover:bg-transparent hover:text-primary">
           <Link to={`/tools/${tool.slug}`}>View details</Link>
         </Button>
         {tool.websiteUrl ? (
