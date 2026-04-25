@@ -103,7 +103,7 @@ export default function ToolsLibraryPage() {
   const breadcrumbs = [{ label: "Tools" }];
 
   usePageSeo({
-    title: "Free Tools for Founders | Vekta",
+    title: "Startup Tool Library | Vekta",
     description:
       "Discover free tools for founders covering AI agents, models, marketing, finance, and fundraising. The startup toolkit built for modern company building.",
     canonicalPath: "/tools",
@@ -111,7 +111,7 @@ export default function ToolsLibraryPage() {
       {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
-        name: "Free Tools for Founders",
+        name: "Startup Tool Library",
         description: "Curated directory of free tools for founders covering AI, marketing, finance, and fundraising.",
         url: "https://vekta.app/tools",
       },
@@ -142,7 +142,7 @@ export default function ToolsLibraryPage() {
                 Public directory
               </p>
               <h1 className="font-clash text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
-                Free Tools for Founders
+                Startup Tool Library
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                 A curated toolkit covering AI agents, models, marketing, finance, and fundraising — everything a modern startup needs, researched and free to explore.
