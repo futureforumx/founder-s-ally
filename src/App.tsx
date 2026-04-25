@@ -97,7 +97,7 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
         // Persist completion across page refreshes even when the DB write went through a
         // fallback path that doesn't set has_completed_onboarding (e.g. the RPC path), or
         // when using the mock Supabase client which never writes to the profiles table.
-        const localCompleted = localStorage.getItem("vekta-onboarding-done") === user.id;
+        const localCompleted = localStorage.getItem("vekta-onboarding-done") === "true";
         if (error) {
           // Don't bypass onboarding on a transient DB error — only the local flag can vouch for completion.
           setState({ isKnown: true, loading: false, needsOnboarding: !localCompleted });
@@ -188,7 +188,7 @@ function AppIndexRoute() {
   // Direct localStorage check as a belt-and-suspenders guard: if the user just
   // completed onboarding, don't redirect even if the context state hasn't settled yet.
   const locallyCompleted = Boolean(
-    user && localStorage.getItem("vekta-onboarding-done") === user.id
+    user && localStorage.getItem("vekta-onboarding-done") === "true"
   );
 
   if (isKnown && needsOnboarding && !locallyCompleted) {
@@ -213,7 +213,7 @@ function AppOnboardingRoute() {
   // is set synchronously before navigate() — trust it and bounce out, even if the
   // BackgroundProfileProvider hasn't refreshed yet.
   const locallyCompleted = Boolean(
-    user && localStorage.getItem("vekta-onboarding-done") === user.id
+    user && localStorage.getItem("vekta-onboarding-done") === "true"
   );
 
   if (locallyCompleted || (isKnown && !needsOnboarding)) {

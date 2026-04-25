@@ -100,7 +100,7 @@ export function OnboardingWizard() {
     // ── Mark complete and navigate NOW — the user must never be blocked by DB/network ──
     // The localStorage flag is the single source of truth for "just finished onboarding";
     // both AppIndexRoute and AppOnboardingRoute read it directly, so no event/flushSync needed.
-    try { localStorage.setItem("vekta-onboarding-done", userId); } catch {}
+    try { localStorage.setItem("vekta-onboarding-done", "true"); } catch {}
 
     toast({ title: `Welcome, ${snap.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
     trackMixpanelEvent("Conversion", {
