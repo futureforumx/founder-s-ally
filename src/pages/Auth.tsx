@@ -1,21 +1,21 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@workos-inc/authkit-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
 export default function Auth() {
-  const { user, isLoading, signIn } = useAuth();
+  const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (!loading && user) {
       navigate("/", { replace: true });
       return;
     }
-    if (!isLoading && !user) {
-      void signIn();
+    if (!loading && !user) {
+      signIn();
     }
-  }, [isLoading, user, navigate, signIn]);
+  }, [loading, user, navigate, signIn]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050506]">
