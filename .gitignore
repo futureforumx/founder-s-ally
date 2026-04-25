@@ -25,6 +25,11 @@ db.sql
 
 # Local agent / IDE scaffolds
 .claude/
+!.claude/settings.json
+!.claude/skills/
+!.claude/skills/**
+!.claude/hooks/
+!.claude/hooks/**
 
 # Editor directories and files
 .vscode/*
