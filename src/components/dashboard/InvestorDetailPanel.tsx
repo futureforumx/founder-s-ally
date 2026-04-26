@@ -38,24 +38,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserCredits } from "@/hooks/useContactReveal";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { sanitizePersonTitle } from "@/lib/sanitizePersonTitle";
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-import { investorHeadshotNeedsOffloadedMirror, isBlockedExternalAvatarUrl } from "@/lib/investorAvatarUrl";
-import { curatedFirmHqLineForDirectoryName, firmAumDisplayForInvestorPanel } from "@/lib/freshCapitalPublic";
-=======
-=======
->>>>>>> Stashed changes
 import {
   investorAvatarUrlCandidates,
   investorHeadshotNeedsOffloadedMirror,
   isBlockedExternalAvatarUrl,
 } from "@/lib/investorAvatarUrl";
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
 import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
+import { curatedFirmHqLineForDirectoryName, firmAumDisplayForInvestorPanel } from "@/lib/freshCapitalPublic";
 import {
   isFirmStrategyClassification,
   STRATEGY_CLASSIFICATION_DEFINITIONS,

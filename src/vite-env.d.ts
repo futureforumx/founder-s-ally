@@ -15,6 +15,9 @@ interface ImportMetaEnv {
   readonly VITE_VERCEL_ENV?: string;
   /** Optional `pk_test_…` used only on Vercel Preview when set (see `resolveClerkPublishableKey`). */
   readonly VITE_CLERK_PUBLISHABLE_KEY_PREVIEW?: string;
+  readonly VITE_WORKOS_CLIENT_ID?: string;
+  readonly VITE_WORKOS_REDIRECT_URI?: string;
+  readonly VITE_AUTH_PROVIDER?: string;
   readonly VITE_DEMO_MODE?: string;
   /** Mixpanel project token (browser; safe to expose) */
   readonly VITE_MIXPANEL_TOKEN?: string;

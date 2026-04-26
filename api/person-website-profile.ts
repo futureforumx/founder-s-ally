@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { resolvePersonWebsiteProfile } from "./_personWebsiteProfile.js";
-import { persistPersonWebsiteProfileToFirmInvestor } from "./_persistPersonWebsiteProfileToFirmInvestor";
+import { persistPersonWebsiteProfileToFirmInvestor } from "./_persistPersonWebsiteProfileToFirmInvestor.js";
 
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const SCRAPE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;

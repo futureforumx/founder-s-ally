@@ -1,7 +1,7 @@
-import { getSupabaseServiceClient } from "../_supabaseServiceClient";
-import { assertConnectorManagementForUser } from "../_ownerContextAccess";
-import { verifyGoogleOAuthState } from "../_oauthStateSigned";
-import { getAppOriginForOAuthRedirect } from "../_appOrigin";
+import { getSupabaseServiceClient } from "../_supabaseServiceClient.js";
+import { assertConnectorManagementForUser } from "../_ownerContextAccess.js";
+import { verifyGoogleOAuthState } from "../_oauthStateSigned.js";
+import { getAppOriginForOAuthRedirect } from "../_appOrigin.js";
 
 function redirectPath(pathWithQuery: string): { kind: "redirect"; location: string } {
   const origin = getAppOriginForOAuthRedirect();

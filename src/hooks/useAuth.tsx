@@ -4,11 +4,14 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from "r
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
+import { hasWorkOSConfig } from "@/lib/workosConfig";
 
 interface AuthCtx {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isConfigured: boolean;
+  signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -17,11 +20,11 @@ const AuthContext = createContext<AuthCtx>({
   user: null,
   session: null,
   loading: true,
+  isConfigured: false,
+  signIn: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
 });
-
-const hasWorkOSConfig = Boolean(String(import.meta.env.VITE_WORKOS_CLIENT_ID ?? "").trim());
 
 function workosUserToCompatUser(
   workosUser: NonNullable<ReturnType<typeof useWorkOSAuth>["user"]>
@@ -53,7 +56,7 @@ function workosUserToCompatUser(
 }
 
 function WorkOSAuthProvider({ children }: { children: ReactNode }) {
-  const { user: workosUser, isLoading, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
+  const { user: workosUser, isLoading, signIn: workosSignIn, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
 
   const user = useMemo(
     () => (workosUser ? workosUserToCompatUser(workosUser) : null),
@@ -118,11 +121,13 @@ function WorkOSAuthProvider({ children }: { children: ReactNode }) {
       user,
       session,
       loading: isLoading,
+      isConfigured: true,
+      signIn: () => workosSignIn(),
       signOut: () => workosSignOut({ returnPathname: "/auth" }),
       getAccessToken: safeGetAccessToken,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, session, isLoading, workosSignOut]
+    [user, session, isLoading, workosSignIn, workosSignOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -145,6 +150,8 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       user: null,
       session: null,
       loading: false,
+      isConfigured: false,
+      signIn: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
     }),
@@ -155,7 +162,7 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  if (!hasWorkOSConfig) {
+  if (!hasWorkOSConfig()) {
     return <PublicAuthProvider>{children}</PublicAuthProvider>;
   }
   return <WorkOSAuthProvider>{children}</WorkOSAuthProvider>;

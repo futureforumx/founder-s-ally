@@ -3,7 +3,7 @@
  * Requires Authorization: Bearer <Clerk JWT> (SPA uses fetch + redirect: manual).
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildGoogleOAuthStartResponse } from "./_googleStartLogic.js";
+import { buildGoogleOAuthStartResponse } from "../_googleStartLogic.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") {

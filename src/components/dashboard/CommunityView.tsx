@@ -3319,7 +3319,6 @@ export function CommunityView({
     });
   }, [isInvestorSearch, networkRailTrendingPool]);
 
-<<<<<<< Updated upstream
   const networkRailSuggestedPreviews = useMemo(
     () => networkRailSuggested.map((e) => directoryEntryToNetworkRailPreview(e)),
     [networkRailSuggested],
@@ -3337,7 +3336,7 @@ export function CommunityView({
   /** Legacy carousel fallback when the compact rails have nothing to show — keep in sync with rail pools. */
   const scopedSuggested = networkRailSuggested;
   const scopedTrending = networkRailTrending;
-=======
+
   /** Operator directory (Overview): same two-column rail as Network, scoped by entity tabs — no investors. */
   const operatorDirectoryRailSuggestedRaw = useMemo(() => {
     if (directorySurface !== "operator" || isInvestorSearch) return [];
@@ -3377,50 +3376,6 @@ export function CommunityView({
       return compareInvestorsForSort(a, b, "recommended");
     });
   }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
-
-<<<<<<< Updated upstream
-=======
-  /** Operator directory (Overview): same two-column rail as Network, scoped by entity tabs — no investors. */
-  const operatorDirectoryRailSuggestedRaw = useMemo(() => {
-    if (directorySurface !== "operator" || isInvestorSearch) return [];
-    return scopedSuggested;
-  }, [directorySurface, isInvestorSearch, scopedSuggested]);
-
-  const operatorDirectoryRailTrending = useMemo(() => {
-    if (directorySurface !== "operator" || isInvestorSearch) return [];
-    return scopedTrending;
-  }, [directorySurface, isInvestorSearch, scopedTrending]);
-
-  const operatorDirectoryRailSuggestedRanked = useMemo(() => {
-    const userSector =
-      companyData?.sector?.trim() ||
-      (analysisResult as AnalysisResult & { sectorMapping?: { sector?: string } })?.sectorMapping?.sector?.trim() ||
-      (analysisResult as AnalysisResult & { aiExtracted?: { sector?: string } })?.aiExtracted?.sector?.trim() ||
-      "";
-    const userStage =
-      companyData?.stage?.trim() ||
-      (analysisResult as AnalysisResult & { aiExtracted?: { stage?: string } })?.aiExtracted?.stage?.trim() ||
-      (analysisResult as AnalysisResult & { stageClassification?: { detected_stage?: string } })?.stageClassification
-        ?.detected_stage?.trim() ||
-      "";
-
-    const hasProfileHint = Boolean(userSector || userStage);
-    const withScores = operatorDirectoryRailSuggestedRaw.map((e) => {
-      const computed = hasProfileHint
-        ? computeFirmProfileMatchScoreFromProfile(userSector, userStage, e)
-        : computeFirmProfileMatchScoreFromProfile(null, null, e);
-      const existing = typeof e._matchScore === "number" && !Number.isNaN(e._matchScore) ? e._matchScore : 0;
-      return { ...e, _matchScore: Math.max(computed, existing) };
-    });
-    return [...withScores].sort((a, b) => {
-      const sb = b._matchScore ?? 0;
-      const sa = a._matchScore ?? 0;
-      if (sb !== sa) return sb - sa;
-      return compareInvestorsForSort(a, b, "recommended");
-    });
-  }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
-
->>>>>>> Stashed changes
   const operatorDirectoryRailTitles = useMemo(() => {
     if (directorySurface !== "operator") {
       return { suggested: "", trending: "" };
@@ -3467,20 +3422,14 @@ export function CommunityView({
     return "Curated matches based on your profile.";
   }, [directorySurface, activeScope, companyData?.sector, companyData?.stage, analysisResult]);
 
-  const showInvestorRails =
-    (isInvestorSearch || directorySurface === "network") &&
-    (investorRailSuggested.length > 0 || investorRailTrending.length > 0);
   const showOperatorDirectoryRails =
     directorySurface === "operator" &&
     !isInvestorSearch &&
     (operatorDirectoryRailSuggestedRanked.length > 0 || operatorDirectoryRailTrending.length > 0);
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
   const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
   const carouselTitles = CAROUSEL_TITLES[activeScope] ?? CAROUSEL_TITLES.all;
+  const bestMatchesSubtitle = "Curated matches based on your profile";
 
   /**
    * Network directory footer counts.
@@ -3687,10 +3636,19 @@ export function CommunityView({
     [mergedEntries, handleDeployingClick, investorRailSuggested, investorRailTrending],
   );
 
+  const handleOperatorPreviewClick = useCallback(
+    (inv: InvestorPreviewModel) => {
+      const pool = [...operatorDirectoryRailSuggestedRanked, ...operatorDirectoryRailTrending];
+      const entry =
+        mergedEntries.find((e) => e.name === inv.name && e.category !== "investor") ??
+        pool.find((e) => e.name === inv.name);
+      if (entry) setSelectedFounder(entry);
+    },
+    [mergedEntries, operatorDirectoryRailSuggestedRanked, operatorDirectoryRailTrending],
+  );
+
   const handleNetworkRailClick = useCallback(
     (inv: InvestorPreviewModel) => {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
       const cat = inv._railRowKind;
       const pool = [...networkRailSuggested, ...networkRailTrending];
       if (cat === "investor") {
@@ -3708,19 +3666,6 @@ export function CommunityView({
       }
     },
     [mergedEntries, networkRailSuggested, networkRailTrending, handleInvestorClick],
-=======
-=======
->>>>>>> Stashed changes
-      const pool = [...operatorDirectoryRailSuggestedRanked, ...operatorDirectoryRailTrending];
-      const entry =
-        mergedEntries.find((e) => e.name === inv.name && e.category !== "investor") ?? pool.find((e) => e.name === inv.name);
-      if (entry) setSelectedFounder(entry);
-    },
-    [mergedEntries, operatorDirectoryRailSuggestedRanked, operatorDirectoryRailTrending],
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
   );
 
   const logoUrl = (() => {
@@ -3739,20 +3684,10 @@ export function CommunityView({
   return (
     <div className="space-y-2">
       {/* Spacer for global top nav */}
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      {(variant === "investor-search" || isOperatorHubLayout) && <div className="h-2" />}
-=======
-=======
->>>>>>> Stashed changes
       {(variant === "investor-search" ||
         isOperatorHubLayout ||
         isNetworkCapitalSurface ||
         (directorySurface === "operator" && !isInvestorSearch)) && <div className="h-2" />}
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
@@ -3968,101 +3903,85 @@ export function CommunityView({
       )}
 
       
-
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      {/* ═══════ Best matches + Trending: investor-search = investors; Network = one rail, content follows All / Companies / Founders / Operators ═══════ */}
-      {showInvestorRails || showNetworkRails ? (
-        showInvestorRails ? (
-          <div className="pt-4">
-            <InvestorSuggestedTrendingRails
-              rowKind="investor"
-              suggested={investorRailSuggested.map((e) => directoryEntryToInvestorPreview(e))}
-              trending={investorRailTrending.map((e) => directoryEntryToInvestorPreview(e))}
-              suggestedTitle="Best matches"
-              suggestedSubtitle="Curated matches based on your profile"
-              trendingTitle={carouselTitles.trending}
-              trendingSubtitle="Most active this week"
-              onViewAllSuggested={handleViewAll}
-              onViewAllTrending={handleViewAll}
-              onPreviewClick={handleInvestorPreviewClick}
-              onDeployingClick={handleInvestorPreviewDeploying}
-              anchorVcFirmId={(inv) => {
-                const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
-                return entry ? investorAnchorVcFirmId(entry) : null;
-              }}
-            />
-          </div>
-        ) : (
-          <div className="pt-4">
-            <InvestorSuggestedTrendingRails
-              key={activeScope}
-              rowKind={
-                activeScope === "companies"
-                  ? "company"
-                  : activeScope === "founders"
-                    ? "founder"
-                    : activeScope === "operators"
-                      ? "operator"
-                      : "company"
-              }
-              suggested={networkRailSuggestedPreviews}
-              trending={networkRailTrendingPreviews}
-              suggestedTitle="Best matches"
-              suggestedSubtitle="Curated matches based on your profile"
-              trendingTitle={carouselTitles.trending}
-              trendingSubtitle={
-                activeScope === "all"
-                  ? "Most active on the network this week"
-                  : `Most active ${labels.plural} this week`
-              }
-              suggestedStepperLabel={activeScope === "all" ? "Best matches" : undefined}
-              trendingStepperLabel={activeScope === "all" ? carouselTitles.trending : undefined}
-              onViewAllSuggested={handleViewAll}
-              onViewAllTrending={handleViewAll}
-              onPreviewClick={handleNetworkRailClick}
-              anchorVcFirmId={(inv) => {
-                if (inv._railRowKind !== "investor") return null;
-                const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
-                return entry ? investorAnchorVcFirmId(entry) : null;
-              }}
-            />
-          </div>
-        )
-      ) : !isInvestorSearch && !showNetworkRails ? (
-=======
-=======
->>>>>>> Stashed changes
-      {/* ═══════ Suggested + Trending: investor-search / Network / Operator directory = 2-col rails; else carousels ═══════ */}
-      {showInvestorRails || showOperatorDirectoryRails ? (
-        <div className="pt-4">
-          <InvestorSuggestedTrendingRails
-            rowKind={showOperatorDirectoryRails ? "operator" : "investor"}
-            suggested={(showOperatorDirectoryRails ? operatorDirectoryRailSuggestedRanked : investorRailSuggestedRanked).map(
-              (e) => (showOperatorDirectoryRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e)),
-            )}
-            trending={(showOperatorDirectoryRails ? operatorDirectoryRailTrending : investorRailTrending).map((e) =>
-              showOperatorDirectoryRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e),
-            )}
-            suggestedTitle={showOperatorDirectoryRails ? operatorDirectoryRailTitles.suggested : carouselTitles.suggested}
-            suggestedSubtitle={
-              showOperatorDirectoryRails ? operatorDirectorySuggestedSubtitle : bestMatchesSubtitle
-            }
-            trendingTitle={showOperatorDirectoryRails ? operatorDirectoryRailTitles.trending : carouselTitles.trending}
-            trendingSubtitle="Most active this week"
-            onViewAllSuggested={handleViewAll}
-            onViewAllTrending={handleViewAll}
-            onPreviewClick={showOperatorDirectoryRails ? handleOperatorPreviewClick : handleInvestorPreviewClick}
-            onDeployingClick={showOperatorDirectoryRails ? undefined : handleInvestorPreviewDeploying}
-            anchorVcFirmId={(inv) => {
-              if (showOperatorDirectoryRails) return null;
-              const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
-              return entry ? investorAnchorVcFirmId(entry) : null;
-            }}
-          />
-        </div>
-      ) : !isInvestorSearch && !isOperatorHubLayout && !isNetworkCapitalSurface ? (
->>>>>>> Stashed changes
+      {/* ═══════ Suggested + Trending rails ═══════ */}
+      {showInvestorRails || showNetworkRails || showOperatorDirectoryRails ? (
+        <>
+          {showInvestorRails && (
+            <div className="pt-4">
+              <InvestorSuggestedTrendingRails
+                rowKind="investor"
+                suggested={investorRailSuggested.map((e) => directoryEntryToInvestorPreview(e))}
+                trending={investorRailTrending.map((e) => directoryEntryToInvestorPreview(e))}
+                suggestedTitle="Best matches"
+                suggestedSubtitle={bestMatchesSubtitle}
+                trendingTitle={carouselTitles.trending}
+                trendingSubtitle="Most active this week"
+                onViewAllSuggested={handleViewAll}
+                onViewAllTrending={handleViewAll}
+                onPreviewClick={handleInvestorPreviewClick}
+                onDeployingClick={handleInvestorPreviewDeploying}
+                anchorVcFirmId={(inv) => {
+                  const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
+                  return entry ? investorAnchorVcFirmId(entry) : null;
+                }}
+              />
+            </div>
+          )}
+          {showNetworkRails && (
+            <div className="pt-4">
+              <InvestorSuggestedTrendingRails
+                key={activeScope}
+                rowKind={
+                  activeScope === "companies"
+                    ? "company"
+                    : activeScope === "founders"
+                      ? "founder"
+                      : activeScope === "operators"
+                        ? "operator"
+                        : "company"
+                }
+                suggested={networkRailSuggestedPreviews}
+                trending={networkRailTrendingPreviews}
+                suggestedTitle="Best matches"
+                suggestedSubtitle={bestMatchesSubtitle}
+                trendingTitle={carouselTitles.trending}
+                trendingSubtitle={
+                  activeScope === "all"
+                    ? "Most active on the network this week"
+                    : `Most active ${labels.plural} this week`
+                }
+                suggestedStepperLabel={activeScope === "all" ? "Best matches" : undefined}
+                trendingStepperLabel={activeScope === "all" ? carouselTitles.trending : undefined}
+                onViewAllSuggested={handleViewAll}
+                onViewAllTrending={handleViewAll}
+                onPreviewClick={handleNetworkRailClick}
+                anchorVcFirmId={(inv) => {
+                  if (inv._railRowKind !== "investor") return null;
+                  const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
+                  return entry ? investorAnchorVcFirmId(entry) : null;
+                }}
+              />
+            </div>
+          )}
+          {showOperatorDirectoryRails && (
+            <div className="pt-4">
+              <InvestorSuggestedTrendingRails
+                rowKind="operator"
+                suggested={operatorDirectoryRailSuggestedRanked.map((e) => directoryEntryToOperatorPreview(e))}
+                trending={operatorDirectoryRailTrending.map((e) => directoryEntryToOperatorPreview(e))}
+                suggestedTitle={operatorDirectoryRailTitles.suggested}
+                suggestedSubtitle={operatorDirectorySuggestedSubtitle}
+                trendingTitle={operatorDirectoryRailTitles.trending}
+                trendingSubtitle="Most active this week"
+                onViewAllSuggested={handleViewAll}
+                onViewAllTrending={handleViewAll}
+                onPreviewClick={handleOperatorPreviewClick}
+                anchorVcFirmId={() => null}
+              />
+            </div>
+          )}
+        </>
+      ) : !isInvestorSearch && !showNetworkRails && !isOperatorHubLayout && !isNetworkCapitalSurface ? (
         <>
           {scopedSuggested.length > 0 && (
             <div className="pt-4">

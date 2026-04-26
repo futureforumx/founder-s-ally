@@ -1,4 +1,4 @@
-import { safeTrim } from "./utils";
+import { safeTrim } from "./utils.js";
 
 /**
  * Hosts where direct browser `<img src>` often fails (403 / empty / tracking pixel).

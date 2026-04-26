@@ -176,7 +176,6 @@
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.18.0",
     "@aws-sdk/client-s3": "^3.1023.0",
-    "@workos-inc/authkit-react": "^0.10.0",
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^0.0.3",
     "@mux/mux-player-react": "^3.11.7",
@@ -217,6 +216,7 @@
     "@types/canvas-confetti": "^1.6.0",
     "@types/three": "^0.170.0",
     "@vercel/speed-insights": "^2.0.0",
+    "@workos-inc/authkit-react": "^0.10.0",
     "busboy": "^1.6.0",
     "canvas-confetti": "^1.9.0",
     "class-variance-authority": "^0.7.1",
@@ -245,6 +245,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.170.0",
     "vaul": "^0.9.9",
+    "workflow": "^2.0.6",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -258,7 +259,7 @@
     "@types/pg": "^8.15.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@vercel/node": "^5.7.1",
+    "@vercel/node": "^4.0.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.21",
@@ -268,11 +269,11 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "jsdom": "^20.0.3",
+    "jsdom": "^29.0.2",
     "lovable-tagger": "^1.1.13",
     "pg": "^8.16.0",
     "postcss": "^8.5.6",
-    "prisma": "6.19.0",
+    "prisma": "^6.19.3",
     "rss-parser": "^3.13.0",
     "shadcn-ui": "^0.9.5",
     "supabase": "^2.84.4",
@@ -284,6 +285,8 @@
     "vitest": "^4.1.0"
   },
   "pnpm": {
-    "ignoredBuiltDependencies": ["supabase"]
+    "ignoredBuiltDependencies": [
+      "supabase"
+    ]
   }
 }

@@ -1,7 +1,7 @@
-import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest";
-import { getSupabaseServiceClient } from "../_supabaseServiceClient";
-import { assertConnectorManagementForUser, isUuid } from "../_ownerContextAccess";
-import { signGoogleOAuthState } from "../_oauthStateSigned";
+import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest.js";
+import { getSupabaseServiceClient } from "../_supabaseServiceClient.js";
+import { assertConnectorManagementForUser, isUuid } from "../_ownerContextAccess.js";
+import { signGoogleOAuthState } from "../_oauthStateSigned.js";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 
@@ -53,7 +53,11 @@ export async function buildGoogleOAuthStartResponse(input: {
 
   const gate = await assertConnectorManagementForUser(supabase, userId, ownerContextId);
   if (!gate.ok) {
-    return { kind: "json", status: 403, body: { error: gate.message } };
+    return {
+      kind: "json",
+      status: 403,
+      body: { error: "message" in gate ? gate.message : "Forbidden" },
+    };
   }
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;

@@ -9,11 +9,18 @@ import PublicApp from "./PublicApp.tsx";
 import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
+import { hasWorkOSConfig, resolveWorkOSClientId, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
 
 initMixpanel();
 
 if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
+}
+
+if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
+  const canonicalUrl = new URL(window.location.href);
+  canonicalUrl.hostname = "vekta.so";
+  window.location.replace(canonicalUrl.toString());
 }
 
 const sentryCaptureEvents =
@@ -28,9 +35,9 @@ Sentry.init({
   tracesSampleRate: import.meta.env.PROD ? 0.05 : 0,
 });
 
-const clientId = (import.meta.env.VITE_WORKOS_CLIENT_ID as string) ?? "";
-const redirectUri = (import.meta.env.VITE_WORKOS_REDIRECT_URI as string) || undefined;
-const hasWorkOSConfig = Boolean(clientId.trim());
+const clientId = resolveWorkOSClientId();
+const redirectUri = resolveWorkOSRedirectUri();
+const workosConfigured = hasWorkOSConfig();
 const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
@@ -63,7 +70,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
   }
 }
 
-const appTree = hasWorkOSConfig ? (
+const appTree = workosConfigured ? (
   <AuthKitProvider clientId={clientId} redirectUri={redirectUri}>
     <App />
   </AuthKitProvider>

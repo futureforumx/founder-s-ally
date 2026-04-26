@@ -1,4 +1,4 @@
-import { safeTrim } from "@/lib/utils";
+import { safeTrim } from "./utils.js";
 
 /** Appended to `firm_investors.background_summary` when persisting scraped portfolio lists. */
 export const PORTFOLIO_COMPANIES_JSON_MARKER = "\n__VEKTA_PORTFOLIO_COMPANIES_JSON__\n";
