@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useVcFundSyncFreshness } from "@/hooks/useVcFundSyncFreshness";
 import { Loader2 } from "lucide-react";
 import {
@@ -361,6 +361,7 @@ export function FreshCapitalLiveFeed({
 }: Props) {
   const displayRows = useMemo(() => expandFreshCapitalRowsForDisplay(rows), [rows]);
   const [mainTab, setMainTab] = useState<(typeof FEED_MAIN_TABS)[number]["id"]>("fresh_funds");
+  const [isTabPending, startTabTransition] = useTransition();
   const { data: freshnessData } = useVcFundSyncFreshness();
   const lastUpdatedLabel = freshnessData?.completedAt
     ? `New funds added daily · Last updated ${formatSyncTimestamp(freshnessData.completedAt)}`
@@ -393,12 +394,13 @@ export function FreshCapitalLiveFeed({
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => setMainTab(tab.id)}
+                onClick={() => startTabTransition(() => setMainTab(tab.id))}
                 className={cn(
                   "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-all sm:px-5",
                   isActive
                     ? "bg-[#1a1a1a] text-[#eeeeee] shadow-sm ring-1 ring-zinc-500/55"
                     : "text-[#b3b3b3] hover:bg-white/[0.06] hover:text-[#eeeeee]",
+                  isTabPending && !isActive && "opacity-60",
                 )}
               >
                 {tab.label}

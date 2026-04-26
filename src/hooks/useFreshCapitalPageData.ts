@@ -30,8 +30,10 @@ export type FreshCapitalPageQueryResult = {
 export function useFreshCapitalPageData(stage: FreshCapitalStageFilter, sector: string | null) {
   return useQuery({
     queryKey: ["fresh-capital-page", stage, sector],
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    refetchInterval: 3 * 60 * 1000,
+    refetchOnWindowFocus: true,
     retry: (failureCount, err) => {
       if (err instanceof FreshCapitalMisconfiguredError) return false;
       return failureCount < 2;
