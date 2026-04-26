@@ -25,10 +25,10 @@ export function resolveWorkOSRedirectUri(): string | undefined {
   if (explicit) return explicit;
   const host = hostname();
   if (isVektaHost(host)) {
-    return "https://vekta.so/auth";
+    return "https://vekta.so/auth/callback";
   }
   const currentOrigin = origin();
-  return currentOrigin ? `${currentOrigin}/auth` : undefined;
+  return currentOrigin ? `${currentOrigin}/auth/callback` : undefined;
 }
 
 export function hasWorkOSConfig(): boolean {

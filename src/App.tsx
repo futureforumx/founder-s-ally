@@ -15,6 +15,7 @@ import { Loader2 } from "lucide-react";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
+const SsoCallback = lazy(() => import("./pages/SsoCallback.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
@@ -253,6 +254,7 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
+              <Route path="/auth/callback" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               <Route
                 path="/access"
