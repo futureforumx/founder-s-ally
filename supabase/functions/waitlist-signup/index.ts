@@ -749,28 +749,44 @@ async function syncToGoogleSheet(parsed: ParsedPayload, rpcPayload: Record<strin
   }
 
   try {
-    const res = await fetch(webhookUrl, {
+    const payload = JSON.stringify({
+      timestamp: new Date().toISOString(),
+      email: parsed.email ?? "",
+      name: parsed.name ?? "",
+      role: parsed.role ?? "",
+      stage: parsed.stage ?? "",
+      sector: parsed.sector ?? "",
+      urgency: parsed.urgency ?? "",
+      intent: parsed.intent.join(", "),
+      biggest_pain: parsed.biggest_pain ?? "",
+      company_name: parsed.company_name ?? "",
+      linkedin_url: parsed.linkedin_url ?? "",
+      source: parsed.source ?? "",
+      campaign: parsed.campaign ?? "",
+      status: String(rpcPayload.status ?? ""),
+      waitlist_position: String(rpcPayload.waitlist_position ?? ""),
+      referral_code: String(rpcPayload.referral_code ?? ""),
+    });
+
+    // Apps Script web apps return a 302 redirect; Deno follows it but downgrades
+    // POST → GET, losing the body. Intercept and re-POST to the redirect target.
+    let res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        timestamp: new Date().toISOString(),
-        email: parsed.email ?? "",
-        name: parsed.name ?? "",
-        role: parsed.role ?? "",
-        stage: parsed.stage ?? "",
-        sector: parsed.sector ?? "",
-        urgency: parsed.urgency ?? "",
-        intent: parsed.intent.join(", "),
-        biggest_pain: parsed.biggest_pain ?? "",
-        company_name: parsed.company_name ?? "",
-        linkedin_url: parsed.linkedin_url ?? "",
-        source: parsed.source ?? "",
-        campaign: parsed.campaign ?? "",
-        status: String(rpcPayload.status ?? ""),
-        waitlist_position: String(rpcPayload.waitlist_position ?? ""),
-        referral_code: String(rpcPayload.referral_code ?? ""),
-      }),
+      body: payload,
+      redirect: "manual",
     });
+
+    if (res.status === 301 || res.status === 302 || res.status === 307 || res.status === 308) {
+      const location = res.headers.get("location");
+      if (location) {
+        res = await fetch(location, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        });
+      }
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
