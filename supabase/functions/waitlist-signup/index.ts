@@ -736,63 +736,88 @@ function parseDirectPayload(body: Record<string, unknown>): ParsedPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Google Sheets sync — Apps Script webhook approach (no service account needed)
-// Set WAITLIST_SHEETS_WEBHOOK_URL to your deployed Apps Script web app URL.
-// See scripts/waitlist-sheets.gs for the script to paste into your sheet.
+// Google Sheets sync — OAuth refresh token + Sheets API v4
+// Required secrets: WAITLIST_SHEET_ID, WAITLIST_GOOGLE_REFRESH_TOKEN
+// Reuses existing: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
 // ---------------------------------------------------------------------------
 
+async function getGoogleSheetsAccessToken(): Promise<string | null> {
+  const refreshToken = Deno.env.get("WAITLIST_GOOGLE_REFRESH_TOKEN");
+  const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
+  if (!refreshToken || !clientId || !clientSecret) return null;
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error(`[waitlist-signup] Google token refresh failed (${res.status}): ${text.slice(0, 200)}`);
+    return null;
+  }
+  const data = (await res.json()) as { access_token?: string };
+  return data.access_token ?? null;
+}
+
 async function syncToGoogleSheet(parsed: ParsedPayload, rpcPayload: Record<string, unknown>): Promise<void> {
-  const webhookUrl = Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL");
-  if (!webhookUrl) {
-    console.log("[waitlist-signup] Google Sheets sync skipped: WAITLIST_SHEETS_WEBHOOK_URL not set");
+  const sheetId = Deno.env.get("WAITLIST_SHEET_ID");
+  const sheetTab = Deno.env.get("WAITLIST_SHEET_TAB") || "Signups";
+
+  if (!sheetId) {
+    console.log("[waitlist-signup] Google Sheets sync skipped: WAITLIST_SHEET_ID not set");
     return;
   }
 
   try {
-    const payload = JSON.stringify({
-      timestamp: new Date().toISOString(),
-      email: parsed.email ?? "",
-      name: parsed.name ?? "",
-      role: parsed.role ?? "",
-      stage: parsed.stage ?? "",
-      sector: parsed.sector ?? "",
-      urgency: parsed.urgency ?? "",
-      intent: parsed.intent.join(", "),
-      biggest_pain: parsed.biggest_pain ?? "",
-      company_name: parsed.company_name ?? "",
-      linkedin_url: parsed.linkedin_url ?? "",
-      source: parsed.source ?? "",
-      campaign: parsed.campaign ?? "",
-      status: String(rpcPayload.status ?? ""),
-      waitlist_position: String(rpcPayload.waitlist_position ?? ""),
-      referral_code: String(rpcPayload.referral_code ?? ""),
-    });
-
-    // Apps Script web apps return a 302 redirect; Deno follows it but downgrades
-    // POST → GET, losing the body. Intercept and re-POST to the redirect target.
-    let res = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-      redirect: "manual",
-    });
-
-    if (res.status === 301 || res.status === 302 || res.status === 307 || res.status === 308) {
-      const location = res.headers.get("location");
-      if (location) {
-        res = await fetch(location, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-        });
-      }
+    const accessToken = await getGoogleSheetsAccessToken();
+    if (!accessToken) {
+      console.log("[waitlist-signup] Google Sheets sync skipped: could not obtain access token");
+      return;
     }
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(`[waitlist-signup] Google Sheets webhook failed (${res.status}): ${text.slice(0, 200)}`);
+    const row = [
+      new Date().toISOString(),
+      parsed.email ?? "",
+      parsed.name ?? "",
+      parsed.role ?? "",
+      parsed.stage ?? "",
+      parsed.sector ?? "",
+      parsed.urgency ?? "",
+      parsed.intent.join(", "),
+      parsed.biggest_pain ?? "",
+      parsed.company_name ?? "",
+      parsed.linkedin_url ?? "",
+      parsed.source ?? "",
+      parsed.campaign ?? "",
+      String(rpcPayload.status ?? ""),
+      String(rpcPayload.waitlist_position ?? ""),
+      String(rpcPayload.referral_code ?? ""),
+    ];
+
+    const range = encodeURIComponent(`${sheetTab}!A1`);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+
+    const sheetsRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ values: [row] }),
+    });
+
+    if (!sheetsRes.ok) {
+      const text = await sheetsRes.text().catch(() => "");
+      console.error(`[waitlist-signup] Google Sheets append failed (${sheetsRes.status}): ${text.slice(0, 300)}`);
     } else {
-      console.log("[waitlist-signup] Google Sheets row synced for", parsed.email);
+      console.log("[waitlist-signup] Google Sheets row appended for", parsed.email);
     }
   } catch (err) {
     console.error("[waitlist-signup] syncToGoogleSheet error:", err);
