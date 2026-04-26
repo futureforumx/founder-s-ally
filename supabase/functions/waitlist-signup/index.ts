@@ -736,125 +736,115 @@ function parseDirectPayload(body: Record<string, unknown>): ParsedPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Google Sheets sync — service account JWT approach
+// Google Sheets sync — Apps Script webhook approach (no service account needed)
+// Set WAITLIST_SHEETS_WEBHOOK_URL to your deployed Apps Script web app URL.
+// See scripts/waitlist-sheets.gs for the script to paste into your sheet.
 // ---------------------------------------------------------------------------
 
-function base64urlEncode(data: Uint8Array): string {
-  let str = "";
-  for (const byte of data) str += String.fromCharCode(byte);
-  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
-
-async function getServiceAccountAccessToken(email: string, rawPem: string): Promise<string> {
-  const pem = rawPem.replace(/\\n/g, "\n").trim();
-  const pemBody = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s/g, "");
-
-  const keyDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    keyDer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: email,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
-
-  const encHeader = base64urlEncode(new TextEncoder().encode(JSON.stringify(header)));
-  const encPayload = base64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signingInput = `${encHeader}.${encPayload}`;
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(signingInput),
-  );
-
-  const jwt = `${signingInput}.${base64urlEncode(new Uint8Array(signature))}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    const text = await tokenRes.text().catch(() => "");
-    throw new Error(`Service account token exchange failed (${tokenRes.status}): ${text.slice(0, 200)}`);
-  }
-
-  const tokenData = (await tokenRes.json()) as { access_token: string };
-  return tokenData.access_token;
-}
-
 async function syncToGoogleSheet(parsed: ParsedPayload, rpcPayload: Record<string, unknown>): Promise<void> {
-  const email = Deno.env.get("WAITLIST_GOOGLE_SERVICE_ACCOUNT_EMAIL");
-  const privateKey = Deno.env.get("WAITLIST_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
-  const sheetId = Deno.env.get("WAITLIST_SHEET_ID");
-  const sheetTab = Deno.env.get("WAITLIST_SHEET_TAB") || "Signups";
-
-  if (!email || !privateKey || !sheetId) {
-    console.log("[waitlist-signup] Google Sheets sync skipped: WAITLIST_GOOGLE_SERVICE_ACCOUNT_EMAIL, WAITLIST_GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, or WAITLIST_SHEET_ID not set");
+  const webhookUrl = Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL");
+  if (!webhookUrl) {
+    console.log("[waitlist-signup] Google Sheets sync skipped: WAITLIST_SHEETS_WEBHOOK_URL not set");
     return;
   }
 
   try {
-    const accessToken = await getServiceAccountAccessToken(email, privateKey);
-
-    const timestamp = new Date().toISOString();
-    const row = [
-      timestamp,
-      parsed.email ?? "",
-      parsed.name ?? "",
-      parsed.role ?? "",
-      parsed.stage ?? "",
-      parsed.sector ?? "",
-      parsed.urgency ?? "",
-      parsed.intent.join(", "),
-      parsed.biggest_pain ?? "",
-      parsed.company_name ?? "",
-      parsed.linkedin_url ?? "",
-      parsed.source ?? "",
-      parsed.campaign ?? "",
-      String(rpcPayload.status ?? ""),
-      String(rpcPayload.waitlist_position ?? ""),
-      String(rpcPayload.referral_code ?? ""),
-    ];
-
-    const range = encodeURIComponent(`${sheetTab}!A1`);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-
-    const sheetsRes = await fetch(url, {
+    const res = await fetch(webhookUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ values: [row] }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        email: parsed.email ?? "",
+        name: parsed.name ?? "",
+        role: parsed.role ?? "",
+        stage: parsed.stage ?? "",
+        sector: parsed.sector ?? "",
+        urgency: parsed.urgency ?? "",
+        intent: parsed.intent.join(", "),
+        biggest_pain: parsed.biggest_pain ?? "",
+        company_name: parsed.company_name ?? "",
+        linkedin_url: parsed.linkedin_url ?? "",
+        source: parsed.source ?? "",
+        campaign: parsed.campaign ?? "",
+        status: String(rpcPayload.status ?? ""),
+        waitlist_position: String(rpcPayload.waitlist_position ?? ""),
+        referral_code: String(rpcPayload.referral_code ?? ""),
+      }),
     });
 
-    if (!sheetsRes.ok) {
-      const text = await sheetsRes.text().catch(() => "");
-      console.error(`[waitlist-signup] Google Sheets append failed (${sheetsRes.status}): ${text.slice(0, 300)}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[waitlist-signup] Google Sheets webhook failed (${res.status}): ${text.slice(0, 200)}`);
     } else {
-      console.log("[waitlist-signup] Google Sheets row appended for", parsed.email);
+      console.log("[waitlist-signup] Google Sheets row synced for", parsed.email);
     }
   } catch (err) {
     console.error("[waitlist-signup] syncToGoogleSheet error:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HubSpot sync — private app token approach
+// Set HUBSPOT_ACCESS_TOKEN to your HubSpot private app token.
+// ---------------------------------------------------------------------------
+
+async function syncToHubSpot(parsed: ParsedPayload): Promise<void> {
+  const token = Deno.env.get("HUBSPOT_ACCESS_TOKEN");
+  if (!token) {
+    console.log("[waitlist-signup] HubSpot sync skipped: HUBSPOT_ACCESS_TOKEN not set");
+    return;
+  }
+
+  try {
+    const nameParts = (parsed.name ?? "").trim().split(/\s+/);
+    const firstname = nameParts[0] ?? "";
+    const lastname = nameParts.slice(1).join(" ");
+
+    const properties: Record<string, string> = {};
+    if (parsed.email) properties.email = parsed.email;
+    if (firstname) properties.firstname = firstname;
+    if (lastname) properties.lastname = lastname;
+    if (parsed.company_name) properties.company = parsed.company_name;
+    if (parsed.role) properties.jobtitle = parsed.role;
+    if (parsed.linkedin_url) properties.website = parsed.linkedin_url;
+
+    const createRes = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ properties }),
+    });
+
+    if (createRes.status === 409) {
+      const body = await createRes.json().catch(() => ({})) as Record<string, unknown>;
+      const msg = typeof body.message === "string" ? body.message : "";
+      const match = msg.match(/Existing ID: (\d+)/);
+      const existingId = match?.[1];
+      if (existingId) {
+        const updateRes = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${existingId}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ properties }),
+        });
+        if (updateRes.ok) {
+          console.log("[waitlist-signup] HubSpot contact updated for", parsed.email);
+        } else {
+          console.warn("[waitlist-signup] HubSpot update failed:", updateRes.status);
+        }
+      }
+    } else if (!createRes.ok) {
+      const text = await createRes.text().catch(() => "");
+      console.error(`[waitlist-signup] HubSpot create failed (${createRes.status}): ${text.slice(0, 200)}`);
+    } else {
+      console.log("[waitlist-signup] HubSpot contact created for", parsed.email);
+    }
+  } catch (err) {
+    console.error("[waitlist-signup] syncToHubSpot error:", err);
   }
 }
 
@@ -948,8 +938,11 @@ serve(async (req) => {
       );
     }
 
-    // ===== GOOGLE SHEETS SYNC =====
-    await syncToGoogleSheet(parsed, rpcPayload);
+    // ===== GOOGLE SHEETS + HUBSPOT SYNC =====
+    await Promise.all([
+      syncToGoogleSheet(parsed, rpcPayload),
+      syncToHubSpot(parsed),
+    ]);
 
     // ===== MATCH + EMAIL TRIGGER =====
 if (email) {
