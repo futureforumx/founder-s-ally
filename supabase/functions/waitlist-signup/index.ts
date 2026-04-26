@@ -939,10 +939,15 @@ serve(async (req) => {
     }
 
     // ===== GOOGLE SHEETS + HUBSPOT SYNC =====
+    console.log("[waitlist-signup] sync-check", {
+      hasSheetUrl: !!Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL"),
+      hasHubspot: !!Deno.env.get("HUBSPOT_ACCESS_TOKEN"),
+    });
     await Promise.all([
       syncToGoogleSheet(parsed, rpcPayload),
       syncToHubSpot(parsed),
     ]);
+    console.log("[waitlist-signup] sync-done");
 
     // ===== MATCH + EMAIL TRIGGER =====
 if (email) {
