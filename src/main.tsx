@@ -9,7 +9,7 @@ import PublicApp from "./PublicApp.tsx";
 import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
-import { hasWorkOSConfig, resolveWorkOSApiHostname, resolveWorkOSClientId, resolveWorkOSDevMode, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
+import { resolveWorkOSApiHostname, resolveWorkOSClientId, resolveWorkOSDevMode, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
 
 initMixpanel();
 
@@ -35,22 +35,10 @@ Sentry.init({
   tracesSampleRate: import.meta.env.PROD ? 0.05 : 0,
 });
 
-<<<<<<< HEAD
 const clientId = resolveWorkOSClientId();
 const apiHostname = resolveWorkOSApiHostname();
 const devMode = resolveWorkOSDevMode();
 const redirectUri = resolveWorkOSRedirectUri();
-const workosConfigured = hasWorkOSConfig();
-=======
-const clientId = (import.meta.env.VITE_WORKOS_CLIENT_ID as string) ?? "";
-// Derive redirectUri: prefer explicit env var, fall back to origin + /auth/callback.
-// The value logged here is what must be registered in the WorkOS Dashboard → Redirects.
-const redirectUri =
-  (import.meta.env.VITE_WORKOS_REDIRECT_URI as string)?.trim() ||
-  `${window.location.origin}/auth/callback`;
-const hasWorkOSConfig = Boolean(clientId.trim());
-console.log("[WorkOS] clientId present:", hasWorkOSConfig, "| redirectUri:", redirectUri);
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
 const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
@@ -83,16 +71,11 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
   }
 }
 
-<<<<<<< HEAD
-const appTree = workosConfigured ? (
-  <AuthKitProvider clientId={clientId} apiHostname={apiHostname} devMode={devMode} redirectUri={redirectUri}>
-=======
 // Always wrap App in AuthKitProvider so Auth.tsx can safely call useWorkOSAuth().
 // AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
 // no actual WorkOS API calls are made when the env var is not set.
 const appTree = (
-  <AuthKitProvider clientId={clientId || "unconfigured"} redirectUri={redirectUri} >
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
+  <AuthKitProvider clientId={clientId || "unconfigured"} apiHostname={apiHostname} devMode={devMode} redirectUri={redirectUri}>
     <App />
   </AuthKitProvider>
 );
