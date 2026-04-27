@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { resolveWorkOSClientId, resolveWorkOSRedirectUri, resolveWorkOSDevMode } from "@/lib/workosConfig";
 
 const LOGIN_ATTEMPT_KEY = "workos-login-attempt-at";
 const LOGIN_LOOP_WINDOW_MS = 15_000;
@@ -119,6 +120,11 @@ export default function Auth() {
   }
 
   if (!loading && !user && isConfigured) {
+    const dbgClientId = resolveWorkOSClientId();
+    const dbgRedirectUri = resolveWorkOSRedirectUri();
+    const dbgDevMode = resolveWorkOSDevMode();
+    const dbgHasCode = new URLSearchParams(window.location.search).has("code");
+    const dbgCodeVerifier = (() => { try { return window.sessionStorage.getItem("workos:code-verifier"); } catch { return null; } })();
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
         <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
@@ -126,6 +132,22 @@ export default function Auth() {
           <p className="text-sm text-zinc-400">
             Continue to WorkOS to access your Vekta workspace.
           </p>
+          {authError && (
+            <pre className="mt-1 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-left text-xs text-red-300 whitespace-pre-wrap break-all">
+              {authError}
+            </pre>
+          )}
+          <details className="text-left">
+            <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Debug info</summary>
+            <pre className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400 whitespace-pre-wrap break-all">
+{`clientId: ${dbgClientId || "(empty)"}
+redirectUri: ${dbgRedirectUri || "(empty)"}
+devMode: ${dbgDevMode}
+url: ${window.location.href}
+hasCode: ${dbgHasCode}
+codeVerifier: ${dbgCodeVerifier ? "present" : "absent"}`}
+            </pre>
+          </details>
           <button
             className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
             onClick={() => {
