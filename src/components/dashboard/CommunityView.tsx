@@ -3663,16 +3663,6 @@ export function CommunityView({
     [mergedEntries, networkRailSuggested, networkRailTrending, handleInvestorClick],
   );
 
-  const handleOperatorPreviewClick = useCallback(
-    (inv: InvestorPreviewModel) => {
-      const pool = [...operatorDirectoryRailSuggestedRanked, ...operatorDirectoryRailTrending];
-      const entry =
-        mergedEntries.find((e) => e.name === inv.name && e.category !== "investor") ?? pool.find((e) => e.name === inv.name);
-      if (entry) setSelectedFounder(entry);
-    },
-    [mergedEntries, operatorDirectoryRailSuggestedRanked, operatorDirectoryRailTrending],
-  );
-
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
   })();

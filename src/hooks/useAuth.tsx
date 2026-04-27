@@ -11,10 +11,9 @@ interface AuthCtx {
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
-  signIn: () => Promise<void>;
+  signIn: () => void;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
-  signIn: () => void;
 }
 
 const AuthContext = createContext<AuthCtx>({
@@ -22,10 +21,9 @@ const AuthContext = createContext<AuthCtx>({
   session: null,
   loading: true,
   isConfigured: false,
-  signIn: async () => {},
+  signIn: () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
-  signIn: () => {},
 });
 
 function workosUserToCompatUser(
@@ -155,10 +153,9 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       session: null,
       loading: false,
       isConfigured: false,
-      signIn: async () => {},
+      signIn: () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
-      signIn: () => {},
     }),
     [],
   );

@@ -254,10 +254,14 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
+<<<<<<< HEAD
               <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
+=======
               {/* /auth/callback must be registered before /auth/* so the wildcard doesn't swallow it */}
               <Route path="/auth/callback" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+>>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
               <Route
                 path="/access"
                 element={
