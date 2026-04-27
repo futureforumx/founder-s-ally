@@ -3371,10 +3371,6 @@ export function CommunityView({
       return compareInvestorsForSort(a, b, "recommended");
     });
   }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
-<<<<<<< HEAD
-=======
-
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
   const operatorDirectoryRailTitles = useMemo(() => {
     if (directorySurface !== "operator") {
       return { suggested: "", trending: "" };
@@ -3425,10 +3421,6 @@ export function CommunityView({
     directorySurface === "operator" &&
     !isInvestorSearch &&
     (operatorDirectoryRailSuggestedRanked.length > 0 || operatorDirectoryRailTrending.length > 0);
-<<<<<<< HEAD
-=======
-
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
 
   const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
   const carouselTitles = CAROUSEL_TITLES[activeScope] ?? CAROUSEL_TITLES.all;
@@ -3670,8 +3662,6 @@ export function CommunityView({
     },
     [mergedEntries, networkRailSuggested, networkRailTrending, handleInvestorClick],
   );
-<<<<<<< HEAD
-=======
 
   const handleOperatorPreviewClick = useCallback(
     (inv: InvestorPreviewModel) => {
@@ -3681,7 +3671,7 @@ export function CommunityView({
       if (entry) setSelectedFounder(entry);
     },
     [mergedEntries, operatorDirectoryRailSuggestedRanked, operatorDirectoryRailTrending],
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
+  );
 
   const logoUrl = (() => {
     try {return localStorage.getItem("company-logo-url") || null;} catch {return null;}
@@ -3918,7 +3908,6 @@ export function CommunityView({
       )}
 
       
-<<<<<<< HEAD
       {/* ═══════ Suggested + Trending rails ═══════ */}
       {showInvestorRails || showNetworkRails || showOperatorDirectoryRails ? (
         <>
@@ -3998,38 +3987,6 @@ export function CommunityView({
           )}
         </>
       ) : !isInvestorSearch && !showNetworkRails && !isOperatorHubLayout && !isNetworkCapitalSurface ? (
-=======
-
-      {/* ═══════ Suggested + Trending: investor-search / Network / Operator directory = 2-col rails; else carousels ═══════ */}
-      {showInvestorRails || showOperatorDirectoryRails ? (
-        <div className="pt-4">
-          <InvestorSuggestedTrendingRails
-            rowKind={showOperatorDirectoryRails ? "operator" : "investor"}
-            suggested={(showOperatorDirectoryRails ? operatorDirectoryRailSuggestedRanked : investorRailSuggested).map(
-              (e) => (showOperatorDirectoryRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e)),
-            )}
-            trending={(showOperatorDirectoryRails ? operatorDirectoryRailTrending : investorRailTrending).map((e) =>
-              showOperatorDirectoryRails ? directoryEntryToOperatorPreview(e) : directoryEntryToInvestorPreview(e),
-            )}
-            suggestedTitle={showOperatorDirectoryRails ? operatorDirectoryRailTitles.suggested : carouselTitles.suggested}
-            suggestedSubtitle={
-              showOperatorDirectoryRails ? operatorDirectorySuggestedSubtitle : "Curated matches based on your profile"
-            }
-            trendingTitle={showOperatorDirectoryRails ? operatorDirectoryRailTitles.trending : carouselTitles.trending}
-            trendingSubtitle="Most active this week"
-            onViewAllSuggested={handleViewAll}
-            onViewAllTrending={handleViewAll}
-            onPreviewClick={showOperatorDirectoryRails ? handleOperatorPreviewClick : handleInvestorPreviewClick}
-            onDeployingClick={showOperatorDirectoryRails ? undefined : handleInvestorPreviewDeploying}
-            anchorVcFirmId={(inv) => {
-              if (showOperatorDirectoryRails) return null;
-              const entry = mergedEntries.find((x) => x.category === "investor" && x.name === inv.name);
-              return entry ? investorAnchorVcFirmId(entry) : null;
-            }}
-          />
-        </div>
-      ) : !isInvestorSearch && !isOperatorHubLayout && !isNetworkCapitalSurface ? (
->>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
         <>
           {scopedSuggested.length > 0 && (
             <div className="pt-4">
