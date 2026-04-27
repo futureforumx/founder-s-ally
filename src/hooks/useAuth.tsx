@@ -14,6 +14,7 @@ interface AuthCtx {
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  signIn: () => void;
 }
 
 const AuthContext = createContext<AuthCtx>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthCtx>({
   signIn: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
+  signIn: () => {},
 });
 
 function workosUserToCompatUser(
@@ -56,7 +58,11 @@ function workosUserToCompatUser(
 }
 
 function WorkOSAuthProvider({ children }: { children: ReactNode }) {
+<<<<<<< HEAD
   const { user: workosUser, isLoading, signIn: workosSignIn, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
+=======
+  const { user: workosUser, isLoading, signOut: workosSignOut, signIn: workosSignIn, getAccessToken } = useWorkOSAuth();
+>>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
 
   const user = useMemo(
     () => (workosUser ? workosUserToCompatUser(workosUser) : null),
@@ -125,9 +131,17 @@ function WorkOSAuthProvider({ children }: { children: ReactNode }) {
       signIn: () => workosSignIn(),
       signOut: () => workosSignOut({ returnPathname: "/login" }),
       getAccessToken: safeGetAccessToken,
+      signIn: () => {
+        console.log("[WorkOS] signIn() called | url:", window.location.href, "| hasUser:", !!user);
+        void workosSignIn({ provider: "authkit" });
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
+<<<<<<< HEAD
     [user, session, isLoading, workosSignIn, workosSignOut]
+=======
+    [user, session, isLoading, workosSignOut, workosSignIn]
+>>>>>>> ff670ef672d3aaaac72aa3ccb4795a4827aecca5
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -154,6 +168,7 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       signIn: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
+      signIn: () => {},
     }),
     [],
   );
