@@ -122,7 +122,10 @@ function WorkOSAuthProvider({ children }: { children: ReactNode }) {
       loading: isLoading,
       signOut: () => workosSignOut({ returnPathname: "/auth" }),
       getAccessToken: safeGetAccessToken,
-      signIn: () => void workosSignIn(),
+      signIn: () => {
+        console.log("[WorkOS] signIn() called | url:", window.location.href, "| hasUser:", !!user);
+        void workosSignIn({ provider: "authkit" });
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, session, isLoading, workosSignOut, workosSignIn]

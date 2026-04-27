@@ -29,8 +29,13 @@ Sentry.init({
 });
 
 const clientId = (import.meta.env.VITE_WORKOS_CLIENT_ID as string) ?? "";
-const redirectUri = (import.meta.env.VITE_WORKOS_REDIRECT_URI as string) || undefined;
+// Derive redirectUri: prefer explicit env var, fall back to origin + /auth/callback.
+// The value logged here is what must be registered in the WorkOS Dashboard → Redirects.
+const redirectUri =
+  (import.meta.env.VITE_WORKOS_REDIRECT_URI as string)?.trim() ||
+  `${window.location.origin}/auth/callback`;
 const hasWorkOSConfig = Boolean(clientId.trim());
+console.log("[WorkOS] clientId present:", hasWorkOSConfig, "| redirectUri:", redirectUri);
 const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
@@ -67,7 +72,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 // AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
 // no actual WorkOS API calls are made when the env var is not set.
 const appTree = (
-  <AuthKitProvider clientId={clientId || "unconfigured"} redirectUri={redirectUri}>
+  <AuthKitProvider clientId={clientId || "unconfigured"} redirectUri={redirectUri} >
     <App />
   </AuthKitProvider>
 );

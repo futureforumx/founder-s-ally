@@ -10,14 +10,19 @@ export default function Auth() {
   const hasCode = searchParams.has("code");
 
   useEffect(() => {
+    console.log("[Auth] state:", { loading, hasUser: !!user, hasCode, url: window.location.href });
     // Don't call signIn() while AuthKitProvider is processing the ?code= callback —
     // doing so starts a new OAuth flow that races with and breaks the one in progress.
-    if (hasCode) return;
+    if (hasCode) {
+      console.log("[Auth] ?code= present — waiting for AuthKitProvider to process callback");
+      return;
+    }
     if (!loading && user) {
       navigate("/", { replace: true });
       return;
     }
     if (!loading && !user) {
+      console.log("[Auth] unauthenticated — calling signIn()");
       signIn();
     }
   }, [loading, user, navigate, signIn, hasCode]);
