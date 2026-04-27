@@ -736,6 +736,119 @@ function parseDirectPayload(body: Record<string, unknown>): ParsedPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Google Sheets sync — Apps Script webhook approach (no service account needed)
+// Set WAITLIST_SHEETS_WEBHOOK_URL to your deployed Apps Script web app URL.
+// See scripts/waitlist-sheets.gs for the script to paste into your sheet.
+// ---------------------------------------------------------------------------
+
+async function syncToGoogleSheet(parsed: ParsedPayload, rpcPayload: Record<string, unknown>): Promise<void> {
+  const webhookUrl = Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL");
+  if (!webhookUrl) {
+    console.log("[waitlist-signup] Google Sheets sync skipped: WAITLIST_SHEETS_WEBHOOK_URL not set");
+    return;
+  }
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        timestamp: new Date().toISOString(),
+        email: parsed.email ?? "",
+        name: parsed.name ?? "",
+        role: parsed.role ?? "",
+        stage: parsed.stage ?? "",
+        sector: parsed.sector ?? "",
+        urgency: parsed.urgency ?? "",
+        intent: parsed.intent.join(", "),
+        biggest_pain: parsed.biggest_pain ?? "",
+        company_name: parsed.company_name ?? "",
+        linkedin_url: parsed.linkedin_url ?? "",
+        source: parsed.source ?? "",
+        campaign: parsed.campaign ?? "",
+        status: String(rpcPayload.status ?? ""),
+        waitlist_position: String(rpcPayload.waitlist_position ?? ""),
+        referral_code: String(rpcPayload.referral_code ?? ""),
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[waitlist-signup] Google Sheets webhook failed (${res.status}): ${text.slice(0, 200)}`);
+    } else {
+      console.log("[waitlist-signup] Google Sheets row synced for", parsed.email);
+    }
+  } catch (err) {
+    console.error("[waitlist-signup] syncToGoogleSheet error:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HubSpot sync — private app token approach
+// Set HUBSPOT_ACCESS_TOKEN to your HubSpot private app token.
+// ---------------------------------------------------------------------------
+
+async function syncToHubSpot(parsed: ParsedPayload): Promise<void> {
+  const token = Deno.env.get("HUBSPOT_ACCESS_TOKEN");
+  if (!token) {
+    console.log("[waitlist-signup] HubSpot sync skipped: HUBSPOT_ACCESS_TOKEN not set");
+    return;
+  }
+
+  try {
+    const nameParts = (parsed.name ?? "").trim().split(/\s+/);
+    const firstname = nameParts[0] ?? "";
+    const lastname = nameParts.slice(1).join(" ");
+
+    const properties: Record<string, string> = {};
+    if (parsed.email) properties.email = parsed.email;
+    if (firstname) properties.firstname = firstname;
+    if (lastname) properties.lastname = lastname;
+    if (parsed.company_name) properties.company = parsed.company_name;
+    if (parsed.role) properties.jobtitle = parsed.role;
+    if (parsed.linkedin_url) properties.website = parsed.linkedin_url;
+
+    const createRes = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ properties }),
+    });
+
+    if (createRes.status === 409) {
+      const body = await createRes.json().catch(() => ({})) as Record<string, unknown>;
+      const msg = typeof body.message === "string" ? body.message : "";
+      const match = msg.match(/Existing ID: (\d+)/);
+      const existingId = match?.[1];
+      if (existingId) {
+        const updateRes = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${existingId}`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ properties }),
+        });
+        if (updateRes.ok) {
+          console.log("[waitlist-signup] HubSpot contact updated for", parsed.email);
+        } else {
+          console.warn("[waitlist-signup] HubSpot update failed:", updateRes.status);
+        }
+      }
+    } else if (!createRes.ok) {
+      const text = await createRes.text().catch(() => "");
+      console.error(`[waitlist-signup] HubSpot create failed (${createRes.status}): ${text.slice(0, 200)}`);
+    } else {
+      console.log("[waitlist-signup] HubSpot contact created for", parsed.email);
+    }
+  } catch (err) {
+    console.error("[waitlist-signup] syncToHubSpot error:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -824,6 +937,18 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    // ===== GOOGLE SHEETS + HUBSPOT SYNC =====
+    console.log("[waitlist-signup] sync-check", {
+      hasSheetUrl: !!Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL"),
+      hasHubspot: !!Deno.env.get("HUBSPOT_ACCESS_TOKEN"),
+    });
+    await Promise.all([
+      syncToGoogleSheet(parsed, rpcPayload),
+      syncToHubSpot(parsed),
+    ]);
+    console.log("[waitlist-signup] sync-done");
+
     // ===== MATCH + EMAIL TRIGGER =====
 if (email) {
   try {

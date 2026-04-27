@@ -9,7 +9,7 @@ import PublicApp from "./PublicApp.tsx";
 import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
-import { hasWorkOSConfig, resolveWorkOSClientId, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
+import { hasWorkOSConfig, resolveWorkOSApiHostname, resolveWorkOSClientId, resolveWorkOSDevMode, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
 
 initMixpanel();
 
@@ -36,6 +36,8 @@ Sentry.init({
 });
 
 const clientId = resolveWorkOSClientId();
+const apiHostname = resolveWorkOSApiHostname();
+const devMode = resolveWorkOSDevMode();
 const redirectUri = resolveWorkOSRedirectUri();
 const workosConfigured = hasWorkOSConfig();
 const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
@@ -71,7 +73,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 }
 
 const appTree = workosConfigured ? (
-  <AuthKitProvider clientId={clientId} redirectUri={redirectUri}>
+  <AuthKitProvider clientId={clientId} apiHostname={apiHostname} devMode={devMode} redirectUri={redirectUri}>
     <App />
   </AuthKitProvider>
 ) : (

@@ -155,13 +155,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   if (loading && authTimedOut) {
-    return <Navigate to="/auth?timeout=1" replace />;
+    return <Navigate to="/login?timeout=1" replace />;
   }
 
   if (loading) {
     return <RouteLoader />;
   }
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -254,8 +254,8 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
-              <Route path="/auth/callback" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
-              <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
               <Route
                 path="/access"
                 element={

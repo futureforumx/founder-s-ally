@@ -14,7 +14,7 @@ export default function SsoCallback() {
       navigate("/", { replace: true });
       return;
     }
-    navigate("/auth", { replace: true });
+    navigate("/login", { replace: true });
   }, [loading, navigate, user]);
 
   return (
