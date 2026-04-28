@@ -6,8 +6,20 @@ import { Loader2 } from "lucide-react";
 /**
  * WorkOS AuthKit callback handler — mounted at /auth and /auth/*.
  *
- * This is the ONLY component that handles the WorkOS redirect URI
- * (https://vekta.so/auth?code=...). It never renders standalone sign-in UI.
+ * ROOT CAUSE NOTE: The WorkOS AuthKit JS SDK calls
+ *   window.history.replaceState({}, "", cleanUrl)
+ * at the end of handleCallback_fn to strip ?code= (and all other params)
+ * from the URL, whether the exchange succeeds or fails. This happens on
+ * every AuthKitProvider initialization, asynchronously.
+ *
+ * If we read window.location.search at React render time, it may be empty
+ * by the time a re-render occurs (triggered by the SDK setting isLoading:false
+ * or user). That makes hasCode=false on the re-render, which would wrongly
+ * redirect to /login via Guard 2.
+ *
+ * FIX: Capture hasCode / hasError / errorParam ONCE in refs on first mount,
+ * before the SDK can call history.replaceState. Never re-read from
+ * window.location after that.
  *
  * Behaviour matrix:
  *   - WorkOS ?error= param     → redirect to /login?error=<value>
@@ -19,62 +31,67 @@ import { Loader2 } from "lucide-react";
 export default function SsoCallback() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const logged = useRef(false);
   const ensureCalledRef = useRef(false);
   const [ensuringUser, setEnsuringUser] = useState(false);
 
-  const searchParams = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : ""
-  );
-  const hasCode = searchParams.has("code");
-  const hasError = searchParams.has("error");
-  const errorParam = searchParams.get("error");
+  // ---------------------------------------------------------------------------
+  // Capture URL params ONCE on first render — before the SDK strips ?code=
+  // via window.history.replaceState in handleCallback_fn.
+  // Using a ref (not state) so that a re-render caused by the SDK setting
+  // user/isLoading does NOT re-read window.location.search.
+  // ---------------------------------------------------------------------------
+  const initialParams = useRef<{ hasCode: boolean; hasError: boolean; errorParam: string | null } | null>(null);
+  if (initialParams.current === null) {
+    // This block runs exactly once: on the first render, synchronously,
+    // BEFORE any effects or async SDK work can change window.location.
+    const sp = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : ""
+    );
+    initialParams.current = {
+      hasCode: sp.has("code"),
+      hasError: sp.has("error"),
+      errorParam: sp.get("error"),
+    };
+    console.log("[auth] SsoCallback mounted —", {
+      url: typeof window !== "undefined" ? window.location.href : "",
+      hasCode: initialParams.current.hasCode,
+      hasError: initialParams.current.hasError,
+      error: initialParams.current.errorParam,
+    });
+  }
 
-  // Log once on mount — no secrets, safe in prod
-  useEffect(() => {
-    if (logged.current) return;
-    logged.current = true;
-    if (import.meta.env.DEV) {
-      console.log("[auth] SsoCallback mounted —", {
-        url: window.location.href,
-        hasCode,
-        hasError,
-        error: errorParam,
-      });
-    }
-  }, [hasCode, hasError, errorParam]);
+  const { hasCode, hasError, errorParam } = initialParams.current;
 
   useEffect(() => {
     // Guard 1: WorkOS returned an explicit error param (e.g. access_denied)
     if (hasError) {
-      if (import.meta.env.DEV) {
-        console.warn("[auth] WorkOS returned error param:", errorParam);
-      }
+      console.warn("[auth] WorkOS returned error param:", errorParam);
       navigate(`/login?error=${encodeURIComponent(errorParam ?? "workos_error")}`, { replace: true });
       return;
     }
 
-    // Guard 2: No code — user landed on /auth directly, bounce to /login
+    // Guard 2: No code — user navigated to /auth directly, bounce to /login
+    // This is checked against the INITIAL URL (before SDK strips params).
     if (!hasCode) {
-      if (import.meta.env.DEV) {
-        console.log("[auth] /auth hit without ?code= — redirecting to /login");
-      }
+      console.log("[auth] /auth hit without ?code= — redirecting to /login");
       navigate("/login", { replace: true });
       return;
     }
 
-    // Code is present — wait for the SDK to finish the exchange
-    if (loading) return;
+    // Code was present on load — wait for the SDK to finish the exchange.
+    // The SDK reads the code + codeVerifier from sessionStorage internally
+    // via AuthKitProvider's handleCallback_fn.
+    if (loading) {
+      console.log("[auth] exchange in progress (isLoading=true) — waiting…");
+      return;
+    }
 
     if (user) {
       // Exchange succeeded — ensure users + profiles rows exist before navigating
       if (ensureCalledRef.current) return;
       ensureCalledRef.current = true;
 
-      if (import.meta.env.DEV) {
-        console.log("[auth] exchange succeeded — calling ensure-user for:", user.id);
-      }
-
+      console.log("[auth] exchange succeeded — calling ensure-user for:", user.id);
       setEnsuringUser(true);
 
       fetch("/api/ensure-user", {
@@ -91,30 +108,23 @@ export default function SsoCallback() {
       })
         .then((r) => r.json())
         .then((json) => {
-          if (import.meta.env.DEV) {
-            console.log("[auth] ensure-user response:", json);
-          }
+          console.log("[auth] ensure-user response:", json);
         })
         .catch((err) => {
           // Non-fatal — the app can still load; profile will be fetched later
-          if (import.meta.env.DEV) {
-            console.warn("[auth] ensure-user request failed (non-fatal):", err);
-          }
+          console.warn("[auth] ensure-user request failed (non-fatal):", err);
         })
         .finally(() => {
-          if (import.meta.env.DEV) {
-            console.log("[auth] navigating to /");
-          }
+          console.log("[auth] navigating to /");
           navigate("/", { replace: true });
         });
 
       return;
     }
 
-    // SDK finished loading but no user — exchange failed (bad or expired code)
-    if (import.meta.env.DEV) {
-      console.warn("[auth] exchange failed — loading done but no user set");
-    }
+    // SDK finished loading but no user — exchange failed (bad or expired code,
+    // or codeVerifier missing from sessionStorage).
+    console.warn("[auth] exchange failed — isLoading=false but user is null");
     navigate("/login?error=callback_failed", { replace: true });
   }, [hasCode, hasError, errorParam, loading, user, navigate]);
 

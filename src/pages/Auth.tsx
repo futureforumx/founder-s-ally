@@ -82,6 +82,7 @@ export default function Auth() {
   }
 
   async function startSignIn() {
+    console.log("[auth] LOGIN BUTTON CLICKED - using explicit WorkOS PKCE redirect");
     setStartingSignIn(true);
     try {
       const lastAttempt = Number(window.sessionStorage.getItem(LOGIN_ATTEMPT_KEY) || "0");
@@ -96,8 +97,8 @@ export default function Auth() {
     }
 
     try {
-      // redirectToWorkOS() logs the authorization URL and target hostname
-      // before calling window.location.href — if this throws, we reset state.
+      // redirectToWorkOS() explicitly builds the WorkOS authorization URL,
+      // logs it, then sets window.location.href — never calls navigate("/auth").
       await signIn();
     } catch (err) {
       console.error("[auth] sign-in failed before redirect:", err);

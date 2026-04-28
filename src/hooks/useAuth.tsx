@@ -99,10 +99,10 @@ async function redirectToWorkOS(): Promise<void> {
 
   const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
 
-  // Log before leaving — confirm we are going to WorkOS, NOT to /auth
-  console.log("[auth] authorization URL →", authorizationUrl);
-  console.log("[auth] redirect target hostname:", new URL(authorizationUrl).hostname);
-  console.log("[auth] redirect_uri (callback):", redirectUri);
+  // Log before leaving — confirm we are going to api.workos.com, NOT to /auth
+  console.log("[auth] FINAL WORKOS AUTHORIZE URL", authorizationUrl);
+  console.log("[auth] FINAL WORKOS HOSTNAME", new URL(authorizationUrl).hostname);
+  console.log("[auth] FINAL REDIRECT_URI", new URL(authorizationUrl).searchParams.get("redirect_uri"));
 
   // Navigate — use href for clarity; assign and href are equivalent for absolute URLs
   window.location.href = authorizationUrl;
