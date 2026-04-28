@@ -250,6 +250,7 @@ export function AccessRequestForm() {
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailFieldError, setEmailFieldError] = useState<string | null>(null);
+  const [emailAlreadyRegistered, setEmailAlreadyRegistered] = useState(false);
   const [result, setResult] = useState<WaitlistSignupResponse | null>(null);
 
   const reduceMotion = useReducedMotion();
@@ -272,8 +273,9 @@ export function AccessRequestForm() {
     const ids: string[] = [];
     if (emailFieldError) ids.push("access-email-error");
     if (!emailFieldError && showPersonalEmailHint) ids.push("access-email-personal-hint");
+    if (emailAlreadyRegistered) ids.push("access-email-existing");
     return ids.length ? ids.join(" ") : undefined;
-  }, [emailFieldError, showPersonalEmailHint]);
+  }, [emailFieldError, showPersonalEmailHint, emailAlreadyRegistered]);
 
   const { copied, copyFailed, copyReferralLink, xIntentHref, mailtoHref } = useReferralShareActions(referralLink);
 
@@ -531,6 +533,11 @@ export function AccessRequestForm() {
     setStatus("submitting");
     try {
       const data = await waitlistSignup(payload);
+      if (data.status === "existing") {
+        setEmailAlreadyRegistered(true);
+        setStatus("idle");
+        return;
+      }
       setResult(data);
       setStatus("success");
     } catch (err) {
@@ -753,6 +760,7 @@ export function AccessRequestForm() {
             onChange={(e) => {
               const v = e.target.value;
               setEmail(v);
+              if (emailAlreadyRegistered) setEmailAlreadyRegistered(false);
               if (emailFieldError && accessEmailSchema.safeParse(v).success) {
                 setEmailFieldError(null);
               }
@@ -779,6 +787,14 @@ export function AccessRequestForm() {
           {!emailFieldError && showPersonalEmailHint ? (
             <p id="access-email-personal-hint" className={cn("text-2xs", accessInlineHighlightClass)} role="status">
               {PERSONAL_EMAIL_HINT}
+            </p>
+          ) : null}
+          {emailAlreadyRegistered ? (
+            <p id="access-email-existing" className="text-2xs text-[#b3b3b3]" role="status">
+              Looks like you've already registered.{" "}
+              <a href="/referrals" className={cn("underline underline-offset-2", accessInlineHighlightClass)}>
+                Check your waitlist status here.
+              </a>
             </p>
           ) : null}
         </div>
