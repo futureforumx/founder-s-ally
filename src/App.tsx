@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ActiveContextProvider } from "@/context/ActiveContext";
 import { ConnectorOAuthReturnListener } from "@/components/ConnectorOAuthReturnListener";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -89,23 +88,35 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
     let cancelled = false;
     setState((prev) => ({ ...prev, loading: true }));
 
-    supabase
-      .from("profiles")
-      .select("id, has_completed_onboarding")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
+    // Use the service-role API route so WorkOS JWTs don't need to be trusted
+    // by Supabase — direct supabase.from() queries fail with PGRST301.
+    const uid = user.id;
+    fetch("/api/get-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ _uid: uid }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((json: { ok?: boolean; profile?: { has_completed_onboarding?: boolean } | null }) => {
         if (cancelled) return;
-        if (error) {
-          setState({ isKnown: true, loading: false, needsOnboarding: false });
-          return;
+        const profileData = json?.profile ?? null;
+        const completed = profileData?.has_completed_onboarding === true;
+        if (import.meta.env.DEV) {
+          console.log("[profile] get-profile response —", { uid, profileData, completed });
         }
-        const completed = (data as { has_completed_onboarding?: boolean } | null)?.has_completed_onboarding === true;
         setState({
           isKnown: true,
           loading: false,
-          needsOnboarding: !data || !completed,
+          needsOnboarding: !profileData || !completed,
         });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (import.meta.env.DEV) {
+          console.warn("[profile] get-profile failed — defaulting to not-onboarding:", err);
+        }
+        // On API failure, don't loop the user into onboarding
+        setState({ isKnown: true, loading: false, needsOnboarding: false });
       });
 
     return () => {
