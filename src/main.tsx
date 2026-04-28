@@ -17,6 +17,47 @@ if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
 }
 
+// Diagnostic: capture callback URL params BEFORE the SDK cleans them up.
+// This runs synchronously at page load, before any React code.
+if (typeof window !== "undefined") {
+  const sp = new URLSearchParams(window.location.search);
+  if (sp.has("code") || sp.has("error")) {
+    try {
+      sessionStorage.setItem("_wos_callback", JSON.stringify({
+        hasCode: sp.has("code"),
+        error: sp.get("error"),
+        errorDesc: sp.get("error_description"),
+        url: window.location.href.slice(0, 200),
+        codeVerifier: sessionStorage.getItem("workos:code-verifier") ? "present" : "absent",
+        ts: new Date().toISOString(),
+      }));
+    } catch { /* ignore */ }
+  }
+
+  // Intercept window.location.assign to capture the exact WorkOS authorize URL.
+  const _origAssign = window.location.assign.bind(window.location);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window.location as any).assign = (url: string | URL) => {
+    const urlStr = typeof url === "string" ? url : url.toString();
+    if (urlStr.includes("user_management/authorize") || urlStr.includes("workos.com")) {
+      try {
+        const parsed = new URL(urlStr);
+        sessionStorage.setItem("_wos_auth_url", JSON.stringify({
+          clientId: parsed.searchParams.get("client_id"),
+          redirectUri: parsed.searchParams.get("redirect_uri"),
+          hasChallenge: parsed.searchParams.has("code_challenge"),
+          ts: new Date().toISOString(),
+        }));
+        // Also clear old debug data so next attempt is fresh
+        sessionStorage.removeItem("_wos_dbg");
+        sessionStorage.removeItem("_wos_cb_fired");
+        sessionStorage.removeItem("_wos_callback");
+      } catch { /* ignore */ }
+    }
+    return _origAssign(urlStr);
+  };
+}
+
 // Diagnostic: intercept WorkOS API calls and store results in sessionStorage
 // so Auth.tsx can display what actually happened during the code exchange.
 if (typeof window !== "undefined") {
