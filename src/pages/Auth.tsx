@@ -1,29 +1,34 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const LOGIN_ATTEMPT_KEY = "workos-login-attempt-at";
 const LOGIN_LOOP_WINDOW_MS = 15_000;
 
+const ERROR_MESSAGES: Record<string, string> = {
+  callback_failed: "Sign-in couldn't be completed. Please try again.",
+  workos_error: "WorkOS returned an error. Please try again.",
+  access_denied: "Access was denied. Please try again or contact support.",
+};
+
 export default function Auth() {
   const { user, loading, isConfigured, signIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loopDetected, setLoopDetected] = useState(false);
   const [startingSignIn, setStartingSignIn] = useState(false);
 
-  // Debug: log every time Auth renders with current state
-  useEffect(() => {
-    const hasCode = new URLSearchParams(window.location.search).has("code");
-    console.log("[auth] /auth route hit —", {
-      url: window.location.href,
-      hasCode,
-      loading,
-      userPresent: Boolean(user),
-      isConfigured,
-    });
-  }, [loading, user, isConfigured]);
+  const errorKey = searchParams.get("error") ?? "";
+  const errorMessage = ERROR_MESSAGES[errorKey] ?? (errorKey ? "An error occurred. Please try again." : null);
 
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log("[auth] /login route —", { loading, userPresent: Boolean(user), errorKey });
+    }
+  }, [loading, user, errorKey]);
+
+  // If the user is already authenticated, send them straight to the app
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
       const nextUrl = new URL(window.location.href);
@@ -31,16 +36,12 @@ export default function Auth() {
       window.location.replace(nextUrl.toString());
       return;
     }
-
     if (!loading && user) {
-      try {
-        window.sessionStorage.removeItem(LOGIN_ATTEMPT_KEY);
-      } catch {
-        // Ignore storage failures and continue the auth flow.
+      try { window.sessionStorage.removeItem(LOGIN_ATTEMPT_KEY); } catch { /* ignore */ }
+      if (import.meta.env.DEV) {
+        console.log("[auth] already authenticated — navigating to /");
       }
-      console.log("[auth] user authenticated — navigating to /");
       navigate("/", { replace: true });
-      return;
     }
   }, [loading, user, navigate]);
 
@@ -94,7 +95,9 @@ export default function Auth() {
       // Continue even if sessionStorage is unavailable.
     }
 
-    console.log("[auth] starting WorkOS sign-in redirect");
+    if (import.meta.env.DEV) {
+      console.log("[auth] initiating WorkOS sign-in redirect");
+    }
     try {
       await signIn();
     } catch {
@@ -102,44 +105,37 @@ export default function Auth() {
     }
   }
 
-  if (!loading && !user && isConfigured) {
-    const refreshTokenPresent = (() => {
-      try { return Boolean(localStorage.getItem("workos:refresh-token")); } catch { return false; }
-    })();
-
+  // Show spinner while checking existing session
+  if (loading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
-        <div className="max-w-lg space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
-          <p className="text-sm font-semibold text-zinc-100">Sign in to continue</p>
-          <p className="text-sm text-zinc-400">
-            Continue to WorkOS to access your Vekta workspace.
-          </p>
-          <button
-            className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-            onClick={() => {
-              void startSignIn();
-            }}
-            disabled={startingSignIn}
-          >
-            {startingSignIn ? "Starting sign-in..." : "Continue with WorkOS"}
-          </button>
-          <details className="text-left">
-            <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Auth debug</summary>
-            <pre className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400 whitespace-pre-wrap break-all">
-{`url: ${typeof window !== "undefined" ? window.location.href : ""}
-refreshToken in localStorage: ${refreshTokenPresent ? "present" : "absent"}
-
-Open browser DevTools → Console for full auth trace logs.`}
-            </pre>
-          </details>
-        </div>
+      <div className="fixed inset-0 flex items-center justify-center bg-[#050506]">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#050506]">
-      <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+    <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
+      <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
+        <p className="text-sm font-semibold text-zinc-100">Sign in to continue</p>
+        <p className="text-sm text-zinc-400">
+          Continue to WorkOS to access your Vekta workspace.
+        </p>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-left">
+            <p className="text-xs text-red-400">{errorMessage}</p>
+          </div>
+        )}
+
+        <button
+          className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+          onClick={() => { void startSignIn(); }}
+          disabled={startingSignIn}
+        >
+          {startingSignIn ? "Starting sign-in..." : "Continue with WorkOS"}
+        </button>
+      </div>
     </div>
   );
 }
