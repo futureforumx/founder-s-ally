@@ -85,7 +85,7 @@ const devMode = resolveWorkOSDevMode();
 const redirectUri = resolveWorkOSRedirectUri();
 
 console.log("[auth] WorkOS config —", {
-  clientIdPresent: Boolean(clientId),
+  clientId: clientId || "(missing)",
   redirectUri,
   devMode,
   apiHostname: apiHostname ?? "(default api.workos.com)",
