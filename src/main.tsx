@@ -75,7 +75,18 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 // AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
 // no actual WorkOS API calls are made when the env var is not set.
 const appTree = (
-  <AuthKitProvider clientId={clientId || "unconfigured"} apiHostname={apiHostname} devMode={devMode} redirectUri={redirectUri}>
+  <AuthKitProvider
+    clientId={clientId || "unconfigured"}
+    apiHostname={apiHostname}
+    devMode={devMode}
+    redirectUri={redirectUri}
+    onRedirectCallback={() => {
+      // After successful code exchange, force a hard reload to "/" so the
+      // refresh token stored in localStorage (devMode=true) re-authenticates
+      // the user without relying on in-memory React state propagation.
+      window.location.replace("/");
+    }}
+  >
     <App />
   </AuthKitProvider>
 );

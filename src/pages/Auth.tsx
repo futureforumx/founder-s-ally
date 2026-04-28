@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { resolveWorkOSClientId, resolveWorkOSRedirectUri, resolveWorkOSDevMode } from "@/lib/workosConfig";
 
 const LOGIN_ATTEMPT_KEY = "workos-login-attempt-at";
 const LOGIN_LOOP_WINDOW_MS = 15_000;
@@ -12,30 +11,6 @@ export default function Auth() {
   const navigate = useNavigate();
   const [loopDetected, setLoopDetected] = useState(false);
   const [startingSignIn, setStartingSignIn] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const origConsoleError = useRef<typeof console.error | null>(null);
-
-  // Intercept console.error to capture WorkOS SDK errors during code exchange
-  useEffect(() => {
-    origConsoleError.current = console.error;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    console.error = (...args: any[]) => {
-      origConsoleError.current?.(...args);
-      const msg = args.map((a) => (a instanceof Error ? `${a.name}: ${a.message}` : String(a))).join(" ");
-      if (
-        msg.includes("exchange") ||
-        msg.includes("CodeExchange") ||
-        msg.includes("authorization_code") ||
-        msg.includes("workos") ||
-        msg.includes("WorkOS")
-      ) {
-        setAuthError(msg.slice(0, 600));
-      }
-    };
-    return () => {
-      if (origConsoleError.current) console.error = origConsoleError.current;
-    };
-  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
@@ -78,17 +53,11 @@ export default function Auth() {
             WorkOS redirected back before the login screen completed. Retrying automatically would loop, so the
             sign-in flow is paused here.
           </p>
-          {authError && (
-            <pre className="mt-2 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-left text-xs text-red-300 whitespace-pre-wrap break-all">
-              {authError}
-            </pre>
-          )}
           <button
             className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white"
             onClick={() => {
               setLoopDetected(false);
               setStartingSignIn(false);
-              setAuthError(null);
             }}
           >
             Back to sign-in
@@ -120,11 +89,6 @@ export default function Auth() {
   }
 
   if (!loading && !user && isConfigured) {
-    const dbgClientId = resolveWorkOSClientId();
-    const dbgRedirectUri = resolveWorkOSRedirectUri();
-    const dbgDevMode = resolveWorkOSDevMode();
-    const dbgHasCode = new URLSearchParams(window.location.search).has("code");
-    const dbgCodeVerifier = (() => { try { return window.sessionStorage.getItem("workos:code-verifier"); } catch { return null; } })();
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
         <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
@@ -132,22 +96,6 @@ export default function Auth() {
           <p className="text-sm text-zinc-400">
             Continue to WorkOS to access your Vekta workspace.
           </p>
-          {authError && (
-            <pre className="mt-1 rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-left text-xs text-red-300 whitespace-pre-wrap break-all">
-              {authError}
-            </pre>
-          )}
-          <details className="text-left">
-            <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Debug info</summary>
-            <pre className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400 whitespace-pre-wrap break-all">
-{`clientId: ${dbgClientId || "(empty)"}
-redirectUri: ${dbgRedirectUri || "(empty)"}
-devMode: ${dbgDevMode}
-url: ${window.location.href}
-hasCode: ${dbgHasCode}
-codeVerifier: ${dbgCodeVerifier ? "present" : "absent"}`}
-            </pre>
-          </details>
           <button
             className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
             onClick={() => {
