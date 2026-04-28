@@ -92,24 +92,38 @@ async function redirectToWorkOS(): Promise<void> {
 
   const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
 
+  // ── DIAGNOSTICS ────────────────────────────────────────────────────────────
+  // Write proof-of-click data to localStorage BEFORE navigating so it survives
+  // the cross-origin round-trip and can be read at /debug/auth-proof.
+  const _parsedUrl = new URL(authorizationUrl);
+  try {
+    window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
+    window.localStorage.setItem("_auth_debug_authorize_url", authorizationUrl);
+    window.localStorage.setItem("_auth_debug_authorize_hostname", _parsedUrl.hostname);
+    window.localStorage.setItem("_auth_debug_redirect_uri", _parsedUrl.searchParams.get("redirect_uri") ?? "(missing)");
+    window.localStorage.setItem("_auth_debug_client_id_present", String(Boolean(_parsedUrl.searchParams.get("client_id"))));
+    window.localStorage.setItem("_auth_debug_code_challenge_present", String(Boolean(_parsedUrl.searchParams.get("code_challenge"))));
+  } catch { /* ignore if storage unavailable */ }
+
+  console.log("[AUTH_PROOF] leaving for WorkOS", {
+    authorizeUrl: authorizationUrl,
+    hostname: _parsedUrl.hostname,
+    redirect_uri: _parsedUrl.searchParams.get("redirect_uri"),
+    code_challenge_present: Boolean(_parsedUrl.searchParams.get("code_challenge")),
+  });
+  // ── END DIAGNOSTICS ────────────────────────────────────────────────────────
+
   // Store verifier for the SDK to read on the callback page.
   // IMPORTANT: write to localStorage FIRST — do not rely on the beforeunload
   // listener in main.tsx because some browsers wipe sessionStorage before
   // beforeunload fires during cross-origin navigations.
   try {
     window.localStorage.setItem("_wos_cv_bk", codeVerifier);
-    console.log("[auth] codeVerifier backed up to localStorage");
   } catch { /* ignore if storage unavailable */ }
 
   try {
     window.sessionStorage.setItem("workos:code-verifier", codeVerifier);
-    console.log("[auth] codeVerifier stored in sessionStorage");
   } catch { /* ignore */ }
-
-  // Log before leaving — confirm we are going to api.workos.com, NOT to /auth
-  console.log("[auth] FINAL WORKOS AUTHORIZE URL", authorizationUrl);
-  console.log("[auth] FINAL WORKOS HOSTNAME", new URL(authorizationUrl).hostname);
-  console.log("[auth] FINAL REDIRECT_URI", new URL(authorizationUrl).searchParams.get("redirect_uri"));
 
   // Navigate — use href for clarity; assign and href are equivalent for absolute URLs
   window.location.href = authorizationUrl;

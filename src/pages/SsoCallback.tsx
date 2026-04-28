@@ -52,12 +52,24 @@ export default function SsoCallback() {
       hasError: sp.has("error"),
       errorParam: sp.get("error"),
     };
-    console.log("[auth] SsoCallback mounted —", {
-      url: typeof window !== "undefined" ? window.location.href : "",
-      hasCode: initialParams.current.hasCode,
-      hasError: initialParams.current.hasError,
-      error: initialParams.current.errorParam,
+
+    // ── DIAGNOSTICS ──────────────────────────────────────────────────────────
+    // Write to localStorage before ANY redirect logic so the data survives.
+    try {
+      window.localStorage.setItem("_auth_debug_callback_url", typeof window !== "undefined" ? window.location.href : "(ssr)");
+      window.localStorage.setItem("_auth_debug_callback_search", typeof window !== "undefined" ? window.location.search : "(ssr)");
+      window.localStorage.setItem("_auth_debug_callback_code_present", String(initialParams.current.hasCode));
+      window.localStorage.setItem("_auth_debug_callback_error_present", String(initialParams.current.hasError));
+      window.localStorage.setItem("_auth_debug_callback_at", new Date().toISOString());
+    } catch { /* ignore */ }
+
+    console.log("[AUTH_PROOF] callback landed", {
+      href: typeof window !== "undefined" ? window.location.href : "(ssr)",
+      search: typeof window !== "undefined" ? window.location.search : "(ssr)",
+      code_present: initialParams.current.hasCode,
+      error_present: initialParams.current.hasError,
     });
+    // ── END DIAGNOSTICS ──────────────────────────────────────────────────────
   }
 
   const { hasCode, hasError, errorParam } = initialParams.current;
