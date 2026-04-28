@@ -76,3 +76,4 @@ data/cbi-auth.json
 
 # Local coverage snapshots (optional; COMPANY_JOBS_COVERAGE_WRITE=1)
 .cache/
+vekta-md/*.sh
