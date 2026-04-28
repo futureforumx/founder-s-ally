@@ -6,17 +6,9 @@
  */
 
 const DEBUG_KEYS = [
-  // Written synchronously in Auth.tsx button onClick — before any async work
+  // Written synchronously in Auth.tsx button onClick — before SDK signIn()
   "_auth_debug_clicked_at",
   "_auth_debug_preRedirect_href",
-  // Written by redirectToWorkOS() in useAuth.tsx after PKCE completes
-  "_auth_debug_authorize_url",
-  "_auth_debug_authorize_hostname",
-  "_auth_debug_redirect_uri",
-  "_auth_debug_client_id_present",
-  "_auth_debug_code_challenge_present",
-  // Written if redirectToWorkOS() throws (e.g. crypto.subtle failure)
-  "_auth_debug_error",
   // Written in main.tsx BEFORE React renders — ground truth of what WorkOS sent
   "_auth_debug_mainjs_at",
   "_auth_debug_mainjs_href",
@@ -27,20 +19,11 @@ const DEBUG_KEYS = [
   "_auth_debug_callback_search",
   "_auth_debug_callback_code_present",
   "_auth_debug_callback_error_present",
-  // codeVerifier backup state (written by redirectToWorkOS)
-  "_wos_cv_bk",
 ] as const;
 
 function Row({ label, value }: { label: string; value: string | null }) {
   const missing = value === null || value === "";
-  const isCv = label === "_wos_cv_bk";
-
-  const display = isCv
-    ? value
-      ? `(present — ${value.length} chars)`
-      : "(missing)"
-    : (value ?? "(missing)");
-
+  const display = value ?? "(missing)";
   const color = missing ? "#ef4444" : value === "false" ? "#f97316" : "#22c55e";
 
   return (
@@ -76,47 +59,37 @@ export default function DebugAuthProof() {
     // localStorage unavailable
   }
 
-  // Derive diagnosis
   const clicked = Boolean(values["_auth_debug_clicked_at"]);
-  const pkceError = values["_auth_debug_error"];
-  const hasHostname = values["_auth_debug_authorize_hostname"];
-  const callbackLanded = Boolean(values["_auth_debug_callback_at"]);
   const mainjsSearch = values["_auth_debug_mainjs_search"];
-  const mainjsHadCode = mainjsSearch && mainjsSearch !== "(empty)" && mainjsSearch.includes("code=");
+  const mainjsHadCode = Boolean(mainjsSearch && mainjsSearch !== "(empty)" && mainjsSearch.includes("code="));
+  const callbackLanded = Boolean(values["_auth_debug_callback_at"]);
   const codePresent = values["_auth_debug_callback_code_present"];
   const errorPresent = values["_auth_debug_callback_error_present"];
-
   const elapsed = elapsedBetween(values["_auth_debug_clicked_at"], values["_auth_debug_callback_at"]);
 
   let diagnosis = "";
   let diagColor = "#a1a1aa";
 
   if (!clicked) {
-    diagnosis = "❌ Login button was never clicked (no _auth_debug_clicked_at). The button onClick is not firing — check for React hydration errors or JS crashes on the /login page.";
-    diagColor = "#ef4444";
-  } else if (pkceError && pkceError !== "") {
-    diagnosis = `❌ Button was clicked but redirectToWorkOS() threw before building the URL: ${pkceError}. Most likely crypto.subtle is unavailable (insecure context / non-HTTPS).`;
-    diagColor = "#ef4444";
-  } else if (!hasHostname || hasHostname !== "api.workos.com") {
-    diagnosis = `❌ Authorize URL hostname is "${hasHostname ?? "(missing)"}" — expected "api.workos.com". WorkOS config is wrong.`;
+    diagnosis = "❌ Login button onClick never fired — no _auth_debug_clicked_at written. Check for JS errors on the /login page preventing the button from rendering.";
     diagColor = "#ef4444";
   } else if (!callbackLanded) {
-    diagnosis = "❌ SsoCallback never mounted. WorkOS did not redirect back to /auth. Check that the redirect URI in the WorkOS dashboard exactly matches _auth_debug_redirect_uri above (no trailing slash difference).";
+    diagnosis = "❌ SDK signIn() was called but /auth never loaded. WorkOS did not redirect back. Check the redirect URI allowlist in the WorkOS dashboard for this client ID.";
     diagColor = "#ef4444";
   } else if (mainjsHadCode && codePresent !== "true") {
-    diagnosis = "🔴 RACE CONDITION: main.tsx saw ?code= in the URL, but SsoCallback saw none. The SDK's history.replaceState stripped the code BEFORE SsoCallback's synchronous first render. The ref capture is not working. Something is rendering SsoCallback after the SDK's setTimeout fires.";
+    diagnosis = "🔴 RACE: main.tsx saw ?code= on load, but SsoCallback saw none. The SDK's history.replaceState stripped the URL before SsoCallback's first render.";
     diagColor = "#ef4444";
   } else if (codePresent === "true") {
-    diagnosis = "✅ Flow reached /auth with ?code= present. Exchange should have worked. Check SsoCallback logs for exchange failure reason.";
+    diagnosis = "✅ /auth received ?code= — SDK exchange should have run. Check browser console for [auth] onRedirectCallback or exchange errors.";
     diagColor = "#22c55e";
   } else if (errorPresent === "true") {
-    diagnosis = "⚠️ WorkOS redirected back with ?error= (no code). Check _auth_debug_callback_url for the error param value.";
+    diagnosis = "⚠️ WorkOS returned ?error= — see _auth_debug_callback_url for the error value.";
     diagColor = "#f97316";
-  } else if (mainjsSearch === "(empty)" || mainjsSearch === "") {
-    diagnosis = "❌ WorkOS redirected back to /auth with NO query params at all (confirmed by main.tsx ground-truth capture). This is a WorkOS-side issue: the production client ID's redirect URI is not allowlisted, the AuthKit application is not configured, or the authorize URL is missing a required parameter for this WorkOS environment.";
+  } else if (mainjsSearch === "(empty)") {
+    diagnosis = "❌ WorkOS redirected to /auth with zero query params (confirmed by main.tsx ground-truth). This is a WorkOS-side issue: the AuthKit application for this client ID has no sign-in methods configured, or the redirect URI is not allowlisted in the WorkOS dashboard.";
     diagColor = "#ef4444";
   } else {
-    diagnosis = `❌ Callback landed at /auth with neither ?code= nor ?error=. main.tsx saw: "${mainjsSearch ?? "(no mainjs capture — old attempt?)"}". If that's empty, WorkOS genuinely sent no code. If it has content, the URL was stripped before SsoCallback ran.`;
+    diagnosis = `❌ Callback landed with no ?code= and no ?error=. main.tsx saw: "${mainjsSearch ?? "(no capture — trigger a fresh attempt)"}".`;
     diagColor = "#ef4444";
   }
 
@@ -125,29 +98,30 @@ export default function DebugAuthProof() {
       <div style={{ maxWidth: 860, margin: "0 auto" }}>
         <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 4 }}>⚠ TEMPORARY DIAGNOSTIC PAGE — remove before shipping</p>
         <h1 style={{ color: "#f4f4f5", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>/debug/auth-proof</h1>
+        <p style={{ color: "#71717a", fontSize: 13, marginBottom: 8 }}>
+          Login flow: Auth.tsx button → SDK <code style={{ color: "#a1a1aa" }}>signIn()</code> → api.workos.com → /auth?code= → SsoCallback → /
+        </p>
         <p style={{ color: "#71717a", fontSize: 13, marginBottom: 32 }}>
-          Open this page after a login attempt to see what happened. Values persist across the WorkOS round-trip via localStorage.
+          Open this page after a login attempt. Values persist across the WorkOS round-trip via localStorage.
         </p>
 
-        {/* Diagnosis banner */}
+        {/* Diagnosis */}
         <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 8, padding: "14px 16px", marginBottom: 32 }}>
           <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Diagnosis</p>
           <p style={{ color: diagColor, fontSize: 13, margin: 0 }}>{diagnosis}</p>
           {elapsed !== "(unavailable)" && (
-            <p style={{ color: "#71717a", fontSize: 11, marginTop: 8, marginBottom: 0 }}>
-              Time at WorkOS: {elapsed}
-            </p>
+            <p style={{ color: "#71717a", fontSize: 11, marginTop: 8, marginBottom: 0 }}>Time spent at WorkOS: {elapsed}</p>
           )}
         </div>
 
-        {/* Before-redirect values */}
+        {/* Button click + departure */}
         <div style={{ marginBottom: 28 }}>
           <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Written before redirect (Auth.tsx button click + redirectToWorkOS)
+            Step 1 — button click (Auth.tsx onClick, synchronous)
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
             <tbody>
-              {(["_auth_debug_clicked_at", "_auth_debug_preRedirect_href", "_auth_debug_error", "_auth_debug_authorize_url", "_auth_debug_authorize_hostname", "_auth_debug_redirect_uri", "_auth_debug_client_id_present", "_auth_debug_code_challenge_present"] as const).map((k) => (
+              {(["_auth_debug_clicked_at", "_auth_debug_preRedirect_href"] as const).map((k) => (
                 <Row key={k} label={k} value={values[k]} />
               ))}
             </tbody>
@@ -157,7 +131,7 @@ export default function DebugAuthProof() {
         {/* Ground-truth main.tsx capture */}
         <div style={{ marginBottom: 28 }}>
           <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Ground-truth capture (main.tsx — before React, before AuthKit SDK)
+            Step 2 — /auth page load (main.tsx, before React + SDK run)
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
             <tbody>
@@ -167,15 +141,16 @@ export default function DebugAuthProof() {
             </tbody>
           </table>
           <p style={{ color: "#52525b", fontSize: 11, marginTop: 6 }}>
-            If _auth_debug_mainjs_search is "(empty)", WorkOS genuinely sent no query params — this is a WorkOS configuration issue, not a client-side bug.
-            If it contains "code=", the code existed when the page loaded but was stripped before SsoCallback rendered.
+            _auth_debug_mainjs_search = "(empty)" → WorkOS sent no params → WorkOS config issue, not client-side code.
+            <br />
+            _auth_debug_mainjs_search contains "code=" → code arrived but was stripped by SDK before SsoCallback rendered.
           </p>
         </div>
 
-        {/* Callback values */}
+        {/* SsoCallback values */}
         <div style={{ marginBottom: 28 }}>
           <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Written on callback (SsoCallback first render — may be after SDK strips params)
+            Step 3 — SsoCallback first render
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
             <tbody>
@@ -184,22 +159,6 @@ export default function DebugAuthProof() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* codeVerifier backup */}
-        <div style={{ marginBottom: 28 }}>
-          <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-            PKCE codeVerifier backup (cleared after callback exchange)
-          </p>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
-            <tbody>
-              <Row label="_wos_cv_bk" value={values["_wos_cv_bk"]} />
-            </tbody>
-          </table>
-          <p style={{ color: "#52525b", fontSize: 11, marginTop: 6 }}>
-            This key is cleared after a successful exchange. If it's present after a failed attempt, the backup survived but the exchange still failed.
-            If it's missing after a failed attempt, the backup was wiped (Safari ITP).
-          </p>
         </div>
 
         {/* Clear button */}

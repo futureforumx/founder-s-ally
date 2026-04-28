@@ -85,9 +85,7 @@ export default function Auth() {
             } catch { /* ignore if storage unavailable */ }
 
             setStartingSignIn(true);
-            // SDK signIn: generates PKCE internally, stores verifier in
-            // sessionStorage["workos:code-verifier"], redirects to api.workos.com.
-            await signIn();
+            await signIn(); // SDK handles PKCE + redirect to api.workos.com internally
           }}
           disabled={startingSignIn}
         >
