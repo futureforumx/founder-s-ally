@@ -38,46 +38,17 @@ if (typeof window !== "undefined") {
 }
 
 // ---------------------------------------------------------------------------
-// PKCE codeVerifier recovery
+// Callback diagnostics — log ?code= / ?error= presence on /auth load
 // ---------------------------------------------------------------------------
-// Some browsers (Safari ITP) wipe sessionStorage when navigating away via a
-// cross-origin redirect and back.  Strategy:
-//   1. On every page load, register a `beforeunload` listener that copies the
-//      codeVerifier to localStorage right before we leave (safe — no API override).
-//   2. On callback page load (?code= present), restore from localStorage if
-//      sessionStorage was wiped — this runs synchronously before the SDK reads it.
 if (typeof window !== "undefined") {
-  // Step 1 — backup on unload (no monkey-patching required)
-  window.addEventListener("beforeunload", () => {
-    try {
-      const cv = sessionStorage.getItem("workos:code-verifier");
-      if (cv) {
-        localStorage.setItem("_wos_cv_bk", cv);
-      }
-    } catch { /* ignore */ }
-  });
-
-  // Step 2 — restore on callback
   const _cbSp = new URLSearchParams(window.location.search);
-  if (_cbSp.has("code") || _cbSp.has("error")) {
-    console.log("[auth] callback hit — code present:", _cbSp.has("code"), "error:", _cbSp.get("error"));
-    try {
-      const CV_KEY = "workos:code-verifier";
-      const CV_BACKUP_KEY = "_wos_cv_bk";
-      const cvInSession = sessionStorage.getItem(CV_KEY);
-      if (!cvInSession) {
-        const backup = localStorage.getItem(CV_BACKUP_KEY);
-        if (backup) {
-          sessionStorage.setItem(CV_KEY, backup);
-          console.log("[auth] codeVerifier restored from localStorage backup");
-        } else {
-          console.warn("[auth] codeVerifier missing from both sessionStorage and localStorage backup");
-        }
-      } else {
-        console.log("[auth] codeVerifier present in sessionStorage");
-      }
-      localStorage.removeItem(CV_BACKUP_KEY);
-    } catch { /* ignore */ }
+  if (window.location.pathname === "/auth" || window.location.pathname === "/auth/") {
+    const hasCode = _cbSp.has("code");
+    const hasError = _cbSp.has("error");
+    console.log("[auth] callback hit — code present:", hasCode, "error:", _cbSp.get("error") ?? false);
+    if (!hasCode && !hasError) {
+      console.warn("[auth] /auth reached with no ?code= and no ?error= — WorkOS may have bounced without completing the flow");
+    }
   }
 }
 

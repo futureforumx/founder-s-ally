@@ -45,20 +45,6 @@ export default function Auth() {
     );
   }
 
-  async function startSignIn() {
-    console.log("[auth] LOGIN BUTTON CLICKED - using explicit WorkOS PKCE redirect");
-    setStartingSignIn(true);
-    try {
-      // redirectToWorkOS() builds the WorkOS authorization URL, logs it,
-      // backs up the PKCE verifier to localStorage, then sets window.location.href.
-      // It never calls navigate('/auth').
-      await signIn();
-    } catch (err) {
-      console.error("[auth] sign-in failed before redirect:", err);
-      setStartingSignIn(false);
-    }
-  }
-
   // Show spinner while checking existing session
   if (loading) {
     return (
@@ -84,24 +70,24 @@ export default function Auth() {
 
         <button
           className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-          onClick={() => {
-            // SYNCHRONOUS — fires at click time before any async work, so it
-            // survives even if crypto.subtle or redirectToWorkOS() throws.
-            console.log("[AUTH_PROOF] production login button clicked");
+          onClick={async () => {
+            // Synchronous diagnostics — written before any async work
+            console.log("[auth] calling SDK signIn()");
             try {
               window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
               window.localStorage.setItem("_auth_debug_preRedirect_href", window.location.href);
               // Clear stale callback diagnostics from prior attempts
-              window.localStorage.removeItem("_auth_debug_mainjs_href");
-              window.localStorage.removeItem("_auth_debug_mainjs_search");
-              window.localStorage.removeItem("_auth_debug_mainjs_at");
-              window.localStorage.removeItem("_auth_debug_callback_at");
-              window.localStorage.removeItem("_auth_debug_callback_url");
-              window.localStorage.removeItem("_auth_debug_callback_search");
-              window.localStorage.removeItem("_auth_debug_callback_code_present");
-              window.localStorage.removeItem("_auth_debug_callback_error_present");
+              ["_auth_debug_mainjs_href", "_auth_debug_mainjs_search", "_auth_debug_mainjs_at",
+               "_auth_debug_callback_at", "_auth_debug_callback_url", "_auth_debug_callback_search",
+               "_auth_debug_callback_code_present", "_auth_debug_callback_error_present",
+               "_auth_debug_authorize_url", "_auth_debug_authorize_hostname",
+               "_auth_debug_error"].forEach((k) => window.localStorage.removeItem(k));
             } catch { /* ignore if storage unavailable */ }
-            void startSignIn();
+
+            setStartingSignIn(true);
+            // SDK signIn: generates PKCE internally, stores verifier in
+            // sessionStorage["workos:code-verifier"], redirects to api.workos.com.
+            await signIn();
           }}
           disabled={startingSignIn}
         >

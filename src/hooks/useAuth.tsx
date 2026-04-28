@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from "r
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
-import { hasWorkOSConfig, resolveWorkOSClientId, resolveWorkOSRedirectUri, resolveWorkOSApiHostname } from "@/lib/workosConfig";
+import { hasWorkOSConfig } from "@/lib/workosConfig";
 
 interface AuthCtx {
   user: User | null;
@@ -25,119 +25,6 @@ const AuthContext = createContext<AuthCtx>({
   signOut: async () => {},
   getAccessToken: async () => null,
 });
-
-// ---------------------------------------------------------------------------
-// PKCE helpers (mirrors what @workos-inc/authkit-js does internally so the
-// SDK can complete the code exchange using the same codeVerifier we stored).
-// ---------------------------------------------------------------------------
-
-/** Generates a cryptographically random code verifier (43 chars, URL-safe). */
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
-/** Computes the S256 code challenge for a given verifier. */
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
-/**
- * Build a WorkOS authorization URL and redirect the browser to it.
- *
- * This bypasses the SDK's internal `signIn` (which calls `window.location.assign`
- * with no pre-redirect logging) so we can:
- *   1. Log the exact URL before the browser leaves
- *   2. Use `window.location.href` (semantically clearer than assign)
- *   3. Surface errors instead of silently eating them
- *
- * The SDK will complete the code exchange on the callback page because it reads
- * the codeVerifier from sessionStorage["workos:code-verifier"] — the same key
- * we write here.
- */
-async function redirectToWorkOS(): Promise<void> {
-  const clientId = resolveWorkOSClientId();
-  if (!clientId) {
-    try { window.localStorage.setItem("_auth_debug_error", "missing_client_id"); } catch { }
-    throw new Error("WorkOS client ID is not configured — cannot start sign-in");
-  }
-
-  // Generate PKCE challenge pair
-  let codeVerifier: string;
-  let codeChallenge: string;
-  try {
-    codeVerifier = generateCodeVerifier();
-    codeChallenge = await generateCodeChallenge(codeVerifier);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    try { window.localStorage.setItem("_auth_debug_error", `pkce_failed: ${msg}`); } catch { }
-    throw err;
-  }
-
-  // Build authorization URL against WorkOS API (do this before any storage ops)
-  const apiHostname = resolveWorkOSApiHostname();
-  const baseUrl = apiHostname ? `https://${apiHostname}` : "https://api.workos.com";
-  const redirectUri = resolveWorkOSRedirectUri() ?? `${window.location.origin}/auth`;
-
-  const params = new URLSearchParams({
-    provider: "authkit",
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    screen_hint: "sign-in",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-  });
-
-  const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
-
-  // ── DIAGNOSTICS ────────────────────────────────────────────────────────────
-  // _auth_debug_clicked_at is written synchronously in the button onClick
-  // (Auth.tsx) so it fires even if crypto.subtle or this function throws.
-  // Here we record the URL details that are only available after PKCE completes.
-  const _parsedUrl = new URL(authorizationUrl);
-  try {
-    window.localStorage.setItem("_auth_debug_authorize_url", authorizationUrl);
-    window.localStorage.setItem("_auth_debug_authorize_hostname", _parsedUrl.hostname);
-    window.localStorage.setItem("_auth_debug_redirect_uri", _parsedUrl.searchParams.get("redirect_uri") ?? "(missing)");
-    window.localStorage.setItem("_auth_debug_client_id_present", String(Boolean(_parsedUrl.searchParams.get("client_id"))));
-    window.localStorage.setItem("_auth_debug_code_challenge_present", String(Boolean(_parsedUrl.searchParams.get("code_challenge"))));
-    window.localStorage.setItem("_auth_debug_error", "");  // clear any prior error
-  } catch { /* ignore if storage unavailable */ }
-
-  console.log("[AUTH_PROOF] leaving for WorkOS", {
-    authorizeUrl: authorizationUrl,
-    hostname: _parsedUrl.hostname,
-    redirect_uri: _parsedUrl.searchParams.get("redirect_uri"),
-    code_challenge_present: Boolean(_parsedUrl.searchParams.get("code_challenge")),
-  });
-  // ── END DIAGNOSTICS ────────────────────────────────────────────────────────
-
-  // Store verifier for the SDK to read on the callback page.
-  // IMPORTANT: write to localStorage FIRST — do not rely on the beforeunload
-  // listener in main.tsx because some browsers wipe sessionStorage before
-  // beforeunload fires during cross-origin navigations.
-  try {
-    window.localStorage.setItem("_wos_cv_bk", codeVerifier);
-  } catch { /* ignore if storage unavailable */ }
-
-  try {
-    window.sessionStorage.setItem("workos:code-verifier", codeVerifier);
-  } catch { /* ignore */ }
-
-  // Navigate — use href for clarity; assign and href are equivalent for absolute URLs
-  window.location.href = authorizationUrl;
-}
 
 // ---------------------------------------------------------------------------
 
@@ -171,7 +58,13 @@ function workosUserToCompatUser(
 }
 
 function WorkOSAuthProvider({ children }: { children: ReactNode }) {
-  const { user: workosUser, isLoading, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
+  const {
+    user: workosUser,
+    isLoading,
+    signIn: workosSignIn,
+    signOut: workosSignOut,
+    getAccessToken,
+  } = useWorkOSAuth();
 
   const user = useMemo(
     () => (workosUser ? workosUserToCompatUser(workosUser) : null),
@@ -237,12 +130,14 @@ function WorkOSAuthProvider({ children }: { children: ReactNode }) {
       session,
       loading: isLoading,
       isConfigured: true,
-      signIn: redirectToWorkOS,
+      // Use the SDK-provided signIn — it handles PKCE generation, sessionStorage,
+      // and the redirect to api.workos.com internally.
+      signIn: workosSignIn,
       signOut: () => workosSignOut({ returnPathname: "/login" }),
       getAccessToken: safeGetAccessToken,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, session, isLoading, workosSignOut]
+    [user, session, isLoading, workosSignIn, workosSignOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
