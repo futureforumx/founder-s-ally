@@ -12,6 +12,18 @@ export default function Auth() {
   const [loopDetected, setLoopDetected] = useState(false);
   const [startingSignIn, setStartingSignIn] = useState(false);
 
+  // Debug: log every time Auth renders with current state
+  useEffect(() => {
+    const hasCode = new URLSearchParams(window.location.search).has("code");
+    console.log("[auth] /auth route hit —", {
+      url: window.location.href,
+      hasCode,
+      loading,
+      userPresent: Boolean(user),
+      isConfigured,
+    });
+  }, [loading, user, isConfigured]);
+
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
       const nextUrl = new URL(window.location.href);
@@ -26,6 +38,7 @@ export default function Auth() {
       } catch {
         // Ignore storage failures and continue the auth flow.
       }
+      console.log("[auth] user authenticated — navigating to /");
       navigate("/", { replace: true });
       return;
     }
@@ -81,6 +94,7 @@ export default function Auth() {
       // Continue even if sessionStorage is unavailable.
     }
 
+    console.log("[auth] starting WorkOS sign-in redirect");
     try {
       await signIn();
     } catch {
@@ -89,11 +103,10 @@ export default function Auth() {
   }
 
   if (!loading && !user && isConfigured) {
-    const wosFetchLog = (() => { try { return sessionStorage.getItem("_wos_dbg"); } catch { return null; } })();
-    const wosCbFired = (() => { try { return sessionStorage.getItem("_wos_cb_fired"); } catch { return null; } })();
-    const wosRefreshToken = (() => { try { return localStorage.getItem("workos:refresh-token") ? "present" : "absent"; } catch { return "error"; } })();
-    const wosAuthUrl = (() => { try { return sessionStorage.getItem("_wos_auth_url"); } catch { return null; } })();
-    const wosCallback = (() => { try { return sessionStorage.getItem("_wos_callback"); } catch { return null; } })();
+    const refreshTokenPresent = (() => {
+      try { return Boolean(localStorage.getItem("workos:refresh-token")); } catch { return false; }
+    })();
+
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
         <div className="max-w-lg space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
@@ -113,19 +126,10 @@ export default function Auth() {
           <details className="text-left">
             <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Auth debug</summary>
             <pre className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400 whitespace-pre-wrap break-all">
-{`=== SIGN-IN ATTEMPT ===
-${wosAuthUrl ?? "(click Continue with WorkOS first, then come back here)"}
+{`url: ${typeof window !== "undefined" ? window.location.href : ""}
+refreshToken in localStorage: ${refreshTokenPresent ? "present" : "absent"}
 
-=== CALLBACK RECEIVED ===
-${wosCallback ?? "(no callback captured yet)"}
-
-=== CODE EXCHANGE ===
-onRedirectCallback fired: ${wosCbFired ?? "no"}
-refreshToken in localStorage: ${wosRefreshToken}
-WorkOS API calls:
-${wosFetchLog ?? "(none)"}
-
-url: ${typeof window !== "undefined" ? window.location.href : ""}`}
+Open browser DevTools → Console for full auth trace logs.`}
             </pre>
           </details>
         </div>

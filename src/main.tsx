@@ -17,122 +17,62 @@ if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
 }
 
-// PKCE codeVerifier recovery: Some browsers (Safari ITP in particular) wipe sessionStorage
-// when navigating away via a cross-origin redirect and back again.  The WorkOS SDK stores
-// the PKCE codeVerifier in sessionStorage before redirecting to WorkOS, so if the browser
-// clears sessionStorage during that round-trip the token exchange silently fails.
-// Fix: backup to localStorage in the location.assign interceptor below, restore here
-// synchronously at page load (before the SDK ever calls sessionStorage.getItem).
+// ---------------------------------------------------------------------------
+// PKCE codeVerifier recovery
+// ---------------------------------------------------------------------------
+// Some browsers (Safari ITP) wipe sessionStorage when navigating away via a
+// cross-origin redirect and back.  Strategy:
+//   1. On every page load, register a `beforeunload` listener that copies the
+//      codeVerifier to localStorage right before we leave (safe — no API override).
+//   2. On callback page load (?code= present), restore from localStorage if
+//      sessionStorage was wiped — this runs synchronously before the SDK reads it.
 if (typeof window !== "undefined") {
-  const _sp = new URLSearchParams(window.location.search);
-  if (_sp.has("code") || _sp.has("error")) {
+  // Step 1 — backup on unload (no monkey-patching required)
+  window.addEventListener("beforeunload", () => {
+    try {
+      const cv = sessionStorage.getItem("workos:code-verifier");
+      if (cv) {
+        localStorage.setItem("_wos_cv_bk", cv);
+      }
+    } catch { /* ignore */ }
+  });
+
+  // Step 2 — restore on callback
+  const _cbSp = new URLSearchParams(window.location.search);
+  if (_cbSp.has("code") || _cbSp.has("error")) {
+    console.log("[auth] callback hit — code present:", _cbSp.has("code"), "error:", _cbSp.get("error"));
     try {
       const CV_KEY = "workos:code-verifier";
       const CV_BACKUP_KEY = "_wos_cv_bk";
-      if (!sessionStorage.getItem(CV_KEY)) {
+      const cvInSession = sessionStorage.getItem(CV_KEY);
+      if (!cvInSession) {
         const backup = localStorage.getItem(CV_BACKUP_KEY);
         if (backup) {
           sessionStorage.setItem(CV_KEY, backup);
+          console.log("[auth] codeVerifier restored from localStorage backup");
+        } else {
+          console.warn("[auth] codeVerifier missing from both sessionStorage and localStorage backup");
         }
+      } else {
+        console.log("[auth] codeVerifier present in sessionStorage");
       }
-      // Always clear the backup so it doesn't linger.
       localStorage.removeItem(CV_BACKUP_KEY);
     } catch { /* ignore */ }
   }
 }
 
-// Diagnostic: capture callback URL params BEFORE the SDK cleans them up.
-// This runs synchronously at page load, before any React code.
-if (typeof window !== "undefined") {
-  const sp = new URLSearchParams(window.location.search);
-  if (sp.has("code") || sp.has("error")) {
-    try {
-      sessionStorage.setItem("_wos_callback", JSON.stringify({
-        hasCode: sp.has("code"),
-        error: sp.get("error"),
-        errorDesc: sp.get("error_description"),
-        url: window.location.href.slice(0, 200),
-        codeVerifier: sessionStorage.getItem("workos:code-verifier") ? "present" : "absent",
-        ts: new Date().toISOString(),
-      }));
-    } catch { /* ignore */ }
-  }
-
-  // Intercept window.location.assign to capture the exact WorkOS authorize URL.
-  const _origAssign = window.location.assign.bind(window.location);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window.location as any).assign = (url: string | URL) => {
-    const urlStr = typeof url === "string" ? url : url.toString();
-    if (urlStr.includes("user_management/authorize") || urlStr.includes("workos.com")) {
-      try {
-        const parsed = new URL(urlStr);
-        sessionStorage.setItem("_wos_auth_url", JSON.stringify({
-          clientId: parsed.searchParams.get("client_id"),
-          redirectUri: parsed.searchParams.get("redirect_uri"),
-          hasChallenge: parsed.searchParams.has("code_challenge"),
-          ts: new Date().toISOString(),
-        }));
-        // Also clear old debug data so next attempt is fresh
-        sessionStorage.removeItem("_wos_dbg");
-        sessionStorage.removeItem("_wos_cb_fired");
-        sessionStorage.removeItem("_wos_callback");
-      } catch { /* ignore */ }
-
-      // Backup the PKCE codeVerifier to localStorage so it survives cross-origin redirects.
-      try {
-        const cv = sessionStorage.getItem("workos:code-verifier");
-        if (cv) localStorage.setItem("_wos_cv_bk", cv);
-      } catch { /* ignore */ }
-    }
-    return _origAssign(urlStr);
-  };
-}
-
-// Diagnostic: intercept WorkOS API calls and store results in sessionStorage
-// so Auth.tsx can display what actually happened during the code exchange.
-if (typeof window !== "undefined") {
-  const _origFetch = window.fetch.bind(window);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
-    const url =
-      typeof args[0] === "string"
-        ? args[0]
-        : args[0] instanceof URL
-        ? args[0].toString()
-        : args[0] instanceof Request
-        ? args[0].url
-        : "";
-    if (url.includes("workos.com")) {
-      try {
-        const res = await _origFetch(...args);
-        const clone = res.clone();
-        let body = "";
-        try { body = (await clone.text()).slice(0, 400); } catch { /* ignore */ }
-        const entry = `${new Date().toISOString()} [${res.status}] ${url.replace("https://api.workos.com", "")}\n${body}`;
-        try {
-          const prev = sessionStorage.getItem("_wos_dbg") ?? "";
-          sessionStorage.setItem("_wos_dbg", (prev + "\n---\n" + entry).slice(-3000));
-        } catch { /* ignore */ }
-        return res;
-      } catch (e) {
-        const entry = `${new Date().toISOString()} [FETCH_ERR] ${url.replace("https://api.workos.com", "")}\n${String(e)}`;
-        try {
-          const prev = sessionStorage.getItem("_wos_dbg") ?? "";
-          sessionStorage.setItem("_wos_dbg", (prev + "\n---\n" + entry).slice(-3000));
-        } catch { /* ignore */ }
-        throw e;
-      }
-    }
-    return _origFetch(...args);
-  };
-}
-
+// ---------------------------------------------------------------------------
+// www → apex redirect (safe, uses native replace)
+// ---------------------------------------------------------------------------
 if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
   const canonicalUrl = new URL(window.location.href);
   canonicalUrl.hostname = "vekta.so";
   window.location.replace(canonicalUrl.toString());
 }
 
+// ---------------------------------------------------------------------------
+// Sentry
+// ---------------------------------------------------------------------------
 const sentryCaptureEvents =
   import.meta.env.VITE_SENTRY_ENABLED !== "false" &&
   (import.meta.env.PROD || import.meta.env.VITE_SENTRY_IN_DEV === "true");
@@ -145,14 +85,31 @@ Sentry.init({
   tracesSampleRate: import.meta.env.PROD ? 0.05 : 0,
 });
 
+// ---------------------------------------------------------------------------
+// WorkOS config (debug — no secrets)
+// ---------------------------------------------------------------------------
 const clientId = resolveWorkOSClientId();
 const apiHostname = resolveWorkOSApiHostname();
 const devMode = resolveWorkOSDevMode();
 const redirectUri = resolveWorkOSRedirectUri();
+
+console.log("[auth] WorkOS config —", {
+  clientIdPresent: Boolean(clientId),
+  redirectUri,
+  devMode,
+  apiHostname: apiHostname ?? "(default api.workos.com)",
+});
+
+// ---------------------------------------------------------------------------
+// Route detection for public pages
+// ---------------------------------------------------------------------------
 const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
 
+// ---------------------------------------------------------------------------
+// Error boundary
+// ---------------------------------------------------------------------------
 class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
 
@@ -181,6 +138,9 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
   }
 }
 
+// ---------------------------------------------------------------------------
+// App tree
+// ---------------------------------------------------------------------------
 // Always wrap App in AuthKitProvider so Auth.tsx can safely call useWorkOSAuth().
 // AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
 // no actual WorkOS API calls are made when the env var is not set.
@@ -194,9 +154,7 @@ const appTree = (
       // The SDK has already set the user in its internal React state by the time
       // this fires.  Auth.tsx's useEffect will detect user != null and call
       // navigate("/") via client-side routing — no hard reload needed.
-      // A hard reload here would destroy the in-memory access token (devMode stores
-      // it in memory) and force a refresh-token round-trip that can silently fail.
-      try { sessionStorage.setItem("_wos_cb_fired", new Date().toISOString()); } catch { /* ignore */ }
+      console.log("[auth] onRedirectCallback fired — SDK exchange complete");
     }}
   >
     <App />
@@ -222,6 +180,9 @@ const inner = sentryEnabled ? (
   appTree
 );
 
+// ---------------------------------------------------------------------------
+// Root render
+// ---------------------------------------------------------------------------
 const root = createRoot(document.getElementById("root")!);
 
 if (isFreshCapitalPath && !hasAuthCode) {
