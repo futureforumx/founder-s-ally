@@ -13,7 +13,6 @@ import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Loader2 } from "lucide-react";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
-const DebugEnvPage = lazy(() => import("./pages/DebugEnvPage.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
 const SsoCallback = lazy(() => import("./pages/SsoCallback.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -266,8 +265,6 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
-              {/* Temporary debug route — remove before shipping */}
-              <Route path="/debug/env" element={<Suspense fallback={<RouteLoader />}><DebugEnvPage /></Suspense>} />
               <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               {/* /auth (and /auth/*) is the WorkOS redirect URI — handled exclusively by SsoCallback.
                   Auth.tsx (sign-in UI) is never rendered here; SsoCallback redirects to /login if
