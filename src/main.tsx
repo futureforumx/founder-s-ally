@@ -191,11 +191,12 @@ const appTree = (
     devMode={devMode}
     redirectUri={redirectUri}
     onRedirectCallback={() => {
-      // After successful code exchange, force a hard reload to "/" so the
-      // refresh token stored in localStorage (devMode=true) re-authenticates
-      // the user without relying on in-memory React state propagation.
+      // The SDK has already set the user in its internal React state by the time
+      // this fires.  Auth.tsx's useEffect will detect user != null and call
+      // navigate("/") via client-side routing — no hard reload needed.
+      // A hard reload here would destroy the in-memory access token (devMode stores
+      // it in memory) and force a refresh-token round-trip that can silently fail.
       try { sessionStorage.setItem("_wos_cb_fired", new Date().toISOString()); } catch { /* ignore */ }
-      window.location.replace("/");
     }}
   >
     <App />
