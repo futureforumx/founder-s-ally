@@ -9,6 +9,11 @@ const DEBUG_KEYS = [
   // Written synchronously in Auth.tsx button onClick — before SDK signIn()
   "_auth_debug_clicked_at",
   "_auth_debug_preRedirect_href",
+  // Written by window.location.assign intercept — EXACT URL sent to WorkOS
+  "_auth_debug_authorize_hostname",
+  "_auth_debug_authorize_client_id",
+  "_auth_debug_authorize_redirect_uri",
+  "_auth_debug_authorize_url",
   // Written in main.tsx BEFORE React renders — ground truth of what WorkOS sent
   "_auth_debug_mainjs_at",
   "_auth_debug_mainjs_href",
@@ -126,6 +131,27 @@ export default function DebugAuthProof() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Authorize URL — what SDK actually sent to WorkOS */}
+        <div style={{ marginBottom: 28 }}>
+          <p style={{ color: "#a1a1aa", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Step 1b — authorize URL (intercepted from SDK before redirect)
+          </p>
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
+            <tbody>
+              {(["_auth_debug_authorize_hostname", "_auth_debug_authorize_client_id", "_auth_debug_authorize_redirect_uri", "_auth_debug_authorize_url"] as const).map((k) => (
+                <Row key={k} label={k} value={values[k]} />
+              ))}
+            </tbody>
+          </table>
+          <p style={{ color: "#52525b", fontSize: 11, marginTop: 6 }}>
+            _auth_debug_authorize_client_id should be client_01KPVXV8TX9P50WV1J795J51F4 (production).
+            <br />
+            _auth_debug_authorize_redirect_uri should be https://vekta.so/auth (no trailing slash).
+            <br />
+            If these are wrong, the Vercel env var is still stale — hard-refresh and try again.
+          </p>
         </div>
 
         {/* Ground-truth main.tsx capture */}

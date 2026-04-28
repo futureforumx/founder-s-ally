@@ -81,8 +81,33 @@ export default function Auth() {
                "_auth_debug_callback_at", "_auth_debug_callback_url", "_auth_debug_callback_search",
                "_auth_debug_callback_code_present", "_auth_debug_callback_error_present",
                "_auth_debug_authorize_url", "_auth_debug_authorize_hostname",
+               "_auth_debug_authorize_client_id", "_auth_debug_authorize_redirect_uri",
                "_auth_debug_error"].forEach((k) => window.localStorage.removeItem(k));
             } catch { /* ignore if storage unavailable */ }
+
+            // Intercept window.location.assign to capture the EXACT authorize URL
+            // the SDK generates — this survives the page navigation via localStorage.
+            try {
+              const origAssign = window.location.assign.bind(window.location);
+              window.location.assign = function(url: string) {
+                try {
+                  window.localStorage.setItem("_auth_debug_authorize_url", url);
+                  const p = new URL(url);
+                  window.localStorage.setItem("_auth_debug_authorize_hostname", p.hostname);
+                  window.localStorage.setItem("_auth_debug_authorize_client_id", p.searchParams.get("client_id") ?? "(missing)");
+                  window.localStorage.setItem("_auth_debug_authorize_redirect_uri", p.searchParams.get("redirect_uri") ?? "(missing)");
+                  console.log("[auth] SDK authorize URL:", url);
+                  console.log("[auth] authorize params:", {
+                    client_id: p.searchParams.get("client_id"),
+                    redirect_uri: p.searchParams.get("redirect_uri"),
+                    provider: p.searchParams.get("provider"),
+                    screen_hint: p.searchParams.get("screen_hint"),
+                    has_code_challenge: p.searchParams.has("code_challenge"),
+                  });
+                } catch { /* ignore */ }
+                origAssign(url);
+              };
+            } catch { /* ignore if intercept fails */ }
 
             setStartingSignIn(true);
             await signIn(); // SDK handles PKCE + redirect to api.workos.com internally
