@@ -68,12 +68,21 @@ async function generateCodeChallenge(verifier: string): Promise<string> {
 async function redirectToWorkOS(): Promise<void> {
   const clientId = resolveWorkOSClientId();
   if (!clientId) {
+    try { window.localStorage.setItem("_auth_debug_error", "missing_client_id"); } catch { }
     throw new Error("WorkOS client ID is not configured — cannot start sign-in");
   }
 
   // Generate PKCE challenge pair
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  let codeVerifier: string;
+  let codeChallenge: string;
+  try {
+    codeVerifier = generateCodeVerifier();
+    codeChallenge = await generateCodeChallenge(codeVerifier);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    try { window.localStorage.setItem("_auth_debug_error", `pkce_failed: ${msg}`); } catch { }
+    throw err;
+  }
 
   // Build authorization URL against WorkOS API (do this before any storage ops)
   const apiHostname = resolveWorkOSApiHostname();
@@ -93,16 +102,17 @@ async function redirectToWorkOS(): Promise<void> {
   const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
 
   // ── DIAGNOSTICS ────────────────────────────────────────────────────────────
-  // Write proof-of-click data to localStorage BEFORE navigating so it survives
-  // the cross-origin round-trip and can be read at /debug/auth-proof.
+  // _auth_debug_clicked_at is written synchronously in the button onClick
+  // (Auth.tsx) so it fires even if crypto.subtle or this function throws.
+  // Here we record the URL details that are only available after PKCE completes.
   const _parsedUrl = new URL(authorizationUrl);
   try {
-    window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
     window.localStorage.setItem("_auth_debug_authorize_url", authorizationUrl);
     window.localStorage.setItem("_auth_debug_authorize_hostname", _parsedUrl.hostname);
     window.localStorage.setItem("_auth_debug_redirect_uri", _parsedUrl.searchParams.get("redirect_uri") ?? "(missing)");
     window.localStorage.setItem("_auth_debug_client_id_present", String(Boolean(_parsedUrl.searchParams.get("client_id"))));
     window.localStorage.setItem("_auth_debug_code_challenge_present", String(Boolean(_parsedUrl.searchParams.get("code_challenge"))));
+    window.localStorage.setItem("_auth_debug_error", "");  // clear any prior error
   } catch { /* ignore if storage unavailable */ }
 
   console.log("[AUTH_PROOF] leaving for WorkOS", {

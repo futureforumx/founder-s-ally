@@ -84,7 +84,15 @@ export default function Auth() {
 
         <button
           className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-          onClick={() => { void startSignIn(); }}
+          onClick={() => {
+            // SYNCHRONOUS — fires at click time before any async work, so it
+            // survives even if crypto.subtle or redirectToWorkOS() throws.
+            console.log("[AUTH_PROOF] production login button clicked");
+            try {
+              window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
+            } catch { /* ignore if storage unavailable */ }
+            void startSignIn();
+          }}
           disabled={startingSignIn}
         >
           {startingSignIn ? "Starting sign-in..." : "Continue with WorkOS"}

@@ -6,13 +6,16 @@
  */
 
 const DEBUG_KEYS = [
-  // Written by redirectToWorkOS() in useAuth.tsx — before browser leaves
+  // Written synchronously in Auth.tsx button onClick — before any async work
   "_auth_debug_clicked_at",
+  // Written by redirectToWorkOS() in useAuth.tsx after PKCE completes
   "_auth_debug_authorize_url",
   "_auth_debug_authorize_hostname",
   "_auth_debug_redirect_uri",
   "_auth_debug_client_id_present",
   "_auth_debug_code_challenge_present",
+  // Written if redirectToWorkOS() throws (e.g. crypto.subtle failure)
+  "_auth_debug_error",
   // Written by SsoCallback.tsx — when callback page first renders
   "_auth_debug_callback_at",
   "_auth_debug_callback_url",
@@ -59,6 +62,7 @@ export default function DebugAuthProof() {
 
   // Derive diagnosis
   const clicked = Boolean(values["_auth_debug_clicked_at"]);
+  const pkceError = values["_auth_debug_error"];
   const hasHostname = values["_auth_debug_authorize_hostname"];
   const callbackLanded = Boolean(values["_auth_debug_callback_at"]);
   const codePresent = values["_auth_debug_callback_code_present"];
@@ -68,7 +72,10 @@ export default function DebugAuthProof() {
   let diagColor = "#a1a1aa";
 
   if (!clicked) {
-    diagnosis = "❌ Login button was never clicked (no _auth_debug_clicked_at). The button is not wired to redirectToWorkOS().";
+    diagnosis = "❌ Login button was never clicked (no _auth_debug_clicked_at). The button onClick is not firing — check for React hydration errors or JS crashes on the /login page.";
+    diagColor = "#ef4444";
+  } else if (pkceError && pkceError !== "") {
+    diagnosis = `❌ Button was clicked but redirectToWorkOS() threw before building the URL: ${pkceError}. Most likely crypto.subtle is unavailable (insecure context / non-HTTPS).`;
     diagColor = "#ef4444";
   } else if (!hasHostname || hasHostname !== "api.workos.com") {
     diagnosis = `❌ Authorize URL hostname is "${hasHostname ?? "(missing)"}" — expected "api.workos.com". WorkOS config is wrong.`;
@@ -109,7 +116,7 @@ export default function DebugAuthProof() {
           </p>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#18181b", borderRadius: 8, overflow: "hidden" }}>
             <tbody>
-              {(["_auth_debug_clicked_at", "_auth_debug_authorize_url", "_auth_debug_authorize_hostname", "_auth_debug_redirect_uri", "_auth_debug_client_id_present", "_auth_debug_code_challenge_present"] as const).map((k) => (
+              {(["_auth_debug_clicked_at", "_auth_debug_error", "_auth_debug_authorize_url", "_auth_debug_authorize_hostname", "_auth_debug_redirect_uri", "_auth_debug_client_id_present", "_auth_debug_code_challenge_present"] as const).map((k) => (
                 <Row key={k} label={k} value={values[k]} />
               ))}
             </tbody>
