@@ -89,9 +89,12 @@ export default function Auth() {
   }
 
   if (!loading && !user && isConfigured) {
+    const wosFetchLog = (() => { try { return sessionStorage.getItem("_wos_dbg"); } catch { return null; } })();
+    const wosCbFired = (() => { try { return sessionStorage.getItem("_wos_cb_fired"); } catch { return null; } })();
+    const wosRefreshToken = (() => { try { return localStorage.getItem("workos:refresh-token") ? "present" : "absent"; } catch { return "error"; } })();
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
-        <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
+        <div className="max-w-lg space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
           <p className="text-sm font-semibold text-zinc-100">Sign in to continue</p>
           <p className="text-sm text-zinc-400">
             Continue to WorkOS to access your Vekta workspace.
@@ -105,6 +108,17 @@ export default function Auth() {
           >
             {startingSignIn ? "Starting sign-in..." : "Continue with WorkOS"}
           </button>
+          <details className="text-left">
+            <summary className="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400">Auth debug</summary>
+            <pre className="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-400 whitespace-pre-wrap break-all">
+{`onRedirectCallback fired: ${wosCbFired ?? "no"}
+refreshToken in localStorage: ${wosRefreshToken}
+url: ${typeof window !== "undefined" ? window.location.href : ""}
+
+WorkOS API calls:
+${wosFetchLog ?? "(none — try logging in again)"}`}
+            </pre>
+          </details>
         </div>
       </div>
     );

@@ -17,6 +17,45 @@ if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
 }
 
+// Diagnostic: intercept WorkOS API calls and store results in sessionStorage
+// so Auth.tsx can display what actually happened during the code exchange.
+if (typeof window !== "undefined") {
+  const _origFetch = window.fetch.bind(window);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
+    const url =
+      typeof args[0] === "string"
+        ? args[0]
+        : args[0] instanceof URL
+        ? args[0].toString()
+        : args[0] instanceof Request
+        ? args[0].url
+        : "";
+    if (url.includes("workos.com")) {
+      try {
+        const res = await _origFetch(...args);
+        const clone = res.clone();
+        let body = "";
+        try { body = (await clone.text()).slice(0, 400); } catch { /* ignore */ }
+        const entry = `${new Date().toISOString()} [${res.status}] ${url.replace("https://api.workos.com", "")}\n${body}`;
+        try {
+          const prev = sessionStorage.getItem("_wos_dbg") ?? "";
+          sessionStorage.setItem("_wos_dbg", (prev + "\n---\n" + entry).slice(-3000));
+        } catch { /* ignore */ }
+        return res;
+      } catch (e) {
+        const entry = `${new Date().toISOString()} [FETCH_ERR] ${url.replace("https://api.workos.com", "")}\n${String(e)}`;
+        try {
+          const prev = sessionStorage.getItem("_wos_dbg") ?? "";
+          sessionStorage.setItem("_wos_dbg", (prev + "\n---\n" + entry).slice(-3000));
+        } catch { /* ignore */ }
+        throw e;
+      }
+    }
+    return _origFetch(...args);
+  };
+}
+
 if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
   const canonicalUrl = new URL(window.location.href);
   canonicalUrl.hostname = "vekta.so";
@@ -84,6 +123,7 @@ const appTree = (
       // After successful code exchange, force a hard reload to "/" so the
       // refresh token stored in localStorage (devMode=true) re-authenticates
       // the user without relying on in-memory React state propagation.
+      try { sessionStorage.setItem("_wos_cb_fired", new Date().toISOString()); } catch { /* ignore */ }
       window.location.replace("/");
     }}
   >
