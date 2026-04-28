@@ -17,6 +17,30 @@ if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
 }
 
+// PKCE codeVerifier recovery: Some browsers (Safari ITP in particular) wipe sessionStorage
+// when navigating away via a cross-origin redirect and back again.  The WorkOS SDK stores
+// the PKCE codeVerifier in sessionStorage before redirecting to WorkOS, so if the browser
+// clears sessionStorage during that round-trip the token exchange silently fails.
+// Fix: backup to localStorage in the location.assign interceptor below, restore here
+// synchronously at page load (before the SDK ever calls sessionStorage.getItem).
+if (typeof window !== "undefined") {
+  const _sp = new URLSearchParams(window.location.search);
+  if (_sp.has("code") || _sp.has("error")) {
+    try {
+      const CV_KEY = "workos:code-verifier";
+      const CV_BACKUP_KEY = "_wos_cv_bk";
+      if (!sessionStorage.getItem(CV_KEY)) {
+        const backup = localStorage.getItem(CV_BACKUP_KEY);
+        if (backup) {
+          sessionStorage.setItem(CV_KEY, backup);
+        }
+      }
+      // Always clear the backup so it doesn't linger.
+      localStorage.removeItem(CV_BACKUP_KEY);
+    } catch { /* ignore */ }
+  }
+}
+
 // Diagnostic: capture callback URL params BEFORE the SDK cleans them up.
 // This runs synchronously at page load, before any React code.
 if (typeof window !== "undefined") {
@@ -52,6 +76,12 @@ if (typeof window !== "undefined") {
         sessionStorage.removeItem("_wos_dbg");
         sessionStorage.removeItem("_wos_cb_fired");
         sessionStorage.removeItem("_wos_callback");
+      } catch { /* ignore */ }
+
+      // Backup the PKCE codeVerifier to localStorage so it survives cross-origin redirects.
+      try {
+        const cv = sessionStorage.getItem("workos:code-verifier");
+        if (cv) localStorage.setItem("_wos_cv_bk", cv);
       } catch { /* ignore */ }
     }
     return _origAssign(urlStr);
