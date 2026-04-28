@@ -4,14 +4,14 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from "r
 import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
-import { hasWorkOSConfig } from "@/lib/workosConfig";
+import { hasWorkOSConfig, resolveWorkOSClientId, resolveWorkOSRedirectUri, resolveWorkOSApiHostname } from "@/lib/workosConfig";
 
 interface AuthCtx {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
-  signIn: () => void;
+  signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -21,10 +21,94 @@ const AuthContext = createContext<AuthCtx>({
   session: null,
   loading: true,
   isConfigured: false,
-  signIn: () => {},
+  signIn: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
 });
+
+// ---------------------------------------------------------------------------
+// PKCE helpers (mirrors what @workos-inc/authkit-js does internally so the
+// SDK can complete the code exchange using the same codeVerifier we stored).
+// ---------------------------------------------------------------------------
+
+/** Generates a cryptographically random code verifier (43 chars, URL-safe). */
+function generateCodeVerifier(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+/** Computes the S256 code challenge for a given verifier. */
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+/**
+ * Build a WorkOS authorization URL and redirect the browser to it.
+ *
+ * This bypasses the SDK's internal `signIn` (which calls `window.location.assign`
+ * with no pre-redirect logging) so we can:
+ *   1. Log the exact URL before the browser leaves
+ *   2. Use `window.location.href` (semantically clearer than assign)
+ *   3. Surface errors instead of silently eating them
+ *
+ * The SDK will complete the code exchange on the callback page because it reads
+ * the codeVerifier from sessionStorage["workos:code-verifier"] — the same key
+ * we write here.
+ */
+async function redirectToWorkOS(): Promise<void> {
+  const clientId = resolveWorkOSClientId();
+  if (!clientId) {
+    throw new Error("WorkOS client ID is not configured — cannot start sign-in");
+  }
+
+  // Generate PKCE challenge pair
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+  // Store verifier so the SDK (and our beforeunload backup) can find it
+  try {
+    window.sessionStorage.setItem("workos:code-verifier", codeVerifier);
+  } catch {
+    // sessionStorage unavailable — the beforeunload backup in main.tsx uses localStorage
+  }
+
+  // Build authorization URL against WorkOS API
+  const apiHostname = resolveWorkOSApiHostname();
+  const baseUrl = apiHostname ? `https://${apiHostname}` : "https://api.workos.com";
+  const redirectUri = resolveWorkOSRedirectUri() ?? `${window.location.origin}/auth`;
+
+  const params = new URLSearchParams({
+    provider: "authkit",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    screen_hint: "sign-in",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+  });
+
+  const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
+
+  // Log before leaving — confirm we are going to WorkOS, NOT to /auth
+  console.log("[auth] authorization URL →", authorizationUrl);
+  console.log("[auth] redirect target hostname:", new URL(authorizationUrl).hostname);
+  console.log("[auth] redirect_uri (callback):", redirectUri);
+
+  // Navigate — use href for clarity; assign and href are equivalent for absolute URLs
+  window.location.href = authorizationUrl;
+}
+
+// ---------------------------------------------------------------------------
 
 function workosUserToCompatUser(
   workosUser: NonNullable<ReturnType<typeof useWorkOSAuth>["user"]>
@@ -56,7 +140,7 @@ function workosUserToCompatUser(
 }
 
 function WorkOSAuthProvider({ children }: { children: ReactNode }) {
-  const { user: workosUser, isLoading, signIn: workosSignIn, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
+  const { user: workosUser, isLoading, signOut: workosSignOut, getAccessToken } = useWorkOSAuth();
 
   const user = useMemo(
     () => (workosUser ? workosUserToCompatUser(workosUser) : null),
@@ -122,14 +206,12 @@ function WorkOSAuthProvider({ children }: { children: ReactNode }) {
       session,
       loading: isLoading,
       isConfigured: true,
-      signIn: () => {
-        void workosSignIn({ provider: "authkit" });
-      },
+      signIn: redirectToWorkOS,
       signOut: () => workosSignOut({ returnPathname: "/login" }),
       getAccessToken: safeGetAccessToken,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, session, isLoading, workosSignIn, workosSignOut]
+    [user, session, isLoading, workosSignOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -153,7 +235,7 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       session: null,
       loading: false,
       isConfigured: false,
-      signIn: () => {},
+      signIn: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
     }),

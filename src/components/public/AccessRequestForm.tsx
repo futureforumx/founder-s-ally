@@ -464,7 +464,11 @@ export function AccessRequestForm() {
       return;
     }
     if (!companyName.trim()) {
-      setErrorMessage("Please enter your company name or website.");
+      setErrorMessage(
+        role === "investor"
+          ? "Please enter your firm name or website."
+          : "Please enter your company name or website.",
+      );
       setStatus("error");
       return;
     }
@@ -990,7 +994,8 @@ export function AccessRequestForm() {
 
         <div className="space-y-2">
           <label className={accessLabelClass} htmlFor="access-company">
-            Company name or website <span className={accessInlineHighlightClass}>*</span>
+            {role === "investor" ? "Firm name or website" : "Company name or website"}{" "}
+            <span className={accessInlineHighlightClass}>*</span>
           </label>
           <Input
             id="access-company"

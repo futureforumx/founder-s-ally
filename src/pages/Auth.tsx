@@ -95,12 +95,12 @@ export default function Auth() {
       // Continue even if sessionStorage is unavailable.
     }
 
-    if (import.meta.env.DEV) {
-      console.log("[auth] initiating WorkOS sign-in redirect");
-    }
     try {
+      // redirectToWorkOS() logs the authorization URL and target hostname
+      // before calling window.location.href — if this throws, we reset state.
       await signIn();
-    } catch {
+    } catch (err) {
+      console.error("[auth] sign-in failed before redirect:", err);
       setStartingSignIn(false);
     }
   }
