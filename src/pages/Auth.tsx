@@ -3,9 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
-const LOGIN_ATTEMPT_KEY = "workos-login-attempt-at";
-const LOGIN_LOOP_WINDOW_MS = 15_000;
-
 const ERROR_MESSAGES: Record<string, string> = {
   callback_failed: "Sign-in couldn't be completed. Please try again.",
   workos_error: "WorkOS returned an error. Please try again.",
@@ -16,17 +13,10 @@ export default function Auth() {
   const { user, loading, isConfigured, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [loopDetected, setLoopDetected] = useState(false);
   const [startingSignIn, setStartingSignIn] = useState(false);
 
   const errorKey = searchParams.get("error") ?? "";
   const errorMessage = ERROR_MESSAGES[errorKey] ?? (errorKey ? "An error occurred. Please try again." : null);
-
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log("[auth] /login route —", { loading, userPresent: Boolean(user), errorKey });
-    }
-  }, [loading, user, errorKey]);
 
   // If the user is already authenticated, send them straight to the app
   useEffect(() => {
@@ -37,10 +27,7 @@ export default function Auth() {
       return;
     }
     if (!loading && user) {
-      try { window.sessionStorage.removeItem(LOGIN_ATTEMPT_KEY); } catch { /* ignore */ }
-      if (import.meta.env.DEV) {
-        console.log("[auth] already authenticated — navigating to /");
-      }
+      console.log("[auth] already authenticated — navigating to /");
       navigate("/", { replace: true });
     }
   }, [loading, user, navigate]);
@@ -58,47 +45,13 @@ export default function Auth() {
     );
   }
 
-  if (loopDetected) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
-        <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
-          <p className="text-sm font-semibold text-zinc-100">Sign-in needs another try</p>
-          <p className="text-sm text-zinc-400">
-            WorkOS redirected back before the login screen completed. Retrying automatically would loop, so the
-            sign-in flow is paused here.
-          </p>
-          <button
-            className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white"
-            onClick={() => {
-              setLoopDetected(false);
-              setStartingSignIn(false);
-            }}
-          >
-            Back to sign-in
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   async function startSignIn() {
     console.log("[auth] LOGIN BUTTON CLICKED - using explicit WorkOS PKCE redirect");
     setStartingSignIn(true);
     try {
-      const lastAttempt = Number(window.sessionStorage.getItem(LOGIN_ATTEMPT_KEY) || "0");
-      if (lastAttempt && Date.now() - lastAttempt < LOGIN_LOOP_WINDOW_MS) {
-        setLoopDetected(true);
-        setStartingSignIn(false);
-        return;
-      }
-      window.sessionStorage.setItem(LOGIN_ATTEMPT_KEY, String(Date.now()));
-    } catch {
-      // Continue even if sessionStorage is unavailable.
-    }
-
-    try {
-      // redirectToWorkOS() explicitly builds the WorkOS authorization URL,
-      // logs it, then sets window.location.href — never calls navigate("/auth").
+      // redirectToWorkOS() builds the WorkOS authorization URL, logs it,
+      // backs up the PKCE verifier to localStorage, then sets window.location.href.
+      // It never calls navigate('/auth').
       await signIn();
     } catch (err) {
       console.error("[auth] sign-in failed before redirect:", err);

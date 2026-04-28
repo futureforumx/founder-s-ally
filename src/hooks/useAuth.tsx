@@ -75,14 +75,7 @@ async function redirectToWorkOS(): Promise<void> {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-  // Store verifier so the SDK (and our beforeunload backup) can find it
-  try {
-    window.sessionStorage.setItem("workos:code-verifier", codeVerifier);
-  } catch {
-    // sessionStorage unavailable — the beforeunload backup in main.tsx uses localStorage
-  }
-
-  // Build authorization URL against WorkOS API
+  // Build authorization URL against WorkOS API (do this before any storage ops)
   const apiHostname = resolveWorkOSApiHostname();
   const baseUrl = apiHostname ? `https://${apiHostname}` : "https://api.workos.com";
   const redirectUri = resolveWorkOSRedirectUri() ?? `${window.location.origin}/auth`;
@@ -98,6 +91,20 @@ async function redirectToWorkOS(): Promise<void> {
   });
 
   const authorizationUrl = `${baseUrl}/user_management/authorize?${params.toString()}`;
+
+  // Store verifier for the SDK to read on the callback page.
+  // IMPORTANT: write to localStorage FIRST — do not rely on the beforeunload
+  // listener in main.tsx because some browsers wipe sessionStorage before
+  // beforeunload fires during cross-origin navigations.
+  try {
+    window.localStorage.setItem("_wos_cv_bk", codeVerifier);
+    console.log("[auth] codeVerifier backed up to localStorage");
+  } catch { /* ignore if storage unavailable */ }
+
+  try {
+    window.sessionStorage.setItem("workos:code-verifier", codeVerifier);
+    console.log("[auth] codeVerifier stored in sessionStorage");
+  } catch { /* ignore */ }
 
   // Log before leaving — confirm we are going to api.workos.com, NOT to /auth
   console.log("[auth] FINAL WORKOS AUTHORIZE URL", authorizationUrl);
