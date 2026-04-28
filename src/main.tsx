@@ -18,6 +18,26 @@ if (typeof document !== "undefined") {
 }
 
 // ---------------------------------------------------------------------------
+// GROUND-TRUTH URL DIAGNOSTIC (runs before React, before AuthKit SDK)
+// ---------------------------------------------------------------------------
+// This is the earliest possible capture of window.location — before any
+// history.replaceState calls, before any React renders, before anything.
+// Written to localStorage so it survives across sessions and appears in /debug/auth-proof.
+if (typeof window !== "undefined") {
+  try {
+    const _mainHref = window.location.href;
+    const _mainSearch = window.location.search;
+    // Only capture on the /auth callback path so we don't overwrite on every page load
+    if (window.location.pathname === "/auth" || window.location.pathname === "/auth/") {
+      window.localStorage.setItem("_auth_debug_mainjs_href", _mainHref);
+      window.localStorage.setItem("_auth_debug_mainjs_search", _mainSearch || "(empty)");
+      window.localStorage.setItem("_auth_debug_mainjs_at", new Date().toISOString());
+      console.log("[AUTH_PROOF] main.tsx ran on /auth — href:", _mainHref, "search:", _mainSearch);
+    }
+  } catch { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
 // PKCE codeVerifier recovery
 // ---------------------------------------------------------------------------
 // Some browsers (Safari ITP) wipe sessionStorage when navigating away via a

@@ -90,6 +90,16 @@ export default function Auth() {
             console.log("[AUTH_PROOF] production login button clicked");
             try {
               window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
+              window.localStorage.setItem("_auth_debug_preRedirect_href", window.location.href);
+              // Clear stale callback diagnostics from prior attempts
+              window.localStorage.removeItem("_auth_debug_mainjs_href");
+              window.localStorage.removeItem("_auth_debug_mainjs_search");
+              window.localStorage.removeItem("_auth_debug_mainjs_at");
+              window.localStorage.removeItem("_auth_debug_callback_at");
+              window.localStorage.removeItem("_auth_debug_callback_url");
+              window.localStorage.removeItem("_auth_debug_callback_search");
+              window.localStorage.removeItem("_auth_debug_callback_code_present");
+              window.localStorage.removeItem("_auth_debug_callback_error_present");
             } catch { /* ignore if storage unavailable */ }
             void startSignIn();
           }}
