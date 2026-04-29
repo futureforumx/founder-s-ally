@@ -163,6 +163,7 @@ export function ReferralsPanel() {
   const silentFetchInFlightRef = useRef(false);
   const statusRef = useRef<WaitlistStatusResponse | null>(null);
   const phaseRef = useRef<"idle" | "loading" | "success" | "error">("idle");
+  const autoLookupKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     statusRef.current = status;
@@ -170,13 +171,6 @@ export function ReferralsPanel() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
-
-  useEffect(() => {
-    const emailParam = searchParams.get("email")?.trim();
-    const refParam = searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim();
-    if (emailParam) setQuery(emailParam);
-    else if (refParam) setQuery(refParam);
-  }, [searchParams]);
 
   useEffect(() => {
     if (phase === "success" && status) setLookupCollapsed(true);
@@ -238,6 +232,23 @@ export function ReferralsPanel() {
     },
     [],
   );
+
+  useEffect(() => {
+    const emailParam = searchParams.get("email")?.trim();
+    const refParam = searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim();
+    const urlLookup = emailParam || refParam || "";
+    if (!urlLookup) return;
+
+    const normalized = normalizeLookupQueryInput(urlLookup);
+    const parsed = parseLookupInput(normalized);
+    if (!parsed.email && !parsed.referral_code) return;
+
+    const key = parsed.email ? `email:${parsed.email}` : `ref:${parsed.referral_code}`;
+    setQuery(normalized);
+    if (autoLookupKeyRef.current === key) return;
+    autoLookupKeyRef.current = key;
+    void executeStatusFetch(parsed, "full");
+  }, [executeStatusFetch, searchParams]);
 
   const runLookup = useCallback(async () => {
     const parsed = parseLookupInput(query);

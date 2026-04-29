@@ -269,6 +269,24 @@ function buildMetadata(params: {
   return meta;
 }
 
+function buildReferralDashboardPath(part: {
+  email?: string | null | undefined;
+  referral_code?: string | null | undefined;
+}): string {
+  const params = new URLSearchParams();
+  const code = typeof part.referral_code === "string" ? part.referral_code.trim() : "";
+  const email = typeof part.email === "string" ? part.email.trim() : "";
+
+  if (code) {
+    params.set("ref", code.toUpperCase().replace(/\s+/g, ""));
+  } else if (email) {
+    params.set("email", email.toLowerCase());
+  }
+
+  const query = params.toString();
+  return query ? `/referrals?${query}` : "/referrals";
+}
+
 function combineName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(" ");
 }
@@ -659,6 +677,7 @@ export function AccessRequestForm() {
     const submittedSectorSlug =
       role === "founder" && sector.trim() && isFounderWaitlistSectorValue(sector.trim()) ? sector.trim() : null;
     const submittedSectorLabel = submittedSectorSlug ? getFounderWaitlistSectorLabel(submittedSectorSlug) : null;
+    const referralDashboardTo = buildReferralDashboardPath(result);
 
     return (
       <div className={ACCESS_FORM_CARD_CLASS}>
@@ -824,7 +843,7 @@ export function AccessRequestForm() {
 
           <p className="mt-6 text-center">
             <Link
-              to="/referrals"
+              to={referralDashboardTo}
               className="text-sm font-medium text-primary underline-offset-4 transition-colors hover:underline"
             >
               View your full referral dashboard
@@ -934,7 +953,6 @@ export function AccessRequestForm() {
             aria-invalid={emailFieldError ? true : undefined}
             aria-describedby={emailAriaDescribedBy}
             title="Enter a valid email (e.g. name@company.com)"
-            pattern="[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+"
             value={email}
             onChange={(e) => {
               const v = e.target.value;
@@ -971,9 +989,12 @@ export function AccessRequestForm() {
           {emailAlreadyRegistered ? (
             <p id="access-email-existing" className="text-2xs text-[#b3b3b3]" role="status">
               Looks like you've already registered.{" "}
-              <a href="/referrals" className={cn("underline underline-offset-2", accessInlineHighlightClass)}>
+              <Link
+                to={buildReferralDashboardPath({ email })}
+                className={cn("underline underline-offset-2", accessInlineHighlightClass)}
+              >
                 Check your waitlist status here.
-              </a>
+              </Link>
             </p>
           ) : null}
         </div>
