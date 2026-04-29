@@ -1,17 +1,16 @@
-import { useAuth as useWorkOSAuth } from "@workos-inc/authkit-react";
 import type { User, Session } from "@supabase/supabase-js";
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { setSupabaseAccessTokenGetter } from "@/integrations/supabase/client";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
-import { hasWorkOSConfig } from "@/lib/workosConfig";
 
 interface AuthCtx {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
-  signIn: () => Promise<void>;
+  signIn: (email: string) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -22,122 +21,179 @@ const AuthContext = createContext<AuthCtx>({
   loading: true,
   isConfigured: false,
   signIn: async () => {},
+  verifyOtp: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
 });
 
 // ---------------------------------------------------------------------------
 
-function workosUserToCompatUser(
-  workosUser: NonNullable<ReturnType<typeof useWorkOSAuth>["user"]>
-): User {
-  const displayName = [workosUser.firstName, workosUser.lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  return {
-    id: workosUser.id,
-    aud: "authenticated",
-    role: "authenticated",
-    email: workosUser.email,
-    email_confirmed_at: workosUser.emailVerified ? new Date().toISOString() : undefined,
-    phone: "",
-    confirmed_at: workosUser.emailVerified ? new Date().toISOString() : undefined,
-    last_sign_in_at: workosUser.lastSignInAt ?? null,
-    app_metadata: {},
-    user_metadata: {
-      full_name: displayName || undefined,
-      avatar_url: workosUser.profilePictureUrl || undefined,
-    },
-    identities: [],
-    created_at: workosUser.createdAt,
-    updated_at: workosUser.updatedAt,
-    is_anonymous: false,
-    factors: null,
-  } as User;
+function authRedirectUrl() {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}/auth`;
 }
 
-function WorkOSAuthProvider({ children }: { children: ReactNode }) {
-  const {
-    user: workosUser,
-    isLoading,
-    signIn: workosSignIn,
-    signOut: workosSignOut,
-    getAccessToken,
-  } = useWorkOSAuth();
+function displayNameForUser(user: User): string {
+  const metadata = user.user_metadata ?? {};
+  const metadataName =
+    typeof metadata.full_name === "string" ? metadata.full_name :
+    typeof metadata.name === "string" ? metadata.name :
+    "";
+  return metadataName.trim() || user.email?.split("@")[0] || "";
+}
 
-  const user = useMemo(
-    () => (workosUser ? workosUserToCompatUser(workosUser) : null),
-    [workosUser]
-  );
+function avatarForUser(user: User): string | undefined {
+  const metadata = user.user_metadata ?? {};
+  const avatar =
+    typeof metadata.avatar_url === "string" ? metadata.avatar_url :
+    typeof metadata.picture === "string" ? metadata.picture :
+    "";
+  return avatar.trim() || undefined;
+}
 
-  const session = useMemo((): Session | null => {
-    if (!user) return null;
-    return {
-      access_token: "",
-      refresh_token: "",
-      expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-      token_type: "bearer",
-      user,
-    } as Session;
-  }, [user]);
+function SupabaseAuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const user = session?.user ?? null;
 
   useEffect(() => {
-    const getter = async () => {
-      if (!workosUser) return null;
-      try {
-        return await getAccessToken();
-      } catch {
-        return null;
-      }
+    let mounted = true;
+
+    const {
+      data: { subscription },
+    } = supabaseAuth.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+      setLoading(false);
+    });
+
+    supabaseAuth.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setSession(data.session ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSession(null);
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
     };
+  }, []);
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const { data, error } = await supabaseAuth.auth.getSession();
+    if (error) return null;
+    return data.session?.access_token ?? null;
+  }, []);
+
+  useEffect(() => {
+    const getter = async () => getAccessToken();
     setSupabaseAccessTokenGetter(getter);
     registerClerkSessionTokenGetter(getter);
     return () => {
       setSupabaseAccessTokenGetter(null);
       registerClerkSessionTokenGetter(async () => null);
     };
-  }, [workosUser, getAccessToken]);
+  }, [getAccessToken]);
 
   useEffect(() => {
-    if (!workosUser) {
+    if (!user) {
       mixpanelReset();
       return;
     }
-    const displayName = [workosUser.firstName, workosUser.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    mixpanelIdentify(workosUser.id, {
-      $email: workosUser.email,
+    const displayName = displayNameForUser(user);
+    mixpanelIdentify(user.id, {
+      $email: user.email,
       ...(displayName ? { $name: displayName } : {}),
     });
-  }, [workosUser]);
+  }, [user]);
 
-  const safeGetAccessToken = async (): Promise<string | null> => {
-    if (!workosUser) return null;
-    try {
-      return await getAccessToken();
-    } catch {
-      return null;
+  useEffect(() => {
+    if (!user || !session?.access_token) return;
+
+    const displayName = displayNameForUser(user);
+    fetch("/api/ensure-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        _uid: user.id,
+        email: user.email,
+        display_name: displayName,
+        avatar_url: avatarForUser(user),
+      }),
+    }).catch((error) => {
+      if (import.meta.env.DEV) {
+        console.warn("[auth] ensure-user failed:", error);
+      }
+    });
+  }, [session?.access_token, user]);
+
+  const signIn = useCallback(async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Enter your email address.");
     }
-  };
+
+    const { error } = await supabaseAuth.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: authRedirectUrl(),
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+  }, []);
+
+  const verifyOtp = useCallback(async (email: string, token: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedToken = token.replace(/\s+/g, "");
+    if (!normalizedEmail || !normalizedToken) {
+      throw new Error("Enter the code from your email.");
+    }
+
+    const { error } = await supabaseAuth.auth.verifyOtp({
+      email: normalizedEmail,
+      token: normalizedToken,
+      type: "email",
+    });
+
+    if (error) {
+      throw error;
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const { error } = await supabaseAuth.auth.signOut();
+    if (error) throw error;
+    if (typeof window !== "undefined") {
+      window.location.assign("/login");
+    }
+  }, []);
 
   const value = useMemo<AuthCtx>(
     () => ({
       user,
       session,
-      loading: isLoading,
+      loading,
       isConfigured: true,
-      // Use the SDK-provided signIn — it handles PKCE generation, sessionStorage,
-      // and the redirect to api.workos.com internally.
-      signIn: workosSignIn,
-      signOut: () => workosSignOut({ returnPathname: "/login" }),
-      getAccessToken: safeGetAccessToken,
+      signIn,
+      verifyOtp,
+      signOut,
+      getAccessToken,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, session, isLoading, workosSignIn, workosSignOut]
+    [user, session, loading, signIn, verifyOtp, signOut, getAccessToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -162,6 +218,7 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       loading: false,
       isConfigured: false,
       signIn: async () => {},
+      verifyOtp: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
     }),
@@ -172,10 +229,10 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  if (!hasWorkOSConfig()) {
+  if (!isSupabaseConfigured) {
     return <PublicAuthProvider>{children}</PublicAuthProvider>;
   }
-  return <WorkOSAuthProvider>{children}</WorkOSAuthProvider>;
+  return <SupabaseAuthProvider>{children}</SupabaseAuthProvider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

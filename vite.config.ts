@@ -750,24 +750,14 @@ export default defineConfig(async ({ mode }) => {
   }
 
   const vercelEnv = process.env.VERCEL_ENV ?? "";
-  const workosClientId =
-    process.env.VITE_WORKOS_CLIENT_ID ||
-    process.env.WORKOS_CLIENT_ID ||
-    "";
-  const workosRedirectUri =
-    process.env.VITE_WORKOS_REDIRECT_URI ||
-    process.env.WORKOS_REDIRECT_URI ||
-    "";
   const authProvider =
     process.env.VITE_AUTH_PROVIDER ||
-    (workosClientId ? "workos" : "");
+    "supabase";
 
   return {
-    /** Clerk preview deploys: expose Vercel’s deployment kind at build time (production | preview | development). */
+    /** Expose Vercel's deployment kind at build time (production | preview | development). */
     define: {
       "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(vercelEnv),
-      "import.meta.env.VITE_WORKOS_CLIENT_ID": JSON.stringify(workosClientId),
-      "import.meta.env.VITE_WORKOS_REDIRECT_URI": JSON.stringify(workosRedirectUri),
       "import.meta.env.VITE_AUTH_PROVIDER": JSON.stringify(authProvider),
     },
     server: {

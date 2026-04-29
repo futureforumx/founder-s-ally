@@ -594,7 +594,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       } catch {}
 
       // Persist core fields to DB when a linked company workspace exists.
-      // RLS: auth.jwt() ->> 'sub' = user_id — WorkOS JWT sub matches, so direct client write works.
+      // RLS: auth.jwt() ->> 'sub' = user_id, so native Supabase sessions can write directly.
       if (companyId && form.name) {
         supabase
           .from("company_analyses")

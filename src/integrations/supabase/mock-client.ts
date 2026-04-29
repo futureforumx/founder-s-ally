@@ -32,6 +32,18 @@ class MockSupabaseClient {
     getUser: async () => ({ data: { user: { id: "mock-user-id", email: "founder@vekta.so" } }, error: null }),
     signOut: async () => ({ error: null }),
     getSession: async () => ({ data: { session: null }, error: null }),
+    signInWithOtp: async () => ({ data: {}, error: null }),
+    verifyOtp: async () => ({
+      data: {
+        session: {
+          access_token: "mock-access-token",
+          refresh_token: "mock-refresh-token",
+          user: { id: "mock-user-id", email: "founder@vekta.so" },
+        },
+        user: { id: "mock-user-id", email: "founder@vekta.so" },
+      },
+      error: null,
+    }),
   };
 
   // Functions mock

@@ -1,7 +1,4 @@
-/**
- * WorkOS session token getter for edge functions.
- * Registered by WorkOSAuthProvider in useAuth.tsx via setSupabaseAccessTokenGetter.
- */
+/** Session token getter for edge functions. */
 let sessionGetter: () => Promise<string | null> = async () => null;
 
 export function registerClerkSessionTokenGetter(fn: () => Promise<string | null>) {

@@ -1,9 +1,8 @@
 /**
  * Vercel serverless function: read a user's own profile.
  *
- * Extracts user identity the same way as save-profile.ts — WorkOS JWT sub
- * without signature verification (the sub is decoded from the token payload)
- * or falls back to the _uid query-param. Reads via service-role key so
+ * Extracts user identity from a signed-in JWT sub, or falls back to the _uid
+ * query-param/body field. Reads via service-role key so
  * PostgREST RLS is bypassed and no Supabase JWT config is needed.
  *
  * GET  /api/get-profile           (Authorization: Bearer <jwt>)

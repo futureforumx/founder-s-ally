@@ -7,7 +7,7 @@
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
  *
- * Auth: anon key in Authorization, WorkOS JWT in X-User-Auth.
+ * Auth: anon key in Authorization, signed-in user JWT in X-User-Auth.
  *       X-User-Auth may be sent with or without "Bearer " prefix.
  *       Service-role key used for all DB ops — RLS bypassed.
  */
@@ -44,7 +44,7 @@ function jwtSub(h: string | null): string | null {
 }
 
 async function assertAdmin(req: Request, db: ReturnType<typeof createClient>): Promise<string | null> {
-  // X-User-Auth carries the signed-in user's JWT (WorkOS / Clerk)
+  // X-User-Auth carries the signed-in user's JWT.
   const xua = req.headers.get("X-User-Auth") ?? req.headers.get("x-user-auth") ?? "";
   const sub = jwtSub(xua) ?? jwtSub(req.headers.get("Authorization"));
   if (!sub) return "Missing or invalid bearer token";

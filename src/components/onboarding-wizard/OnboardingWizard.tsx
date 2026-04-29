@@ -113,7 +113,7 @@ export function OnboardingWizard() {
             return;
           }
         }
-        // Direct supabase client write fails (PGRST301 — WorkOS JWT not trusted by PostgREST).
+        // Keep the service-role route as the stable path across auth providers.
         // Use the service-role API route instead. company_id will also be saved via
         // completeFounderOnboardingEdge below, so this is just a best-effort early link.
         await upsertProfile({ company_id: resolvedExistingId } as any);

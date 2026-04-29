@@ -1,19 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ERROR_MESSAGES: Record<string, string> = {
   callback_failed: "Sign-in couldn't be completed. Please try again.",
-  workos_error: "WorkOS returned an error. Please try again.",
+  otp_failed: "That code could not be verified. Please request a new one and try again.",
   access_denied: "Access was denied. Please try again or contact support.",
+  timeout: "Authentication took too long. Please try signing in again.",
 };
 
 export default function Auth() {
-  const { user, loading, isConfigured, signIn } = useAuth();
+  const { user, loading, isConfigured, signIn, verifyOtp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [startingSignIn, setStartingSignIn] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const errorKey = searchParams.get("error") ?? "";
   const errorMessage = ERROR_MESSAGES[errorKey] ?? (errorKey ? "An error occurred. Please try again." : null);
@@ -27,7 +33,7 @@ export default function Auth() {
       return;
     }
     if (!loading && user) {
-      console.log("[auth] already authenticated — navigating to /");
+      console.log("[auth] already authenticated - navigating to /");
       navigate("/", { replace: true });
     }
   }, [loading, user, navigate]);
@@ -38,7 +44,7 @@ export default function Auth() {
         <div className="max-w-md space-y-3 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
           <p className="text-sm font-semibold text-zinc-100">Authentication is temporarily unavailable</p>
           <p className="text-sm text-zinc-400">
-            WorkOS is not configured for this build, so the sign-in flow cannot start.
+            Supabase is not configured for this build, so the sign-in flow cannot start.
           </p>
         </div>
       </div>
@@ -56,66 +62,117 @@ export default function Auth() {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050506] p-6 text-center">
-      <div className="max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
+      <div className="w-full max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 p-6">
         <p className="text-sm font-semibold text-zinc-100">Sign in to continue</p>
         <p className="text-sm text-zinc-400">
-          Continue to WorkOS to access your Vekta workspace.
+          Enter your email and we'll send a secure Supabase sign-in code.
         </p>
 
-        {errorMessage && (
+        {(errorMessage || localError) && (
           <div className="rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-left">
-            <p className="text-xs text-red-400">{errorMessage}</p>
+            <p className="text-xs text-red-400">{localError ?? errorMessage}</p>
           </div>
         )}
 
-        <button
-          className="inline-flex items-center justify-center rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-          onClick={async () => {
-            // Synchronous diagnostics — written before any async work
-            console.log("[auth] calling SDK signIn()");
-            try {
-              window.localStorage.setItem("_auth_debug_clicked_at", new Date().toISOString());
-              window.localStorage.setItem("_auth_debug_preRedirect_href", window.location.href);
-              // Clear stale callback diagnostics from prior attempts
-              ["_auth_debug_mainjs_href", "_auth_debug_mainjs_search", "_auth_debug_mainjs_at",
-               "_auth_debug_callback_at", "_auth_debug_callback_url", "_auth_debug_callback_search",
-               "_auth_debug_callback_code_present", "_auth_debug_callback_error_present",
-               "_auth_debug_authorize_url", "_auth_debug_authorize_hostname",
-               "_auth_debug_authorize_client_id", "_auth_debug_authorize_redirect_uri",
-               "_auth_debug_error"].forEach((k) => window.localStorage.removeItem(k));
-            } catch { /* ignore if storage unavailable */ }
+        {otpSent && (
+          <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/30 px-4 py-3 text-left">
+            <p className="text-xs text-emerald-300">
+              Check {email.trim().toLowerCase()} for your sign-in code. The magic link in that email works too.
+            </p>
+          </div>
+        )}
 
-            // Intercept window.location.assign to capture the EXACT authorize URL
-            // the SDK generates — this survives the page navigation via localStorage.
-            try {
-              const origAssign = window.location.assign.bind(window.location);
-              window.location.assign = function(url: string) {
-                try {
-                  window.localStorage.setItem("_auth_debug_authorize_url", url);
-                  const p = new URL(url);
-                  window.localStorage.setItem("_auth_debug_authorize_hostname", p.hostname);
-                  window.localStorage.setItem("_auth_debug_authorize_client_id", p.searchParams.get("client_id") ?? "(missing)");
-                  window.localStorage.setItem("_auth_debug_authorize_redirect_uri", p.searchParams.get("redirect_uri") ?? "(missing)");
-                  console.log("[auth] SDK authorize URL:", url);
-                  console.log("[auth] authorize params:", {
-                    client_id: p.searchParams.get("client_id"),
-                    redirect_uri: p.searchParams.get("redirect_uri"),
-                    provider: p.searchParams.get("provider"),
-                    screen_hint: p.searchParams.get("screen_hint"),
-                    has_code_challenge: p.searchParams.has("code_challenge"),
-                  });
-                } catch { /* ignore */ }
-                origAssign(url);
-              };
-            } catch { /* ignore if intercept fails */ }
-
+        <form
+          className="space-y-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setLocalError(null);
             setStartingSignIn(true);
-            await signIn(); // SDK handles PKCE + redirect to api.workos.com internally
+            try {
+              await signIn(email);
+              setOtpSent(true);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : "Could not start sign-in. Please try again.";
+              setLocalError(message);
+            } finally {
+              setStartingSignIn(false);
+            }
           }}
-          disabled={startingSignIn}
         >
-          {startingSignIn ? "Starting sign-in..." : "Continue with WorkOS"}
-        </button>
+          <label className="sr-only" htmlFor="email">Email</label>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@company.com"
+              className="h-11 w-full rounded-full border border-zinc-800 bg-zinc-950 pl-10 pr-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-500"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-zinc-100 px-4 text-sm font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={startingSignIn}
+          >
+            {startingSignIn ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sending code...
+              </>
+            ) : (
+              "Send sign-in code"
+            )}
+          </button>
+        </form>
+
+        {otpSent && (
+          <form
+            className="space-y-3 border-t border-zinc-900 pt-4"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setLocalError(null);
+              setVerifyingCode(true);
+              try {
+                await verifyOtp(email, otpCode);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "That code could not be verified.";
+                setLocalError(message);
+              } finally {
+                setVerifyingCode(false);
+              }
+            }}
+          >
+            <label className="sr-only" htmlFor="otp-code">Sign-in code</label>
+            <input
+              id="otp-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={otpCode}
+              onChange={(event) => setOtpCode(event.target.value)}
+              placeholder="6-digit code"
+              className="h-11 w-full rounded-full border border-zinc-800 bg-zinc-950 px-4 text-center text-sm tracking-[0.28em] text-zinc-100 outline-none transition placeholder:tracking-normal placeholder:text-zinc-600 focus:border-zinc-500"
+              required
+            />
+            <button
+              type="submit"
+              className="inline-flex h-11 w-full items-center justify-center rounded-full border border-zinc-700 px-4 text-sm font-medium text-zinc-100 transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={verifyingCode}
+            >
+              {verifyingCode ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify code"
+              )}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

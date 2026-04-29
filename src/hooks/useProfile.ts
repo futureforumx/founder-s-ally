@@ -42,9 +42,8 @@ export function useProfile() {
     if (!user) { setLoading(false); return; }
     setLoading(true);
     try {
-      // Primary path: service-role API route (bypasses PostgREST JWT verification).
-      // Required because WorkOS JWTs are not configured as a trusted issuer in this
-      // Supabase project, so direct supabase.from() queries return PGRST301.
+      // Primary path: service-role API route, used for consistent profile reads
+      // during auth/provider transitions and local development.
       let apiData: Record<string, unknown> | null = null;
       try {
         const { getClerkSessionToken: getToken } = await import("@/lib/clerkSessionForEdge");
@@ -69,8 +68,7 @@ export function useProfile() {
         return;
       }
 
-      // Fallback: direct Supabase query (works if WorkOS JWT is a trusted issuer,
-      // or if the profile is public and anon SELECT policy applies).
+      // Fallback: direct Supabase query.
       const { data, error } = await (supabase as any)
         .from("profiles")
         .select("*")
@@ -147,9 +145,8 @@ export function useProfile() {
         }
       }
 
-      // ── Path 1.5: Direct Supabase client write (WorkOS JWT — sub == profiles.user_id) ─
-      // RLS: auth.jwt() ->> 'sub' = user_id  →  WorkOS JWT sub matches, direct write works.
-      // This is the primary path when Clerk is not in use.
+      // Path 1.5: direct Supabase client write.
+      // RLS: auth.jwt() ->> 'sub' = user_id.
       {
         const allowed = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url","company_id","has_completed_onboarding","has_seen_settings_tour"] as const;
         const directUpdates: Record<string, unknown> = {};

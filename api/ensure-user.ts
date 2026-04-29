@@ -1,9 +1,8 @@
 /**
  * Vercel serverless function: ensure a users row + default profiles row exist.
  *
- * Called by SsoCallback.tsx immediately after a successful WorkOS auth exchange,
- * before navigating to "/". Uses service-role key so PostgREST RLS is bypassed
- * and WorkOS JWTs don't need to be configured as trusted issuers in Supabase.
+ * Called by the browser after a successful Supabase auth session is available.
+ * Uses the service-role key so the default app rows exist before onboarding.
  *
  * POST /api/ensure-user
  * Body: { _uid: string, email?: string, display_name?: string, avatar_url?: string }
@@ -88,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const now = new Date().toISOString();
 
-  // Step 1 — upsert the users row (id is the WorkOS user_* ID)
+  // Step 1 - upsert the users row (id is the Supabase auth user id)
   const userRow: Record<string, unknown> = { id: userId, updated_at: now };
   if (email) userRow.email = email;
   if (displayName) userRow.display_name = displayName;
@@ -100,10 +99,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (userError) {
     console.error("[ensure-user] users upsert failed:", userError.message);
-    // Non-fatal — profiles FK may still succeed if row already exists
+    // Non-fatal - profiles may still succeed if the row already exists.
   }
 
-  // Step 2 — create a default profiles row if one doesn't exist yet
+  // Step 2 - create a default profiles row if one doesn't exist yet.
   const { error: profileError } = await admin.from("profiles").upsert(
     { user_id: userId, has_completed_onboarding: false, created_at: now, updated_at: now },
     { onConflict: "user_id", ignoreDuplicates: true }
@@ -114,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return setCors(res).status(500).json({ error: profileError.message });
   }
 
-  // Step 3 — return the current profile so the client can read onboarding state
+  // Step 3 - return the current profile so the client can read onboarding state.
   const { data: profile, error: fetchError } = await admin
     .from("profiles")
     .select("*")

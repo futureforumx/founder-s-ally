@@ -1,5 +1,4 @@
 import * as Sentry from "@sentry/react";
-import { AuthKitProvider } from "@workos-inc/authkit-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,47 +8,11 @@ import PublicApp from "./PublicApp.tsx";
 import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
-import { resolveWorkOSApiHostname, resolveWorkOSClientId, resolveWorkOSDevMode, resolveWorkOSRedirectUri } from "@/lib/workosConfig";
 
 initMixpanel();
 
 if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
-}
-
-// ---------------------------------------------------------------------------
-// GROUND-TRUTH URL DIAGNOSTIC (runs before React, before AuthKit SDK)
-// ---------------------------------------------------------------------------
-// This is the earliest possible capture of window.location — before any
-// history.replaceState calls, before any React renders, before anything.
-// Written to localStorage so it survives across sessions and appears in /debug/auth-proof.
-if (typeof window !== "undefined") {
-  try {
-    const _mainHref = window.location.href;
-    const _mainSearch = window.location.search;
-    // Only capture on the /auth callback path so we don't overwrite on every page load
-    if (window.location.pathname === "/auth" || window.location.pathname === "/auth/") {
-      window.localStorage.setItem("_auth_debug_mainjs_href", _mainHref);
-      window.localStorage.setItem("_auth_debug_mainjs_search", _mainSearch || "(empty)");
-      window.localStorage.setItem("_auth_debug_mainjs_at", new Date().toISOString());
-      console.log("[AUTH_PROOF] main.tsx ran on /auth — href:", _mainHref, "search:", _mainSearch);
-    }
-  } catch { /* ignore */ }
-}
-
-// ---------------------------------------------------------------------------
-// Callback diagnostics — log ?code= / ?error= presence on /auth load
-// ---------------------------------------------------------------------------
-if (typeof window !== "undefined") {
-  const _cbSp = new URLSearchParams(window.location.search);
-  if (window.location.pathname === "/auth" || window.location.pathname === "/auth/") {
-    const hasCode = _cbSp.has("code");
-    const hasError = _cbSp.has("error");
-    console.log("[auth] callback hit — code present:", hasCode, "error:", _cbSp.get("error") ?? false);
-    if (!hasCode && !hasError) {
-      console.warn("[auth] /auth reached with no ?code= and no ?error= — WorkOS may have bounced without completing the flow");
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -74,21 +37,6 @@ Sentry.init({
   sendDefaultPii: true,
   integrations: [Sentry.browserTracingIntegration()],
   tracesSampleRate: import.meta.env.PROD ? 0.05 : 0,
-});
-
-// ---------------------------------------------------------------------------
-// WorkOS config (debug — no secrets)
-// ---------------------------------------------------------------------------
-const clientId = resolveWorkOSClientId();
-const apiHostname = resolveWorkOSApiHostname();
-const devMode = resolveWorkOSDevMode();
-const redirectUri = resolveWorkOSRedirectUri();
-
-console.log("[auth] WorkOS config —", {
-  clientId: clientId || "(missing)",
-  redirectUri,
-  devMode,
-  apiHostname: apiHostname ?? "(default api.workos.com)",
 });
 
 // ---------------------------------------------------------------------------
@@ -132,25 +80,7 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 // ---------------------------------------------------------------------------
 // App tree
 // ---------------------------------------------------------------------------
-// Always wrap App in AuthKitProvider so Auth.tsx can safely call useWorkOSAuth().
-// AuthProvider inside App uses PublicAuthProvider when clientId is absent, so
-// no actual WorkOS API calls are made when the env var is not set.
-const appTree = (
-  <AuthKitProvider
-    clientId={clientId || "unconfigured"}
-    apiHostname={apiHostname}
-    devMode={devMode}
-    redirectUri={redirectUri}
-    onRedirectCallback={() => {
-      // The SDK has already set the user in its internal React state by the time
-      // this fires.  Auth.tsx's useEffect will detect user != null and call
-      // navigate("/") via client-side routing — no hard reload needed.
-      console.log("[auth] onRedirectCallback fired — SDK exchange complete");
-    }}
-  >
-    <App />
-  </AuthKitProvider>
-);
+const appTree = <App />;
 
 const sentryEnabled = import.meta.env.VITE_SENTRY_ENABLED !== "false";
 

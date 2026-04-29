@@ -18,12 +18,12 @@ if (import.meta.env.DEV && !hasSupabaseConfig) {
 
 let accessTokenGetter: () => Promise<string | null> = async () => null;
 
-/** Called from AuthProvider when Clerk session changes — forwards JWT to Supabase (third-party auth). */
+/** Called from AuthProvider when the signed-in session changes. */
 export function setSupabaseAccessTokenGetter(fn: (() => Promise<string | null>) | null) {
   accessTokenGetter = fn ?? (async () => null);
 }
 
-/** Clerk (or other) JWT sent to Supabase — use for edge functions that need the signed-in user. */
+/** Current user JWT sent to Supabase - use for edge functions that need the signed-in user. */
 export async function getSupabaseAccessToken(): Promise<string | null> {
   try {
     return await accessTokenGetter();
@@ -33,8 +33,8 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
 }
 
 /**
- * `Authorization` value for Edge Functions: Clerk session JWT (default) or `supabase` template JWT when used
- * by {@link setSupabaseAccessTokenGetter}, else publishable key. Misconfigured JWTs are rejected (e.g. PGRST301).
+ * `Authorization` value for Edge Functions: signed-in Supabase session JWT when available,
+ * else publishable key. Misconfigured JWTs are rejected (e.g. PGRST301).
  */
 export async function getSupabaseBearerForFunctions(): Promise<string | null> {
   const user = (await getSupabaseAccessToken())?.trim();
@@ -57,8 +57,22 @@ const sharedAuthOptions = {
   },
 } as const;
 
+export const supabaseAuth = hasSupabaseConfig
+  ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
+      global: {
+        fetch: (...args) => fetch(...args),
+      },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: "vekta-supabase-auth",
+      },
+    })
+  : mockSupabase;
+
 /**
- * Used for VC directory reads. Passes the Clerk JWT when available (→ `authenticated` role),
+ * Used for VC directory reads. Passes the user JWT when available (→ `authenticated` role),
  * falling back to `anon` when unauthenticated. Both roles have SELECT policies on `vc_*` tables.
  */
 export const supabaseVcDirectory = hasSupabaseConfig
@@ -80,10 +94,10 @@ export const supabaseVcDirectory = hasSupabaseConfig
 
 /**
  * Public Network directory reads (`organizations`, `people`, `roles`, `operator_profiles`).
- * Always uses the **publishable (anon) role** — no Clerk JWT on the wire.
+ * Always uses the **publishable (anon) role** - no user JWT on the wire.
  *
  * Why: PostgREST rejects unknown JWTs with `PGRST301` ("JWT cryptographic operation failed").
- * `supabaseVcDirectory` forwards the Clerk template JWT for `vc_*` / firm flows; that same token
+ * `supabaseVcDirectory` forwards the user JWT for `vc_*` / firm flows; that same token
  * must **not** be sent for tables that only have anon/public SELECT policies, or every query
  * returns 401 and the UI shows empty grids.
  */

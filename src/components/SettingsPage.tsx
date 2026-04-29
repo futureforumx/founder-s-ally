@@ -2329,7 +2329,7 @@ function SecurityTabDemo() {
   );
 }
 
-function SecurityTabClerk() {
+function SecurityTabSupabase() {
   const { user } = useAuth();
 
   return (
@@ -2342,7 +2342,7 @@ function SecurityTabClerk() {
     >
       <div>
         <h3 className="text-sm font-semibold text-foreground">Security</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Email, password, and 2FA are managed in your Clerk account.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Email sign-in is managed by Supabase Auth.</p>
       </div>
 
       <div className="space-y-3">
@@ -2356,15 +2356,6 @@ function SecurityTabClerk() {
               <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
             </div>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-lg text-xs gap-1.5 w-full sm:w-auto"
-            onClick={() => window.open("https://id.workos.com", "_blank")}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open account & security
-          </Button>
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-border p-4">
@@ -2373,11 +2364,11 @@ function SecurityTabClerk() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
-              <p className="text-[10px] text-muted-foreground">Configure in Clerk account settings</p>
+              <p className="text-sm font-medium text-foreground">Sign-in method</p>
+              <p className="text-[10px] text-muted-foreground">Email code and magic link</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase font-bold">Clerk</Badge>
+          <Badge variant="outline" className="text-[9px] uppercase font-bold">Supabase</Badge>
         </div>
       </div>
     </motion.div>
@@ -2386,7 +2377,7 @@ function SecurityTabClerk() {
 
 function SecurityTab() {
   if (import.meta.env.VITE_DEMO_MODE === "true") return <SecurityTabDemo />;
-  return <SecurityTabClerk />;
+  return <SecurityTabSupabase />;
 }
 
 // ── Subscription Tab ──

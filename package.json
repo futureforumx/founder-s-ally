@@ -216,7 +216,6 @@
     "@types/canvas-confetti": "^1.6.0",
     "@types/three": "^0.170.0",
     "@vercel/speed-insights": "^2.0.0",
-    "@workos-inc/authkit-react": "^0.10.0",
     "busboy": "^1.6.0",
     "canvas-confetti": "^1.9.0",
     "class-variance-authority": "^0.7.1",

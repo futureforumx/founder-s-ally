@@ -13,9 +13,8 @@ import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Loader2 } from "lucide-react";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
-const DebugAuthProof = lazy(() => import("./pages/DebugAuthProof.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
-const SsoCallback = lazy(() => import("./pages/SsoCallback.tsx"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
@@ -67,7 +66,7 @@ function readCachedOnboardingState() {
 }
 
 function BackgroundProfileProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, getAccessToken } = useAuth();
   const [refreshToken, setRefreshToken] = useState(0);
   const [state, setState] = useState(() => ({
     ...readCachedOnboardingState(),
@@ -88,16 +87,23 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
     let cancelled = false;
     setState((prev) => ({ ...prev, loading: true }));
 
-    // Use the service-role API route so WorkOS JWTs don't need to be trusted
-    // by Supabase — direct supabase.from() queries fail with PGRST301.
     const uid = user.id;
-    fetch("/api/get-profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ _uid: uid }),
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((json: { ok?: boolean; profile?: { has_completed_onboarding?: boolean } | null }) => {
+    const loadProfile = async () => {
+      const token = await getAccessToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const resp = await fetch("/api/get-profile", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ _uid: uid }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.json() as Promise<{ ok?: boolean; profile?: { has_completed_onboarding?: boolean } | null }>;
+    };
+
+    loadProfile()
+      .then((json) => {
         if (cancelled) return;
         const profileData = json?.profile ?? null;
         const completed = profileData?.has_completed_onboarding === true;
@@ -122,7 +128,7 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user?.id, refreshToken]);
+  }, [authLoading, getAccessToken, user?.id, refreshToken]);
 
   const value = useMemo<ProfileStatusValue>(
     () => ({
@@ -167,7 +173,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   if (loading && authTimedOut) {
-    return <Navigate to="/login?timeout=1" replace />;
+    return <Navigate to="/login?error=timeout" replace />;
   }
 
   if (loading) {
@@ -266,13 +272,8 @@ const App = () => (
             <MixpanelPageViewTracker />
             <ConnectorOAuthReturnListener />
             <Routes>
-              {/* Temporary diagnostic route — remove before shipping */}
-              <Route path="/debug/auth-proof" element={<Suspense fallback={<RouteLoader />}><DebugAuthProof /></Suspense>} />
               <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
-              {/* /auth (and /auth/*) is the WorkOS redirect URI — handled exclusively by SsoCallback.
-                  Auth.tsx (sign-in UI) is never rendered here; SsoCallback redirects to /login if
-                  there is no ?code= present. */}
-              <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><SsoCallback /></Suspense>} />
+              <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><AuthCallback /></Suspense>} />
               <Route
                 path="/access"
                 element={
