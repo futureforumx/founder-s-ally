@@ -341,6 +341,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/intelligence" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><AppOnboardingRoute /></ProtectedRoute>} />
+              <Route path="/admin" element={<Navigate to="/admin/intelligence" replace />} />
               <Route path="/admin/intelligence" element={<ProtectedRoute><AdminRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading admin tools…" />}><AdminIntelligence /></Suspense></AdminRoute></ProtectedRoute>} />
               <Route path="/firms/:id" element={<ProtectedRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading firm profile…" />}><FirmProfile /></Suspense></ProtectedRoute>} />
               <Route
