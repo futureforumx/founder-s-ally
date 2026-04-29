@@ -1,8 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type SVGProps, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { z } from "zod";
-import { Check, CheckCircle2, Copy, Loader2, Mail, Share2 } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Loader2,
+  Mail,
+  Share2,
+  Youtube,
+} from "lucide-react";
 import {
   FOUNDER_WAITLIST_SECTOR_OPTIONS,
   getFounderWaitlistSectorLabel,
@@ -18,7 +29,7 @@ import {
   type WaitlistSignupPayload,
   type WaitlistSignupResponse,
 } from "@/lib/waitlist";
-import { normalizeLinkedInProfileUrl } from "@/lib/normalizeLinkedInProfileUrl";
+import { normalizeSocialProfileInput } from "@/lib/normalizeSocialProfileInput";
 import { requestWaitlistConfirmationEmailStub } from "@/lib/waitlistConfirmationEmailStub";
 import { referralShareOutlineButtonClass } from "@/lib/referralShareUi";
 import { resolvePublicReferralLink } from "@/lib/publicReferralLink";
@@ -36,7 +47,8 @@ const EMAIL_FORMAT_INLINE = "You sure that's right?";
 
 /** Informational only — never blocks submit. Exact domain match after valid email parse. */
 const PERSONAL_EMAIL_HINT =
-  "Looks like a personal email. Don't have a work email?";
+  "This works, but a work email improves your waitlist position.";
+const SOCIAL_PROFILE_ERROR = "Enter a valid LinkedIn or X profile link, or an X @handle.";
 
 const PERSONAL_EMAIL_DOMAINS = new Set(["gmail.com", "yahoo.com", "outlook.com"]);
 
@@ -84,6 +96,53 @@ const SUCCESS_VALUE_PREVIEW_BULLETS = [
   "Warm intro paths where they exist",
   "Real-time market signals",
 ] as const;
+
+function DiscordLogoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" focusable="false" {...props}>
+      <path d="M20.317 4.369a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.056 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.25-.194.372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.548-13.66a.061.061 0 0 0-.031-.03ZM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418Z" />
+    </svg>
+  );
+}
+
+function WhatsAppLogoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" focusable="false" {...props}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.58-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347Zm-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884Zm8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.304-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+    </svg>
+  );
+}
+
+function XLogoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" focusable="false" {...props}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.657l-5.214-6.817-5.966 6.817H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
+    </svg>
+  );
+}
+
+const WAITLIST_SOCIAL_ACTION_URLS = {
+  linkedin: "https://www.linkedin.com/company/tryvekta",
+  x: "https://x.com/vektaforall",
+  instagram: "https://www.instagram.com/tryvekta",
+  facebook: "https://www.facebook.com/tryvekta/",
+  youtube: "https://www.youtube.com/@tryvekta",
+  discord: "https://discord.com/invite/Xa87TYG8Q",
+  whatsapp: "https://www.whatsapp.com/channel/0029VbC0Pfj8qJ02YTpCSf3D",
+} as const;
+
+const WAITLIST_SOCIAL_ACTIONS = [
+  { id: "linkedin", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.linkedin, label: "Follow on LinkedIn", Icon: Linkedin },
+  { id: "x", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.x, label: "Follow on X", Icon: XLogoIcon },
+  { id: "instagram", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.instagram, label: "Follow on Instagram", Icon: Instagram },
+  { id: "facebook", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.facebook, label: "Follow on Facebook", Icon: Facebook },
+  { id: "youtube", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.youtube, label: "Subscribe on YouTube", Icon: Youtube },
+  { id: "discord", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.discord, label: "Join Discord", Icon: DiscordLogoIcon },
+  { id: "whatsapp", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.whatsapp, label: "Join WhatsApp", Icon: WhatsAppLogoIcon },
+] as const;
+
+type WaitlistSocialActionId = (typeof WAITLIST_SOCIAL_ACTIONS)[number]["id"];
+type SocialPointBurst = { actionId: WaitlistSocialActionId; points: number; nonce: number };
 
 type AccessRole = "founder" | "investor" | "operator" | "advisor" | "other";
 
@@ -185,8 +244,9 @@ function buildMetadata(params: {
   lastName: string;
   pathname: string;
   referralFromUrl: string | null;
-  priorityAccess: boolean | null;
+  customSector?: string;
   investor_stages?: string[];
+  socialProfilePlatform?: string;
 }): Record<string, unknown> {
   const search = typeof window !== "undefined" ? window.location.search : "";
   const sp = new URLSearchParams(search);
@@ -203,10 +263,9 @@ function buildMetadata(params: {
   if (utm_medium) meta.utm_medium = utm_medium;
   if (utm_campaign) meta.utm_campaign = utm_campaign;
   if (params.referralFromUrl) meta.referral_code = params.referralFromUrl;
-  if (params.priorityAccess === true || params.priorityAccess === false) {
-    meta.priority_access_requested = params.priorityAccess;
-  }
+  if (params.customSector?.trim()) meta.sector_other = params.customSector.trim();
   if (params.investor_stages?.length) meta.investor_stages = params.investor_stages;
+  if (params.socialProfilePlatform) meta.social_profile_platform = params.socialProfilePlatform;
   return meta;
 }
 
@@ -240,18 +299,23 @@ export function AccessRequestForm() {
   const [investorStages, setInvestorStages] = useState<Record<string, boolean>>({});
   /** Canonical founder sector slug; cleared when stage/role hides the field. */
   const [sector, setSector] = useState("");
+  const [customSector, setCustomSector] = useState("");
   const [intentSet, setIntentSet] = useState<Record<string, boolean>>({});
   const [biggestPain, setBiggestPain] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
-  /** Empty until user selects a radio (required). */
-  const [priorityChoice, setPriorityChoice] = useState<"" | "yes" | "no" | "prefer_not">("");
+  const [socialProfileInput, setSocialProfileInput] = useState("");
+  const [socialProfileError, setSocialProfileError] = useState<string | null>(null);
 
   const [status, setStatus] = useState<FormStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [emailFieldError, setEmailFieldError] = useState<string | null>(null);
   const [emailAlreadyRegistered, setEmailAlreadyRegistered] = useState(false);
   const [result, setResult] = useState<WaitlistSignupResponse | null>(null);
+  const [completedSocialActions, setCompletedSocialActions] = useState<Record<WaitlistSocialActionId, boolean>>(
+    {} as Record<WaitlistSocialActionId, boolean>,
+  );
+  const [scorePulseKey, setScorePulseKey] = useState(0);
+  const [socialPointBurst, setSocialPointBurst] = useState<SocialPointBurst | null>(null);
 
   const reduceMotion = useReducedMotion();
   const sectorSectionRef = useRef<HTMLDivElement>(null);
@@ -268,6 +332,11 @@ export function AccessRequestForm() {
   const referralLink = useMemo(() => resolvePublicReferralLink(result ?? {}), [result]);
 
   const showPersonalEmailHint = useMemo(() => isLikelyPersonalEmail(email), [email]);
+  const normalizedSocialProfile = useMemo(
+    () => normalizeSocialProfileInput(socialProfileInput),
+    [socialProfileInput],
+  );
+  const showSocialProfileAccepted = Boolean(socialProfileInput.trim() && normalizedSocialProfile && !socialProfileError);
 
   const emailAriaDescribedBy = useMemo(() => {
     const ids: string[] = [];
@@ -277,7 +346,32 @@ export function AccessRequestForm() {
     return ids.length ? ids.join(" ") : undefined;
   }, [emailFieldError, showPersonalEmailHint, emailAlreadyRegistered]);
 
+  const socialProfileAriaDescribedBy = useMemo(() => {
+    const ids = ["access-social-helper"];
+    if (socialProfileError) ids.push("access-social-error");
+    else if (showSocialProfileAccepted) ids.push("access-social-success");
+    return ids.join(" ");
+  }, [socialProfileError, showSocialProfileAccepted]);
+
   const { copied, copyFailed, copyReferralLink, xIntentHref, mailtoHref } = useReferralShareActions(referralLink);
+
+  const socialActionBonus = useMemo(
+    () =>
+      WAITLIST_SOCIAL_ACTIONS.reduce(
+        (sum, action) => sum + (completedSocialActions[action.id] ? action.points : 0),
+        0,
+      ),
+    [completedSocialActions],
+  );
+
+  const displayedScore =
+    result && typeof result.total_score === "number" ? result.total_score + socialActionBonus : null;
+
+  useEffect(() => {
+    if (!socialPointBurst) return;
+    const timeout = window.setTimeout(() => setSocialPointBurst(null), reduceMotion ? 450 : 950);
+    return () => window.clearTimeout(timeout);
+  }, [reduceMotion, socialPointBurst]);
 
   useEffect(() => {
     if (referralVisitTrackedRef.current) return;
@@ -318,8 +412,15 @@ export function AccessRequestForm() {
   useEffect(() => {
     if (role !== "founder" || !stage.trim()) {
       setSector("");
+      setCustomSector("");
     }
   }, [role, stage]);
+
+  useEffect(() => {
+    if (sector !== "other") {
+      setCustomSector("");
+    }
+  }, [sector]);
 
   useEffect(() => {
     const showSector = role === "founder" && !!stage.trim();
@@ -406,10 +507,24 @@ export function AccessRequestForm() {
     setInvestorStages((prev) => ({ ...prev, [value]: !prev[value] }));
   };
 
+  const completeSocialAction = (action: (typeof WAITLIST_SOCIAL_ACTIONS)[number]) => {
+    if (completedSocialActions[action.id]) return;
+
+    setCompletedSocialActions((prev) => ({ ...prev, [action.id]: true }));
+    setScorePulseKey((prev) => prev + 1);
+    setSocialPointBurst({ actionId: action.id, points: action.points, nonce: Date.now() });
+    trackWaitlistAnalytics("waitlist_social_action_completed", {
+      action_id: action.id,
+      points: action.points,
+      optimistic: true,
+    });
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setEmailFieldError(null);
+    setSocialProfileError(null);
 
     if (!firstName.trim()) {
       setErrorMessage("Please enter your first name.");
@@ -459,6 +574,11 @@ export function AccessRequestForm() {
       setStatus("error");
       return;
     }
+    if (role === "founder" && sector === "other" && !customSector.trim()) {
+      setErrorMessage("Please enter your sector.");
+      setStatus("error");
+      return;
+    }
     const intent = PRIORITY_CHOICES[role as AccessRole].filter((p) => intentSet[p.id]).map((p) => p.id);
     if (intent.length === 0) {
       setErrorMessage("Please select at least one priority.");
@@ -474,29 +594,17 @@ export function AccessRequestForm() {
       setStatus("error");
       return;
     }
-    if (!linkedinUrl.trim()) {
-      setErrorMessage("Please enter your LinkedIn URL.");
+    const socialProfile = normalizeSocialProfileInput(socialProfileInput);
+    if (!socialProfile) {
+      setSocialProfileError(SOCIAL_PROFILE_ERROR);
+      setErrorMessage(SOCIAL_PROFILE_ERROR);
       setStatus("error");
       return;
     }
-    const linkedinNormalized = normalizeLinkedInProfileUrl(linkedinUrl);
-    const linkedinOk =
-      linkedinNormalized.includes("linkedin.com/in/") || linkedinNormalized.includes("linkedin.com/company/");
-    if (!linkedinOk) {
-      setErrorMessage("Please enter a valid LinkedIn profile URL, path, or handle.");
-      setStatus("error");
-      return;
-    }
-    setLinkedinUrl(linkedinNormalized);
-    if (!priorityChoice) {
-      setErrorMessage("Please answer priority access.");
-      setStatus("error");
-      return;
-    }
+    setSocialProfileError(null);
+    setSocialProfileInput(socialProfile.normalized);
 
     const pathname = typeof window !== "undefined" ? window.location.pathname : "/access";
-    const priorityAccess: boolean | null =
-      priorityChoice === "yes" ? true : priorityChoice === "no" ? false : null;
 
     const investorStageList =
       role === "investor"
@@ -516,7 +624,7 @@ export function AccessRequestForm() {
       intent,
       ...(biggestPain.trim() ? { biggest_pain: biggestPain.trim() } : {}),
       company_name: companyName.trim(),
-      linkedin_url: linkedinNormalized,
+      linkedin_url: socialProfile.normalized,
       source: "access_page",
       campaign: "access_page_v1",
       ...(referralFromUrl ? { referral_code: referralFromUrl } : {}),
@@ -525,7 +633,8 @@ export function AccessRequestForm() {
         lastName,
         pathname,
         referralFromUrl,
-        priorityAccess,
+        customSector: role === "founder" && sector === "other" ? customSector : undefined,
+        socialProfilePlatform: socialProfile.platform,
         ...(role === "investor" && investorStageList.length > 0 ? { investor_stages: investorStageList } : {}),
       }),
     };
@@ -580,9 +689,18 @@ export function AccessRequestForm() {
                 {typeof result.referral_count === "number" ? result.referral_count : "—"}
               </span>
             </p>
-            {typeof result.total_score === "number" ? (
+            {displayedScore != null ? (
               <p>
-                Score: <span className="font-semibold text-zinc-100">{result.total_score}</span>
+                Score:{" "}
+                <motion.span
+                  key={scorePulseKey}
+                  initial={reduceMotion ? false : { scale: 1, color: "#f4f4f5" }}
+                  animate={reduceMotion ? undefined : { scale: [1, 1.12, 1], color: ["#f4f4f5", "#2EE6A6", "#f4f4f5"] }}
+                  transition={{ duration: reduceMotion ? 0 : 0.45, ease: "easeOut" }}
+                  className="inline-block font-semibold text-zinc-100"
+                >
+                  {displayedScore}
+                </motion.span>
               </p>
             ) : null}
           </div>
@@ -642,6 +760,67 @@ export function AccessRequestForm() {
               ) : null}
             </div>
           ) : null}
+
+          <div className="mt-6 rounded-xl border border-zinc-800 bg-[#121212] px-4 py-5 text-left shadow-lg shadow-black/30">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-zinc-100">Earn more points</p>
+              <p className="text-2xs text-[#b3b3b3]">Get 5 points for each platform you follow.</p>
+            </div>
+            <div
+              className="mt-4 grid w-full gap-1.5 sm:gap-2"
+              style={{ gridTemplateColumns: `repeat(${WAITLIST_SOCIAL_ACTIONS.length}, minmax(0, 1fr))` }}
+            >
+              {WAITLIST_SOCIAL_ACTIONS.map((action) => {
+                const completed = Boolean(completedSocialActions[action.id]);
+                const Icon = action.Icon;
+                const title = completed ? `${action.label} completed` : `${action.label} (+${action.points} pts)`;
+
+                return (
+                  <a
+                    key={action.id}
+                    href={action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${action.label} in a new window for +${action.points} points${completed ? " — completed" : ""}`}
+                    aria-disabled={completed}
+                    title={title}
+                    className={cn(
+                      buttonVariants({ variant: "outline" }),
+                      "group relative aspect-square h-auto min-w-0 w-full rounded-lg border-zinc-800 bg-[#181818] p-0 text-zinc-200 no-underline transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-[#202020] hover:text-primary hover:shadow-lg hover:shadow-primary/10 focus-visible:ring-primary/40",
+                      completed &&
+                        "border-primary/25 bg-[rgba(46,230,166,0.07)] text-primary hover:translate-y-0 hover:border-primary/25 hover:bg-[rgba(46,230,166,0.07)] hover:shadow-none",
+                    )}
+                    onClick={() => completeSocialAction(action)}
+                  >
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
+                    <AnimatePresence initial={false}>
+                      {socialPointBurst?.actionId === action.id ? (
+                        <motion.span
+                          key={socialPointBurst.nonce}
+                          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.85 }}
+                          animate={
+                            reduceMotion
+                              ? { opacity: [0, 1, 0] }
+                              : { opacity: [0, 1, 1, 0], y: [-2, -18, -24], scale: [0.9, 1.12, 1] }
+                          }
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: reduceMotion ? 0.45 : 0.85, ease: "easeOut" }}
+                          className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/30 bg-[#0d1f18] px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary shadow-lg shadow-primary/20"
+                        >
+                          +{socialPointBurst.points}
+                        </motion.span>
+                      ) : null}
+                    </AnimatePresence>
+                    {completed ? (
+                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-primary">
+                        <Check className="h-2.5 w-2.5" aria-hidden />
+                      </span>
+                    ) : null}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
 
           <p className="mt-6 text-center">
             <Link
@@ -867,14 +1046,12 @@ export function AccessRequestForm() {
               </div>
             )}
 
-            <AnimatePresence>
-              {role === "founder" && stage.trim() ? (
+            {role === "founder" && stage.trim() ? (
                 <motion.div
                   key="access-sector-panel"
                   ref={sectorSectionRef}
                   initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
                   transition={
                     reduceMotion
                       ? { duration: 0.12 }
@@ -933,14 +1110,33 @@ export function AccessRequestForm() {
                       </option>
                     ))}
                   </select>
-                  <AnimatePresence initial={false}>
-                    {founderEarlyAccessCta ? (
+                  {sector === "other" ? (
+                      <motion.div
+                        key="access-sector-other"
+                        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: reduceMotion ? 0.01 : 0.16, ease: "easeOut" }}
+                        className="space-y-2"
+                      >
+                        <label className={accessLabelClass} htmlFor="access-sector-other-input">
+                          Your sector <span className={accessInlineHighlightClass}>*</span>
+                        </label>
+                        <Input
+                          id="access-sector-other-input"
+                          className={accessInputClassName}
+                          placeholder="Tell us your sector"
+                          value={customSector}
+                          onChange={(e) => setCustomSector(e.target.value)}
+                          required
+                        />
+                      </motion.div>
+                    ) : null}
+                  {founderEarlyAccessCta ? (
                       <motion.div
                         key={sector.trim()}
                         role="status"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
                         transition={{ duration: reduceMotion ? 0.01 : 0.14 }}
                         className="space-y-1"
                       >
@@ -965,10 +1161,8 @@ export function AccessRequestForm() {
                         </motion.p>
                       </motion.div>
                     ) : null}
-                  </AnimatePresence>
                 </motion.div>
               ) : null}
-            </AnimatePresence>
           </div>
         ) : null}
 
@@ -994,90 +1188,89 @@ export function AccessRequestForm() {
           </fieldset>
         ) : null}
 
-        <div className="space-y-2">
-          <label className={accessLabelClass} htmlFor="access-pain">
-            Biggest pain / hardest part right now <span className="font-normal text-[#b3b3b3]/70">(optional)</span>
-          </label>
-          <textarea
-            id="access-pain"
-            rows={3}
-            className={accessTextareaClassName}
-            placeholder="A sentence is enough, if you’d like to share."
-            value={biggestPain}
-            onChange={(e) => setBiggestPain(e.target.value)}
-          />
-        </div>
+        {role ? (
+          <>
+            <div className="space-y-2">
+              <label className={accessLabelClass} htmlFor="access-pain">
+                Biggest pain / hardest part right now <span className="font-normal text-[#b3b3b3]/70">(optional)</span>
+              </label>
+              <textarea
+                id="access-pain"
+                rows={3}
+                className={accessTextareaClassName}
+                placeholder="A sentence is enough, if you’d like to share."
+                value={biggestPain}
+                onChange={(e) => setBiggestPain(e.target.value)}
+              />
+            </div>
 
-        <div className="space-y-2">
-          <label className={accessLabelClass} htmlFor="access-company">
-            {role === "investor" ? "Firm name or website" : "Company name or website"}{" "}
-            <span className={accessInlineHighlightClass}>*</span>
-          </label>
-          <Input
-            id="access-company"
-            className={accessInputClassName}
-            autoComplete="organization"
-            placeholder="Acme Inc or acme.com"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className={accessLabelClass} htmlFor="access-li">
-            LinkedIn URL <span className={accessInlineHighlightClass}>*</span>
-          </label>
-          <Input
-            id="access-li"
-            className={accessInputClassName}
-            type="text"
-            inputMode="url"
-            autoComplete="url"
-            placeholder="LinkedIn url or name"
-            value={linkedinUrl}
-            onChange={(e) => setLinkedinUrl(e.target.value)}
-            onBlur={() => setLinkedinUrl((v) => normalizeLinkedInProfileUrl(v))}
-            required
-          />
-        </div>
-
-        <fieldset className="space-y-2">
-          <legend className={accessLabelClass}>
-            Priority access <span className={accessInlineHighlightClass}>*</span>
-          </legend>
-          <p className={accessHelperClass}>Earlier access for an active raise or mandate.</p>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <label className={accessChoiceLabelClass}>
-              <input
-                type="radio"
-                name="priority-access"
+            <div className="space-y-2">
+              <label className={accessLabelClass} htmlFor="access-company">
+                {role === "investor" ? "Firm name or website" : "Company name or website"}{" "}
+                <span className={accessInlineHighlightClass}>*</span>
+              </label>
+              <Input
+                id="access-company"
+                className={accessInputClassName}
+                autoComplete="organization"
+                placeholder="Acme Inc or acme.com"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
                 required
-                checked={priorityChoice === "yes"}
-                onChange={() => setPriorityChoice("yes")}
               />
-              Yes
-            </label>
-            <label className={accessChoiceLabelClass}>
-              <input
-                type="radio"
-                name="priority-access"
-                checked={priorityChoice === "no"}
-                onChange={() => setPriorityChoice("no")}
+            </div>
+
+            <div className="space-y-2">
+              <label className={accessLabelClass} htmlFor="access-social-profile">
+                LinkedIn or X profile <span className={accessInlineHighlightClass}>*</span>
+              </label>
+              <Input
+                id="access-social-profile"
+                className={cn(
+                  accessInputClassName,
+                  socialProfileError && "border-destructive/60 focus-visible:ring-destructive/40",
+                  showSocialProfileAccepted && "border-primary/45 focus-visible:ring-primary/40",
+                )}
+                type="text"
+                inputMode="url"
+                autoComplete="url"
+                placeholder="Paste profile link or @handle"
+                value={socialProfileInput}
+                aria-invalid={socialProfileError ? true : undefined}
+                aria-describedby={socialProfileAriaDescribedBy}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSocialProfileInput(next);
+                  if (socialProfileError && normalizeSocialProfileInput(next)) {
+                    setSocialProfileError(null);
+                  }
+                }}
+                onBlur={() => {
+                  const normalized = normalizeSocialProfileInput(socialProfileInput);
+                  if (!normalized) {
+                    setSocialProfileError(SOCIAL_PROFILE_ERROR);
+                    return;
+                  }
+                  setSocialProfileInput(normalized.normalized);
+                  setSocialProfileError(null);
+                }}
+                required
               />
-              No
-            </label>
-            <label className={accessChoiceLabelClass}>
-              <input
-                type="radio"
-                name="priority-access"
-                checked={priorityChoice === "prefer_not"}
-                onChange={() => setPriorityChoice("prefer_not")}
-              />
-              Prefer not to say
-            </label>
-          </div>
-        </fieldset>
+              <p id="access-social-helper" className={cn(accessHelperClass, "leading-snug")}>
+                Use a LinkedIn/X URL or X handle. Example: linkedin.com/in/jane-doe or @janedoe
+              </p>
+              {socialProfileError ? (
+                <p id="access-social-error" className="text-2xs text-destructive" role="alert">
+                  {SOCIAL_PROFILE_ERROR}
+                </p>
+              ) : showSocialProfileAccepted ? (
+                <p id="access-social-success" className={cn("text-2xs", accessInlineHighlightClass)} role="status">
+                  Profile accepted
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
 
         <Button type="submit" className="w-full" disabled={status === "submitting"}>
           {status === "submitting" ? (

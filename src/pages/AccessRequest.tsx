@@ -64,7 +64,7 @@ export default function AccessRequest() {
             />
           </Link>
           <a
-            href="https://tryvekta.com"
+            href="https://vekta.so"
             target="_blank"
             rel="noopener noreferrer"
             className="text-2xs font-medium text-[#eeeeee] underline-offset-4 transition-colors hover:text-white hover:underline"
