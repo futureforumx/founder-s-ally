@@ -22,6 +22,8 @@ type FirmRow = {
   tagline: string | null; elevator_pitch: string | null; description: string | null;
   hq_city: string | null; hq_state: string | null; hq_country: string | null;
   website_url: string | null; logo_url: string | null; linkedin_url: string | null;
+  x_url: string | null; substack_url: string | null; medium_url: string | null;
+  crunchbase_url: string | null; contact_page_url: string | null;
   email: string | null; phone: string | null;
   aum_usd: number | null; founded_year: number | null;
   current_fund_name: string | null; lead_or_follow: string | null;
@@ -79,6 +81,47 @@ function FL({ label, children }: { label: string; children: React.ReactNode }) {
 }
 function TF({ label, value, onChange, type = "text", placeholder }: { label: string; value: string | null | undefined; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <FL label={label}><input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={IC} style={IS} onFocus={e => Object.assign(e.target.style, IF)} onBlur={e => Object.assign(e.target.style, IS)} /></FL>;
+}
+function externalHref(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+function UF({ label, value, onChange, placeholder }: { label: string; value: string | null | undefined; onChange: (v: string) => void; placeholder?: string }) {
+  const href = externalHref(value);
+  return (
+    <FL label={label}>
+      <div className="flex gap-1.5">
+        <input
+          type="url"
+          value={value ?? ""}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`${IC} min-w-0 flex-1`}
+          style={IS}
+          onFocus={e => Object.assign(e.target.style, IF)}
+          onBlur={e => Object.assign(e.target.style, IS)}
+        />
+        <a
+          href={href ?? undefined}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={!href}
+          onClick={e => { if (!href) e.preventDefault(); }}
+          className="inline-flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded transition-opacity"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            color: href ? "#2EE6A6" : "rgba(255,255,255,0.18)",
+            opacity: href ? 1 : 0.6,
+          }}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    </FL>
+  );
 }
 function NF({ label, value, onChange, placeholder }: { label: string; value: number | null | undefined; onChange: (v: number | null) => void; placeholder?: string }) {
   return <FL label={label}><input type="number" value={value ?? ""} onChange={e => onChange(e.target.value === "" ? null : Number(e.target.value))} placeholder={placeholder} className={IC} style={IS} onFocus={e => Object.assign(e.target.style, IF)} onBlur={e => Object.assign(e.target.style, IS)} /></FL>;
@@ -171,8 +214,13 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
         <TA label="Description" value={draft.description} onChange={set("description")} rows={3} />
 
         <Sect title="Contact & Web" />
-        <TF label="Website URL" value={draft.website_url} onChange={set("website_url")} type="url" />
-        <TF label="LinkedIn URL" value={draft.linkedin_url} onChange={set("linkedin_url")} type="url" />
+        <UF label="Website URL" value={draft.website_url} onChange={set("website_url")} placeholder="https://firm.com" />
+        <UF label="Contact Page URL" value={draft.contact_page_url} onChange={set("contact_page_url")} placeholder="https://firm.com/contact" />
+        <UF label="LinkedIn Profile" value={draft.linkedin_url} onChange={set("linkedin_url")} placeholder="https://www.linkedin.com/company/..." />
+        <UF label="X Profile" value={draft.x_url} onChange={set("x_url")} placeholder="https://x.com/..." />
+        <UF label="Substack" value={draft.substack_url} onChange={set("substack_url")} placeholder="https://...substack.com" />
+        <UF label="Medium" value={draft.medium_url} onChange={set("medium_url")} placeholder="https://medium.com/..." />
+        <UF label="Crunchbase" value={draft.crunchbase_url} onChange={set("crunchbase_url")} placeholder="https://www.crunchbase.com/organization/..." />
         <TF label="Email" value={draft.email} onChange={set("email")} type="email" />
         <TF label="Phone" value={draft.phone} onChange={set("phone")} />
 
