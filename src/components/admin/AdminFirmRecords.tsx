@@ -21,7 +21,7 @@ type FirmRow = {
   id: string; firm_name: string; slug: string | null;
   tagline: string | null; elevator_pitch: string | null; description: string | null;
   hq_city: string | null; hq_state: string | null; hq_country: string | null;
-  website_url: string | null; logo_url: string | null; linkedin_url: string | null;
+  website_url: string | null; logo_url: string | null; favicon_url: string | null; linkedin_url: string | null;
   x_url: string | null; substack_url: string | null; medium_url: string | null;
   crunchbase_url: string | null; contact_page_url: string | null;
   email: string | null; phone: string | null;
@@ -88,6 +88,16 @@ function externalHref(value: string | null | undefined): string | null {
   if (/^https?:\/\//i.test(raw)) return raw;
   return `https://${raw}`;
 }
+function faviconPreviewFromWebsite(value: string | null | undefined): string | null {
+  const href = externalHref(value);
+  if (!href) return null;
+  try {
+    const { hostname } = new URL(href);
+    return hostname ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64` : null;
+  } catch {
+    return null;
+  }
+}
 function UF({ label, value, onChange, placeholder }: { label: string; value: string | null | undefined; onChange: (v: string) => void; placeholder?: string }) {
   const href = externalHref(value);
   return (
@@ -121,6 +131,51 @@ function UF({ label, value, onChange, placeholder }: { label: string; value: str
         </a>
       </div>
     </FL>
+  );
+}
+function BrandAssetPreview({
+  label,
+  src,
+  fallbackSrc,
+  initial,
+  className,
+}: {
+  label: string;
+  src: string | null;
+  fallbackSrc?: string | null;
+  initial: string;
+  className: string;
+}) {
+  const primary = externalHref(src);
+  const fallback = fallbackSrc && fallbackSrc !== primary ? fallbackSrc : null;
+  const [tier, setTier] = useState<0 | 1 | 2>(() => (primary ? 0 : fallback ? 1 : 2));
+
+  useEffect(() => {
+    setTier(primary ? 0 : fallback ? 1 : 2);
+  }, [primary, fallback]);
+
+  const currentSrc = tier === 0 ? primary : tier === 1 ? fallback : null;
+
+  return (
+    <div>
+      <p className="mb-1.5 font-mono text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</p>
+      <div
+        className={`flex items-center justify-center overflow-hidden rounded bg-white/[0.03] ${className}`}
+        style={{ border: "1px solid rgba(255,255,255,0.09)" }}
+      >
+        {currentSrc ? (
+          <img
+            src={currentSrc}
+            alt=""
+            className="h-full w-full object-contain p-1"
+            referrerPolicy="no-referrer"
+            onError={() => setTier(prev => (prev === 0 && fallback ? 1 : 2))}
+          />
+        ) : (
+          <span className="font-semibold text-white/35">{initial}</span>
+        )}
+      </div>
+    </div>
   );
 }
 function NF({ label, value, onChange, placeholder }: { label: string; value: number | null | undefined; onChange: (v: number | null) => void; placeholder?: string }) {
@@ -187,6 +242,8 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof FirmRow>(k: K) { return (v: FirmRow[K]) => setDraft(d => ({ ...d, [k]: v })); }
+  const firmInitial = (draft.firm_name || "?").charAt(0).toUpperCase();
+  const faviconFallback = faviconPreviewFromWebsite(draft.website_url);
 
   const handleSave = async () => {
     setSaving(true);
@@ -201,7 +258,7 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
     <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col" style={{ width: 420, background: "#0c0c0c", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
       {/* header */}
       <div className="flex items-center gap-3 px-5 py-3.5 shrink-0 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        {draft.logo_url && <img src={draft.logo_url} alt="" className="h-5 w-5 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+        {(draft.logo_url || draft.favicon_url) && <img src={externalHref(draft.logo_url || draft.favicon_url) ?? undefined} alt="" className="h-5 w-5 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
         <span className="flex-1 truncate text-[13px] font-semibold text-white/90">{draft.firm_name || "Firm Record"}</span>
         <button onClick={onClose} className="opacity-40 hover:opacity-80 transition-opacity"><X className="h-4 w-4" /></button>
       </div>
@@ -212,6 +269,14 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
         <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
         <TA label="Elevator Pitch" value={draft.elevator_pitch} onChange={set("elevator_pitch")} rows={3} />
         <TA label="Description" value={draft.description} onChange={set("description")} rows={3} />
+
+        <Sect title="Brand Assets" />
+        <div className="grid grid-cols-[74px_minmax(0,1fr)] gap-x-3 gap-y-3">
+          <BrandAssetPreview label="Logo" src={draft.logo_url} initial={firmInitial} className="h-16 w-16 text-lg" />
+          <UF label="Logo URL" value={draft.logo_url} onChange={set("logo_url")} placeholder="https://firm.com/logo.svg" />
+          <BrandAssetPreview label="Favicon" src={draft.favicon_url} fallbackSrc={faviconFallback} initial={firmInitial} className="h-10 w-10 text-sm" />
+          <UF label="Favicon URL" value={draft.favicon_url} onChange={set("favicon_url")} placeholder="https://firm.com/favicon.ico" />
+        </div>
 
         <Sect title="Contact & Web" />
         <UF label="Website URL" value={draft.website_url} onChange={set("website_url")} placeholder="https://firm.com" />
@@ -383,7 +448,7 @@ export function AdminFirmRecords() {
               style={{ gridTemplateColumns: COL, borderColor: "rgba(255,255,255,0.05)", background: isSelected ? "rgba(46,230,166,0.06)" : undefined }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 truncate">
-                  {row.logo_url && <img src={row.logo_url} alt="" className="h-4 w-4 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+                  {(row.logo_url || row.favicon_url) && <img src={externalHref(row.logo_url || row.favicon_url) ?? undefined} alt="" className="h-4 w-4 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
                   <span className="truncate text-[13px] font-medium text-white/90">{row.firm_name}</span>
                   {row.website_url && <a href={row.website_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 opacity-30 hover:opacity-70"><ExternalLink className="h-3 w-3" style={{ color: "#2EE6A6" }} /></a>}
                 </div>

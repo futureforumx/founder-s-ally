@@ -120,7 +120,7 @@ const OPERATOR_COLS = [
 const FIRM_COLS = [
   "id","firm_name","slug","tagline","elevator_pitch","description",
   "hq_city","hq_state","hq_country",
-  "website_url","contact_page_url","logo_url","linkedin_url","x_url",
+  "website_url","contact_page_url","logo_url","favicon_url","linkedin_url","x_url",
   "substack_url","medium_url","crunchbase_url","email","phone",
   "aum_usd","founded_year","current_fund_name","lead_or_follow",
   "stage_focus","thesis_verticals",

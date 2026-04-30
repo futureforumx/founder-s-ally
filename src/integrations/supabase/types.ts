@@ -2993,6 +2993,7 @@ export type Database = {
           exited_portfolio_count: number | null
           extraction_confidence: number | null
           facebook_url: string | null
+          favicon_url: string | null
           firm_blog_url: string | null
           firm_name: string
           firm_type: string | null
@@ -3192,6 +3193,7 @@ export type Database = {
           exited_portfolio_count?: number | null
           extraction_confidence?: number | null
           facebook_url?: string | null
+          favicon_url?: string | null
           firm_blog_url?: string | null
           firm_name: string
           firm_type?: string | null
@@ -3391,6 +3393,7 @@ export type Database = {
           exited_portfolio_count?: number | null
           extraction_confidence?: number | null
           facebook_url?: string | null
+          favicon_url?: string | null
           firm_blog_url?: string | null
           firm_name?: string
           firm_type?: string | null
