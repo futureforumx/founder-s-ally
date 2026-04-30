@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const resendKey = Deno.env.get("RESEND_API_KEY");
     const fromEmail =
-      Deno.env.get("RESEND_FROM_EMAIL")?.trim() || "Vekta <onboarding@resend.dev>";
+      Deno.env.get("RESEND_FROM_EMAIL")?.trim() ||
+      Deno.env.get("RESEND_FROM")?.trim() ||
+      "Vekta <hello@tryvekta.com>";
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error("[send-login-otp] Missing Supabase admin credentials");

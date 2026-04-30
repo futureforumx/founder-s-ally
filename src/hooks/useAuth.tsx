@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
+import { sendLoginOtp } from "@/lib/sendLoginOtp";
 
 interface AuthCtx {
   user: User | null;
@@ -27,11 +28,6 @@ const AuthContext = createContext<AuthCtx>({
 });
 
 // ---------------------------------------------------------------------------
-
-function authRedirectUrl() {
-  if (typeof window === "undefined") return undefined;
-  return `${window.location.origin}/auth`;
-}
 
 function displayNameForUser(user: User): string {
   const metadata = user.user_metadata ?? {};
@@ -143,17 +139,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter your email address.");
     }
 
-    const { error } = await supabaseAuth.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: authRedirectUrl(),
-        shouldCreateUser: true,
-      },
-    });
-
-    if (error) {
-      throw error;
-    }
+    await sendLoginOtp(normalizedEmail);
   }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
