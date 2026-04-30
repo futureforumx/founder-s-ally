@@ -13,6 +13,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 
+type SupabaseAuthWithGetUser = {
+  getUser: (jwt: string) => Promise<{ data: { user: { id?: string } | null } }>;
+};
+
 function setCors(res: VercelResponse): VercelResponse {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "authorization, content-type");
@@ -89,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const auth = admin.auth as unknown as SupabaseAuthWithGetUser;
 
   // Prefer native Supabase token verification; keep Clerk/decode fallbacks for
   // old sessions created before the auth switch.
@@ -100,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const {
         data: { user },
-      } = await admin.auth.getUser(token);
+      } = await auth.getUser(token);
       if (user?.id) userId = user.id;
     } catch {
       // Not a native Supabase token, try the legacy paths below.

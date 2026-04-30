@@ -1,6 +1,10 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 
+type SupabaseAuthWithGetUser = {
+  getUser: (jwt: string) => Promise<{ data: { user: { id?: string } | null } }>;
+};
+
 function clerkJwks() {
   const clerkDomain = process.env.VITE_CLERK_PUBLISHABLE_KEY
     ? decodeClerkDomain(process.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -30,9 +34,10 @@ async function getSupabaseUserId(token: string): Promise<string | null> {
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const auth = admin.auth as unknown as SupabaseAuthWithGetUser;
     const {
       data: { user },
-    } = await admin.auth.getUser(token);
+    } = await auth.getUser(token);
     return user?.id ?? null;
   } catch {
     return null;
