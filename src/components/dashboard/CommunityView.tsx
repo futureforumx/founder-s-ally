@@ -3334,14 +3334,14 @@ export function CommunityView({
 
   /** Operator directory (Overview): same two-column rail as Network, scoped by entity tabs — no investors. */
   const operatorDirectoryRailSuggestedRaw = useMemo(() => {
-    if (directorySurface !== "operator" || isInvestorSearch) return [];
+    if (!isOperatorHubLayout) return [];
     return scopedSuggested;
-  }, [directorySurface, isInvestorSearch, scopedSuggested]);
+  }, [isOperatorHubLayout, scopedSuggested]);
 
   const operatorDirectoryRailTrending = useMemo(() => {
-    if (directorySurface !== "operator" || isInvestorSearch) return [];
+    if (!isOperatorHubLayout) return [];
     return scopedTrending;
-  }, [directorySurface, isInvestorSearch, scopedTrending]);
+  }, [isOperatorHubLayout, scopedTrending]);
 
   const operatorDirectoryRailSuggestedRanked = useMemo(() => {
     const userSector =
@@ -3372,7 +3372,7 @@ export function CommunityView({
     });
   }, [operatorDirectoryRailSuggestedRaw, companyData, analysisResult]);
   const operatorDirectoryRailTitles = useMemo(() => {
-    if (directorySurface !== "operator") {
+    if (!isOperatorHubLayout) {
       return { suggested: "", trending: "" };
     }
     switch (activeScope) {
@@ -3387,10 +3387,10 @@ export function CommunityView({
       default:
         return { suggested: "Best matches", trending: "Trending now" };
     }
-  }, [directorySurface, activeScope]);
+  }, [isOperatorHubLayout, activeScope]);
 
   const operatorDirectorySuggestedSubtitle = useMemo(() => {
-    if (directorySurface !== "operator") return "";
+    if (!isOperatorHubLayout) return "";
     const s = companyData?.sector?.trim();
     const st = companyData?.stage?.trim();
     const fromAi =
@@ -3415,11 +3415,18 @@ export function CommunityView({
       return ctx ? `Top operators for ${ctx} — ranked by profile fit.` : "Curated operator talent — ranked by profile fit.";
     }
     return "Curated matches based on your profile.";
-  }, [directorySurface, activeScope, companyData?.sector, companyData?.stage, analysisResult]);
+  }, [isOperatorHubLayout, activeScope, companyData?.sector, companyData?.stage, analysisResult]);
+
+  const showInvestorRails =
+    isInvestorSearch && (investorRailSuggested.length > 0 || investorRailTrending.length > 0);
+
+  const showNetworkRails =
+    !isInvestorSearch &&
+    !isOperatorHubLayout &&
+    (networkRailSuggested.length > 0 || networkRailTrending.length > 0);
 
   const showOperatorDirectoryRails =
-    directorySurface === "operator" &&
-    !isInvestorSearch &&
+    isOperatorHubLayout &&
     (operatorDirectoryRailSuggestedRanked.length > 0 || operatorDirectoryRailTrending.length > 0);
 
   const labels = SCOPE_LABELS[activeScope] ?? SCOPE_LABELS.all;
@@ -3680,9 +3687,7 @@ export function CommunityView({
     <div className="space-y-2">
       {/* Spacer for global top nav */}
       {(variant === "investor-search" ||
-        isOperatorHubLayout ||
-        isNetworkCapitalSurface ||
-        (directorySurface === "operator" && !isInvestorSearch)) && <div className="h-2" />}
+        isOperatorHubLayout) && <div className="h-2" />}
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
@@ -3976,7 +3981,7 @@ export function CommunityView({
             </div>
           )}
         </>
-      ) : !isInvestorSearch && !showNetworkRails && !isOperatorHubLayout && !isNetworkCapitalSurface ? (
+      ) : !isInvestorSearch && !showNetworkRails && !isOperatorHubLayout ? (
         <>
           {scopedSuggested.length > 0 && (
             <div className="pt-4">
