@@ -12,7 +12,14 @@
  *       Service-role key used for all DB ops — RLS bypassed.
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  autoPermissionForEmail,
+  clampGodModeToDesignatedEmail,
+  hasAdminConsoleAccess,
+  type AppPermission,
+} from "../_shared/app-admin-email.ts";
+import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -25,32 +32,61 @@ function json(body: unknown, status = 200) {
 }
 function err(msg: string, status = 400) { return json({ error: msg }, status); }
 
-/** Extract `sub` from a JWT. Accepts with or without "Bearer " prefix. */
-function jwtSub(h: string | null): string | null {
-  if (!h) return null;
-  // Strip optional "Bearer " prefix (case-insensitive)
-  const token = h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : h.trim();
-  const parts = token.split(".");
-  if (parts.length < 2) return null;
-  try {
-    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const rem = b64.length % 4; if (rem) b64 += "=".repeat(4 - rem);
-    const p = JSON.parse(atob(b64)) as Record<string, unknown>;
-    const s = p?.sub;
-    if (typeof s === "string" && s.trim()) return s.trim();
-    if (typeof s === "number" && Number.isFinite(s)) return String(s);
-  } catch { /* empty */ }
+function asPermission(v: unknown): AppPermission | null {
+  const p = String(v ?? "").toLowerCase();
+  if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
   return null;
 }
 
-async function assertAdmin(req: Request, db: ReturnType<typeof createClient>): Promise<string | null> {
-  // X-User-Auth carries the signed-in user's JWT.
-  const xua = req.headers.get("X-User-Auth") ?? req.headers.get("x-user-auth") ?? "";
-  const sub = jwtSub(xua) ?? jwtSub(req.headers.get("Authorization"));
-  if (!sub) return "Missing or invalid bearer token";
-  const { data, error } = await db.from("user_roles").select("permission").eq("user_id", sub).in("permission", ["admin", "god"]);
+function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
+  const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
+  let best: AppPermission = "user";
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (rank[candidate] > rank[best]) best = candidate;
+  }
+  return best;
+}
+
+function bearerize(authHeader: string | null): string | null {
+  const h = authHeader?.trim();
+  if (!h) return null;
+  return h.toLowerCase().startsWith("bearer ") ? h : `Bearer ${h}`;
+}
+
+async function assertAdmin(
+  req: Request,
+  db: SupabaseClient,
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+): Promise<string | null> {
+  const authHeader =
+    bearerize(req.headers.get("X-User-Auth") ?? req.headers.get("x-user-auth")) ??
+    bearerize(req.headers.get("Authorization"));
+  if (!authHeader) return "Missing authorization";
+
+  const resolved = await resolveAdminCaller(authHeader, supabaseUrl, supabaseAnonKey);
+  if ("error" in resolved) return resolved.error;
+
+  const roleIds = resolved.identityUserIds.length ? resolved.identityUserIds : [resolved.id];
+  const { data: roleRows, error } = await db.from("user_roles").select("permission").in("user_id", roleIds);
   if (error) return `Role lookup failed: ${error.message}`;
-  if (!data?.length) return "Caller is not an admin";
+
+  let roleFromDb: AppPermission | null = null;
+  for (const row of roleRows ?? []) {
+    roleFromDb = highestPermission(roleFromDb, asPermission(row.permission));
+  }
+
+  const callerPermission = clampGodModeToDesignatedEmail(
+    highestPermission(
+      roleFromDb,
+      asPermission(resolved.user_metadata?.role),
+      autoPermissionForEmail(resolved.email),
+    ),
+    resolved.email,
+  );
+
+  if (!hasAdminConsoleAccess(callerPermission)) return "Caller is not an admin";
   return null;
 }
 
@@ -119,8 +155,10 @@ const PROTECTED = new Set(["id","created_at","deleted_at","sector_embedding","up
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const authErr = await assertAdmin(req, db);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const db = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const authErr = await assertAdmin(req, db, supabaseUrl, supabaseAnonKey);
   if (authErr) return err(authErr, 403);
 
   const url    = new URL(req.url);
