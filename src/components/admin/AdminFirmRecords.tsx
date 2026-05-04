@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
-  AlertCircle, Building2, ExternalLink, X, CheckCircle2, XCircle,
+  AlertCircle, Building2, ExternalLink, X, CheckCircle2,
   MapPin, DollarSign, Users, Briefcase, Save,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { toast } from "sonner";
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 30;
-const COL = "2.5fr 1fr 1.5fr 1.5fr 0.8fr 0.8fr 0.7fr 0.7fr";
+const COL = "2.5fr 1fr 1.5fr 1.5fr 0.8fr 0.8fr 0.9fr";
 const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
@@ -26,14 +26,14 @@ type FirmRow = {
   locations?: Record<string, unknown> | null;
   website_url: string | null; logo_url: string | null; favicon_url: string | null; linkedin_url: string | null;
   x_url: string | null; facebook_url: string | null; instagram_url: string | null; youtube_url: string | null; substack_url: string | null; medium_url: string | null;
-  crunchbase_url: string | null; contact_page_url: string | null;
+  crunchbase_url: string | null; signal_nfx_url: string | null; cb_insights_url: string | null; openvc_url: string | null; pitchbook_url: string | null; vcsheet_url: string | null; contact_page_url: string | null;
   email: string | null; phone: string | null;
   aum: string | null; aum_usd: number | null; founded_year: number | null;
   current_fund_name: string | null; lead_partner: string | null; lead_or_follow: string | null;
   preferred_stage: string | null; stage_focus: string[] | null; thesis_verticals: string[] | null; strategy_classifications: string[] | null;
   firm_type: string | null; entity_type: string | null; min_check_size: number | null; max_check_size: number | null; total_headcount: number | null;
   market_sentiment: string | null; recent_deals: string[] | null; is_actively_deploying: boolean | null;
-  enrichment_status: string; completeness_score: number;
+  enrichment_status: string; completeness_score: number; status: string | null;
   needs_review: boolean; ready_for_live: boolean;
   manual_review_status: string | null; updated_at: string | null;
 };
@@ -238,6 +238,23 @@ function fmtCheckRange(min: number | null | undefined, max: number | null | unde
 function displayLocation(row: FirmRow): string {
   return row.location || [row.hq_city, row.hq_state ?? row.hq_country].filter(Boolean).join(", ") || "—";
 }
+type FirmAdminStatus = "live" | "needs_review" | "archive";
+function getFirmAdminStatus(row: FirmRow): FirmAdminStatus {
+  const normalized = (row.status ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+  if (normalized === "archive" || normalized === "archived") return "archive";
+  if (row.needs_review || normalized === "needs_review") return "needs_review";
+  return "live";
+}
+function firmStatusLabel(status: FirmAdminStatus): string {
+  if (status === "needs_review") return "NEEDS REVIEW";
+  if (status === "archive") return "ARCHIVE";
+  return "LIVE";
+}
+function firmStatusStyle(status: FirmAdminStatus) {
+  if (status === "needs_review") return { background: "rgba(245,158,11,0.15)", color: "#f59e0b", borderColor: "rgba(245,158,11,0.25)" };
+  if (status === "archive") return { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.42)", borderColor: "rgba(255,255,255,0.1)" };
+  return { background: "rgba(46,230,166,0.12)", color: "#2EE6A6", borderColor: "rgba(46,230,166,0.28)" };
+}
 function scoreColor(n: number): string {
   return n >= 70 ? "#2EE6A6" : n >= 40 ? "#f59e0b" : "#ef4444";
 }
@@ -268,6 +285,17 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
   const focusLine = draft.firm_type || draft.lead_or_follow || draft.entity_type || "—";
   const visiblePitch = draft.elevator_pitch || draft.description || draft.sentiment_detail || "";
   const investmentCount = draft.recent_deals?.length ?? null;
+  const firmStatus = getFirmAdminStatus(draft);
+
+  const setFirmStatus = (next: FirmAdminStatus) => {
+    setDraft(d => ({
+      ...d,
+      status: next,
+      ready_for_live: next === "live",
+      needs_review: next === "needs_review",
+      manual_review_status: next === "needs_review" ? "needs_review" : next,
+    }));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -334,6 +362,16 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
             </div>
             <div className="flex w-[230px] shrink-0 flex-col items-end gap-2.5">
               <div className="flex items-center gap-1.5">
+                <select
+                  value={firmStatus}
+                  onChange={e => setFirmStatus(e.target.value as FirmAdminStatus)}
+                  className="h-[34px] rounded-xl px-3 text-[11px] font-semibold uppercase tracking-[0.12em] outline-none"
+                  style={{ ...firmStatusStyle(firmStatus), border: `1px solid ${firmStatusStyle(firmStatus).borderColor}` }}
+                >
+                  <option value="live">LIVE</option>
+                  <option value="needs_review">NEEDS REVIEW</option>
+                  <option value="archive">ARCHIVE</option>
+                </select>
                 <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-xl px-4 py-[9px] text-[13px] font-semibold disabled:opacity-50" style={{ background: "#2EE6A6", color: "#020403" }}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   {saving ? "Saving…" : "Save"}
@@ -356,9 +394,10 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
             <div className="space-y-4">
               <Sect title="Identity" />
               <div className="grid grid-cols-2 gap-3">
-                <TF label="Legal Name" value={draft.legal_name} onChange={set("legal_name")} />
+                <TF label="Firm Name" value={draft.firm_name} onChange={set("firm_name")} />
                 <TF label="Slug" value={draft.slug} onChange={set("slug")} />
               </div>
+              <TF label="Registered Name" value={draft.legal_name} onChange={set("legal_name")} />
               <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
               <TA label="Description" value={draft.description} onChange={set("description")} rows={4} />
               <TA label="Sentiment Detail" value={draft.sentiment_detail} onChange={set("sentiment_detail")} rows={3} />
@@ -423,23 +462,32 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
               <UF label="YouTube" value={draft.youtube_url} onChange={set("youtube_url")} />
               <UF label="Substack" value={draft.substack_url} onChange={set("substack_url")} placeholder="https://...substack.com" />
               <UF label="Medium" value={draft.medium_url} onChange={set("medium_url")} placeholder="https://medium.com/..." />
+
+              <Sect title="Databases" />
               <UF label="Crunchbase" value={draft.crunchbase_url} onChange={set("crunchbase_url")} placeholder="https://www.crunchbase.com/organization/..." />
+              <UF label="Signal" value={draft.signal_nfx_url} onChange={set("signal_nfx_url")} placeholder="https://signal.nfx.com/..." />
+              <UF label="CB Insights" value={draft.cb_insights_url} onChange={set("cb_insights_url")} />
+              <UF label="OpenVC" value={draft.openvc_url} onChange={set("openvc_url")} />
+              <UF label="PitchBook" value={draft.pitchbook_url} onChange={set("pitchbook_url")} />
+              <UF label="VC Sheet" value={draft.vcsheet_url} onChange={set("vcsheet_url")} />
 
               <Sect title="Admin Status" />
               <div className="grid grid-cols-2 gap-3">
+                <SF label="Firm Status" value={firmStatus} onChange={v => setFirmStatus(v as FirmAdminStatus)} options={[
+                  { value: "live", label: "LIVE" },
+                  { value: "needs_review", label: "NEEDS REVIEW" },
+                  { value: "archive", label: "ARCHIVE" },
+                ]} />
                 <SF label="Enrichment Status" value={draft.enrichment_status} onChange={set("enrichment_status")} options={[
                   { value: "enriched", label: "Enriched" },
                   { value: "partial", label: "Partial" },
                   { value: "pending", label: "Pending" },
                   { value: "failed", label: "Failed" },
                 ]} />
-                <TF label="Manual Review Status" value={draft.manual_review_status} onChange={set("manual_review_status")} />
               </div>
               <TA label="Market Sentiment" value={draft.market_sentiment} onChange={set("market_sentiment")} rows={2} />
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <BF label="Actively Deploying" value={draft.is_actively_deploying} onChange={set("is_actively_deploying")} />
-                <BF label="Needs Review" value={draft.needs_review} onChange={set("needs_review")} />
-                <BF label="Ready for Live" value={draft.ready_for_live} onChange={set("ready_for_live")} />
               </div>
             </div>
           </div>
@@ -459,8 +507,7 @@ export function AdminFirmRecords() {
   const [search, setSearch]       = useState("");
   const [dSearch, setDSearch]     = useState("");
   const [filterEnrich, setFilterEnrich] = useState("all");
-  const [filterReview, setFilterReview] = useState("all");
-  const [filterLive, setFilterLive]     = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage]           = useState(0);
   const [selected, setSelected]   = useState<FirmRow | null>(null);
 
@@ -474,14 +521,13 @@ export function AdminFirmRecords() {
     const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
     if (dSearch)               params.search         = dSearch;
     if (filterEnrich !== "all") params.enrichment    = filterEnrich;
-    if (filterReview === "yes") params.needs_review  = "true";
-    if (filterReview === "no")  params.needs_review  = "false";
-    if (filterLive   === "yes") params.ready_for_live = "true";
-    if (filterLive   === "no")  params.ready_for_live = "false";
+    if (filterStatus === "live") params.ready_for_live = "true";
+    if (filterStatus === "needs_review") params.needs_review = "true";
+    if (filterStatus === "archive") params.status = "archive";
     const { rows: data, total: cnt, error: e } = await fetchFirms(params);
     if (e) setError(e); else { setRows(data); setTotal(cnt); }
     setLoading(false);
-  }, [dSearch, filterEnrich, filterReview, filterLive, page]);
+  }, [dSearch, filterEnrich, filterStatus, page]);
 
   useEffect(() => { loadRows(); }, [loadRows]);
 
@@ -520,20 +566,13 @@ export function AdminFirmRecords() {
             <SelectItem value="failed">Failed</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterReview} onValueChange={v => { setFilterReview(v); setPage(0); }}>
-          <SelectTrigger className="h-8 w-36 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}><SelectValue /></SelectTrigger>
+        <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); setPage(0); }}>
+          <SelectTrigger className="h-8 w-40 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any review</SelectItem>
-            <SelectItem value="yes">Needs review</SelectItem>
-            <SelectItem value="no">Reviewed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterLive} onValueChange={v => { setFilterLive(v); setPage(0); }}>
-          <SelectTrigger className="h-8 w-28 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Any live</SelectItem>
-            <SelectItem value="yes">Live</SelectItem>
-            <SelectItem value="no">Not live</SelectItem>
+            <SelectItem value="all">All status</SelectItem>
+            <SelectItem value="live">LIVE</SelectItem>
+            <SelectItem value="needs_review">NEEDS REVIEW</SelectItem>
+            <SelectItem value="archive">ARCHIVE</SelectItem>
           </SelectContent>
         </Select>
         <button onClick={loadRows} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
@@ -546,7 +585,7 @@ export function AdminFirmRecords() {
       <div className="rounded-lg border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
         <div className="grid px-4 py-2 text-[10px] font-semibold uppercase tracking-widest"
           style={{ gridTemplateColumns: COL, background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <span>Firm</span><span>Location</span><span>Stage Focus</span><span>Verticals</span><span>AUM</span><span>Score</span><span>Review</span><span>Live</span>
+          <span>Firm</span><span>Location</span><span>Stage Focus</span><span>Verticals</span><span>AUM</span><span>Score</span><span>Status</span>
         </div>
 
         {loading && <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} /></div>}
@@ -578,8 +617,12 @@ export function AdminFirmRecords() {
                 </div>
                 <span className="font-mono text-[10px]" style={{ color: scoreColor(row.completeness_score) }}>{row.completeness_score}</span>
               </div>
-              <div className="flex items-center">{row.needs_review ? <span className="rounded px-1 py-0.5 font-mono text-[9px] font-bold" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>review</span> : <span className="font-mono text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}</div>
-              <div className="flex items-center">{row.ready_for_live ? <CheckCircle2 className="h-4 w-4" style={{ color: "#2EE6A6" }} /> : <XCircle className="h-4 w-4" style={{ color: "rgba(255,255,255,0.15)" }} />}</div>
+              <div className="flex items-center">
+                {(() => {
+                  const status = getFirmAdminStatus(row);
+                  return <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold" style={firmStatusStyle(status)}>{firmStatusLabel(status)}</span>;
+                })()}
+              </div>
             </div>
           );
         })}
