@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
   AlertCircle, Building2, ExternalLink, X, CheckCircle2, XCircle,
+  MapPin, DollarSign, Users, Briefcase, Save,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FirmLogo } from "@/components/ui/firm-logo";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,16 +20,19 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type FirmRow = {
-  id: string; firm_name: string; slug: string | null;
-  tagline: string | null; elevator_pitch: string | null; description: string | null;
-  hq_city: string | null; hq_state: string | null; hq_country: string | null;
+  id: string; firm_name: string; legal_name: string | null; slug: string | null;
+  tagline: string | null; elevator_pitch: string | null; description: string | null; sentiment_detail: string | null;
+  location: string | null; address: string | null; hq_city: string | null; hq_state: string | null; hq_zip_code: string | null; hq_country: string | null;
+  locations?: Record<string, unknown> | null;
   website_url: string | null; logo_url: string | null; favicon_url: string | null; linkedin_url: string | null;
-  x_url: string | null; substack_url: string | null; medium_url: string | null;
+  x_url: string | null; facebook_url: string | null; instagram_url: string | null; youtube_url: string | null; substack_url: string | null; medium_url: string | null;
   crunchbase_url: string | null; contact_page_url: string | null;
   email: string | null; phone: string | null;
-  aum_usd: number | null; founded_year: number | null;
-  current_fund_name: string | null; lead_or_follow: string | null;
-  stage_focus: string[] | null; thesis_verticals: string[] | null;
+  aum: string | null; aum_usd: number | null; founded_year: number | null;
+  current_fund_name: string | null; lead_partner: string | null; lead_or_follow: string | null;
+  preferred_stage: string | null; stage_focus: string[] | null; thesis_verticals: string[] | null; strategy_classifications: string[] | null;
+  firm_type: string | null; entity_type: string | null; min_check_size: number | null; max_check_size: number | null; total_headcount: number | null;
+  market_sentiment: string | null; recent_deals: string[] | null; is_actively_deploying: boolean | null;
   enrichment_status: string; completeness_score: number;
   needs_review: boolean; ready_for_live: boolean;
   manual_review_status: string | null; updated_at: string | null;
@@ -218,6 +223,21 @@ function fmtAum(n: number | null): string {
   if (n >= 1_000_000)     return `$${(n / 1_000_000).toFixed(0)}M`;
   return `$${n.toLocaleString()}`;
 }
+function fmtMoney(n: number | null | undefined): string | null {
+  if (n == null || !Number.isFinite(n)) return null;
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)}K`;
+  return `$${n.toLocaleString()}`;
+}
+function fmtCheckRange(min: number | null | undefined, max: number | null | undefined): string {
+  const lo = fmtMoney(min);
+  const hi = fmtMoney(max);
+  if (lo && hi) return `${lo}–${hi}`;
+  return lo ?? hi ?? "—";
+}
+function displayLocation(row: FirmRow): string {
+  return row.location || [row.hq_city, row.hq_state ?? row.hq_country].filter(Boolean).join(", ") || "—";
+}
 function scoreColor(n: number): string {
   return n >= 70 ? "#2EE6A6" : n >= 40 ? "#f59e0b" : "#ef4444";
 }
@@ -235,15 +255,19 @@ function TagChips({ items, max = 3 }: { items: string[] | null | undefined; max?
   );
 }
 
-// ── Edit panel ─────────────────────────────────────────────────────────────────
+// ── Editable detail modal ──────────────────────────────────────────────────────
 
 function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () => void; onSaved: (r: FirmRow) => void }) {
   const [draft, setDraft] = useState<FirmRow>({ ...row });
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof FirmRow>(k: K) { return (v: FirmRow[K]) => setDraft(d => ({ ...d, [k]: v })); }
-  const firmInitial = (draft.firm_name || "?").charAt(0).toUpperCase();
   const faviconFallback = faviconPreviewFromWebsite(draft.website_url);
+  const locationLine = displayLocation(draft);
+  const stageLine = draft.preferred_stage || draft.stage_focus?.join(", ") || "—";
+  const focusLine = draft.firm_type || draft.lead_or_follow || draft.entity_type || "—";
+  const visiblePitch = draft.elevator_pitch || draft.description || draft.sentiment_detail || "";
+  const investmentCount = draft.recent_deals?.length ?? null;
 
   const handleSave = async () => {
     setSaving(true);
@@ -255,81 +279,171 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
   };
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col" style={{ width: 420, background: "#0c0c0c", borderLeft: "1px solid rgba(255,255,255,0.08)" }}>
-      {/* header */}
-      <div className="flex items-center gap-3 px-5 py-3.5 shrink-0 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        {(draft.logo_url || draft.favicon_url) && <img src={externalHref(draft.logo_url || draft.favicon_url) ?? undefined} alt="" className="h-5 w-5 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
-        <span className="flex-1 truncate text-[13px] font-semibold text-white/90">{draft.firm_name || "Firm Record"}</span>
-        <button onClick={onClose} className="opacity-40 hover:opacity-80 transition-opacity"><X className="h-4 w-4" /></button>
-      </div>
-      {/* body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
-        <Sect title="Basic Info" />
-        <TF label="Firm Name" value={draft.firm_name} onChange={set("firm_name")} />
-        <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
-        <TA label="Elevator Pitch" value={draft.elevator_pitch} onChange={set("elevator_pitch")} rows={3} />
-        <TA label="Description" value={draft.description} onChange={set("description")} rows={3} />
-
-        <Sect title="Brand Assets" />
-        <div className="grid grid-cols-[74px_minmax(0,1fr)] gap-x-3 gap-y-3">
-          <BrandAssetPreview label="Logo" src={draft.logo_url} initial={firmInitial} className="h-16 w-16 text-lg" />
-          <UF label="Logo URL" value={draft.logo_url} onChange={set("logo_url")} placeholder="https://firm.com/logo.svg" />
-          <BrandAssetPreview label="Favicon" src={draft.favicon_url} fallbackSrc={faviconFallback} initial={firmInitial} className="h-10 w-10 text-sm" />
-          <UF label="Favicon URL" value={draft.favicon_url} onChange={set("favicon_url")} placeholder="https://firm.com/favicon.ico" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button type="button" aria-label="Close firm editor" className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex max-h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0c0c0c] shadow-2xl">
+        <div className="relative shrink-0 overflow-hidden border-b border-white/10">
+          <div className="pointer-events-none absolute inset-0" aria-hidden>
+            <div className="absolute -left-16 -top-16 h-72 w-72 rounded-full bg-violet-500/[0.08] blur-3xl" />
+            <div className="absolute left-1/3 -top-10 h-56 w-56 rounded-full bg-sky-500/[0.07] blur-3xl" />
+            <div className="absolute right-0 -top-8 h-64 w-64 rounded-full bg-emerald-500/[0.08] blur-3xl" />
+          </div>
+          <div className="relative z-10 flex items-start gap-6 px-8 pb-5 pt-6">
+            <FirmLogo
+              firmName={draft.firm_name || "Firm"}
+              logoUrl={draft.logo_url}
+              websiteUrl={draft.website_url}
+              size="lg"
+              className="h-[86px] w-[86px] rounded-2xl border-white/10 bg-white/[0.04] ring-1 ring-white/10"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-center gap-1.5">
+                <input
+                  value={draft.firm_name ?? ""}
+                  onChange={e => set("firm_name")(e.target.value)}
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[21px] font-semibold leading-tight tracking-[-0.4px] text-white outline-none"
+                  placeholder="Firm name"
+                />
+                <CheckCircle2 className="h-[15px] w-[15px] shrink-0 fill-emerald-400/15 text-emerald-400" />
+              </div>
+              <textarea
+                value={visiblePitch}
+                onChange={e => set("elevator_pitch")(e.target.value)}
+                rows={3}
+                className="mb-2.5 w-full resize-none border-0 bg-transparent p-0 text-[12px] leading-snug text-white/55 outline-none placeholder:text-white/25"
+                placeholder="Editable elevator pitch shown under the firm name"
+              />
+              <div className="flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[11px] leading-snug text-white/70">
+                <span className="flex min-w-0 max-w-[42%] items-center gap-1.5 overflow-hidden pr-2">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                  <span className="min-w-0 truncate font-medium text-white/85">{locationLine}</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-white/15 pl-3">
+                  <DollarSign className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                  <span className="font-medium text-white/80">{draft.aum || fmtAum(draft.aum_usd)}</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-white/15 pl-3">
+                  <Users className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                  <span className="font-medium text-white/80">{draft.total_headcount != null ? draft.total_headcount : "—"}</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-white/15 pl-3">
+                  <Briefcase className="h-3.5 w-3.5 shrink-0 text-white/40" />
+                  <span className="font-medium text-white/80">{investmentCount ?? "—"}</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex w-[230px] shrink-0 flex-col items-end gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-xl px-4 py-[9px] text-[13px] font-semibold disabled:opacity-50" style={{ background: "#2EE6A6", color: "#020403" }}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={onClose} className="flex h-[34px] w-[34px] items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white">
+                  <X className="h-[14px] w-[14px]" />
+                </button>
+              </div>
+              <div className="w-full space-y-1 text-right">
+                <p className="truncate text-[10px] text-white/55"><span className="font-medium text-white/75">Sector:</span> {focusLine}</p>
+                <p className="truncate text-[10px] text-white/55"><span className="font-medium text-white/75">Stage:</span> {stageLine}</p>
+                <p className="truncate text-[10px] text-white/55"><span className="font-medium text-white/75">Check:</span> {fmtCheckRange(draft.min_check_size, draft.max_check_size)}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <Sect title="Contact & Web" />
-        <UF label="Website URL" value={draft.website_url} onChange={set("website_url")} placeholder="https://firm.com" />
-        <UF label="Contact Page URL" value={draft.contact_page_url} onChange={set("contact_page_url")} placeholder="https://firm.com/contact" />
-        <UF label="LinkedIn Profile" value={draft.linkedin_url} onChange={set("linkedin_url")} placeholder="https://www.linkedin.com/company/..." />
-        <UF label="X Profile" value={draft.x_url} onChange={set("x_url")} placeholder="https://x.com/..." />
-        <UF label="Substack" value={draft.substack_url} onChange={set("substack_url")} placeholder="https://...substack.com" />
-        <UF label="Medium" value={draft.medium_url} onChange={set("medium_url")} placeholder="https://medium.com/..." />
-        <UF label="Crunchbase" value={draft.crunchbase_url} onChange={set("crunchbase_url")} placeholder="https://www.crunchbase.com/organization/..." />
-        <TF label="Email" value={draft.email} onChange={set("email")} type="email" />
-        <TF label="Phone" value={draft.phone} onChange={set("phone")} />
+        <div className="flex-1 overflow-y-auto px-8 py-6">
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="space-y-4">
+              <Sect title="Identity" />
+              <div className="grid grid-cols-2 gap-3">
+                <TF label="Legal Name" value={draft.legal_name} onChange={set("legal_name")} />
+                <TF label="Slug" value={draft.slug} onChange={set("slug")} />
+              </div>
+              <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
+              <TA label="Description" value={draft.description} onChange={set("description")} rows={4} />
+              <TA label="Sentiment Detail" value={draft.sentiment_detail} onChange={set("sentiment_detail")} rows={3} />
 
-        <Sect title="Location" />
-        <div className="grid grid-cols-3 gap-2">
-          <TF label="City" value={draft.hq_city} onChange={set("hq_city")} />
-          <TF label="State" value={draft.hq_state} onChange={set("hq_state")} />
-          <TF label="Country" value={draft.hq_country} onChange={set("hq_country")} />
+              <Sect title="Investment Card Fields" />
+              <div className="grid grid-cols-2 gap-3">
+                <TF label="AUM Display" value={draft.aum} onChange={set("aum")} placeholder="$1.2B" />
+                <NF label="AUM (USD)" value={draft.aum_usd} onChange={set("aum_usd")} placeholder="1200000000" />
+                <NF label="Min Check Size" value={draft.min_check_size} onChange={set("min_check_size")} />
+                <NF label="Max Check Size" value={draft.max_check_size} onChange={set("max_check_size")} />
+                <NF label="Team Headcount" value={draft.total_headcount} onChange={set("total_headcount")} />
+                <NF label="Founded Year" value={draft.founded_year} onChange={set("founded_year")} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <TF label="Preferred Stage" value={draft.preferred_stage} onChange={set("preferred_stage")} />
+                <TF label="Firm Type" value={draft.firm_type} onChange={set("firm_type")} />
+                <TF label="Entity Type" value={draft.entity_type} onChange={set("entity_type")} />
+                <TF label="Lead Partner" value={draft.lead_partner} onChange={set("lead_partner")} />
+              </div>
+              <TF label="Current Fund Name" value={draft.current_fund_name} onChange={set("current_fund_name")} />
+              <SF label="Lead or Follow" value={draft.lead_or_follow} onChange={set("lead_or_follow")} options={[
+                { value: "lead", label: "Lead" },
+                { value: "follow", label: "Follow" },
+                { value: "either", label: "Either" },
+              ]} />
+              <TagF label="Stage Focus" value={draft.stage_focus} onChange={set("stage_focus")} />
+              <TagF label="Thesis Verticals" value={draft.thesis_verticals} onChange={set("thesis_verticals")} />
+              <TagF label="Strategy Classifications" value={draft.strategy_classifications} onChange={set("strategy_classifications")} />
+              <TagF label="Recent Deals" value={draft.recent_deals} onChange={set("recent_deals")} />
+            </div>
+
+            <div className="space-y-4">
+              <Sect title="Brand Assets" />
+              <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-4 gap-y-3">
+                <BrandAssetPreview label="Logo" src={draft.logo_url} initial={(draft.firm_name || "?").charAt(0).toUpperCase()} className="h-20 w-20 text-lg" />
+                <UF label="Logo URL" value={draft.logo_url} onChange={set("logo_url")} placeholder="https://firm.com/logo.svg" />
+                <BrandAssetPreview label="Favicon" src={draft.favicon_url} fallbackSrc={faviconFallback} initial={(draft.firm_name || "?").charAt(0).toUpperCase()} className="h-12 w-12 text-sm" />
+                <UF label="Favicon URL" value={draft.favicon_url} onChange={set("favicon_url")} placeholder="https://firm.com/favicon.ico" />
+              </div>
+
+              <Sect title="Location" />
+              <TF label="Location Display" value={draft.location} onChange={set("location")} placeholder="San Francisco, CA" />
+              <TF label="Address" value={draft.address} onChange={set("address")} />
+              <div className="grid grid-cols-4 gap-2">
+                <TF label="City" value={draft.hq_city} onChange={set("hq_city")} />
+                <TF label="State" value={draft.hq_state} onChange={set("hq_state")} />
+                <TF label="ZIP" value={draft.hq_zip_code} onChange={set("hq_zip_code")} />
+                <TF label="Country" value={draft.hq_country} onChange={set("hq_country")} />
+              </div>
+
+              <Sect title="Contact & Web" />
+              <UF label="Website URL" value={draft.website_url} onChange={set("website_url")} placeholder="https://firm.com" />
+              <UF label="Contact Page URL" value={draft.contact_page_url} onChange={set("contact_page_url")} placeholder="https://firm.com/contact" />
+              <div className="grid grid-cols-2 gap-3">
+                <TF label="Email" value={draft.email} onChange={set("email")} type="email" />
+                <TF label="Phone" value={draft.phone} onChange={set("phone")} />
+              </div>
+              <UF label="LinkedIn Profile" value={draft.linkedin_url} onChange={set("linkedin_url")} placeholder="https://www.linkedin.com/company/..." />
+              <UF label="X Profile" value={draft.x_url} onChange={set("x_url")} placeholder="https://x.com/..." />
+              <UF label="Facebook" value={draft.facebook_url} onChange={set("facebook_url")} />
+              <UF label="Instagram" value={draft.instagram_url} onChange={set("instagram_url")} />
+              <UF label="YouTube" value={draft.youtube_url} onChange={set("youtube_url")} />
+              <UF label="Substack" value={draft.substack_url} onChange={set("substack_url")} placeholder="https://...substack.com" />
+              <UF label="Medium" value={draft.medium_url} onChange={set("medium_url")} placeholder="https://medium.com/..." />
+              <UF label="Crunchbase" value={draft.crunchbase_url} onChange={set("crunchbase_url")} placeholder="https://www.crunchbase.com/organization/..." />
+
+              <Sect title="Admin Status" />
+              <div className="grid grid-cols-2 gap-3">
+                <SF label="Enrichment Status" value={draft.enrichment_status} onChange={set("enrichment_status")} options={[
+                  { value: "enriched", label: "Enriched" },
+                  { value: "partial", label: "Partial" },
+                  { value: "pending", label: "Pending" },
+                  { value: "failed", label: "Failed" },
+                ]} />
+                <TF label="Manual Review Status" value={draft.manual_review_status} onChange={set("manual_review_status")} />
+              </div>
+              <TA label="Market Sentiment" value={draft.market_sentiment} onChange={set("market_sentiment")} rows={2} />
+              <div className="grid grid-cols-3 gap-3">
+                <BF label="Actively Deploying" value={draft.is_actively_deploying} onChange={set("is_actively_deploying")} />
+                <BF label="Needs Review" value={draft.needs_review} onChange={set("needs_review")} />
+                <BF label="Ready for Live" value={draft.ready_for_live} onChange={set("ready_for_live")} />
+              </div>
+            </div>
+          </div>
         </div>
-
-        <Sect title="Investment Profile" />
-        <NF label="AUM (USD)" value={draft.aum_usd} onChange={set("aum_usd")} placeholder="e.g. 500000000" />
-        <NF label="Founded Year" value={draft.founded_year} onChange={set("founded_year")} placeholder="e.g. 2012" />
-        <TF label="Current Fund Name" value={draft.current_fund_name} onChange={set("current_fund_name")} />
-        <SF label="Lead or Follow" value={draft.lead_or_follow} onChange={set("lead_or_follow")} options={[
-          { value: "lead", label: "Lead" },
-          { value: "follow", label: "Follow" },
-          { value: "either", label: "Either" },
-        ]} />
-        <TagF label="Stage Focus" value={draft.stage_focus} onChange={set("stage_focus")} />
-        <TagF label="Thesis Verticals" value={draft.thesis_verticals} onChange={set("thesis_verticals")} />
-
-        <Sect title="Admin Status" />
-        <SF label="Enrichment Status" value={draft.enrichment_status} onChange={set("enrichment_status")} options={[
-          { value: "enriched", label: "Enriched" },
-          { value: "partial", label: "Partial" },
-          { value: "pending", label: "Pending" },
-          { value: "failed", label: "Failed" },
-        ]} />
-        <TF label="Manual Review Status" value={draft.manual_review_status} onChange={set("manual_review_status")} />
-        <div className="grid grid-cols-2 gap-3">
-          <BF label="Needs Review" value={draft.needs_review} onChange={set("needs_review")} />
-          <BF label="Ready for Live" value={draft.ready_for_live} onChange={set("ready_for_live")} />
-        </div>
-      </div>
-      {/* footer */}
-      <div className="flex gap-2 px-5 py-3.5 shrink-0 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <button onClick={handleSave} disabled={saving} className="flex-1 rounded py-2 text-[12px] font-semibold disabled:opacity-50 transition-opacity flex items-center justify-center gap-2" style={{ background: "#2EE6A6", color: "#000" }}>
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-        <button onClick={onClose} className="rounded px-4 py-2 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
-          Cancel
-        </button>
       </div>
     </div>
   );
@@ -443,18 +557,18 @@ export function AdminFirmRecords() {
           const isSelected = selected?.id === row.id;
           return (
             <div key={row.id}
-              onClick={() => setSelected(isSelected ? null : row)}
+              onClick={() => setSelected(row)}
               className="grid items-center gap-x-3 border-b px-4 py-3 cursor-pointer transition-colors"
               style={{ gridTemplateColumns: COL, borderColor: "rgba(255,255,255,0.05)", background: isSelected ? "rgba(46,230,166,0.06)" : undefined }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 truncate">
                   {(row.logo_url || row.favicon_url) && <img src={externalHref(row.logo_url || row.favicon_url) ?? undefined} alt="" className="h-4 w-4 rounded object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
                   <span className="truncate text-[13px] font-medium text-white/90">{row.firm_name}</span>
-                  {row.website_url && <a href={row.website_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 opacity-30 hover:opacity-70"><ExternalLink className="h-3 w-3" style={{ color: "#2EE6A6" }} /></a>}
+                  {row.website_url && <a href={externalHref(row.website_url) ?? undefined} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 opacity-30 hover:opacity-70"><ExternalLink className="h-3 w-3" style={{ color: "#2EE6A6" }} /></a>}
                 </div>
                 <span className="font-mono text-[9px] uppercase" style={{ color: enrichColor(row.enrichment_status) }}>{row.enrichment_status}</span>
               </div>
-              <span className="truncate text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>{[row.hq_city, row.hq_state ?? row.hq_country].filter(Boolean).join(", ") || "—"}</span>
+              <span className="truncate text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>{displayLocation(row)}</span>
               <TagChips items={row.stage_focus} max={3} />
               <TagChips items={row.thesis_verticals} max={2} />
               <span className="font-mono text-[12px]" style={{ color: row.aum_usd ? "#e0e0e0" : "rgba(255,255,255,0.2)" }}>{fmtAum(row.aum_usd)}</span>

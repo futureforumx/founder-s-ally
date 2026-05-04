@@ -131,12 +131,14 @@ const OPERATOR_COLS = [
 ].join(", ");
 
 const FIRM_COLS = [
-  "id","firm_name","slug","tagline","elevator_pitch","description",
-  "hq_city","hq_state","hq_country",
+  "id","firm_name","legal_name","slug","tagline","elevator_pitch","description","sentiment_detail",
+  "location","address","hq_city","hq_state","hq_zip_code","hq_country","locations",
   "website_url","contact_page_url","logo_url","favicon_url","linkedin_url","x_url",
-  "substack_url","medium_url","crunchbase_url","email","phone",
-  "aum_usd","founded_year","current_fund_name","lead_or_follow",
-  "stage_focus","thesis_verticals",
+  "facebook_url","instagram_url","youtube_url","substack_url","medium_url","crunchbase_url","email","phone",
+  "aum","aum_usd","founded_year","current_fund_name","lead_partner","lead_or_follow",
+  "preferred_stage","stage_focus","thesis_verticals","strategy_classifications",
+  "firm_type","entity_type","min_check_size","max_check_size","total_headcount",
+  "market_sentiment","recent_deals","is_actively_deploying",
   "enrichment_status","completeness_score",
   "needs_review","ready_for_live","manual_review_status","updated_at",
 ].join(", ");
