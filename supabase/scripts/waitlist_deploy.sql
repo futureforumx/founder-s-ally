@@ -137,10 +137,14 @@ RETURNS integer
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
+DECLARE
+  referral_count integer := GREATEST(COALESCE(p_referral_count, 0), 0);
 BEGIN
-  IF p_referral_count <= 0 THEN RETURN 0; END IF;
-  IF p_referral_count <= 10 THEN RETURN p_referral_count * 10; END IF;
-  RETURN 100 + (p_referral_count - 10) * 5;
+  IF referral_count <= 10 THEN
+    RETURN referral_count * 10;
+  END IF;
+
+  RETURN 100 + (referral_count - 10) * 5;
 END;
 $$;
 
@@ -156,42 +160,96 @@ IMMUTABLE
 AS $$
 DECLARE
   score integer := 0;
+  role_value text := lower(trim(COALESCE(p_role, '')));
+  urgency_value text := regexp_replace(lower(trim(COALESCE(p_urgency, ''))), '[[:space:]-]+', '_', 'g');
+  stage_raw text := lower(trim(COALESCE(p_stage, '')));
+  stage_tokens text[] := '{}';
+  stage_token text;
+  stage_score integer := 0;
+  best_stage_score integer := 0;
+  intent_value text;
   high_value_intents text[] := ARRAY[
-    'find_investors','get_warm_intros','source_deals',
-    'raise_capital','find_cofounders','due_diligence'
+    'find_investors',
+    'get_warm_intros',
+    'source_deals',
+    'find_founders',
+    'find_opportunities',
+    'raise_capital',
+    'find_cofounders',
+    'due_diligence'
   ];
-  i text;
 BEGIN
-  score := score + CASE p_role
-    WHEN 'founder' THEN 20
+  score := score + CASE role_value
     WHEN 'investor' THEN 25
-    WHEN 'operator' THEN 10
+    WHEN 'founder' THEN 20
     WHEN 'advisor' THEN 15
+    WHEN 'operator' THEN 10
+    WHEN 'other' THEN 5
     ELSE 5
   END;
 
-  score := score + CASE p_urgency
+  score := score + CASE urgency_value
     WHEN 'actively_raising' THEN 30
-    WHEN 'raising_6_months' THEN 25
     WHEN 'actively_deploying' THEN 30
+    WHEN 'raising_6_months' THEN 25
     WHEN 'exploring' THEN 10
     WHEN 'not_yet' THEN 5
     ELSE 0
   END;
 
-  score := score + CASE p_stage
-    WHEN 'pre-seed' THEN 15
-    WHEN 'seed' THEN 20
-    WHEN 'series-a' THEN 15
-    WHEN 'series-b+' THEN 10
-    ELSE 5
-  END;
+  IF stage_raw <> '' THEN
+    stage_tokens := regexp_split_to_array(stage_raw, '[[:space:]]*,[[:space:]]*');
+
+    FOREACH stage_token IN ARRAY stage_tokens LOOP
+      stage_token := lower(trim(stage_token));
+      stage_token := replace(stage_token, '+', '-plus');
+      stage_token := regexp_replace(stage_token, '[[:space:]]+', '-', 'g');
+
+      stage_score := CASE stage_token
+        WHEN 'seed' THEN 20
+        WHEN 'multi-stage' THEN 20
+        WHEN 'multi_stage' THEN 20
+        WHEN 'pre-seed' THEN 15
+        WHEN 'pre_seed' THEN 15
+        WHEN 'series-a' THEN 15
+        WHEN 'series_a' THEN 15
+        WHEN 'series-a-plus' THEN 15
+        WHEN 'series_a_plus' THEN 15
+        WHEN 'angel' THEN 10
+        WHEN 'series-b' THEN 10
+        WHEN 'series_b' THEN 10
+        WHEN 'series-b-plus' THEN 10
+        WHEN 'series_b_plus' THEN 10
+        WHEN 'series-c-plus' THEN 10
+        WHEN 'series_c_plus' THEN 10
+        WHEN 'idea' THEN 5
+        WHEN 'startup_operator' THEN 5
+        WHEN 'startup-operator' THEN 5
+        WHEN 'functional_leader' THEN 5
+        WHEN 'functional-leader' THEN 5
+        WHEN 'advisor_consultant' THEN 5
+        WHEN 'advisor-consultant' THEN 5
+        WHEN 'fractional_operator' THEN 5
+        WHEN 'fractional-operator' THEN 5
+        WHEN 'scout_platform' THEN 5
+        WHEN 'scout-platform' THEN 5
+        WHEN 'other' THEN 5
+        ELSE 5
+      END;
+
+      best_stage_score := GREATEST(best_stage_score, stage_score);
+    END LOOP;
+
+    score := score + best_stage_score;
+  END IF;
 
   IF p_intent IS NOT NULL THEN
-    FOREACH i IN ARRAY p_intent LOOP
-      IF i = ANY(high_value_intents) THEN
+    FOREACH intent_value IN ARRAY p_intent LOOP
+      intent_value := regexp_replace(lower(trim(COALESCE(intent_value, ''))), '[[:space:]-]+', '_', 'g');
+
+      IF intent_value = ANY(high_value_intents) THEN
         score := score + 8;
-      ELSE
+      ELSIF intent_value <> '' THEN
         score := score + 3;
       END IF;
     END LOOP;

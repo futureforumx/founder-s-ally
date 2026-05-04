@@ -144,6 +144,7 @@ export interface CanonicalDeal {
   normalized_company_name: string;
   company_domain: string | null;
   company_website: string | null;
+  company_logo_url: string | null;
   company_linkedin_url: string | null;
   company_location: string | null;
   sector_raw: string | null;

@@ -51,5 +51,7 @@ npx supabase@latest functions deploy complete-founder-onboarding --project-ref "
 npx supabase@latest functions deploy waitlist-signup --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy waitlist-status --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy founder-waitlist-snapshot --project-ref "$REF" --no-verify-jwt --use-api
+# Admin console: companies, deals, fresh-funds, etc. (uses X-User-Auth + service role)
+npx supabase@latest functions deploy admin-market-intel --project-ref "$REF" --no-verify-jwt --use-api
 
 echo "Done."

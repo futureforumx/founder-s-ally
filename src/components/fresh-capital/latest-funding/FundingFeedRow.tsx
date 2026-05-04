@@ -2,13 +2,13 @@ import type { KeyboardEvent } from "react";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
 import { SourceOutletBadge } from "@/components/fresh-capital/SourceOutletBadge";
 import { normalizeWebsiteUrl, prettyWebsiteHost } from "@/lib/latestFundingDisplay";
-import { roundKindStageBucket } from "@/lib/latestFundingFilters";
+import { roundKindStageBucket, sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
 import { formatAnnouncedDate } from "@/lib/freshCapitalPublic";
 import { buildOutboundUrl } from "@/lib/outboundUrl";
 import { cn } from "@/lib/utils";
 import { CompanyRowMark } from "./CompanyRowMark";
 
-/** Matches `ThemePills` on Fresh Funds — single sector label. */
+/** Matches `ThemePills` on Fresh Funds for one sector label. */
 function SectorThemePill({ label }: { label: string }) {
   const trimmed = label?.trim();
   if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") return null;
@@ -19,6 +19,17 @@ function SectorThemePill({ label }: { label: string }) {
       title={trimmed}
     >
       {trimmed.toUpperCase()}
+    </span>
+  );
+}
+
+function SectorThemePills({ labels }: { labels: string[] }) {
+  if (!labels.length) return null;
+  return (
+    <span className="flex min-w-0 flex-wrap gap-1.5">
+      {labels.slice(0, 3).map(label => (
+        <SectorThemePill key={label} label={label} />
+      ))}
     </span>
   );
 }
@@ -154,7 +165,8 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
   const coSummary =
     coShown.length > 0 ? `${coShown.join(", ")}${coExtra > 0 ? ` +${coExtra}` : ""}` : "—";
   const hasRoundKind = Boolean(row.roundKind?.trim()) && row.roundKind.trim() !== "—" && row.roundKind.trim().toLowerCase() !== "unknown";
-  const hasSector = Boolean(row.sector?.trim()) && row.sector.trim() !== "—" && row.sector.trim().toLowerCase() !== "unknown";
+  const sectorLabels = sectorLabelsForDisplay(row.sector);
+  const hasSector = sectorLabels.length > 0;
 
   return (
     <li className="px-4 py-4 md:px-0 md:py-0">
@@ -184,7 +196,7 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
           <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
           <span className="text-sm text-[#b3b3b3]">{displayDate}</span>
           <div className="min-w-0">
-            {hasSector ? <SectorThemePill label={row.sector} /> : null}
+            {hasSector ? <SectorThemePills labels={sectorLabels} /> : null}
           </div>
           <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={row.leadInvestor}>
             {leadHref ? (
@@ -242,7 +254,7 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
           {hasSector ? (
             <span className="inline-flex items-center gap-2">
               <span className="text-zinc-600">Sector</span>
-              <SectorThemePill label={row.sector} />
+              <SectorThemePills labels={sectorLabels} />
             </span>
           ) : null}
         </div>

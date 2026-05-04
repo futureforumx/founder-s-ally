@@ -1839,6 +1839,7 @@ export type Database = {
           co_investors: string[]
           company_domain: string | null
           company_linkedin_url: string | null
+          company_logo_url: string | null
           company_location: string | null
           company_name: string
           company_website: string | null
@@ -1874,6 +1875,7 @@ export type Database = {
           co_investors?: string[]
           company_domain?: string | null
           company_linkedin_url?: string | null
+          company_logo_url?: string | null
           company_location?: string | null
           company_name: string
           company_website?: string | null
@@ -1909,6 +1911,7 @@ export type Database = {
           co_investors?: string[]
           company_domain?: string | null
           company_linkedin_url?: string | null
+          company_logo_url?: string | null
           company_location?: string | null
           company_name?: string
           company_website?: string | null
@@ -9872,6 +9875,7 @@ export type Database = {
           amount_label: string
           announced_at: string
           co_investors: string[]
+          company_logo_url: string | null
           company_name: string
           confidence_score: number
           confirmation_status: string

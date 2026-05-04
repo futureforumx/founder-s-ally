@@ -27,8 +27,24 @@ function faviconCandidates(host: string): string[] {
   return urls;
 }
 
+function directLogoUrl(url: string | null | undefined): string | null {
+  const t = url?.trim();
+  if (!t || !/^https?:\/\//i.test(t)) return null;
+  try {
+    return new URL(t).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
-  const candidates = useMemo(() => faviconCandidates(prettyWebsiteHost(row.websiteUrl) ?? ""), [row.websiteUrl]);
+  const candidates = useMemo(() => {
+    const direct = directLogoUrl(row.companyLogoUrl);
+    return [
+      ...(direct ? [direct] : []),
+      ...faviconCandidates(prettyWebsiteHost(row.websiteUrl) ?? ""),
+    ];
+  }, [row.companyLogoUrl, row.websiteUrl]);
   const [attempt, setAttempt] = useState(0);
   const letter = (row.companyName?.trim().charAt(0) || "?").toUpperCase();
   const currentSrc = candidates[attempt] ?? null;

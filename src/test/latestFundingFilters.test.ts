@@ -4,6 +4,7 @@ import {
   filterLatestFundingRows,
   normalizeSectorLabel,
   roundKindStageBucket,
+  sectorLabelsForDisplay,
 } from "@/lib/latestFundingFilters";
 import type { FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
@@ -96,6 +97,15 @@ describe("filterLatestFundingRows sector", () => {
     const forAi = filterLatestFundingRows(rows, "all", "AI / ML");
     expect(new Set(forAi.map((x) => x.id))).toEqual(new Set(["1", "2"]));
   });
+
+  it("matches any value in a multi-sector deal label", () => {
+    const rows = [
+      row({ roundKind: "Seed", sector: "AI / ML, Healthcare", id: "1" }),
+      row({ roundKind: "Seed", sector: "Fintech", id: "2" }),
+    ];
+    expect(filterLatestFundingRows(rows, "all", "Healthcare").map((x) => x.id)).toEqual(["1"]);
+    expect(filterLatestFundingRows(rows, "all", "AI").map((x) => x.id)).toEqual(["1"]);
+  });
 });
 
 describe("buildDedupedSectorChoices", () => {
@@ -109,6 +119,17 @@ describe("buildDedupedSectorChoices", () => {
       "Fintech",
     ]);
     expect(out).toEqual(["AI / ML", "DevTools", "Fintech"].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("splits multi-sector labels before deduping", () => {
+    const out = buildDedupedSectorChoices(["AI, Healthcare", "Artificial Intelligence; Fintech"]);
+    expect(out).toEqual(["AI / ML", "Fintech", "Healthcare"].sort((a, b) => a.localeCompare(b)));
+  });
+});
+
+describe("sectorLabelsForDisplay", () => {
+  it("returns display pills for multi-sector strings", () => {
+    expect(sectorLabelsForDisplay("AI, artificial intelligence, Health Care")).toEqual(["AI / ML", "Healthcare"]);
   });
 });
 

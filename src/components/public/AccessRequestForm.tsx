@@ -1,6 +1,6 @@
 import { type SVGProps, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { z } from "zod";
 import {
   Check,
@@ -132,17 +132,16 @@ const WAITLIST_SOCIAL_ACTION_URLS = {
 } as const;
 
 const WAITLIST_SOCIAL_ACTIONS = [
-  { id: "linkedin", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.linkedin, label: "Follow on LinkedIn", Icon: Linkedin },
-  { id: "x", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.x, label: "Follow on X", Icon: XLogoIcon },
-  { id: "instagram", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.instagram, label: "Follow on Instagram", Icon: Instagram },
-  { id: "facebook", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.facebook, label: "Follow on Facebook", Icon: Facebook },
-  { id: "youtube", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.youtube, label: "Subscribe on YouTube", Icon: Youtube },
-  { id: "discord", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.discord, label: "Join Discord", Icon: DiscordLogoIcon },
-  { id: "whatsapp", points: 5, url: WAITLIST_SOCIAL_ACTION_URLS.whatsapp, label: "Join WhatsApp", Icon: WhatsAppLogoIcon },
+  { id: "linkedin", url: WAITLIST_SOCIAL_ACTION_URLS.linkedin, label: "Follow on LinkedIn", Icon: Linkedin },
+  { id: "x", url: WAITLIST_SOCIAL_ACTION_URLS.x, label: "Follow on X", Icon: XLogoIcon },
+  { id: "instagram", url: WAITLIST_SOCIAL_ACTION_URLS.instagram, label: "Follow on Instagram", Icon: Instagram },
+  { id: "facebook", url: WAITLIST_SOCIAL_ACTION_URLS.facebook, label: "Follow on Facebook", Icon: Facebook },
+  { id: "youtube", url: WAITLIST_SOCIAL_ACTION_URLS.youtube, label: "Subscribe on YouTube", Icon: Youtube },
+  { id: "discord", url: WAITLIST_SOCIAL_ACTION_URLS.discord, label: "Join Discord", Icon: DiscordLogoIcon },
+  { id: "whatsapp", url: WAITLIST_SOCIAL_ACTION_URLS.whatsapp, label: "Join WhatsApp", Icon: WhatsAppLogoIcon },
 ] as const;
 
 type WaitlistSocialActionId = (typeof WAITLIST_SOCIAL_ACTIONS)[number]["id"];
-type SocialPointBurst = { actionId: WaitlistSocialActionId; points: number; nonce: number };
 
 type AccessRole = "founder" | "investor" | "operator" | "advisor" | "other";
 
@@ -291,6 +290,13 @@ function combineName(first: string, last: string): string {
   return [first.trim(), last.trim()].filter(Boolean).join(" ");
 }
 
+function founderSectorDisplayLabel(slug: string, customSector: string): string | null {
+  const value = slug.trim();
+  if (!value) return null;
+  if (value === "other") return customSector.trim() || "your sector";
+  return getFounderWaitlistSectorLabel(value);
+}
+
 function stageFieldLabel(role: AccessRole | ""): string | null {
   if (!role || role === "other") return null;
   return role === "operator" || role === "advisor" ? "Role type" : "Stage";
@@ -332,10 +338,18 @@ export function AccessRequestForm() {
   const [completedSocialActions, setCompletedSocialActions] = useState<Record<WaitlistSocialActionId, boolean>>(
     {} as Record<WaitlistSocialActionId, boolean>,
   );
-  const [scorePulseKey, setScorePulseKey] = useState(0);
-  const [socialPointBurst, setSocialPointBurst] = useState<SocialPointBurst | null>(null);
 
   const reduceMotion = useReducedMotion();
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const roleSelectRef = useRef<HTMLSelectElement>(null);
+  const stageSelectRef = useRef<HTMLSelectElement>(null);
+  const customSectorRef = useRef<HTMLInputElement>(null);
+  const firstInvestorStageRef = useRef<HTMLInputElement>(null);
+  const firstPriorityRef = useRef<HTMLInputElement>(null);
+  const companyNameRef = useRef<HTMLInputElement>(null);
+  const socialProfileRef = useRef<HTMLInputElement>(null);
   const sectorSectionRef = useRef<HTMLDivElement>(null);
   const sectorSelectRef = useRef<HTMLSelectElement>(null);
   const sectorWasVisibleRef = useRef(false);
@@ -373,23 +387,7 @@ export function AccessRequestForm() {
 
   const { copied, copyFailed, copyReferralLink, xIntentHref, mailtoHref } = useReferralShareActions(referralLink);
 
-  const socialActionBonus = useMemo(
-    () =>
-      WAITLIST_SOCIAL_ACTIONS.reduce(
-        (sum, action) => sum + (completedSocialActions[action.id] ? action.points : 0),
-        0,
-      ),
-    [completedSocialActions],
-  );
-
-  const displayedScore =
-    result && typeof result.total_score === "number" ? result.total_score + socialActionBonus : null;
-
-  useEffect(() => {
-    if (!socialPointBurst) return;
-    const timeout = window.setTimeout(() => setSocialPointBurst(null), reduceMotion ? 450 : 950);
-    return () => window.clearTimeout(timeout);
-  }, [reduceMotion, socialPointBurst]);
+  const displayedScore = result && typeof result.total_score === "number" ? result.total_score : null;
 
   useEffect(() => {
     if (referralVisitTrackedRef.current) return;
@@ -461,22 +459,28 @@ export function AccessRequestForm() {
 
   useEffect(() => {
     if (status !== "success" || !result?.id) return;
-    if (signupSuccessAnalyticsFiredForId.current === result.id) return;
-    signupSuccessAnalyticsFiredForId.current = result.id;
-    trackWaitlistAnalytics("waitlist_signup_success", {
-      signup_id: result.id,
-      waitlist_position: result.waitlist_position ?? null,
-      referral_count:
-        typeof result.referral_count === "number" ? result.referral_count : undefined,
-      total_score: typeof result.total_score === "number" ? result.total_score : undefined,
-      has_referral_link: Boolean(referralLink),
-      role: role || undefined,
-    });
-    requestWaitlistConfirmationEmailStub({
-      email: result.email,
-      waitlist_position: result.waitlist_position,
-      referral_link: referralLink,
-    });
+    const analyticsKey = `${result.status}:${result.id}`;
+    if (signupSuccessAnalyticsFiredForId.current === analyticsKey) return;
+    signupSuccessAnalyticsFiredForId.current = analyticsKey;
+    trackWaitlistAnalytics(
+      result.status === "existing" ? "waitlist_signup_existing" : "waitlist_signup_success",
+      {
+        signup_id: result.id,
+        waitlist_position: result.waitlist_position ?? null,
+        referral_count:
+          typeof result.referral_count === "number" ? result.referral_count : undefined,
+        total_score: typeof result.total_score === "number" ? result.total_score : undefined,
+        has_referral_link: Boolean(referralLink),
+        role: role || undefined,
+      },
+    );
+    if (result.status === "created") {
+      requestWaitlistConfirmationEmailStub({
+        email: result.email,
+        waitlist_position: result.waitlist_position,
+        referral_link: referralLink,
+      });
+    }
   }, [status, result, referralLink, role]);
 
   useEffect(() => {
@@ -516,6 +520,8 @@ export function AccessRequestForm() {
 
   const founderEarlyAccessCta =
     role === "founder" && !!sector.trim() && isFounderWaitlistSectorValue(sector.trim());
+  const selectedFounderSectorLabel =
+    role === "founder" ? founderSectorDisplayLabel(sector, customSector) : null;
 
   const toggleIntent = (id: string) => {
     setIntentSet((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -529,13 +535,30 @@ export function AccessRequestForm() {
     if (completedSocialActions[action.id]) return;
 
     setCompletedSocialActions((prev) => ({ ...prev, [action.id]: true }));
-    setScorePulseKey((prev) => prev + 1);
-    setSocialPointBurst({ actionId: action.id, points: action.points, nonce: Date.now() });
     trackWaitlistAnalytics("waitlist_social_action_completed", {
       action_id: action.id,
-      points: action.points,
-      optimistic: true,
+      score_affecting: false,
     });
+  };
+
+  const focusAndScrollField = (node: HTMLElement | null) => {
+    if (!node) return;
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        node.scrollIntoView({
+          behavior: reduceMotion ? "auto" : "smooth",
+          block: "center",
+          inline: "nearest",
+        });
+        node.focus({ preventScroll: true });
+      }, 0);
+    });
+  };
+
+  const stopForField = (message: string, node: HTMLElement | null) => {
+    setErrorMessage(message);
+    setStatus("error");
+    focusAndScrollField(node);
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -545,78 +568,68 @@ export function AccessRequestForm() {
     setSocialProfileError(null);
 
     if (!firstName.trim()) {
-      setErrorMessage("Please enter your first name.");
-      setStatus("error");
+      stopForField("Please enter your first name.", firstNameRef.current);
       return;
     }
     if (!lastName.trim()) {
-      setErrorMessage("Please enter your last name.");
-      setStatus("error");
+      stopForField("Please enter your last name.", lastNameRef.current);
       return;
     }
     if (!email.trim()) {
       setEmailFieldError(null);
-      setErrorMessage("Please enter your email.");
-      setStatus("error");
+      stopForField("Please enter your email.", emailRef.current);
       return;
     }
     const emailParsed = accessEmailSchema.safeParse(email);
     if (!emailParsed.success) {
       setEmailFieldError(EMAIL_FORMAT_INLINE);
-      setStatus("error");
+      stopForField(EMAIL_FORMAT_INLINE, emailRef.current);
       return;
     }
     const emailNorm = emailParsed.data;
     if (!role) {
-      setErrorMessage("Please select your role.");
-      setStatus("error");
+      stopForField("Please select your role.", roleSelectRef.current);
       return;
     }
     if (role !== "other") {
       if (role === "investor") {
         const selectedInvestor = STAGE_CHOICES.investor.map((o) => o.value).filter((v) => investorStages[v]);
         if (selectedInvestor.length === 0) {
-          setErrorMessage("Please select at least one stage.");
-          setStatus("error");
+          stopForField("Please select at least one stage.", firstInvestorStageRef.current);
           return;
         }
       } else if (!stage.trim()) {
         const kind = role === "operator" || role === "advisor" ? "role type" : "stage";
-        setErrorMessage(`Please select your ${kind}.`);
-        setStatus("error");
+        stopForField(`Please select your ${kind}.`, stageSelectRef.current);
         return;
       }
     }
     if (role === "founder" && sector.trim() && !isFounderWaitlistSectorValue(sector.trim())) {
-      setErrorMessage("Please select a valid sector.");
-      setStatus("error");
+      stopForField("Please select a valid sector.", sectorSelectRef.current);
       return;
     }
     if (role === "founder" && sector === "other" && !customSector.trim()) {
-      setErrorMessage("Please enter your sector.");
-      setStatus("error");
+      stopForField("Please enter your sector.", customSectorRef.current);
       return;
     }
     const intent = PRIORITY_CHOICES[role as AccessRole].filter((p) => intentSet[p.id]).map((p) => p.id);
     if (intent.length === 0) {
-      setErrorMessage("Please select at least one priority.");
-      setStatus("error");
+      stopForField("Please select at least one priority.", firstPriorityRef.current);
       return;
     }
     if (!companyName.trim()) {
-      setErrorMessage(
+      stopForField(
         role === "investor"
           ? "Please enter your firm name or website."
           : "Please enter your company name or website.",
+        companyNameRef.current,
       );
-      setStatus("error");
       return;
     }
     const socialProfile = normalizeSocialProfileInput(socialProfileInput);
     if (!socialProfile) {
       setSocialProfileError(SOCIAL_PROFILE_ERROR);
-      setErrorMessage(SOCIAL_PROFILE_ERROR);
-      setStatus("error");
+      stopForField(SOCIAL_PROFILE_ERROR, socialProfileRef.current);
       return;
     }
     setSocialProfileError(null);
@@ -662,9 +675,11 @@ export function AccessRequestForm() {
       const data = await waitlistSignup(payload);
       if (data.status === "existing") {
         setEmailAlreadyRegistered(true);
-        setStatus("idle");
+        setResult(data);
+        setStatus("success");
         return;
       }
+      setEmailAlreadyRegistered(false);
       setResult(data);
       setStatus("success");
     } catch (err) {
@@ -674,9 +689,12 @@ export function AccessRequestForm() {
   };
 
   if (status === "success" && result) {
+    const isExistingSignup = result.status === "existing";
     const submittedSectorSlug =
       role === "founder" && sector.trim() && isFounderWaitlistSectorValue(sector.trim()) ? sector.trim() : null;
-    const submittedSectorLabel = submittedSectorSlug ? getFounderWaitlistSectorLabel(submittedSectorSlug) : null;
+    const submittedSectorLabel = submittedSectorSlug
+      ? founderSectorDisplayLabel(submittedSectorSlug, customSector)
+      : null;
     const referralDashboardTo = buildReferralDashboardPath(result);
 
     return (
@@ -686,7 +704,14 @@ export function AccessRequestForm() {
             <Check className="h-6 w-6" strokeWidth={2.5} />
           </div>
 
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">You’re on the waitlist</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">
+            {isExistingSignup ? "You’re already on the waitlist" : "You’re on the waitlist"}
+          </h2>
+          {isExistingSignup ? (
+            <p className="mt-3 text-sm leading-relaxed text-[#b3b3b3]">
+              We found your existing request and loaded your current waitlist details.
+            </p>
+          ) : null}
 
           <div className="mt-6 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#b3b3b3]">Your position</p>
@@ -711,15 +736,9 @@ export function AccessRequestForm() {
             {displayedScore != null ? (
               <p>
                 Score:{" "}
-                <motion.span
-                  key={scorePulseKey}
-                  initial={reduceMotion ? false : { scale: 1, color: "#f4f4f5" }}
-                  animate={reduceMotion ? undefined : { scale: [1, 1.12, 1], color: ["#f4f4f5", "#2EE6A6", "#f4f4f5"] }}
-                  transition={{ duration: reduceMotion ? 0 : 0.45, ease: "easeOut" }}
-                  className="inline-block font-semibold text-zinc-100"
-                >
+                <span className="font-semibold text-zinc-100">
                   {displayedScore}
-                </motion.span>
+                </span>
               </p>
             ) : null}
           </div>
@@ -782,8 +801,8 @@ export function AccessRequestForm() {
 
           <div className="mt-6 rounded-xl border border-zinc-800 bg-[#121212] px-4 py-5 text-left shadow-lg shadow-black/30">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-zinc-100">Earn more points</p>
-              <p className="text-2xs text-[#b3b3b3]">Get 5 points for each platform you follow.</p>
+              <p className="text-sm font-semibold text-zinc-100">Follow for launch updates</p>
+              <p className="text-2xs text-[#b3b3b3]">These actions are tracked separately from your waitlist score.</p>
             </div>
             <div
               className="mt-4 grid w-full gap-1.5 sm:gap-2"
@@ -792,7 +811,7 @@ export function AccessRequestForm() {
               {WAITLIST_SOCIAL_ACTIONS.map((action) => {
                 const completed = Boolean(completedSocialActions[action.id]);
                 const Icon = action.Icon;
-                const title = completed ? `${action.label} completed` : `${action.label} (+${action.points} pts)`;
+                const title = completed ? `${action.label} completed` : action.label;
 
                 return (
                   <a
@@ -800,7 +819,7 @@ export function AccessRequestForm() {
                     href={action.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`${action.label} in a new window for +${action.points} points${completed ? " — completed" : ""}`}
+                    aria-label={`${action.label} in a new window${completed ? " — completed" : ""}`}
                     aria-disabled={completed}
                     title={title}
                     className={cn(
@@ -812,24 +831,6 @@ export function AccessRequestForm() {
                     onClick={() => completeSocialAction(action)}
                   >
                     <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
-                    <AnimatePresence initial={false}>
-                      {socialPointBurst?.actionId === action.id ? (
-                        <motion.span
-                          key={socialPointBurst.nonce}
-                          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.85 }}
-                          animate={
-                            reduceMotion
-                              ? { opacity: [0, 1, 0] }
-                              : { opacity: [0, 1, 1, 0], y: [-2, -18, -24], scale: [0.9, 1.12, 1] }
-                          }
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: reduceMotion ? 0.45 : 0.85, ease: "easeOut" }}
-                          className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-primary/30 bg-[#0d1f18] px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary shadow-lg shadow-primary/20"
-                        >
-                          +{socialPointBurst.points}
-                        </motion.span>
-                      ) : null}
-                    </AnimatePresence>
                     {completed ? (
                       <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-primary">
                         <Check className="h-2.5 w-2.5" aria-hidden />
@@ -882,7 +883,9 @@ export function AccessRequestForm() {
             </>
           ) : (
             <p className="mt-10 text-pretty text-sm leading-relaxed text-[#b3b3b3]">
-              We’ve saved your request and will follow up by email.
+              {isExistingSignup
+                ? "We’ll keep using this email for waitlist updates."
+                : "We’ve saved your request and will follow up by email."}
             </p>
           )}
 
@@ -904,9 +907,9 @@ export function AccessRequestForm() {
 
   return (
     <div className={ACCESS_FORM_CARD_CLASS}>
-      <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5">
+      <form onSubmit={onSubmit} className="mx-auto max-w-md space-y-5" noValidate>
         {errorMessage && status === "error" && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
             {errorMessage}
           </div>
         )}
@@ -917,6 +920,7 @@ export function AccessRequestForm() {
               First name <span className={accessInlineHighlightClass}>*</span>
             </label>
             <Input
+              ref={firstNameRef}
               id="access-first"
               className={accessInputClassName}
               autoComplete="given-name"
@@ -930,6 +934,7 @@ export function AccessRequestForm() {
               Last name <span className={accessInlineHighlightClass}>*</span>
             </label>
             <Input
+              ref={lastNameRef}
               id="access-last"
               className={accessInputClassName}
               autoComplete="family-name"
@@ -945,6 +950,7 @@ export function AccessRequestForm() {
             Work email <span className={accessInlineHighlightClass}>*</span>
           </label>
           <Input
+            ref={emailRef}
             id="access-email"
             className={accessInputClassName}
             type="email"
@@ -958,19 +964,7 @@ export function AccessRequestForm() {
               const v = e.target.value;
               setEmail(v);
               if (emailAlreadyRegistered) setEmailAlreadyRegistered(false);
-              if (emailFieldError && accessEmailSchema.safeParse(v).success) {
-                setEmailFieldError(null);
-              }
-            }}
-            onBlur={() => {
-              const v = email.trim();
-              if (!v) {
-                setEmailFieldError(null);
-                return;
-              }
-              if (!accessEmailSchema.safeParse(email).success) {
-                setEmailFieldError(EMAIL_FORMAT_INLINE);
-              } else {
+              if (emailFieldError && (!v.trim() || accessEmailSchema.safeParse(v).success)) {
                 setEmailFieldError(null);
               }
             }}
@@ -1004,6 +998,7 @@ export function AccessRequestForm() {
             Role <span className={accessInlineHighlightClass}>*</span>
           </label>
           <select
+            ref={roleSelectRef}
             id="access-role"
             className={accessSelectClassName}
             value={role}
@@ -1033,6 +1028,7 @@ export function AccessRequestForm() {
                   {STAGE_CHOICES.investor.map((o) => (
                     <label key={o.value} className={accessChoiceLabelClass}>
                       <input
+                        ref={o.value === STAGE_CHOICES.investor[0]?.value ? firstInvestorStageRef : undefined}
                         type="checkbox"
                         checked={Boolean(investorStages[o.value])}
                         onChange={() => toggleInvestorStage(o.value)}
@@ -1049,6 +1045,7 @@ export function AccessRequestForm() {
                   {stageFieldLabel(role)} <span className={accessInlineHighlightClass}>*</span>
                 </label>
                 <select
+                  ref={stageSelectRef}
                   id="access-stage"
                   className={cn(accessSelectClassName, "w-full")}
                   value={stage}
@@ -1143,6 +1140,7 @@ export function AccessRequestForm() {
                           Your sector <span className={accessInlineHighlightClass}>*</span>
                         </label>
                         <Input
+                          ref={customSectorRef}
                           id="access-sector-other-input"
                           className={accessInputClassName}
                           placeholder="Tell us your sector"
@@ -1164,7 +1162,7 @@ export function AccessRequestForm() {
                         <p id="access-sector-reinforce" className="text-2xs leading-snug text-[#b3b3b3]/95">
                           We’ll tailor investor matches and market signals to{" "}
                           <span className={cn("font-medium", accessInlineHighlightClass)}>
-                            {getFounderWaitlistSectorLabel(sector.trim())}
+                            {selectedFounderSectorLabel}
                           </span>
                           .
                         </p>
@@ -1197,6 +1195,7 @@ export function AccessRequestForm() {
               {PRIORITY_CHOICES[role].map((p) => (
                 <label key={p.id} className={accessChoiceLabelClass}>
                   <input
+                    ref={p.id === PRIORITY_CHOICES[role][0]?.id ? firstPriorityRef : undefined}
                     type="checkbox"
                     checked={Boolean(intentSet[p.id])}
                     onChange={() => toggleIntent(p.id)}
@@ -1231,6 +1230,7 @@ export function AccessRequestForm() {
                 <span className={accessInlineHighlightClass}>*</span>
               </label>
               <Input
+                ref={companyNameRef}
                 id="access-company"
                 className={accessInputClassName}
                 autoComplete="organization"
@@ -1246,6 +1246,7 @@ export function AccessRequestForm() {
                 LinkedIn or X profile <span className={accessInlineHighlightClass}>*</span>
               </label>
               <Input
+                ref={socialProfileRef}
                 id="access-social-profile"
                 className={cn(
                   accessInputClassName,
@@ -1262,18 +1263,9 @@ export function AccessRequestForm() {
                 onChange={(e) => {
                   const next = e.target.value;
                   setSocialProfileInput(next);
-                  if (socialProfileError && normalizeSocialProfileInput(next)) {
+                  if (socialProfileError && (!next.trim() || normalizeSocialProfileInput(next))) {
                     setSocialProfileError(null);
                   }
-                }}
-                onBlur={() => {
-                  const normalized = normalizeSocialProfileInput(socialProfileInput);
-                  if (!normalized) {
-                    setSocialProfileError(SOCIAL_PROFILE_ERROR);
-                    return;
-                  }
-                  setSocialProfileInput(normalized.normalized);
-                  setSocialProfileError(null);
                 }}
                 required
               />
@@ -1293,7 +1285,7 @@ export function AccessRequestForm() {
           </>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={status === "submitting"}>
+        <Button type="submit" className="w-full touch-manipulation" disabled={status === "submitting"}>
           {status === "submitting" ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />

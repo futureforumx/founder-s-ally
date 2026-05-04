@@ -16,6 +16,8 @@ import { runLinkedinCsvUpload } from "./api/connectors/_linkedinUploadLogic";
 import { runGoogleDisconnect } from "./api/connectors/_googleDisconnectLogic";
 import { runGoogleResync } from "./api/connectors/_googleResyncLogic";
 import { runLinkedinCsvDisconnect } from "./api/connectors/_linkedinDisconnectLogic";
+import { createClient } from "@supabase/supabase-js";
+import { ensureAppUserRows } from "./api/_ensureAppUser";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -182,7 +184,13 @@ function saveProfileDevPlugin(env: Record<string, string>) {
         let body: Record<string, unknown> = {};
         try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ok */ }
 
-        // Get user ID from Clerk JWT (decode sub without verification for dev convenience)
+        const supabaseUrl =
+          env.SUPABASE_URL ||
+          env.VITE_SUPABASE_URL ||
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL;
+        const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
         const authHeader = (req.headers.authorization ?? "") as string;
         const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
         if (!token) {
@@ -192,29 +200,43 @@ function saveProfileDevPlugin(env: Record<string, string>) {
         }
 
         let userId: string | null = null;
-        try {
-          const parts = token.split(".");
-          if (parts.length >= 2) {
-            let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-            while (b64.length % 4) b64 += "=";
-            const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
-            userId = typeof payload.sub === "string" ? payload.sub : null;
+        if (supabaseUrl && serviceKey) {
+          try {
+            const admin = createClient(supabaseUrl, serviceKey, {
+              auth: { persistSession: false, autoRefreshToken: false },
+            });
+            const {
+              data: { user },
+            } = await admin.auth.getUser(token);
+            if (user?.id) userId = user.id;
+          } catch {
+            /* fall through */
           }
-        } catch { /* ok */ }
+        }
+        if (!userId) {
+          try {
+            const parts = token.split(".");
+            if (parts.length >= 2) {
+              let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+              while (b64.length % 4) b64 += "=";
+              const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+              userId = typeof payload.sub === "string" ? payload.sub : null;
+            }
+          } catch {
+            /* ok */
+          }
+        }
 
-        // Body _uid as fallback hint (validated against same pattern)
         const bodyUid = typeof body._uid === "string" ? body._uid.trim() : "";
         if (!userId && bodyUid) userId = bodyUid;
 
-        if (!userId || !/^user_[A-Za-z0-9]{20,}$/.test(userId)) {
+        const looksLikeClerk = userId ? /^user_[A-Za-z0-9]{20,}$/.test(userId) : false;
+        const looksLikeUuid = userId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId) : false;
+        if (!userId || (!looksLikeClerk && !looksLikeUuid)) {
           res.writeHead(401, cors);
-          res.end(JSON.stringify({ error: "Could not extract valid Clerk user ID from token" }));
+          res.end(JSON.stringify({ error: "Could not verify Supabase session or valid user id" }));
           return;
         }
-
-        // Write to Supabase with service role key
-        const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-        const serviceKey  = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
         if (!supabaseUrl || !serviceKey) {
           res.writeHead(500, cors);
@@ -222,7 +244,20 @@ function saveProfileDevPlugin(env: Record<string, string>) {
           return;
         }
 
-        const ALLOWED = ["full_name","title","bio","location","avatar_url","linkedin_url","twitter_url","user_type","resume_url"];
+        const ALLOWED = [
+          "full_name",
+          "title",
+          "bio",
+          "location",
+          "avatar_url",
+          "linkedin_url",
+          "twitter_url",
+          "user_type",
+          "resume_url",
+          "company_id",
+          "has_completed_onboarding",
+          "has_seen_settings_tour",
+        ];
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
         for (const k of ALLOWED) if (k in body && body[k] !== undefined) patch[k] = body[k];
 
@@ -261,6 +296,216 @@ function saveProfileDevPlugin(env: Record<string, string>) {
 
         res.writeHead(200, cors);
         res.end(JSON.stringify({ ok: true }));
+      });
+    },
+  };
+}
+
+function ensureUserDevPlugin(env: Record<string, string>) {
+  return {
+    name: "ensure-user-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/ensure-user", async (req: any, res: any) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        req.on("data", (c: Buffer) => chunks.push(c));
+        await new Promise((r) => req.on("end", r));
+        let body: Record<string, unknown> = {};
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString());
+        } catch {
+          res.writeHead(400, cors);
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+          return;
+        }
+
+        const authHeader = (req.headers.authorization ?? "") as string;
+        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+        let userId: string | null = null;
+        if (token) {
+          try {
+            const parts = token.split(".");
+            if (parts.length >= 2) {
+              let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+              while (b64.length % 4) b64 += "=";
+              const pl = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+              if (typeof pl.sub === "string" && pl.sub.length > 0) userId = pl.sub;
+            }
+          } catch {
+            /* ok */
+          }
+        }
+        if (!userId) {
+          const hint = typeof body._uid === "string" ? body._uid.trim() : "";
+          if (hint.length > 0) userId = hint;
+        }
+
+        if (!userId) {
+          res.writeHead(401, cors);
+          res.end(JSON.stringify({ error: "Missing bearer token or valid user ID" }));
+          return;
+        }
+
+        const supabaseUrl =
+          env.SUPABASE_URL ||
+          env.VITE_SUPABASE_URL ||
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL;
+        const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceKey) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set" }));
+          return;
+        }
+
+        const email = typeof body.email === "string" ? body.email.trim() : null;
+        const displayName = typeof body.display_name === "string" ? body.display_name.trim() : null;
+        const avatarUrl = typeof body.avatar_url === "string" ? body.avatar_url.trim() : null;
+
+        const admin = createClient(supabaseUrl, serviceKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+
+        const result = await ensureAppUserRows(admin, {
+          userId,
+          email,
+          displayName,
+          avatarUrl,
+        });
+
+        if (!result.ok) {
+          res.writeHead(result.status, cors);
+          res.end(JSON.stringify({ error: result.error }));
+          return;
+        }
+
+        res.writeHead(200, cors);
+        res.end(JSON.stringify({ ok: true, profile: result.profile }));
+      });
+    },
+  };
+}
+
+function getProfileDevPlugin(env: Record<string, string>) {
+  return {
+    name: "get-profile-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/get-profile", async (req: any, res: any) => {
+        const cors = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "authorization, content-type",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Content-Type": "application/json",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(200, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "GET" && req.method !== "POST") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        let body: Record<string, unknown> = {};
+        if (req.method === "POST") {
+          const chunks: Buffer[] = [];
+          req.on("data", (c: Buffer) => chunks.push(c));
+          await new Promise((r) => req.on("end", r));
+          try {
+            body = JSON.parse(Buffer.concat(chunks).toString());
+          } catch {
+            body = {};
+          }
+        }
+
+        const authHeader = (req.headers.authorization ?? "") as string;
+        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+        function extractUserIdFromToken(t: string): string | null {
+          try {
+            const parts = t.split(".");
+            if (parts.length < 2) return null;
+            let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+            while (b64.length % 4) b64 += "=";
+            const pl = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+            if (typeof pl.sub === "string" && pl.sub.length > 0) return pl.sub;
+            return null;
+          } catch {
+            return null;
+          }
+        }
+
+        let userId: string | null = token ? extractUserIdFromToken(token) : null;
+
+        let uidFromQuery = "";
+        try {
+          const u = new URL(req.url || "/", "http://127.0.0.1");
+          uidFromQuery = u.searchParams.get("_uid")?.trim() || "";
+        } catch {
+          uidFromQuery = "";
+        }
+
+        if (!userId) {
+          const uidHint = uidFromQuery || (typeof body._uid === "string" ? body._uid.trim() : "");
+          if (uidHint.length > 0) userId = uidHint;
+        }
+
+        if (!userId) {
+          res.writeHead(401, cors);
+          res.end(JSON.stringify({ error: "Missing bearer token or valid user ID" }));
+          return;
+        }
+
+        const supabaseUrl =
+          env.SUPABASE_URL ||
+          env.VITE_SUPABASE_URL ||
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL;
+        const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!supabaseUrl || !serviceKey) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set" }));
+          return;
+        }
+
+        const sel = await fetch(
+          `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=*`,
+          { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
+        );
+        if (!sel.ok) {
+          const errText = await sel.text();
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: errText || "profile fetch failed" }));
+          return;
+        }
+        const rows = await sel.json();
+        const profile = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+
+        res.writeHead(200, cors);
+        res.end(JSON.stringify({ ok: true, profile }));
       });
     },
   };
@@ -726,6 +971,8 @@ export default defineConfig(async ({ mode }) => {
     react(),
     mode === "development" && componentTagger(),
     mode === "development" && saveProfileDevPlugin(env),
+    mode === "development" && ensureUserDevPlugin(env),
+    mode === "development" && getProfileDevPlugin(env),
     mode === "development" && connectorsOauthDevPlugin(),
     mode === "development" && firmWebsiteContactDevPlugin(),
     mode === "development" && firmWebsiteThemesDevPlugin(),

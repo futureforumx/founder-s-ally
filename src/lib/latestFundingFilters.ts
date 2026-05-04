@@ -93,6 +93,20 @@ export function normalizeSectorLabel(s: string): string {
     .trim();
 }
 
+export function splitSectorLabels(raw: string | null | undefined): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const part of String(raw ?? "").split(/[;,|]/)) {
+    const label = part.replace(/\s+/g, " ").trim();
+    if (!label || label.toLowerCase() === "unknown") continue;
+    const key = normalizeSectorLabel(label);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    labels.push(label);
+  }
+  return labels;
+}
+
 /**
  * Normalized keys → single dropdown / filter label (collapses near-duplicate sector strings).
  * Unknown keys fall through to the original trimmed label for display.
@@ -153,19 +167,31 @@ export function canonicalSectorChoiceLabel(raw: string): string {
 export function buildDedupedSectorChoices(rawLabels: string[]): string[] {
   const byKey = new Map<string, string>();
   for (const raw of rawLabels) {
-    const k = sectorClusterKey(raw);
-    if (!k) continue;
-    const label = canonicalSectorChoiceLabel(raw);
-    if (!byKey.has(k)) byKey.set(k, label);
+    for (const labelPart of splitSectorLabels(raw)) {
+      const k = sectorClusterKey(labelPart);
+      if (!k) continue;
+      const label = canonicalSectorChoiceLabel(labelPart);
+      if (!byKey.has(k)) byKey.set(k, label);
+    }
   }
   return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
 }
 
+export function sectorLabelsForDisplay(raw: string | null | undefined): string[] {
+  const byKey = new Map<string, string>();
+  for (const labelPart of splitSectorLabels(raw)) {
+    const key = sectorClusterKey(labelPart);
+    if (!key || byKey.has(key)) continue;
+    byKey.set(key, canonicalSectorChoiceLabel(labelPart));
+  }
+  return Array.from(byKey.values());
+}
+
 function matchesSector(row: RecentFundingRound, sector: string | null): boolean {
   if (!sector?.trim()) return true;
-  const rk = sectorClusterKey(row.sector);
   const fk = sectorClusterKey(sector);
-  return Boolean(rk && fk && rk === fk);
+  if (!fk) return true;
+  return splitSectorLabels(row.sector).some((label) => sectorClusterKey(label) === fk);
 }
 
 export function sortFundingByAnnouncedDesc(rows: RecentFundingRound[]): RecentFundingRound[] {

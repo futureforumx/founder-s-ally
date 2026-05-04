@@ -25,11 +25,13 @@ A production-ready waitlist system built natively in Supabase with referral trac
 
 ## Scoring Logic
 
+Canonical scoring lives in Postgres functions (`calc_waitlist_*`). The frontend submits normalized form signals but does not calculate rank-affecting score locally.
+
 ### Referral Score
 
 ```
-referral_count ≤ 10  →  referral_count × 10   (max 100)
-referral_count > 10  →  100 + (count - 10) × 5
+referral_count <= 10  ->  referral_count * 10   (max 100)
+referral_count > 10   ->  100 + (count - 10) * 5
 ```
 
 ### Qualification Score
@@ -37,17 +39,23 @@ referral_count > 10  →  100 + (count - 10) × 5
 | Signal | Values → Points |
 |---|---|
 | **Role** | investor: 25, founder: 20, advisor: 15, operator: 10, other: 5 |
-| **Urgency** | actively_raising/deploying: 30, raising_6_months: 25, exploring: 10, not_yet: 5 |
-| **Stage** | seed: 20, pre-seed: 15, series-a: 15, series-b+: 10, other: 5 |
-| **Intent** | High-value intents: +8 each, other: +3 each |
+| **Urgency** | actively_raising: 30, actively_deploying: 30, raising_6_months: 25, exploring: 10, not_yet: 5, blank: 0 |
+| **Stage / focus** | seed and multi-stage: 20; pre-seed, series-a, series-a-plus: 15; angel, series-b, series-b+, series-c-plus: 10; idea, operator/advisor focus, other recognized values: 5; blank: 0 |
+| **Intent** | High-value intents: +8 each; other non-empty intents: +3 each |
 
-High-value intents: `find_investors`, `get_warm_intros`, `source_deals`, `raise_capital`, `find_cofounders`, `due_diligence`
+High-value intents: `find_investors`, `get_warm_intros`, `source_deals`, `find_founders`, `find_opportunities`, `raise_capital`, `find_cofounders`, `due_diligence`
+
+Stage/focus accepts either a single value or a comma-separated multi-select value from the `/access` form. Multi-select stages are scored by the highest-value selected stage, not by summing every selected stage. This keeps investor stage breadth from dominating the queue.
+
+The current `/access` form does not collect urgency, so direct access-page signups normally receive 0 urgency points. The urgency signal remains supported for Tally, Framer, or other external waitlist payloads.
 
 ### Total Score
 
 ```
 total_score = referral_score + qualification_score + (priority_access ? 500 : 0)
 ```
+
+`priority_access` is an admin/manual override. Post-submit social follow actions are tracked as engagement actions and are not part of the persisted waitlist score unless a future backend scoring rule is added.
 
 ### Position Calculation
 

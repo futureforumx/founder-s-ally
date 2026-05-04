@@ -125,6 +125,7 @@ export function candidateToCanonical(
     normalized_company_name:  c.normalized_company_name,
     company_domain:           c.company_domain,
     company_website:          c.company_website,
+    company_logo_url:         null,
     company_linkedin_url:     null,
     company_location:         c.company_location,
     sector_raw:               c.sector_raw,

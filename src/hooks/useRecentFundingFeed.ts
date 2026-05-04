@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   isSupabaseConfigured,
   supabasePublicDirectory,
@@ -13,6 +13,7 @@ type RpcRow = {
   id: string;
   company_name: string;
   website_url: string | null;
+  company_logo_url?: string | null;
   sector: string;
   round_kind: string;
   amount_label: string;
@@ -59,6 +60,7 @@ function mapRow(r: RpcRow): RecentFundingRound {
     id: r.id,
     companyName: r.company_name,
     websiteUrl,
+    companyLogoUrl: (r.company_logo_url && String(r.company_logo_url).trim()) || null,
     sector: r.sector,
     roundKind: formatRoundKind(r.round_kind),
     amountLabel: r.amount_label,
@@ -118,6 +120,7 @@ function mergeRecentFundingRows(primary: RecentFundingRound[], fallback: RecentF
       ...existing,
       ...row,
       websiteUrl: row.websiteUrl?.trim() ? row.websiteUrl : existing.websiteUrl,
+      companyLogoUrl: row.companyLogoUrl?.trim() ? row.companyLogoUrl : existing.companyLogoUrl,
       companyGallerySlug: row.companyGallerySlug?.trim() ? row.companyGallerySlug : existing.companyGallerySlug,
       sourceUrl: row.sourceUrl?.trim() ? row.sourceUrl : existing.sourceUrl,
       leadWebsiteUrl: row.leadWebsiteUrl?.trim() ? row.leadWebsiteUrl : existing.leadWebsiteUrl,
@@ -186,7 +189,7 @@ export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: num
     retry: 1,
   });
 
-  const liveRows = query.data ?? [];
+  const liveRows = useMemo(() => query.data ?? [], [query.data]);
 
   /**
    * We always keep curated startups.gallery rows in the set for Latest Funding coverage,
@@ -231,7 +234,7 @@ export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: num
       sectorLabelCounts: Object.fromEntries(topSectors),
       roundKindMappedToOtherTop: Object.fromEntries(topOtherRounds),
     });
-  }, [isSupabaseConfigured, query.isSuccess, liveRows]);
+  }, [query.isSuccess, liveRows]);
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -250,7 +253,7 @@ export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: num
       rpcRowCount: liveRows.length,
       queryStatus: query.status,
     });
-  }, [isSupabaseConfigured, query.isError, query.isLoading, query.status, dataSource, liveRows.length]);
+  }, [query.isError, query.isLoading, query.status, dataSource, liveRows.length]);
 
   return {
     rows,

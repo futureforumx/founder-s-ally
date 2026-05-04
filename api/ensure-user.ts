@@ -14,6 +14,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { ensureAppUserRows } from "./_ensureAppUser";
 
 function setCors(res: VercelResponse): VercelResponse {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -45,7 +46,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return setCors(res).status(405).json({ error: "Method not allowed" });
   }
 
-  // Parse body
   let body: Record<string, unknown> = {};
   try {
     body = typeof req.body === "string" ? JSON.parse(req.body) : req.body ?? {};
@@ -53,7 +53,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return setCors(res).status(400).json({ error: "Invalid JSON body" });
   }
 
-  // Extract user ID from Authorization header or _uid body param
   const authHeader = req.headers.authorization ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 
@@ -85,45 +84,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const now = new Date().toISOString();
+  const result = await ensureAppUserRows(admin, {
+    userId,
+    email,
+    displayName,
+    avatarUrl,
+  });
 
-  // Step 1 - upsert the users row (id is the Supabase auth user id)
-  const userRow: Record<string, unknown> = { id: userId, updated_at: now };
-  if (email) userRow.email = email;
-  if (displayName) userRow.display_name = displayName;
-  if (avatarUrl) userRow.avatar_url = avatarUrl;
-
-  const { error: userError } = await admin
-    .from("users")
-    .upsert(userRow, { onConflict: "id" });
-
-  if (userError) {
-    console.error("[ensure-user] users upsert failed:", userError.message);
-    // Non-fatal - profiles may still succeed if the row already exists.
+  if (!result.ok) {
+    return setCors(res).status(result.status).json({ error: result.error });
   }
 
-  // Step 2 - create a default profiles row if one doesn't exist yet.
-  const { error: profileError } = await admin.from("profiles").upsert(
-    { user_id: userId, has_completed_onboarding: false, created_at: now, updated_at: now },
-    { onConflict: "user_id", ignoreDuplicates: true }
-  );
-
-  if (profileError) {
-    console.error("[ensure-user] profiles upsert failed:", profileError.message);
-    return setCors(res).status(500).json({ error: profileError.message });
-  }
-
-  // Step 3 - return the current profile so the client can read onboarding state.
-  const { data: profile, error: fetchError } = await admin
-    .from("profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[ensure-user] profile fetch failed:", fetchError.message);
-    return setCors(res).status(500).json({ error: fetchError.message });
-  }
-
-  return setCors(res).status(200).json({ ok: true, profile });
+  return setCors(res).status(200).json({ ok: true, profile: result.profile });
 }

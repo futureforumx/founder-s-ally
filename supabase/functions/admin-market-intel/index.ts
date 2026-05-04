@@ -48,6 +48,19 @@ function highestPermission(...candidates: Array<AppPermission | null>): AppPermi
   return best;
 }
 
+/** When `firm_records.domain` is missing (older DBs), mirror RPC behavior from `website_url`. */
+function firmDomainFromWebsiteUrl(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const s = raw.trim();
+  try {
+    const u = s.includes("://") ? new URL(s) : new URL(`https://${s}`);
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    return host || null;
+  } catch {
+    return null;
+  }
+}
+
 function bearerize(authHeader: string | null): string | null {
   const h = authHeader?.trim();
   if (!h) return null;
@@ -129,14 +142,15 @@ const FIRM_COLS = [
 ].join(", ");
 
 const DEAL_COLS = [
-  "id","company_name","company_domain","company_logo_url",
-  "sector_normalized","round_type_normalized",
-  "amount_minor_units","currency","announced_date",
-  "lead_investor_normalized","co_investors",
+  "id","company_name","company_domain","company_website","company_logo_url",
+  "company_linkedin_url","company_location",
+  "sector_raw","sector_normalized","round_type_raw","round_type_normalized",
+  "amount_raw","amount_minor_units","currency","announced_date",
+  "lead_investor","lead_investor_normalized","co_investors",
   "needs_review","review_reason","is_rumor",
   "confidence_score","source_count",
-  "primary_source_url","primary_press_url",
-  "extracted_summary","created_at",
+  "primary_source_name","primary_source_url","primary_press_url","source_type",
+  "extracted_summary","extraction_method","created_at","updated_at",
 ].join(", ");
 
 // ── Table map ──────────────────────────────────────────────────────────────────
@@ -151,6 +165,84 @@ const TABLE: Record<string, string> = {
 
 const PROTECTED = new Set(["id","created_at","deleted_at","sector_embedding","updated_at"]);
 
+/** Plain `vc_funds` columns — no PostgREST embed (see `firm_records.latest_verified_vc_fund_id` ↔ `vc_funds.id`). */
+const VCFUND_COLS = [
+  "id", "firm_record_id", "name", "fund_type", "fund_sequence_number", "vintage_year",
+  "announced_date", "close_date", "target_size_usd", "final_size_usd", "currency", "status",
+  "source_confidence", "source_count", "announcement_url", "announcement_title",
+  "stage_focus", "sector_focus", "geography_focus", "likely_actively_deploying",
+  "active_deployment_window_start", "active_deployment_window_end",
+  "manually_verified", "verification_status", "created_at", "updated_at",
+].join(", ");
+
+/** Omit `domain`: not present on all deployed DBs (added in migration 20260418150000). Derive in `freshFundRow`. */
+const FIRM_SNAPSHOT_COLS = [
+  "id", "firm_name", "website_url", "logo_url", "location", "hq_city", "hq_state", "hq_country",
+  "aum", "aum_usd", "has_fresh_capital", "fresh_capital_priority_score",
+].join(", ");
+
+async function loadFirmMap(
+  client: SupabaseClient,
+  firmRecordIds: string[],
+): Promise<{ map: Map<string, Record<string, unknown>>; error: string | null }> {
+  const unique = [...new Set(firmRecordIds.filter((id) => typeof id === "string" && id.length > 0))];
+  const map = new Map<string, Record<string, unknown>>();
+  if (!unique.length) return { map, error: null };
+  const { data, error } = await client.from("firm_records").select(FIRM_SNAPSHOT_COLS).in("id", unique);
+  if (error) return { map, error: error.message };
+  for (const row of data ?? []) {
+    const r = row as Record<string, unknown>;
+    if (typeof r.id === "string") map.set(r.id, r);
+  }
+  return { map, error: null };
+}
+
+function freshFundRow(fund: Record<string, unknown>, firm: Record<string, unknown> | null) {
+  return {
+    id: fund.id,
+    firm_record_id: fund.firm_record_id,
+    firm_name: firm?.firm_name ?? null,
+    firm_website_url: firm?.website_url ?? null,
+    firm_logo_url: firm?.logo_url ?? null,
+    firm_domain:
+      (typeof firm?.domain === "string" && firm.domain.trim()
+        ? firm.domain.trim()
+        : firmDomainFromWebsiteUrl(firm?.website_url)),
+    firm_location: firm?.location ?? null,
+    firm_hq_city: firm?.hq_city ?? null,
+    firm_hq_state: firm?.hq_state ?? null,
+    firm_hq_country: firm?.hq_country ?? null,
+    firm_aum: firm?.aum ?? null,
+    firm_aum_usd: firm?.aum_usd ?? null,
+    has_fresh_capital: firm?.has_fresh_capital ?? null,
+    fresh_capital_priority_score: firm?.fresh_capital_priority_score ?? null,
+    fund_name: fund.name,
+    fund_type: fund.fund_type,
+    fund_sequence_number: fund.fund_sequence_number,
+    vintage_year: fund.vintage_year,
+    announced_date: fund.announced_date,
+    close_date: fund.close_date,
+    target_size_usd: fund.target_size_usd,
+    final_size_usd: fund.final_size_usd,
+    currency: fund.currency,
+    status: fund.status,
+    source_confidence: fund.source_confidence,
+    source_count: fund.source_count,
+    announcement_url: fund.announcement_url,
+    announcement_title: fund.announcement_title,
+    stage_focus: fund.stage_focus,
+    sector_focus: fund.sector_focus,
+    geography_focus: fund.geography_focus,
+    likely_actively_deploying: fund.likely_actively_deploying,
+    active_deployment_window_start: fund.active_deployment_window_start,
+    active_deployment_window_end: fund.active_deployment_window_end,
+    manually_verified: fund.manually_verified,
+    verification_status: fund.verification_status,
+    created_at: fund.created_at,
+    updated_at: fund.updated_at,
+  };
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -162,8 +254,13 @@ Deno.serve(async (req) => {
   const authErr = await assertAdmin(req, db, supabaseUrl, supabaseAnonKey);
   if (authErr) return err(authErr, 403);
 
-  const url    = new URL(req.url);
-  const entity = url.searchParams.get("entity") ?? "companies";
+  const url = new URL(req.url);
+  /** Normalize so PATCH/GET match even if clients send `fresh_funds` or different casing. */
+  const entity = (() => {
+    const raw = url.searchParams.get("entity")?.trim() ?? "";
+    if (!raw) return "companies";
+    return raw.toLowerCase().replace(/_/g, "-");
+  })();
   const search = url.searchParams.get("search")?.trim() ?? "";
   const limit  = Math.min(parseInt(url.searchParams.get("limit")  ?? "30"), 100);
   // Accept both "page" (0-indexed) and "offset" params
@@ -176,6 +273,67 @@ Deno.serve(async (req) => {
   // ── PATCH: universal update ────────────────────────────────────────────────
   if (req.method === "PATCH") {
     const id    = url.searchParams.get("id");
+    if (entity === "fresh-funds") {
+      if (!id) return err("Missing id");
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+      const fundKeys = new Set([
+        "name","fund_type","fund_sequence_number","vintage_year",
+        "announced_date","close_date","target_size_usd","final_size_usd","currency","status",
+        "source_confidence","source_count","announcement_url","announcement_title",
+        "stage_focus","sector_focus","geography_focus","likely_actively_deploying",
+        "active_deployment_window_start","active_deployment_window_end",
+        "manually_verified","verification_status",
+      ]);
+      const firmKeys = new Set([
+        "firm_name","website_url","logo_url","location","hq_city","hq_state","hq_country",
+        "aum","aum_usd","has_fresh_capital","fresh_capital_priority_score",
+      ]);
+
+      const fundPatch: Record<string, unknown> = {};
+      const firmPatch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(body)) {
+        if (fundKeys.has(k)) fundPatch[k] = v;
+        if (firmKeys.has(k)) firmPatch[k] = v;
+      }
+
+      const { data: fundRef, error: refErr } = await db
+        .from("vc_funds")
+        .select("firm_record_id")
+        .eq("id", id)
+        .single();
+      if (refErr || !fundRef) return err(refErr?.message ?? "Fund not found", 404);
+
+      if (Object.keys(fundPatch).length) {
+        fundPatch.updated_at = new Date().toISOString();
+        const { error } = await db.from("vc_funds").update(fundPatch).eq("id", id);
+        if (error) return err(error.message, 500);
+      }
+
+      if (Object.keys(firmPatch).length) {
+        firmPatch.updated_at = new Date().toISOString();
+        const { error } = await db.from("firm_records").update(firmPatch).eq("id", fundRef.firm_record_id);
+        if (error) return err(error.message, 500);
+      }
+
+      const { data: fundOut, error: outErr } = await db
+        .from("vc_funds")
+        .select(VCFUND_COLS)
+        .eq("id", id)
+        .single();
+      if (outErr || !fundOut) return err(outErr?.message ?? "Fund not found", 500);
+      const frId = typeof fundOut.firm_record_id === "string" ? fundOut.firm_record_id : null;
+      const { data: firmOut } = frId
+        ? await db.from("firm_records").select(FIRM_SNAPSHOT_COLS).eq("id", frId).maybeSingle()
+        : { data: null };
+      return json({
+        row: freshFundRow(
+          fundOut as Record<string, unknown>,
+          (firmOut as Record<string, unknown> | null) ?? null,
+        ),
+      });
+    }
+
     const table = TABLE[entity];
     if (!id)    return err("Missing id");
     if (!table) return err(`Unknown entity: ${entity}`);
@@ -194,6 +352,28 @@ Deno.serve(async (req) => {
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
+
+  if (entity === "fresh-funds") {
+    const stage = url.searchParams.get("stage") ?? "";
+    let q = db.from("vc_funds").select(VCFUND_COLS, { count: "exact" })
+      .is("deleted_at", null)
+      .order("announced_date", { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+    if (search) q = q.ilike("name", `%${search}%`);
+    if (stage) q = q.contains("stage_focus", [stage]);
+    const { data, error, count } = await q;
+    if (error) return err(error.message, 500);
+    const fundRows = (data ?? []) as Record<string, unknown>[];
+    const firmIds = fundRows
+      .map((r) => (typeof r.firm_record_id === "string" ? r.firm_record_id : null))
+      .filter((x): x is string => x != null && x.length > 0);
+    const { map: firmMap, error: firmErr } = await loadFirmMap(db, firmIds);
+    if (firmErr) return err(firmErr, 500);
+    const rows = fundRows.map((f) =>
+      freshFundRow(f, firmMap.get(String(f.firm_record_id)) ?? null),
+    );
+    return json({ rows, total: count ?? 0 });
+  }
 
   if (entity === "companies") {
     const stage  = url.searchParams.get("stage")  ?? "";

@@ -2172,18 +2172,68 @@ export class FundSyncService {
   private async loadSignalsForMirror(options: FundSyncRunOptions & { force?: boolean }) {
     let query = this.supabase
       .from("vc_fund_signals")
-      .select([
-        "id,signal_type,event_date,headline,summary,source_url,confidence,display_priority,metadata,dedupe_key,intelligence_event_id",
-        ",firm_record_id,vc_fund_id,firm_records!inner(firm_name),vc_funds(name)",
-      ].join(""))
+      .select(
+        "id,signal_type,event_date,headline,summary,source_url,confidence,display_priority,metadata,dedupe_key,intelligence_event_id,firm_record_id,vc_fund_id",
+      )
       .order("event_date", { ascending: false })
       .limit(options.maxItems ?? 500);
 
     if (!options.force) query = query.is("intelligence_event_id", null);
     if (options.firmId) query = query.eq("firm_record_id", options.firmId);
     if (options.dateFrom) query = query.gte("event_date", options.dateFrom);
-    const { data, error } = await query;
+    const { data: signalRows, error } = await query;
     if (error) throw new Error(`Failed to load signals for mirror: ${error.message}`);
+
+    const distinctFirmIds = [
+      ...new Set(
+        (signalRows ?? [])
+          .map((r: { firm_record_id?: string }) => r.firm_record_id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+    const distinctFundIds = [
+      ...new Set(
+        (signalRows ?? [])
+          .map((r: { vc_fund_id?: string | null }) => r.vc_fund_id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+
+    const firmNameById = new Map<string, string | null>();
+    if (distinctFirmIds.length) {
+      const { data: firmRows, error: firmErr } = await this.supabase
+        .from("firm_records")
+        .select("id,firm_name")
+        .in("id", distinctFirmIds);
+      if (firmErr) throw new Error(`Failed to load firm_records for signals mirror: ${firmErr.message}`);
+      for (const r of firmRows ?? []) {
+        const row = r as { id: string; firm_name: string | null };
+        firmNameById.set(row.id, row.firm_name ?? null);
+      }
+    }
+
+    const fundNameById = new Map<string, string | null>();
+    if (distinctFundIds.length) {
+      const { data: fundRows, error: fundErr } = await this.supabase
+        .from("vc_funds")
+        .select("id,name")
+        .in("id", distinctFundIds);
+      if (fundErr) throw new Error(`Failed to load vc_funds for signals mirror: ${fundErr.message}`);
+      for (const r of fundRows ?? []) {
+        const row = r as { id: string; name: string | null };
+        fundNameById.set(row.id, row.name ?? null);
+      }
+    }
+
+    const data = (signalRows ?? []).map((row: Record<string, unknown>) => {
+      const firmId = typeof row.firm_record_id === "string" ? row.firm_record_id : null;
+      const fundId = typeof row.vc_fund_id === "string" ? row.vc_fund_id : null;
+      return {
+        ...row,
+        firm_records: { firm_name: firmId ? firmNameById.get(firmId) ?? null : null },
+        vc_funds: { name: fundId ? fundNameById.get(fundId) ?? null : null },
+      };
+    });
 
     const fundIds = Array.from(new Set((data ?? []).map((row: any) => row.vc_fund_id).filter(Boolean)));
     const peopleByFund = new Map<string, { firm_investor_id: string | null; full_name: string | null }>();

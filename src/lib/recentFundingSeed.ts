@@ -9,6 +9,8 @@ export type RecentFundingRound = {
   /** startups.gallery path segment under `/companies/`; defaults from `companyName` when omitted. */
   companyGallerySlug?: string | null;
   websiteUrl: string;
+  /** Optional explicit mark from the funding pipeline/admin console; website favicons remain the fallback. */
+  companyLogoUrl?: string | null;
   /** Industry / vertical (e.g. DevTools, Fintech). */
   sector: string;
   roundKind: string;

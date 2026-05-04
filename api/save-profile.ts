@@ -136,10 +136,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  // Last resort: _uid field in body for legacy Clerk user IDs.
+  // Last resort: body _uid (Clerk legacy or Supabase auth UUID).
   if (!userId) {
     const hint = typeof body._uid === "string" ? body._uid.trim() : "";
     if (/^user_[A-Za-z0-9]{20,}$/.test(hint)) userId = hint;
+    else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(hint)) userId = hint;
   }
 
   if (!userId) {

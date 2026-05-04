@@ -40,7 +40,7 @@ export default function AccessRequest() {
         <video
           ref={videoRef}
           key={videoSrc}
-          className="absolute inset-0 h-full min-h-full w-full scale-[1.02] object-cover"
+          className="pointer-events-none absolute inset-0 h-full min-h-full w-full scale-[1.02] object-cover"
           src={videoSrc}
           autoPlay
           muted
@@ -48,8 +48,8 @@ export default function AccessRequest() {
           playsInline
           preload="auto"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/40 to-black/90" />
-        <div className="absolute inset-0 opacity-45" style={{ background: brandGradientOverlay }} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/85 via-black/40 to-black/90" />
+        <div className="pointer-events-none absolute inset-0 opacity-45" style={{ background: brandGradientOverlay }} />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
