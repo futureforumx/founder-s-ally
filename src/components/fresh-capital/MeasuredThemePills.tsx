@@ -87,9 +87,8 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
       return node?.offsetWidth ?? 0;
     };
 
-    const MIN_ALWAYS_VISIBLE = 2;
     const computed = maxFullChipsThatFit({ cw, chipWidths, overflowWidthByRemaining, gapPx });
-    setFitCount(Math.max(Math.min(MIN_ALWAYS_VISIBLE, chipWidths.length), computed));
+    setFitCount(Math.min(computed, chipWidths.length));
   }, []);
 
   useLayoutEffect(() => {
@@ -142,10 +141,11 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
   }
 
   const measured = fitCount !== null;
-  const visibleEnd = measured ? Math.min(fitCount!, n) : Math.min(3, n);
+  /** Until layout runs, show one chip + `+N` so a narrow column never wraps/clips before measurement. */
+  const visibleEnd = measured ? Math.min(fitCount!, n) : n <= 1 ? n : 1;
   const collapsedVisible = themes.slice(0, visibleEnd);
   const hiddenCount = n - visibleEnd;
-  const showOverflowChip = measured ? fitCount! < n : n > 3;
+  const showOverflowChip = measured ? fitCount! < n : n > 1;
 
   return (
     <>
@@ -153,10 +153,7 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
 
       <div
         ref={containerRef}
-        className={cn(
-          "min-w-0",
-          measured ? "flex flex-nowrap items-center gap-1" : "flex flex-wrap items-start gap-1",
-        )}
+        className="flex min-w-0 max-w-full flex-nowrap items-center gap-1"
       >
         {collapsedVisible.map((theme, i) => (
           <span key={`${theme}-${i}`} title={theme} className={CHIP_CLASS}>

@@ -530,7 +530,9 @@ export function FreshCapitalLiveFeed({
                           <span className="text-sm text-[#b3b3b3]">{announcedDateForDisplay(row)}</span>
                           <StageFocusChips stages={stageFocusForDisplay(row)} />
                           <GeoFocusChips geos={geographyFocusForDisplay(row)} />
-                          <ThemePills row={row} />
+                          <span className="min-w-0">
+                            <ThemePills row={row} />
+                          </span>
                         </div>
                         <div className="border-t border-zinc-800 px-4 pb-3.5 pt-2">
                           <FirmMetaRow row={row} />
@@ -568,9 +570,11 @@ export function FreshCapitalLiveFeed({
                             <GeoFocusChips geos={geographyFocusForDisplay(row)} />
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
-                          <span>Themes:</span>
-                          <ThemePills row={row} />
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
+                          <span className="shrink-0">Themes:</span>
+                          <div className="min-w-0 flex-1">
+                            <ThemePills row={row} />
+                          </div>
                         </div>
                         <FirmMetaRow row={row} />
                       </div>
