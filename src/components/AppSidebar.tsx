@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, Fragment, type ReactElement } from "react";
+import { useState, useRef, useCallback, useEffect, startTransition, Fragment, type ReactElement } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -117,17 +117,45 @@ export function AppSidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const { isAppAdmin } = useAppAdmin();
+  const pendingNavFrameRef = useRef<number | null>(null);
 
-  const goView = (view: ViewType) => {
-    if (isMarketIntelView(view)) {
-      if (location.pathname !== "/intelligence") navigate("/intelligence");
+  const goView = useCallback((view: ViewType) => {
+    if (typeof window === "undefined") {
       onViewChange(view);
       return;
     }
-    if (location.pathname === "/intelligence") navigate("/");
-    onViewChange(view);
-    if (view === "investors") dispatchInvestorsAllFocus();
-  };
+
+    if (pendingNavFrameRef.current !== null) {
+      window.cancelAnimationFrame(pendingNavFrameRef.current);
+    }
+
+    pendingNavFrameRef.current = window.requestAnimationFrame(() => {
+      pendingNavFrameRef.current = null;
+
+      startTransition(() => {
+        if (isMarketIntelView(view)) {
+          if (location.pathname !== "/intelligence") navigate("/intelligence");
+          onViewChange(view);
+          return;
+        }
+
+        if (location.pathname === "/intelligence") navigate("/");
+        onViewChange(view);
+      });
+
+      if (view === "investors") {
+        window.requestAnimationFrame(dispatchInvestorsAllFocus);
+      }
+    });
+  }, [location.pathname, navigate, onViewChange]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingNavFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingNavFrameRef.current);
+      }
+    };
+  }, []);
   const missionControlActive =
     activeView === "dashboard" ||
     activeView === "industry" ||
