@@ -20,7 +20,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type FirmRow = {
-  id: string; firm_name: string; legal_name: string | null; slug: string | null;
+  id: string; firm_name: string; legal_name: string | null; aliases: string[] | null; alternate_names: string[] | null; slug: string | null;
   tagline: string | null; elevator_pitch: string | null; description: string | null; sentiment_detail: string | null;
   location: string | null; address: string | null; hq_city: string | null; hq_state: string | null; hq_zip_code: string | null; hq_country: string | null;
   locations?: Record<string, unknown> | null;
@@ -37,6 +37,24 @@ type FirmRow = {
   needs_review: boolean; ready_for_live: boolean;
   manual_review_status: string | null; updated_at: string | null;
 };
+
+type FirmInvestorRow = {
+  id: string; firm_id: string; full_name: string; title: string | null; email: string | null;
+  linkedin_url: string | null; x_url: string | null; website_url: string | null;
+  city: string | null; state: string | null; country: string | null;
+  is_active: boolean; is_actively_investing: boolean;
+  stage_focus: string[] | null; sector_focus: string[] | null; personal_thesis_tags: string[] | null; portfolio_companies: string[] | null;
+  short_summary: string | null; bio: string | null; needs_review: boolean; ready_for_live: boolean; updated_at: string | null;
+};
+
+type FirmPortfolioRow = {
+  id: string; firm_id: string; company_name: string; normalized_company_name: string | null;
+  amount: string | null; stage: string | null; date_announced: string | null; investment_status: string | null;
+  is_notable: boolean | null; portfolio_company_website: string | null; portfolio_company_linkedin: string | null;
+  source_name: string | null; source_url: string | null; source_confidence: number | null; updated_at: string | null;
+};
+
+type FirmModalTab = "profile" | "investors" | "portfolio";
 
 // ── API ────────────────────────────────────────────────────────────────────────
 
@@ -65,6 +83,28 @@ async function patchFirm(id: string, patch: Record<string, unknown>): Promise<{ 
   try {
     const res  = await fetch(url, { method: "PATCH", headers: await adminHeaders(), body: JSON.stringify(patch) });
     const json = await res.json().catch(() => ({})) as { row?: FirmRow; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
+}
+
+async function fetchFirmLinkedRows<T>(entity: "firm-investors" | "firm-portfolio", firmId: string): Promise<{ rows: T[]; total: number; error?: string }> {
+  if (!SUPABASE_URL) return { rows: [], total: 0, error: "Supabase not configured" };
+  const qs = new URLSearchParams({ entity, firm_id: firmId, limit: "100", offset: "0" }).toString();
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
+    const json = await res.json().catch(() => ({})) as { rows?: T[]; total?: number; error?: string };
+    if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
+    return { rows: json.rows ?? [], total: json.total ?? 0 };
+  } catch (e: unknown) { return { rows: [], total: 0, error: (e as Error)?.message }; }
+}
+
+async function patchLinkedRow<T>(entity: "firm-investors" | "firm-portfolio", id: string, patch: Record<string, unknown>): Promise<{ row?: T; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  const url = `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=${entity}&id=${encodeURIComponent(id)}`;
+  try {
+    const res = await fetch(url, { method: "PATCH", headers: await adminHeaders(), body: JSON.stringify(patch) });
+    const json = await res.json().catch(() => ({})) as { row?: T; error?: string };
     if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
     return { row: json.row };
   } catch (e: unknown) { return { error: (e as Error)?.message }; }
@@ -276,6 +316,11 @@ function TagChips({ items, max = 3 }: { items: string[] | null | undefined; max?
 
 function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () => void; onSaved: (r: FirmRow) => void }) {
   const [draft, setDraft] = useState<FirmRow>({ ...row });
+  const [activeTab, setActiveTab] = useState<FirmModalTab>("profile");
+  const [investors, setInvestors] = useState<FirmInvestorRow[]>([]);
+  const [portfolio, setPortfolio] = useState<FirmPortfolioRow[]>([]);
+  const [linkedLoading, setLinkedLoading] = useState(false);
+  const [linkedError, setLinkedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function set<K extends keyof FirmRow>(k: K) { return (v: FirmRow[K]) => setDraft(d => ({ ...d, [k]: v })); }
@@ -297,6 +342,25 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
     }));
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    setLinkedLoading(true);
+    setLinkedError(null);
+    Promise.all([
+      fetchFirmLinkedRows<FirmInvestorRow>("firm-investors", row.id),
+      fetchFirmLinkedRows<FirmPortfolioRow>("firm-portfolio", row.id),
+    ]).then(([investorRes, portfolioRes]) => {
+      if (cancelled) return;
+      const error = investorRes.error ?? portfolioRes.error ?? null;
+      setLinkedError(error);
+      setInvestors(investorRes.rows);
+      setPortfolio(portfolioRes.rows);
+    }).finally(() => {
+      if (!cancelled) setLinkedLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [row.id]);
+
   const handleSave = async () => {
     setSaving(true);
     const { id, created_at, deleted_at, sector_embedding, updated_at, ...patch } = draft as FirmRow & { created_at?: unknown; deleted_at?: unknown; sector_embedding?: unknown };
@@ -305,6 +369,34 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
     else { toast.success("Saved"); if (updated) onSaved(updated); }
     setSaving(false);
   };
+
+  const saveInvestor = async (item: FirmInvestorRow) => {
+    const { id, firm_id, updated_at, ...patch } = item;
+    const { row: updated, error } = await patchLinkedRow<FirmInvestorRow>("firm-investors", id, patch);
+    if (error) toast.error("Investor save failed", { description: error });
+    else {
+      toast.success("Investor saved");
+      if (updated) setInvestors(prev => prev.map(r => r.id === updated.id ? updated : r));
+    }
+  };
+
+  const savePortfolioCompany = async (item: FirmPortfolioRow) => {
+    const { id, firm_id, updated_at, ...patch } = item;
+    const { row: updated, error } = await patchLinkedRow<FirmPortfolioRow>("firm-portfolio", id, patch);
+    if (error) toast.error("Portfolio save failed", { description: error });
+    else {
+      toast.success("Portfolio company saved");
+      if (updated) setPortfolio(prev => prev.map(r => r.id === updated.id ? updated : r));
+    }
+  };
+
+  function updateInvestor<K extends keyof FirmInvestorRow>(id: string, key: K, value: FirmInvestorRow[K]) {
+    setInvestors(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
+  }
+
+  function updatePortfolio<K extends keyof FirmPortfolioRow>(id: string, key: K, value: FirmPortfolioRow[K]) {
+    setPortfolio(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -389,7 +481,31 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
           </div>
         </div>
 
+        <div className="shrink-0 border-b border-white/10 px-8 py-3">
+          <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1">
+            {([
+              ["profile", "Firm Profile"],
+              ["investors", `Linked Investors (${investors.length})`],
+              ["portfolio", `Portfolio Companies (${portfolio.length})`],
+            ] as const).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className="rounded-full px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                style={{
+                  background: activeTab === tab ? "rgba(255,255,255,0.1)" : "transparent",
+                  color: activeTab === tab ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.42)",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto px-8 py-6">
+          {activeTab === "profile" ? (
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="space-y-4">
               <Sect title="Identity" />
@@ -398,6 +514,8 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
                 <TF label="Slug" value={draft.slug} onChange={set("slug")} />
               </div>
               <TF label="Registered Name" value={draft.legal_name} onChange={set("legal_name")} />
+              <TagF label="Aliases" value={draft.aliases} onChange={set("aliases")} />
+              <TagF label="Alternate Names" value={draft.alternate_names} onChange={set("alternate_names")} />
               <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
               <TA label="Description" value={draft.description} onChange={set("description")} rows={4} />
               <TA label="Sentiment Detail" value={draft.sentiment_detail} onChange={set("sentiment_detail")} rows={3} />
@@ -491,6 +609,84 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
               </div>
             </div>
           </div>
+          ) : activeTab === "investors" ? (
+            <div className="space-y-3">
+              <Sect title="Linked Investors" />
+              {linkedLoading && <div className="flex items-center gap-2 py-8 text-[12px] text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> Loading linked investors…</div>}
+              {linkedError && <div className="rounded border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">{linkedError}</div>}
+              {!linkedLoading && !linkedError && investors.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked investors found</div>}
+              {investors.map(item => (
+                <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_auto]">
+                    <TF label="Investor Name" value={item.full_name} onChange={v => updateInvestor(item.id, "full_name", v)} />
+                    <TF label="Title" value={item.title} onChange={v => updateInvestor(item.id, "title", v)} />
+                    <TF label="Email" value={item.email} onChange={v => updateInvestor(item.id, "email", v)} />
+                    <button type="button" onClick={() => saveInvestor(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
+                      <Save className="h-3.5 w-3.5" /> Save
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    <UF label="LinkedIn" value={item.linkedin_url} onChange={v => updateInvestor(item.id, "linkedin_url", v)} />
+                    <UF label="X" value={item.x_url} onChange={v => updateInvestor(item.id, "x_url", v)} />
+                    <UF label="Website" value={item.website_url} onChange={v => updateInvestor(item.id, "website_url", v)} />
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    <TF label="City" value={item.city} onChange={v => updateInvestor(item.id, "city", v)} />
+                    <TF label="State" value={item.state} onChange={v => updateInvestor(item.id, "state", v)} />
+                    <TF label="Country" value={item.country} onChange={v => updateInvestor(item.id, "country", v)} />
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <TagF label="Stage Focus" value={item.stage_focus} onChange={v => updateInvestor(item.id, "stage_focus", v)} />
+                    <TagF label="Sector Focus" value={item.sector_focus} onChange={v => updateInvestor(item.id, "sector_focus", v)} />
+                    <TagF label="Thesis Tags" value={item.personal_thesis_tags} onChange={v => updateInvestor(item.id, "personal_thesis_tags", v)} />
+                    <TagF label="Portfolio Companies" value={item.portfolio_companies} onChange={v => updateInvestor(item.id, "portfolio_companies", v)} />
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <TA label="Short Summary" value={item.short_summary} onChange={v => updateInvestor(item.id, "short_summary", v)} rows={2} />
+                    <TA label="Bio" value={item.bio} onChange={v => updateInvestor(item.id, "bio", v)} rows={2} />
+                  </div>
+                  <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
+                    <BF label="Active" value={item.is_active} onChange={v => updateInvestor(item.id, "is_active", v)} />
+                    <BF label="Actively Investing" value={item.is_actively_investing} onChange={v => updateInvestor(item.id, "is_actively_investing", v)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Sect title="Portfolio Companies" />
+              {linkedLoading && <div className="flex items-center gap-2 py-8 text-[12px] text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> Loading portfolio companies…</div>}
+              {linkedError && <div className="rounded border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">{linkedError}</div>}
+              {!linkedLoading && !linkedError && portfolio.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked portfolio companies found</div>}
+              {portfolio.map(item => (
+                <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto]">
+                    <TF label="Company Name" value={item.company_name} onChange={v => updatePortfolio(item.id, "company_name", v)} />
+                    <TF label="Stage" value={item.stage} onChange={v => updatePortfolio(item.id, "stage", v)} />
+                    <TF label="Amount" value={item.amount} onChange={v => updatePortfolio(item.id, "amount", v)} />
+                    <TF label="Date Announced" value={item.date_announced} onChange={v => updatePortfolio(item.id, "date_announced", v)} type="date" />
+                    <button type="button" onClick={() => savePortfolioCompany(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
+                      <Save className="h-3.5 w-3.5" /> Save
+                    </button>
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    <TF label="Normalized Name" value={item.normalized_company_name} onChange={v => updatePortfolio(item.id, "normalized_company_name", v)} />
+                    <TF label="Investment Status" value={item.investment_status} onChange={v => updatePortfolio(item.id, "investment_status", v)} />
+                    <NF label="Source Confidence" value={item.source_confidence} onChange={v => updatePortfolio(item.id, "source_confidence", v)} />
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                    <UF label="Company Website" value={item.portfolio_company_website} onChange={v => updatePortfolio(item.id, "portfolio_company_website", v)} />
+                    <UF label="Company LinkedIn" value={item.portfolio_company_linkedin} onChange={v => updatePortfolio(item.id, "portfolio_company_linkedin", v)} />
+                    <UF label="Source URL" value={item.source_url} onChange={v => updatePortfolio(item.id, "source_url", v)} />
+                  </div>
+                  <div className="mt-3 grid max-w-xl gap-3 sm:grid-cols-2">
+                    <TF label="Source Name" value={item.source_name} onChange={v => updatePortfolio(item.id, "source_name", v)} />
+                    <BF label="Notable" value={item.is_notable} onChange={v => updatePortfolio(item.id, "is_notable", v)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

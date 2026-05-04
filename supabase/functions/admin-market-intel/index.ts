@@ -131,7 +131,7 @@ const OPERATOR_COLS = [
 ].join(", ");
 
 const FIRM_COLS = [
-  "id","firm_name","legal_name","slug","tagline","elevator_pitch","description","sentiment_detail",
+  "id","firm_name","legal_name","aliases","alternate_names","slug","tagline","elevator_pitch","description","sentiment_detail",
   "location","address","hq_city","hq_state","hq_zip_code","hq_country","locations",
   "website_url","contact_page_url","logo_url","favicon_url","linkedin_url","x_url",
   "facebook_url","instagram_url","youtube_url","substack_url","medium_url","email","phone",
@@ -142,6 +142,19 @@ const FIRM_COLS = [
   "market_sentiment","recent_deals","is_actively_deploying",
   "enrichment_status","completeness_score",
   "status","needs_review","ready_for_live","manual_review_status","updated_at",
+].join(", ");
+
+const FIRM_INVESTOR_COLS = [
+  "id","firm_id","full_name","title","email","linkedin_url","x_url","website_url",
+  "city","state","country","is_active","is_actively_investing",
+  "stage_focus","sector_focus","personal_thesis_tags","portfolio_companies",
+  "short_summary","bio","needs_review","ready_for_live","updated_at",
+].join(", ");
+
+const FIRM_PORTFOLIO_COLS = [
+  "id","firm_id","company_name","normalized_company_name","amount","stage","date_announced",
+  "investment_status","is_notable","portfolio_company_website","portfolio_company_linkedin",
+  "source_name","source_url","source_confidence","updated_at",
 ].join(", ");
 
 const DEAL_COLS = [
@@ -163,6 +176,8 @@ const TABLE: Record<string, string> = {
   founders:  "startup_founders",
   operators: "operator_profiles",
   firms:     "firm_records",
+  "firm-investors": "firm_investors",
+  "firm-portfolio": "firm_recent_deals",
   deals:     "fi_deals_canonical",
 };
 
@@ -434,6 +449,33 @@ Deno.serve(async (req) => {
     if (live   === "true")  q = q.eq("ready_for_live", true);
     if (live   === "false") q = q.eq("ready_for_live", false);
     if (status)             q = q.eq("status", status);
+    const { data, error, count } = await q;
+    if (error) return err(error.message, 500);
+    return json({ rows: data ?? [], total: count ?? 0 });
+  }
+
+  if (entity === "firm-investors") {
+    const firmId = url.searchParams.get("firm_id")?.trim() ?? "";
+    if (!firmId) return err("Missing firm_id");
+    let q = db.from("firm_investors").select(FIRM_INVESTOR_COLS, { count: "exact" })
+      .eq("firm_id", firmId)
+      .is("deleted_at", null)
+      .order("full_name", { ascending: true })
+      .range(offset, offset + limit - 1);
+    if (search) q = q.ilike("full_name", `%${search}%`);
+    const { data, error, count } = await q;
+    if (error) return err(error.message, 500);
+    return json({ rows: data ?? [], total: count ?? 0 });
+  }
+
+  if (entity === "firm-portfolio") {
+    const firmId = url.searchParams.get("firm_id")?.trim() ?? "";
+    if (!firmId) return err("Missing firm_id");
+    let q = db.from("firm_recent_deals").select(FIRM_PORTFOLIO_COLS, { count: "exact" })
+      .eq("firm_id", firmId)
+      .order("date_announced", { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+    if (search) q = q.ilike("company_name", `%${search}%`);
     const { data, error, count } = await q;
     if (error) return err(error.message, 500);
     return json({ rows: data ?? [], total: count ?? 0 });
