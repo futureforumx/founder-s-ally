@@ -668,6 +668,29 @@
   }
 }
 
+/* Home command desk — green live dot (slow pulse) */
+@keyframes command-desk-status-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow:
+      0 0 0 0 rgb(52 211 153 / 0.35),
+      0 0 8px 1px rgb(52 211 153 / 0.25);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(0.94);
+    box-shadow:
+      0 0 0 3px rgb(52 211 153 / 0.12),
+      0 0 14px 2px rgb(52 211 153 / 0.18);
+  }
+}
+
+.animate-command-desk-status-dot {
+  animation: command-desk-status-dot-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* Company health header — glass inner highlight (dark mode via .dark on root) */
 .company-health-glass-surface {
   box-shadow:

@@ -25,6 +25,16 @@ const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string | undefine
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 const ENRICHMENT_STATUSES = ["pending","in_progress","enriched","failed","skipped"];
+
+/** Display HQ when `startups` has no single `hq` column — prefers `location`, then structured fields. */
+function formatStartupHq(r: Pick<CompanyRow, "location" | "hq_city" | "hq_state" | "hq_country">): string {
+  const loc = typeof r.location === "string" ? r.location.trim() : "";
+  if (loc) return loc;
+  const parts = [r.hq_city, r.hq_state, r.hq_country].filter(
+    (x): x is string => typeof x === "string" && Boolean(x.trim()),
+  );
+  return parts.length ? parts.join(", ") : "";
+}
 const COMPANY_STAGES      = ["pre_seed","seed","series_a","series_b","series_c","growth","public","acquired","unknown"];
 const COMPANY_STATUSES    = ["active","stealth","acquired","shutdown","unknown"];
 const FOUNDER_ARCHETYPES  = ["technical","commercial","operator","domain_expert","unknown"];
@@ -43,14 +53,16 @@ type CompanyRow = {
   sector: string | null;
   stage: string | null;
   status: string | null;
-  hq: string | null;
+  /** Free-text HQ line (matches `startups.location`). */
+  location: string | null;
+  hq_city: string | null;
+  hq_state: string | null;
+  hq_country: string | null;
   total_raised_usd: number | null;
   headcount: number | null;
   yc_batch: string | null;
-  enrichment_status: string;
-  needs_enrichment: boolean;
   linkedin_url: string | null;
-  twitter_url: string | null;
+  x_url: string | null;
   founded_year: number | null;
   updated_at: string | null;
   created_at: string;
@@ -69,7 +81,6 @@ type FounderRow = {
   operator_to_founder: boolean;
   domain_expertise: string[] | null;
   prior_companies: string[] | null;
-  enrichment_status: string;
   updated_at: string | null;
   created_at: string;
 };
@@ -356,7 +367,7 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
       <TF label="Company Name"      value={d.company_name}      onChange={v => set("company_name", v)} />
       <TF label="Website URL"       value={d.company_url}       onChange={v => set("company_url", v)} placeholder="https://" />
       <TF label="LinkedIn URL"      value={d.linkedin_url}      onChange={v => set("linkedin_url", v)} />
-      <TF label="Twitter URL"       value={d.twitter_url}       onChange={v => set("twitter_url", v)} />
+      <TF label="X URL"             value={d.x_url}           onChange={v => set("x_url", v)} placeholder="https://x.com/…" />
       <TA label="Short Description" value={d.description_short} onChange={v => set("description_short", v)} rows={2} />
       <TA label="Long Description"  value={d.description_long}  onChange={v => set("description_long", v)} rows={4} />
 
@@ -364,7 +375,12 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
       <TF   label="Sector" value={d.sector}  onChange={v => set("sector", v)} />
       <SFld label="Stage"  value={d.stage}   onChange={v => set("stage", v)}   options={COMPANY_STAGES} />
       <SFld label="Status" value={d.status}  onChange={v => set("status", v)}  options={COMPANY_STATUSES} />
-      <TF   label="HQ"     value={d.hq}      onChange={v => set("hq", v)} placeholder="City, State, Country" />
+      <TF   label="HQ / Location" value={d.location} onChange={v => set("location", v)} placeholder="City, State, Country" />
+      <div className="grid grid-cols-3 gap-2">
+        <TF label="HQ City" value={d.hq_city} onChange={v => set("hq_city", v)} />
+        <TF label="HQ State" value={d.hq_state} onChange={v => set("hq_state", v)} />
+        <TF label="HQ Country" value={d.hq_country} onChange={v => set("hq_country", v)} />
+      </div>
       <TF   label="YC Batch" value={d.yc_batch} onChange={v => set("yc_batch", v)} placeholder="W24" />
 
       <Sect title="Metrics" />
@@ -374,9 +390,6 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
         <NF label="Founded Year"       value={d.founded_year}     onChange={v => set("founded_year", v)} />
       </div>
 
-      <Sect title="Enrichment" />
-      <SFld label="Enrichment Status" value={d.enrichment_status} onChange={v => set("enrichment_status", v)} options={ENRICHMENT_STATUSES} />
-      <BF   label="Needs Enrichment"  value={d.needs_enrichment}  onChange={v => set("needs_enrichment", v)} />
     </PanelShell>
   );
 }
@@ -419,8 +432,6 @@ function FounderEditPanel({ row, onClose, onSaved }: {
       <TagF label="Domain Expertise"   value={d.domain_expertise}   onChange={v => set("domain_expertise", v)} />
       <TagF label="Prior Companies"    value={d.prior_companies}    onChange={v => set("prior_companies", v)} />
 
-      <Sect title="Enrichment" />
-      <SFld label="Enrichment Status" value={d.enrichment_status} onChange={v => set("enrichment_status", v)} options={ENRICHMENT_STATUSES} />
     </PanelShell>
   );
 }
@@ -572,7 +583,7 @@ function CompaniesTab() {
               <div style={{ ...CELL, color: "rgba(255,255,255,0.5)" }}>{row.sector ?? "—"}</div>
               <div style={CELL}>{row.stage ? <Pill text={row.stage} /> : "—"}</div>
               <div style={CELL}>{row.status ? <Pill text={row.status} color="#a78bfa" /> : "—"}</div>
-              <div style={{ ...CELL, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>{row.hq ?? "—"}</div>
+              <div style={{ ...CELL, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>{formatStartupHq(row) || "—"}</div>
               <div style={{ ...CELL, fontFamily: "monospace", fontSize: 11 }}>
                 {row.total_raised_usd != null ? `$${(row.total_raised_usd / 1_000_000).toFixed(1)}M` : "—"}
               </div>

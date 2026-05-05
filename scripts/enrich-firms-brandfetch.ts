@@ -27,7 +27,7 @@ import { join } from "node:path";
 // ── Env ───────────────────────────────────────────────────────────────────────
 
 function loadEnv() {
-  for (const name of [".env", ".env.local"]) {
+  for (const name of [".env", ".env.local", ".env.enrichment"]) {
     const p = join(process.cwd(), name);
     if (!existsSync(p)) continue;
     for (const line of readFileSync(p, "utf8").split("\n")) {
@@ -62,28 +62,34 @@ const LOGO_DEV_TOKEN = e("LOGO_DEV_TOKEN");
 
 const DRY_RUN     = eBool("BRANDFETCH_DRY_RUN");
 const FORCE       = eBool("BRANDFETCH_FORCE");
+const SOCIALS_ONLY = eBool("BRANDFETCH_SOCIALS_ONLY");
 const MAX         = eInt("BRANDFETCH_MAX", 999_999);
 const CONCURRENCY = eInt("BRANDFETCH_CONCURRENCY", 3);
 const TIMEOUT_MS  = 12_000;
 
 if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
 if (!BF_KEY) throw new Error("Missing BRANDFETCH_API_KEY");
-if (!ACCOUNT_ID || !ACCESS_KEY || !SECRET_KEY) throw new Error("Missing CF_R2_* credentials");
+if (!SOCIALS_ONLY && (!ACCOUNT_ID || !ACCESS_KEY || !SECRET_KEY))
+  throw new Error("Missing CF_R2_* credentials");
 
 // ── R2 ────────────────────────────────────────────────────────────────────────
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: ENDPOINT,
-  credentials: { accessKeyId: ACCESS_KEY, secretAccessKey: SECRET_KEY },
-});
+const s3 = SOCIALS_ONLY
+  ? null
+  : new S3Client({
+      region: "auto",
+      endpoint: ENDPOINT,
+      credentials: { accessKeyId: ACCESS_KEY, secretAccessKey: SECRET_KEY },
+    });
 
 async function objectExists(key: string): Promise<boolean> {
+  if (!s3) return false;
   try { await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key })); return true; }
   catch { return false; }
 }
 
 async function uploadR2(key: string, data: Buffer, ct: string): Promise<void> {
+  if (!s3) return;
   if (DRY_RUN) { console.log(`    [DRY] PUT s3://${BUCKET}/${key} (${data.length}b)`); return; }
   await s3.send(new PutObjectCommand({
     Bucket: BUCKET, Key: key, Body: data, ContentType: ct,
@@ -164,6 +170,17 @@ function extractLinks(links: any[]): Record<string, string> {
   return map;
 }
 
+function hasMissingSocial(firm: {
+  linkedin_url: string | null;
+  x_url: string | null;
+  instagram_url: string | null;
+  facebook_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+}): boolean {
+  return !firm.linkedin_url || !firm.x_url || !firm.instagram_url || !firm.facebook_url || !firm.youtube_url || !firm.tiktok_url;
+}
+
 // ── Brandfetch API ────────────────────────────────────────────────────────────
 
 async function fetchBrandfetch(domain: string): Promise<any | null> {
@@ -217,26 +234,30 @@ async function processFirm(
 
   const patch: Record<string, unknown> = {};
 
+  // If Brandfetch had no data, bail out
+  if (!brand) {
+    console.log(`${pfx} ✗ not found: ${firm.firm_name} (${domain})`);
+    return "no_data";
+  }
+
   // ── Logo ──────────────────────────────────────────────────────────────────
-  if (!firm.logo_url || FORCE) {
-    // Try Brandfetch logo first (if brand data available)
-    if (brand) {
-      const best = pickBestLogo(brand.logos);
-      if (best) {
-        const key = `${firm.id}${extFromCt(best.format)}`;
-        const exists = !DRY_RUN && await objectExists(key);
-        if (exists) {
+  if (!SOCIALS_ONLY && (!firm.logo_url || FORCE)) {
+    const best = pickBestLogo(brand.logos);
+    if (best) {
+      const key = `${firm.id}${extFromCt(best.format)}`;
+      const exists = !DRY_RUN && await objectExists(key);
+      if (exists) {
+        patch.logo_url = r2Url(key);
+      } else {
+        const img = await downloadImage(best.src);
+        if (img) {
+          await uploadR2(key, img.data, img.contentType);
           patch.logo_url = r2Url(key);
-        } else {
-          const img = await downloadImage(best.src);
-          if (img) {
-            await uploadR2(key, img.data, img.contentType);
-            patch.logo_url = r2Url(key);
-          }
         }
       }
     }
-    // Fallback: logo.dev (runs when Brandfetch is unavailable, rate-limited, or had no logo)
+
+    // Fallback: logo.dev (runs when Brandfetch had no usable logo)
     if (!patch.logo_url && LOGO_DEV_TOKEN) {
       const logoDevUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN}&size=200`;
       const img = await downloadImage(logoDevUrl);
@@ -254,14 +275,8 @@ async function processFirm(
     }
   }
 
-  // If Brandfetch had no data at all and logo.dev also got nothing, bail out
-  if (!brand && !patch.logo_url) {
-    console.log(`${pfx} ✗ not found: ${firm.firm_name} (${domain})`);
-    return "no_data";
-  }
-
   // ── Text fields (Brandfetch only) ────────────────────────────────────────
-  if (brand) {
+  if (!SOCIALS_ONLY) {
     if ((!firm.description || FORCE) && brand.description)
       patch.description = brand.description;
 
@@ -283,6 +298,11 @@ async function processFirm(
     // ── Website (canonical) ──────────────────────────────────────────────────
     if (!firm.website_url && brand.domain)
       patch.website_url = `https://${brand.domain}`;
+  } else {
+    const links = extractLinks(brand.links || []);
+    for (const [col, url] of Object.entries(links)) {
+      if (!firm[col] || FORCE) patch[col] = url;
+    }
   }
 
   if (Object.keys(patch).length === 0) {
@@ -315,7 +335,7 @@ async function pool<T>(tasks: (() => Promise<T>)[], concurrency: number): Promis
 async function main() {
   console.log(`\n${"═".repeat(64)}`);
   console.log(`  VEKTA Firm Enrichment — Brandfetch v2  ${DRY_RUN ? "(DRY RUN)" : ""}`);
-  console.log(`  Fields: logo, description, headcount, founded_year, socials`);
+  console.log(`  Fields: ${SOCIALS_ONLY ? "socials" : "logo, description, headcount, founded_year, socials"}`);
   console.log(`  Concurrency: ${CONCURRENCY}  |  Force: ${FORCE}`);
   console.log(`${"═".repeat(64)}\n`);
 
@@ -326,9 +346,10 @@ async function main() {
 
   const cols = "id,firm_name,website_url,logo_url,description,total_headcount,headcount,founded_year,linkedin_url,x_url,instagram_url,facebook_url,youtube_url,tiktok_url";
   const firms = await sbGet<FirmRow>("firm_records", cols, "&firm_type=neq.individual&deleted_at=is.null&website_url=not.is.null");
-  const todo = firms.slice(0, MAX);
+  const candidates = SOCIALS_ONLY && !FORCE ? firms.filter(hasMissingSocial) : firms;
+  const todo = candidates.slice(0, MAX);
 
-  console.log(`  ${todo.length} firms with website URLs to process\n`);
+  console.log(`  ${todo.length} firms to process${SOCIALS_ONLY && !FORCE ? " (missing at least one social link)" : ""}\n`);
 
   const stats = { enriched: 0, no_data: 0, skipped: 0, failed: 0 };
 

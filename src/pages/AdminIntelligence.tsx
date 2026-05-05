@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
-  Building2, X, BarChart2, Flag,
+  Building2, X, BarChart2, Flag, Bot,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminApiHealth }          from "@/components/admin/AdminApiHealth";
@@ -15,6 +15,7 @@ import { AdminRecordUpdates }      from "@/components/admin/AdminRecordUpdates";
 import { AdminFirmRecords }        from "@/components/admin/AdminFirmRecords";
 import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntelligence";
 import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
+import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
 
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { key: "firm-records",   label: "Firm Records",    icon: Building2  },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
+  { key: "ai-agents-page", label: "AI Agents page",  icon: Bot        },
   { key: "record-updates", label: "Record Updates",  icon: History    },
   { key: "api-health",     label: "API Health",      icon: Wifi       },
   { key: "sync-logs",      label: "Sync Logs",       icon: ScrollText },
@@ -127,6 +129,7 @@ export default function AdminIntelligence() {
         {activeView === "firm-records"   && <AdminFirmRecords />}
         {activeView === "market-intel"   && <AdminMarketIntelligence />}
         {activeView === "fresh-capital"  && <AdminFreshCapital />}
+        {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health"     && <AdminApiHealth />}
         {activeView === "sync-logs"      && <AdminSyncLogs />}

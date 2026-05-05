@@ -344,7 +344,7 @@ export function SettingsPage() {
             <AccountTab key="account" displayName={displayName} displayEmail={displayEmail} initials={initials} userId={user?.id} onSignOut={signOut} />
           )}
           {activeTab === "company" && <CompanyTab key="company" />}
-          {activeTab === "network" && <NetworkTab key="network" />}
+          {activeTab === "network" && <IntegrationsManagePanel key="network" />}
           {activeTab === "notifications" && <NotificationsTab key="notifications" />}
           {activeTab === "privacy" && <PrivacyTab key="privacy" />}
           {activeTab === "theme" && <ThemeTab key="theme" />}
@@ -1397,8 +1397,8 @@ function PersonalNetworkSection() {
   );
 }
 
-// ── Network Tab (Sensor Suite) ──
-function NetworkTab() {
+// ── Network / integrations (also surfaced from sidebar Integrations) ──
+export function IntegrationsManagePanel() {
   const [networkView, setNetworkView] = useState<"company" | "personal">("company");
 
   return (

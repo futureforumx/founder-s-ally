@@ -1,11 +1,28 @@
 /**
  * admin-market-intel  v4
  *
- * GET  ?entity=companies|founders|operators|firms|deals  + filters
+ * GET  ?entity=companies|founders|operators|firms|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
  *   → { rows, total }
+ *   - firm-funds: **requires** ?firm_id=<firm_records.id> — only vc_funds for that firm (Firm Records admin).
+ *   - fresh-funds: global Fund Watch list; optional ?firm_record_id=… to filter one firm.
+ *   - fi-sources: Latest Funding ingestion source registry (editable via PATCH entity=fi-sources&id=). Alias: ?entity=fisources
+ *   - fc-enrichment-settings: Singleton row for Fund Watch vs Latest Funding operator notes (PATCH without id). Aliases: fcenrichmentsettings, fc-enrichment
+ *   - tool-category-page: Editable Tools directory hero for one category slug (GET/PATCH ?slug=ai-agents|…). Aliases: toolcategorypage
+ *   - fi-fetch-runs: Recent fi_fetch_runs (merged with source slug/name).
+ *   - vc-fund-sync-runs: Recent vc_fund_sync_runs history.
+ *   - vc-fund-sync-latest: One row per phase (view vc_fund_sync_latest_runs).
+ *   - latest-vc-daily-sync: View v_latest_vc_fund_sync (last successful daily job).
  *
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
+ *
+ * POST ?entity=fresh-funds|deals  body: { … }  → { row }  (create)
+ *
+ * DELETE ?entity=fresh-funds|deals&id=<uuid>
+ *   → { ok: true }   (fresh-funds: soft-delete vc_funds.deleted_at; deals: hard-delete fi_deals_canonical row)
+ *
+ * POST ?entity=fresh-funds|deals&id=<uuid>&action=delete  body: {} (optional)
+ *   → same as DELETE — **preferred from browsers** when DELETE fails with “Failed to fetch” (CORS/proxy).
  *
  * Auth: anon key in Authorization, signed-in user JWT in X-User-Auth.
  *       X-User-Auth may be sent with or without "Bearer " prefix.
@@ -24,7 +41,7 @@ import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-auth",
-  "Access-Control-Allow-Methods": "GET, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PATCH, POST, DELETE, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -105,14 +122,14 @@ async function assertAdmin(
 
 // ── Column sets ────────────────────────────────────────────────────────────────
 
+/** Columns must exist on `public.startups` (see generated types — no legacy `hq` / `twitter_url`). */
 const COMPANY_COLS = [
   "id","company_name","sector","stage","status",
-  "hq","hq_city","hq_state","hq_country",
+  "hq_city","hq_state","hq_country","location",
   "total_raised_usd","last_round_type","last_round_date","last_round_size_usd",
   "headcount","momentum_score","investor_fit_score",
   "company_url","description_short","description_long","yc_batch",
-  "linkedin_url","twitter_url","founded_year",
-  "needs_enrichment","enrichment_status",
+  "linkedin_url","x_url","founded_year",
   "lead_investor_names","investor_names","logo_url","created_at","updated_at",
 ].join(", ");
 
@@ -121,7 +138,7 @@ const FOUNDER_COLS = [
   "is_repeat_founder","has_prior_exit","operator_to_founder",
   "track_record_score","location","domain_expertise",
   "prior_companies","founder_archetype","linkedin_url","email",
-  "enrichment_status","created_at","updated_at",
+  "created_at","updated_at",
 ].join(", ");
 
 const OPERATOR_COLS = [
@@ -132,6 +149,7 @@ const OPERATOR_COLS = [
 
 const FIRM_COLS = [
   "id","firm_name","legal_name","aliases","alternate_names","slug","tagline","elevator_pitch","description","sentiment_detail",
+  "team_people_url",
   "location","address","hq_city","hq_state","hq_zip_code","hq_country","locations",
   "website_url","contact_page_url","logo_url","favicon_url","linkedin_url","x_url",
   "facebook_url","instagram_url","youtube_url","substack_url","medium_url","email","phone",
@@ -145,10 +163,23 @@ const FIRM_COLS = [
 ].join(", ");
 
 const FIRM_INVESTOR_COLS = [
-  "id","firm_id","full_name","title","email","linkedin_url","x_url","website_url",
-  "city","state","country","is_active","is_actively_investing",
-  "stage_focus","sector_focus","personal_thesis_tags","portfolio_companies",
-  "short_summary","bio","needs_review","ready_for_live","updated_at",
+  "id","firm_id","created_at","updated_at","deleted_at",
+  "full_name","first_name","last_name","preferred_name","alternate_names","slug","title","seniority","investor_type",
+  "email","phone","linkedin_url","x_url","website_url","personal_website","firm_bio_page_url",
+  "facebook_url","instagram_url","youtube_url","tiktok_url","medium_url","substack_url","tracxn_url",
+  "city","state","country","timezone",
+  "avatar_url","headshot_url","avatar_source_url","avatar_source_type","avatar_confidence","avatar_last_verified_at","avatar_needs_review",
+  "is_active","is_actively_investing","cold_outreach_ok","warm_intro_preferred","needs_review","ready_for_live",
+  "stage_focus","sector_focus","personal_thesis_tags","portfolio_companies","geographic_focus","domain_expertise","investing_themes",
+  "current_areas_of_interest","notable_investments","networks","board_seats","prior_firms","prior_firm_associations",
+  "stage_concentration","geographic_concentration","thematic_concentration","sub_sectors",
+  "short_summary","bio","background_summary","education_summary","founder_background","operator_background","recent_focus",
+  "avg_deal_size","check_size_min","check_size_max","sweet_spot","lead_vs_follow","investment_pace","investment_style",
+  "total_known_investments","recent_deal_count","last_active_date","last_capital_signal_at","last_enriched_at",
+  "match_score","network_strength","reputation_score","responsiveness_score","value_add_score","capital_freshness_boost_score",
+  "completeness_score","enrichment_status","source_count","prisma_person_id",
+  "articles","blog_posts","interviews","podcasts","past_investments","recent_investments","recent_news",
+  "last_3_investments","last_5_investments","co_investors","prior_roles",
 ].join(", ");
 
 const FIRM_PORTFOLIO_COLS = [
@@ -169,17 +200,80 @@ const DEAL_COLS = [
   "extracted_summary","extraction_method","created_at","updated_at",
 ].join(", ");
 
+const FI_SOURCES_COLS = [
+  "id","slug","name","base_url","adapter_key","source_type","credibility_score",
+  "active","poll_interval_minutes","metadata","last_fetched_at","created_at","updated_at",
+].join(", ");
+
+const FI_FETCH_RUN_COLS = [
+  "id","source_id","run_mode","status","started_at","completed_at",
+  "docs_fetched","docs_parsed","deals_raw","deals_upserted","error_count","error_summary","metadata",
+].join(", ");
+
+const VC_FUND_SYNC_RUN_COLS = [
+  "id","phase","status","dry_run","scope_firm_id","scope_cluster_key","options","stats",
+  "error_message","started_at","completed_at","created_at","updated_at",
+].join(", ");
+
+/** Allowed PATCH fields for fi_sources (slug / adapter are immutable here) */
+const FI_SOURCES_PATCH_KEYS = new Set([
+  "active",
+  "poll_interval_minutes",
+  "credibility_score",
+  "name",
+  "metadata",
+]);
+
+const FC_ENRICHMENT_SETTINGS_PATCH_KEYS = new Set([
+  "fund_watch_source_keys",
+  "fund_watch_schedule_note",
+  "latest_funding_schedule_note",
+  "process_notes",
+]);
+
+/** Matches `TOOL_CATEGORY_SLUGS` in app — public /tools/:slug pages */
+const TOOL_CATEGORY_PAGE_SLUGS = new Set(["ai-agents", "ai-models", "ai-skills", "startup-tools"]);
+const TOOL_CATEGORY_PAGE_PATCH_KEYS = new Set(["title", "description", "meta"]);
+
+// ── Entity param normalization (Unicode hyphens, spaces, zero-width, etc.) ───
+
+/**
+ * Canonical form for ?entity= routing. Ensures `firm-investors` matches even when the client
+ * sends underscore, unicode dashes (U+2010…U+2015, minus sign), or stray zero-width chars.
+ */
+function canonicalEntityParam(raw: string | null | undefined): string {
+  let s = String(raw ?? "").trim();
+  if (!s) return "";
+  s = s.toLowerCase();
+  s = s.replace(/\s+/g, "-");
+  s = s.replace(/_/g, "-");
+  // Hyphen/minus compatibility: treat all dash-like code points as ASCII hyphen
+  s = s.replace(/[\u002D\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g, "-");
+  s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
+  s = s.normalize("NFKC");
+  s = s.replace(/-+/g, "-");
+  return s.trim();
+}
+
 // ── Table map ──────────────────────────────────────────────────────────────────
 
-const TABLE: Record<string, string> = {
-  companies: "startups",
-  founders:  "startup_founders",
-  operators: "operator_profiles",
-  firms:     "firm_records",
-  "firm-investors": "firm_investors",
-  "firm-portfolio": "firm_recent_deals",
-  deals:     "fi_deals_canonical",
-};
+/** Maps canonical ?entity= values to PostgREST table names. */
+function resolveEntityTable(entityCanonical: string): string | undefined {
+  const n = entityCanonical;
+  const map: Record<string, string> = {
+    companies: "startups",
+    founders: "startup_founders",
+    operators: "operator_profiles",
+    firms: "firm_records",
+    "firm-investors": "firm_investors",
+    firminvestors: "firm_investors",
+    investors: "firm_investors",
+    "firm-portfolio": "firm_recent_deals",
+    firmportfolio: "firm_recent_deals",
+    deals: "fi_deals_canonical",
+  };
+  return map[n];
+}
 
 const PROTECTED = new Set(["id","created_at","deleted_at","sector_embedding","updated_at"]);
 
@@ -261,6 +355,76 @@ function freshFundRow(fund: Record<string, unknown>, firm: Record<string, unknow
   };
 }
 
+const VC_FUND_STATUS_ALLOWED = new Set([
+  "announced",
+  "target",
+  "first_close",
+  "final_close",
+  "inferred_active",
+  "historical",
+]);
+
+/** Deterministic key fragment for vc_funds.normalized_key (aligned with app normalize helpers). */
+function normalizeFundNameKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildFundNormalizedKey(firmRecordId: string, fundName: string, vintageYear: number | null | undefined): string {
+  const vy =
+    vintageYear != null && Number.isFinite(vintageYear)
+      ? String(Math.floor(Number(vintageYear)))
+      : "unknown";
+  return `${firmRecordId}:${normalizeFundNameKey(fundName)}:${vy}`;
+}
+
+/** Alternate ?entity= spellings (no hyphen, shortened) — keeps routing stable across proxies/clients */
+function normalizeAdminEntity(e: string): string {
+  const aliases: Record<string, string> = {
+    fisources: "fi-sources",
+    fifetchruns: "fi-fetch-runs",
+    vcfundsyncruns: "vc-fund-sync-runs",
+    vcfundsynclatest: "vc-fund-sync-latest",
+    latestvcdailysync: "latest-vc-daily-sync",
+    "fresh-capital-enrichment-settings": "fc-enrichment-settings",
+    fcenrichmentsettings: "fc-enrichment-settings",
+    fcenrichment: "fc-enrichment-settings",
+    "fc-enrichment": "fc-enrichment-settings",
+    toolcategorypages: "tool-category-page",
+    toolcategorypage: "tool-category-page",
+  };
+  return aliases[e] ?? e;
+}
+
+/** Soft-delete fund or hard-delete deal — shared by DELETE and POST ?action=delete */
+async function adminDeleteResource(db: SupabaseClient, entity: string, id: string): Promise<Response> {
+  const now = new Date().toISOString();
+  if (entity === "fresh-funds") {
+    const { data, error } = await db
+      .from("vc_funds")
+      .update({ deleted_at: now, updated_at: now })
+      .eq("id", id)
+      .is("deleted_at", null)
+      .select("id")
+      .maybeSingle();
+    if (error) return err(error.message, 500);
+    if (!data) return err("Fund not found or already deleted", 404);
+    return json({ ok: true });
+  }
+  if (entity === "deals") {
+    const { data, error } = await db.from("fi_deals_canonical").delete().eq("id", id).select("id").maybeSingle();
+    if (error) return err(error.message, 500);
+    if (!data) return err("Deal not found", 404);
+    return json({ ok: true });
+  }
+  return err(`Delete not supported for entity: ${entity}`, 400);
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -273,12 +437,12 @@ Deno.serve(async (req) => {
   if (authErr) return err(authErr, 403);
 
   const url = new URL(req.url);
-  /** Normalize so PATCH/GET match even if clients send `fresh_funds` or different casing. */
-  const entity = (() => {
-    const raw = url.searchParams.get("entity")?.trim() ?? "";
-    if (!raw) return "companies";
-    return raw.toLowerCase().replace(/_/g, "-");
+  /** Canonical entity key for routing (empty → default list entity). */
+  let entity = (() => {
+    const c = canonicalEntityParam(url.searchParams.get("entity"));
+    return c.length ? c : "companies";
   })();
+  entity = normalizeAdminEntity(entity);
   const search = url.searchParams.get("search")?.trim() ?? "";
   const limit  = Math.min(parseInt(url.searchParams.get("limit")  ?? "30"), 100);
   // Accept both "page" (0-indexed) and "offset" params
@@ -287,6 +451,173 @@ Deno.serve(async (req) => {
   const offset = pageParam != null
     ? Math.max(parseInt(pageParam) * limit, 0)
     : Math.max(parseInt(offsetParam ?? "0"), 0);
+
+  // ── DELETE: fund (soft) or deal (hard) ───────────────────────────────────
+  if (req.method === "DELETE") {
+    const id = url.searchParams.get("id")?.trim() ?? "";
+    if (!id) return err("Missing id", 400);
+    return adminDeleteResource(db, entity, id);
+  }
+
+  // ── POST: create fresh fund or canonical deal ─────────────────────────────
+  if (req.method === "POST") {
+    const action = url.searchParams.get("action")?.trim().toLowerCase() ?? "";
+    if (action === "delete") {
+      const id = url.searchParams.get("id")?.trim() ?? "";
+      if (!id) return err("Missing id", 400);
+      return adminDeleteResource(db, entity, id);
+    }
+
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+    if (entity === "fresh-funds") {
+      const firmRecordId = typeof body.firm_record_id === "string" ? body.firm_record_id.trim() : "";
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (!firmRecordId) return err("firm_record_id is required", 400);
+      if (!name) return err("name (fund name) is required", 400);
+
+      const { data: firmOk, error: firmErr } = await db
+        .from("firm_records")
+        .select("id")
+        .eq("id", firmRecordId)
+        .maybeSingle();
+      if (firmErr) return err(firmErr.message, 500);
+      if (!firmOk) return err("No firm_records row found for firm_record_id", 404);
+
+      const vyRaw = body.vintage_year;
+      const vintageYear =
+        typeof vyRaw === "number"
+          ? vyRaw
+          : typeof vyRaw === "string" && vyRaw.trim() !== ""
+            ? Number.parseInt(vyRaw, 10)
+            : null;
+      const vyEffective =
+        vintageYear != null && Number.isFinite(vintageYear) ? vintageYear : undefined;
+
+      const normalizedName = normalizeFundNameKey(name);
+      const normalizedKey = buildFundNormalizedKey(firmRecordId, name, vyEffective);
+
+      const statusRaw = typeof body.status === "string" ? body.status.trim() : "announced";
+      const status = VC_FUND_STATUS_ALLOWED.has(statusRaw) ? statusRaw : "announced";
+
+      const fundInsert: Record<string, unknown> = {
+        firm_record_id: firmRecordId,
+        name,
+        normalized_name: normalizedName,
+        normalized_key: normalizedKey,
+        currency: typeof body.currency === "string" && body.currency.length === 3 ? body.currency : "USD",
+        status,
+        source_confidence: typeof body.source_confidence === "number" ? body.source_confidence : 0.95,
+        source_count: typeof body.source_count === "number" ? body.source_count : 1,
+        freshness_synced_at: new Date().toISOString(),
+        manually_verified: true,
+        verification_status: "manual_reviewed",
+        is_new_fund_signal: true,
+        stage_focus: Array.isArray(body.stage_focus) ? body.stage_focus : [],
+        sector_focus: Array.isArray(body.sector_focus) ? body.sector_focus : [],
+        geography_focus: Array.isArray(body.geography_focus) ? body.geography_focus : [],
+        field_confidence: {},
+        field_provenance: {},
+        metadata: { created_via: "admin_market_intel_post" },
+      };
+
+      const optionalScalars = [
+        "fund_type",
+        "fund_sequence_number",
+        "vintage_year",
+        "announced_date",
+        "close_date",
+        "target_size_usd",
+        "final_size_usd",
+        "announcement_url",
+        "announcement_title",
+        "likely_actively_deploying",
+        "active_deployment_window_start",
+        "active_deployment_window_end",
+      ] as const;
+      for (const k of optionalScalars) {
+        if (body[k] !== undefined && body[k] !== "") fundInsert[k] = body[k];
+      }
+
+      const { data: inserted, error: insErr } = await db
+        .from("vc_funds")
+        .insert(fundInsert)
+        .select(VCFUND_COLS)
+        .single();
+
+      if (insErr) {
+        const code = (insErr as { code?: string }).code;
+        if (code === "23505") {
+          return err("A fund with this normalized key already exists (duplicate vehicle).", 409);
+        }
+        return err(insErr.message, 500);
+      }
+
+      const frId = typeof inserted?.firm_record_id === "string" ? inserted.firm_record_id : null;
+      const { data: firmOut } = frId
+        ? await db.from("firm_records").select(FIRM_SNAPSHOT_COLS).eq("id", frId).maybeSingle()
+        : { data: null };
+      return json({
+        row: freshFundRow(
+          inserted as Record<string, unknown>,
+          (firmOut as Record<string, unknown> | null) ?? null,
+        ),
+      });
+    }
+
+    if (entity === "deals") {
+      const companyName = typeof body.company_name === "string" ? body.company_name.trim() : "";
+      if (!companyName) return err("company_name is required", 400);
+
+      const dealInsert: Record<string, unknown> = {
+        company_name: companyName,
+        normalized_company_name: normalizeFundNameKey(companyName),
+        currency: typeof body.currency === "string" && body.currency.length === 3 ? body.currency : "USD",
+        extraction_method: "manual_admin",
+        source_type: typeof body.source_type === "string" ? body.source_type : "news",
+        confidence_score: typeof body.confidence_score === "number" ? body.confidence_score : 0.95,
+        source_count: typeof body.source_count === "number" ? body.source_count : 1,
+        needs_review: body.needs_review === true,
+        is_rumor: Boolean(body.is_rumor),
+        co_investors: Array.isArray(body.co_investors) ? body.co_investors : [],
+      };
+
+      const dealOptional = [
+        "company_domain",
+        "company_website",
+        "company_logo_url",
+        "company_linkedin_url",
+        "company_location",
+        "sector_raw",
+        "sector_normalized",
+        "round_type_raw",
+        "round_type_normalized",
+        "amount_raw",
+        "amount_minor_units",
+        "announced_date",
+        "lead_investor",
+        "lead_investor_normalized",
+        "extracted_summary",
+        "primary_source_name",
+        "primary_source_url",
+        "primary_press_url",
+        "review_reason",
+      ] as const;
+      for (const k of dealOptional) {
+        if (body[k] !== undefined && body[k] !== "") dealInsert[k] = body[k];
+      }
+
+      const { data: dealRow, error: dealErr } = await db
+        .from("fi_deals_canonical")
+        .insert(dealInsert)
+        .select(DEAL_COLS)
+        .single();
+      if (dealErr) return err(dealErr.message, 500);
+      return json({ row: dealRow });
+    }
+
+    return err(`POST not supported for entity: ${entity}`, 400);
+  }
 
   // ── PATCH: universal update ────────────────────────────────────────────────
   if (req.method === "PATCH") {
@@ -352,8 +683,80 @@ Deno.serve(async (req) => {
       });
     }
 
-    const table = TABLE[entity];
-    if (!id)    return err("Missing id");
+    if (entity === "fc-enrichment-settings") {
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(body)) {
+        if (FC_ENRICHMENT_SETTINGS_PATCH_KEYS.has(k)) patch[k] = v;
+      }
+      if (!Object.keys(patch).length) return err("No patchable fields");
+      patch.updated_at = new Date().toISOString();
+      const { data, error } = await db
+        .from("fresh_capital_enrichment_settings")
+        .update(patch)
+        .eq("id", "default")
+        .select("*")
+        .single();
+      if (error) return err(error.message, 500);
+      return json({ row: data });
+    }
+
+    if (entity === "tool-category-page") {
+      const slug = url.searchParams.get("slug")?.trim().toLowerCase() ?? "";
+      if (!slug) return err("Missing slug", 400);
+      if (!TOOL_CATEGORY_PAGE_SLUGS.has(slug)) return err("Invalid slug", 400);
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      for (const k of TOOL_CATEGORY_PAGE_PATCH_KEYS) {
+        if (body[k] === undefined) continue;
+        const v = body[k];
+        if (v === null || (typeof v === "string" && !v.trim())) patch[k] = null;
+        else if (typeof v === "string") patch[k] = v;
+      }
+      if (!Object.keys(patch).length) return err("No patchable fields");
+      patch.updated_at = new Date().toISOString();
+
+      const { data: updated, error: upErr } = await db
+        .from("tool_category_page_overrides")
+        .update(patch)
+        .eq("category_slug", slug)
+        .select("*")
+        .maybeSingle();
+      if (upErr) return err(upErr.message, 500);
+      if (updated) return json({ row: updated });
+
+      const insertRow: Record<string, unknown> = {
+        category_slug: slug,
+        title: null,
+        description: null,
+        meta: null,
+        ...patch,
+      };
+      const { data: inserted, error: insErr } = await db
+        .from("tool_category_page_overrides")
+        .insert(insertRow)
+        .select("*")
+        .single();
+      if (insErr) return err(insErr.message, 500);
+      return json({ row: inserted });
+    }
+
+    if (entity === "fi-sources") {
+      if (!id) return err("Missing id");
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(body)) {
+        if (FI_SOURCES_PATCH_KEYS.has(k)) patch[k] = v;
+      }
+      if (!Object.keys(patch).length) return err("No patchable fields");
+      patch.updated_at = new Date().toISOString();
+      const { data, error } = await db.from("fi_sources").update(patch).eq("id", id).select(FI_SOURCES_COLS).single();
+      if (error) return err(error.message, 500);
+      return json({ row: data });
+    }
+
+    const table = resolveEntityTable(entity);
+    if (!id) return err("Missing id");
     if (!table) return err(`Unknown entity: ${entity}`);
 
     const body  = await req.json().catch(() => ({})) as Record<string, unknown>;
@@ -361,6 +764,24 @@ Deno.serve(async (req) => {
     for (const [k, v] of Object.entries(body)) {
       if (!PROTECTED.has(k)) patch[k] = v;
     }
+
+    // Admin UI legacy field names → real columns (startups table has no `hq` / `twitter_url`).
+    if (table === "startups") {
+      if ("hq" in patch) {
+        patch.location = patch.hq;
+        delete patch.hq;
+      }
+      if ("twitter_url" in patch) {
+        patch.x_url = patch.twitter_url;
+        delete patch.twitter_url;
+      }
+      delete patch.needs_enrichment;
+      delete patch.enrichment_status;
+    }
+    if (table === "startup_founders") {
+      delete patch.enrichment_status;
+    }
+
     if (!Object.keys(patch).length) return err("No patchable fields");
     patch.updated_at = new Date().toISOString();
 
@@ -371,15 +792,11 @@ Deno.serve(async (req) => {
 
   // ── GET ────────────────────────────────────────────────────────────────────
 
-  if (entity === "fresh-funds") {
-    const stage = url.searchParams.get("stage") ?? "";
-    let q = db.from("vc_funds").select(VCFUND_COLS, { count: "exact" })
-      .is("deleted_at", null)
-      .order("announced_date", { ascending: false, nullsFirst: false })
-      .range(offset, offset + limit - 1);
-    if (search) q = q.ilike("name", `%${search}%`);
-    if (stage) q = q.contains("stage_focus", [stage]);
-    const { data, error, count } = await q;
+  /** vc_funds rows + firm snapshot for admin list (Fund Watch or firm-scoped) */
+  async function loadVcFundsWithFirms(
+    queryExecutor: PromiseLike<{ data: unknown; error: { message: string } | null; count: number | null }>,
+  ): Promise<Response> {
+    const { data, error, count } = await queryExecutor;
     if (error) return err(error.message, 500);
     const fundRows = (data ?? []) as Record<string, unknown>[];
     const firmIds = fundRows
@@ -391,6 +808,32 @@ Deno.serve(async (req) => {
       freshFundRow(f, firmMap.get(String(f.firm_record_id)) ?? null),
     );
     return json({ rows, total: count ?? 0 });
+  }
+
+  /** Firm Records modal — always scoped to one firm; firm_id is mandatory */
+  if (entity === "firm-funds") {
+    const firmId = url.searchParams.get("firm_id")?.trim() ?? "";
+    if (!firmId) return err("firm_id is required", 400);
+    let q = db.from("vc_funds").select(VCFUND_COLS, { count: "exact" })
+      .is("deleted_at", null)
+      .eq("firm_record_id", firmId)
+      .order("announced_date", { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+    if (search) q = q.ilike("name", `%${search}%`);
+    return loadVcFundsWithFirms(q);
+  }
+
+  if (entity === "fresh-funds") {
+    const stage = url.searchParams.get("stage") ?? "";
+    const firmRecordId = url.searchParams.get("firm_record_id")?.trim() ?? "";
+    let q = db.from("vc_funds").select(VCFUND_COLS, { count: "exact" })
+      .is("deleted_at", null)
+      .order("announced_date", { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+    if (firmRecordId) q = q.eq("firm_record_id", firmRecordId);
+    if (search) q = q.ilike("name", `%${search}%`);
+    if (stage) q = q.contains("stage_focus", [stage]);
+    return loadVcFundsWithFirms(q);
   }
 
   if (entity === "companies") {
@@ -454,7 +897,7 @@ Deno.serve(async (req) => {
     return json({ rows: data ?? [], total: count ?? 0 });
   }
 
-  if (entity === "firm-investors") {
+  if (entity === "firm-investors" || entity === "investors") {
     const firmId = url.searchParams.get("firm_id")?.trim() ?? "";
     if (!firmId) return err("Missing firm_id");
     let q = db.from("firm_investors").select(FIRM_INVESTOR_COLS, { count: "exact" })
@@ -496,6 +939,88 @@ Deno.serve(async (req) => {
     const { data, error, count } = await q;
     if (error) return err(error.message, 500);
     return json({ rows: data ?? [], total: count ?? 0 });
+  }
+
+  if (entity === "fi-sources") {
+    let q = db.from("fi_sources").select(FI_SOURCES_COLS, { count: "exact" })
+      .order("slug", { ascending: true })
+      .range(offset, offset + limit - 1);
+    if (search) q = q.ilike("name", `%${search}%`);
+    const { data, error, count } = await q;
+    if (error) return err(error.message, 500);
+    return json({ rows: data ?? [], total: count ?? 0 });
+  }
+
+  if (entity === "fi-fetch-runs") {
+    const { data: runs, error } = await db
+      .from("fi_fetch_runs")
+      .select(FI_FETCH_RUN_COLS)
+      .order("started_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) return err(error.message, 500);
+    const list = (runs ?? []) as Array<{ source_id?: string } & Record<string, unknown>>;
+    const ids = [...new Set(list.map((r) => r.source_id).filter((x): x is string => typeof x === "string" && x.length > 0))];
+    const sourceMap = new Map<string, { slug: string; name: string }>();
+    if (ids.length) {
+      const { data: srcs } = await db.from("fi_sources").select("id, slug, name").in("id", ids);
+      for (const s of srcs ?? []) {
+        const row = s as { id: string; slug: string; name: string };
+        sourceMap.set(row.id, { slug: row.slug, name: row.name });
+      }
+    }
+    const rows = list.map((r) => {
+      const sid = typeof r.source_id === "string" ? r.source_id : "";
+      const meta = sid ? sourceMap.get(sid) : undefined;
+      return {
+        ...r,
+        source_slug: meta?.slug ?? null,
+        source_name: meta?.name ?? null,
+      };
+    });
+    return json({ rows, total: rows.length });
+  }
+
+  if (entity === "vc-fund-sync-runs") {
+    const { data, error, count } = await db
+      .from("vc_fund_sync_runs")
+      .select(VC_FUND_SYNC_RUN_COLS, { count: "exact" })
+      .order("started_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) return err(error.message, 500);
+    return json({ rows: data ?? [], total: count ?? 0 });
+  }
+
+  if (entity === "vc-fund-sync-latest") {
+    const { data, error } = await db.from("vc_fund_sync_latest_runs").select("*");
+    if (error) return err(error.message, 500);
+    const rows = [...(data ?? [])] as Record<string, unknown>[];
+    rows.sort((a, b) => String(a.phase ?? "").localeCompare(String(b.phase ?? "")));
+    return json({ rows, total: rows.length });
+  }
+
+  if (entity === "latest-vc-daily-sync") {
+    const { data, error } = await db.from("v_latest_vc_fund_sync").select("*").maybeSingle();
+    if (error) return err(error.message, 500);
+    return json({ row: data ?? null });
+  }
+
+  if (entity === "fc-enrichment-settings") {
+    const { data, error } = await db.from("fresh_capital_enrichment_settings").select("*").eq("id", "default").maybeSingle();
+    if (error) return err(error.message, 500);
+    return json({ row: data ?? null });
+  }
+
+  if (entity === "tool-category-page") {
+    const slug = url.searchParams.get("slug")?.trim().toLowerCase() ?? "";
+    if (!slug) return err("Missing slug", 400);
+    if (!TOOL_CATEGORY_PAGE_SLUGS.has(slug)) return err("Invalid slug", 400);
+    const { data, error } = await db
+      .from("tool_category_page_overrides")
+      .select("*")
+      .eq("category_slug", slug)
+      .maybeSingle();
+    if (error) return err(error.message, 500);
+    return json({ row: data ?? null });
   }
 
   return err(`Unknown entity: ${entity}`);

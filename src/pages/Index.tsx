@@ -47,6 +47,7 @@ const TargetingPage = lazy(() =>
 const CirclesPage = lazy(() =>
   import("@/components/targeting/CirclesPage").then((m) => ({ default: m.CirclesPage })),
 );
+const IntegrationsPage = lazy(() => import("@/components/IntegrationsPage"));
 
 type ViewType =
   | "home"
@@ -79,7 +80,8 @@ type ViewType =
   | "settings"
   | "profile-workspace"
   | "targeting"
-  | "circles";
+  | "circles"
+  | "integrations";
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -198,6 +200,7 @@ const Index = () => {
       if (view === "directory") return "directory";
       if (view === "targeting") return "targeting";
       if (view === "circles") return "circles";
+      if (view === "integrations") return "integrations";
     } catch {
       /* ignore */
     }
@@ -259,6 +262,9 @@ const Index = () => {
     }
     if (v === "circles") {
       setActiveView("circles");
+    }
+    if (v === "integrations") {
+      setActiveView("integrations");
     }
   }, [searchParams]);
 
@@ -569,7 +575,7 @@ const Index = () => {
   } as CSSProperties;
 
   return (
-    <div className="flex h-screen overflow-hidden" style={shellStyle}>
+    <div className="flex h-screen min-h-0 overflow-hidden" style={shellStyle}>
       {showOnboarding && !profileComplete && (
         <DeferredSection label="Loading onboarding…">
           <OnboardingStepper
@@ -789,6 +795,10 @@ const Index = () => {
           ) : activeView === "circles" ? (
             <DeferredSection label="Loading circles…">
               <CirclesPage />
+            </DeferredSection>
+          ) : activeView === "integrations" ? (
+            <DeferredSection label="Loading integrations…">
+              <IntegrationsPage />
             </DeferredSection>
           ) : activeView === "settings" ? (
             <DeferredSection label="Loading settings…">

@@ -80,7 +80,8 @@ type ViewType =
   | "settings"
   | "profile-workspace"
   | "targeting"
-  | "circles";
+  | "circles"
+  | "integrations";
 
 interface GlobalTopNavProps {
   companyName?: string | null;
@@ -214,6 +215,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   resources: { section: "Resources", label: "Help Center" },
   settings: { section: "Settings", label: "Settings" },
   "profile-workspace": { section: "Settings", label: "Profile & Workspace" },
+  integrations: { section: "Integrations", label: "Data connections" },
 };
 
 // ── Contextual AI suggestions per view ──

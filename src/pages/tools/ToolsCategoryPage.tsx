@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { ToolGrid } from "@/components/tools/ToolGrid";
 import { buildBreadcrumbSchema, usePageSeo } from "@/features/tools/lib/seo";
 import {
   DEFAULT_TOOL_FILTERS,
-  TOOL_CATEGORY_INTROS,
   TOOL_CATEGORY_SLUGS,
   buildCategoryFaq,
   filterTools,
@@ -20,6 +19,11 @@ import {
   getFilterOptions,
   getToolsByCategory,
 } from "@/features/tools/lib/tools";
+import {
+  fetchToolCategoryPageOverride,
+  mergeToolCategoryIntro,
+  type ToolCategoryPageOverrideRow,
+} from "@/features/tools/lib/toolCategoryPageOverrides";
 import type { ToolCategory } from "@/features/tools/types";
 
 const relatedCategoryMap: Record<ToolCategory, ToolCategory[]> = {
@@ -35,8 +39,22 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
   const filtered = useMemo(() => filterTools(filters, source), [filters, source]);
   const options = useMemo(() => getFilterOptions(source), [source]);
   const subcategories = options.subcategories;
-  const intro = TOOL_CATEGORY_INTROS[category];
-  const path = `/tools/${TOOL_CATEGORY_SLUGS[category]}`;
+  const categorySlug = TOOL_CATEGORY_SLUGS[category];
+  const [introRow, setIntroRow] = useState<ToolCategoryPageOverrideRow | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const row = await fetchToolCategoryPageOverride(categorySlug);
+      if (!cancelled) setIntroRow(row);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [categorySlug]);
+
+  const intro = useMemo(() => mergeToolCategoryIntro(category, introRow), [category, introRow]);
+  const path = `/tools/${categorySlug}`;
   const breadcrumbs = [
     { label: "Tools", href: "/tools" },
     { label: category },
@@ -125,7 +143,9 @@ export default function ToolsCategoryPage({ category }: { category: ToolCategory
                   >
                     <div>
                       <div className="font-medium text-foreground">{related}</div>
-                      <div className="text-sm text-muted-foreground">{TOOL_CATEGORY_INTROS[related].meta}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {mergeToolCategoryIntro(related, null).meta}
+                      </div>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </Link>

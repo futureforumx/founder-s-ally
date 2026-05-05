@@ -3,19 +3,21 @@
  *
  * Browse and full-edit fi_deals_canonical records.
  * Click any row to open a slide-in edit panel with all fields.
- * All reads + writes go through the admin-market-intel edge function (entity=deals).
+ * All reads + writes go through the admin-market-intel edge function.
+ * Enrichment tab: fi_sources + sync/fetch run telemetry (see entity=… in that function).
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
   AlertCircle, ExternalLink, CheckCircle2, XCircle, Flag, X, Save,
-  Plus,
+  Plus, Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FreshCapitalEnrichmentAdmin } from "./FreshCapitalEnrichmentAdmin";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +43,15 @@ const ROUND_TYPES = [
   "other",
 ];
 const SOURCE_TYPES = ["news", "curated_feed", "rumor", "api"];
-const FUND_STATUSES = ["active", "closed", "forming", "winding_down"];
+/** Matches `public.vc_fund_status_enum` on vc_funds (admin create + patch). */
+const VC_FUND_STATUSES = [
+  "announced",
+  "target",
+  "first_close",
+  "final_close",
+  "inferred_active",
+  "historical",
+] as const;
 const STAGE_FOCUS_OPTIONS = ["Pre-Seed", "Seed", "Series A", "Series B+", "Growth"];
 const DEFAULT_SECTOR_OPTIONS = [
   "AI / ML",
@@ -158,9 +168,12 @@ type FreshFundRow = {
 
 async function adminHeaders(): Promise<Record<string, string>> {
   const jwt = await getSupabaseBearerForFunctions();
+  const anon = SUPABASE_ANON_KEY ?? "";
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${SUPABASE_ANON_KEY ?? ""}`,
+    Authorization: `Bearer ${anon}`,
+    /** Supabase Edge gateway expects `apikey` alongside `Authorization` for invoke/billing/CORS paths */
+    apikey: anon,
     "X-User-Auth": jwt ?? "",
   };
 }
@@ -244,6 +257,78 @@ async function patchFreshFund(id: string, patch: Record<string, unknown>): Promi
     const res = await fetch(
       `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fresh-funds&id=${encodeURIComponent(id)}`,
       { method: "PATCH", headers: await adminHeaders(), body: JSON.stringify(patch) },
+    );
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) {
+    return { error: String(e) };
+  }
+}
+
+async function deleteFreshFund(id: string): Promise<{ error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const qs = new URLSearchParams({
+      entity: "fresh-funds",
+      id,
+      action: "delete",
+    });
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: "{}",
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return {};
+  } catch (e: unknown) {
+    return { error: String(e) };
+  }
+}
+
+async function deleteDeal(id: string): Promise<{ error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const qs = new URLSearchParams({
+      entity: "deals",
+      id,
+      action: "delete",
+    });
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: "{}",
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return {};
+  } catch (e: unknown) {
+    return { error: String(e) };
+  }
+}
+
+async function createFreshFund(payload: Record<string, unknown>): Promise<{ row?: FreshFundRow; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fresh-funds`,
+      { method: "POST", headers: await adminHeaders(), body: JSON.stringify(payload) },
+    );
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) {
+    return { error: String(e) };
+  }
+}
+
+async function createDealRecord(payload: Record<string, unknown>): Promise<{ row?: DealRow; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=deals`,
+      { method: "POST", headers: await adminHeaders(), body: JSON.stringify(payload) },
     );
     const json = await res.json().catch(() => ({}));
     if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
@@ -456,15 +541,37 @@ function SFld({ label, value, onChange, options, allowEmpty = true }: {
 }
 
 function TagF({ label, value, onChange }: { label: string; value: string[] | null; onChange: (v: string[]) => void }) {
-  const str = (value ?? []).join(", ");
+  const canonical = (value ?? []).join("\n");
+  const [text, setText] = useState(canonical);
+  const focusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusedRef.current) setText(canonical);
+  }, [canonical]);
+
   return (
-    <FL label={`${label} (comma-separated)`}>
-      <input
-        className={IC} style={IS}
-        value={str}
-        onChange={e => onChange(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-        onFocus={e => Object.assign(e.currentTarget.style, IF)}
-        onBlur={e  => Object.assign(e.currentTarget.style, IS)}
+    <FL label={`${label} (one per line)`}>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onFocus={e => {
+          focusedRef.current = true;
+          Object.assign(e.target.style, { ...IF, resize: "vertical" });
+        }}
+        onBlur={e => {
+          focusedRef.current = false;
+          Object.assign(e.target.style, { ...IS, resize: "vertical" });
+          const next = text
+            .split(/\r?\n/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+          onChange(next);
+        }}
+        rows={4}
+        spellCheck={false}
+        placeholder="One entry per line — commas allowed within a line"
+        className={`${IC} min-h-[88px] resize-y font-mono`}
+        style={{ ...IS, resize: "vertical" }}
       />
     </FL>
   );
@@ -648,14 +755,17 @@ function DealEditPanel({
   sectorOptions,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   row: DealRow;
   sectorOptions: string[];
   onClose: () => void;
   onSaved: (updated: DealRow) => void;
+  onDeleted: (id: string) => void;
 }) {
   const [draft, setDraft] = useState<DealRow>({ ...row });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const set = <K extends keyof DealRow>(k: K, v: DealRow[K]) =>
     setDraft(d => ({ ...d, [k]: v }));
@@ -679,6 +789,26 @@ function DealEditPanel({
     }
     toast.success("Deal saved");
     onSaved(updated);
+  };
+
+  const handleDelete = async () => {
+    const name = draft.company_name?.trim() || row.company_name || "this company";
+    if (
+      !window.confirm(
+        `Permanently delete this funding round?\n\n${name}\n\nThis removes the row from fi_deals_canonical and cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    const { error } = await deleteDeal(row.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(`Delete failed: ${error}`);
+      return;
+    }
+    toast.success("Funding round deleted");
+    onDeleted(row.id);
   };
 
   return (
@@ -778,26 +908,38 @@ function DealEditPanel({
 
       {/* Footer */}
       <div
-        className="flex items-center gap-3 px-5 py-4 shrink-0"
+        className="flex flex-col gap-2 px-5 py-4 shrink-0"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || deleting}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold transition-colors disabled:opacity-40"
+            style={{ background: "#2EE6A6", color: "#050505" }}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="rounded-md px-4 py-2 text-[12px] font-medium transition-colors disabled:opacity-40"
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+          >
+            Cancel
+          </button>
+        </div>
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold transition-colors"
-          style={{ background: "#2EE6A6", color: "#050505" }}
+          onClick={handleDelete}
+          disabled={saving || deleting}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-red-500/35 bg-red-500/10 py-2 text-[12px] font-semibold text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-40"
         >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md px-4 py-2 text-[12px] font-medium transition-colors"
-          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
-        >
-          Cancel
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          {deleting ? "Deleting…" : "Delete funding round"}
         </button>
       </div>
     </div>
@@ -808,13 +950,16 @@ function FreshFundEditPanel({
   row,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   row: FreshFundRow;
   onClose: () => void;
   onSaved: (updated: FreshFundRow) => void;
+  onDeleted: (id: string) => void;
 }) {
   const [draft, setDraft] = useState<FreshFundRow>({ ...row });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const set = <K extends keyof FreshFundRow>(k: K, v: FreshFundRow[K]) =>
     setDraft(d => ({ ...d, [k]: v }));
@@ -873,6 +1018,26 @@ function FreshFundEditPanel({
     }
     toast.success("Fresh Capital fund saved");
     onSaved(updated);
+  };
+
+  const handleDelete = async () => {
+    const label = draft.fund_name?.trim() || row.fund_name || "this fund";
+    if (
+      !window.confirm(
+        `Remove this fund from Fund Watch?\n\n${label}\n\nThe vehicle is soft-deleted (vc_funds.deleted_at). It will disappear from the public feed.`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    const { error } = await deleteFreshFund(row.id);
+    setDeleting(false);
+    if (error) {
+      toast.error(`Delete failed: ${error}`);
+      return;
+    }
+    toast.success("Fund removed from Fund Watch");
+    onDeleted(row.id);
   };
 
   return (
@@ -934,7 +1099,7 @@ function FreshFundEditPanel({
         <TF label="Fund Name" value={draft.fund_name} onChange={v => set("fund_name", v)} />
         <div className="grid grid-cols-2 gap-3">
           <TF label="Fund Type" value={draft.fund_type} onChange={v => set("fund_type", v)} />
-          <SFld label="Status" value={draft.status} onChange={v => set("status", v)} options={FUND_STATUSES} allowEmpty={false} />
+          <SFld label="Status" value={draft.status} onChange={v => set("status", v)} options={[...VC_FUND_STATUSES]} allowEmpty={false} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <NF label="Target Size USD" value={draft.target_size_usd} onChange={v => set("target_size_usd", v)} step={1000000} />
@@ -978,26 +1143,38 @@ function FreshFundEditPanel({
       </div>
 
       <div
-        className="flex items-center gap-3 px-5 py-4 shrink-0"
+        className="flex flex-col gap-2 px-5 py-4 shrink-0"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || deleting}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold transition-colors disabled:opacity-40"
+            style={{ background: "#2EE6A6", color: "#050505" }}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="rounded-md px-4 py-2 text-[12px] font-medium transition-colors disabled:opacity-40"
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+          >
+            Cancel
+          </button>
+        </div>
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold transition-colors"
-          style={{ background: "#2EE6A6", color: "#050505" }}
+          onClick={handleDelete}
+          disabled={saving || deleting}
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-red-500/35 bg-red-500/10 py-2 text-[12px] font-semibold text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-40"
         >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md px-4 py-2 text-[12px] font-medium transition-colors"
-          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
-        >
-          Cancel
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          {deleting ? "Deleting…" : "Delete fund"}
         </button>
       </div>
     </div>
@@ -1046,6 +1223,267 @@ const HDR: React.CSSProperties = {
 };
 const CELL: React.CSSProperties = { padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.75)" };
 
+// ── Add fund / add deal modals ─────────────────────────────────────────────────
+
+function AddFundModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (row: FreshFundRow) => void;
+}) {
+  const [firmRecordId, setFirmRecordId] = useState("");
+  const [fundName, setFundName] = useState("");
+  const [vintageYear, setVintageYear] = useState("");
+  const [announcedDate, setAnnouncedDate] = useState("");
+  const [status, setStatus] = useState("announced");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setFirmRecordId("");
+      setFundName("");
+      setVintageYear("");
+      setAnnouncedDate("");
+      setStatus("announced");
+      setSaving(false);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    const fid = firmRecordId.trim();
+    const fn = fundName.trim();
+    if (!fid || !fn) {
+      toast.error("Firm record ID and fund name are required");
+      return;
+    }
+    setSaving(true);
+    const payload: Record<string, unknown> = {
+      firm_record_id: fid,
+      name: fn,
+      status,
+    };
+    const vy = vintageYear.trim();
+    if (vy) {
+      const n = Number.parseInt(vy, 10);
+      if (Number.isFinite(n)) payload.vintage_year = n;
+    }
+    if (announcedDate.trim()) payload.announced_date = announcedDate.trim();
+    const { row, error } = await createFreshFund(payload);
+    setSaving(false);
+    if (error) {
+      toast.error("Could not create fund", { description: error });
+      return;
+    }
+    if (row) {
+      toast.success("Fund created");
+      onCreated(row);
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.72)" }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-fund-title"
+    >
+      <div
+        className="w-full max-w-md rounded-xl border p-5 shadow-xl"
+        style={{ borderColor: "rgba(255,255,255,0.12)", background: "#0c0c0c" }}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="add-fund-title" className="text-[15px] font-semibold text-white/90">
+              Add fund vehicle
+            </h2>
+            <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Creates a row in <span className="font-mono text-white/55">vc_funds</span> linked to an existing firm. Use the firm&apos;s UUID from Firm Records admin.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-white/40 hover:bg-white/10 hover:text-white"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <TF label="Firm record ID (UUID)" value={firmRecordId} onChange={setFirmRecordId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          <TF label="Fund name" value={fundName} onChange={setFundName} placeholder="e.g. Acme Ventures IV" />
+          <div className="grid grid-cols-2 gap-3">
+            <TF label="Vintage year" value={vintageYear} onChange={setVintageYear} placeholder="2026" />
+            <TF label="Announced date" value={announcedDate} onChange={setAnnouncedDate} type="date" />
+          </div>
+          <SFld label="Fund status" value={status} onChange={setStatus} options={[...VC_FUND_STATUSES]} allowEmpty={false} />
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={submit}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold disabled:opacity-50"
+            style={{ background: "#2EE6A6", color: "#050505" }}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Create fund
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-4 py-2 text-[12px] font-medium"
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddDealModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (row: DealRow) => void;
+}) {
+  const [companyName, setCompanyName] = useState("");
+  const [roundType, setRoundType] = useState("series_a");
+  const [announcedDate, setAnnouncedDate] = useState("");
+  const [amountRaw, setAmountRaw] = useState("");
+  const [leadInvestor, setLeadInvestor] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
+  const [sourceType, setSourceType] = useState("news");
+  const [needsReview, setNeedsReview] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setCompanyName("");
+      setRoundType("series_a");
+      setAnnouncedDate("");
+      setAmountRaw("");
+      setLeadInvestor("");
+      setCompanyWebsite("");
+      setSourceType("news");
+      setNeedsReview(false);
+      setSaving(false);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    const cn = companyName.trim();
+    if (!cn) {
+      toast.error("Company name is required");
+      return;
+    }
+    setSaving(true);
+    const payload: Record<string, unknown> = {
+      company_name: cn,
+      round_type_normalized: roundType,
+      round_type_raw: roundType.replace(/_/g, " "),
+      source_type: sourceType,
+      needs_review: needsReview,
+    };
+    if (announcedDate.trim()) payload.announced_date = announcedDate.trim();
+    if (amountRaw.trim()) payload.amount_raw = amountRaw.trim();
+    if (leadInvestor.trim()) payload.lead_investor = leadInvestor.trim();
+    if (companyWebsite.trim()) payload.company_website = companyWebsite.trim();
+    const { row, error } = await createDealRecord(payload);
+    setSaving(false);
+    if (error) {
+      toast.error("Could not create funding round", { description: error });
+      return;
+    }
+    if (row) {
+      toast.success("Funding round added");
+      onCreated(row);
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.72)" }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-deal-title"
+    >
+      <div
+        className="w-full max-w-md rounded-xl border p-5 shadow-xl"
+        style={{ borderColor: "rgba(255,255,255,0.12)", background: "#0c0c0c" }}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="add-deal-title" className="text-[15px] font-semibold text-white/90">
+              Add funding round
+            </h2>
+            <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Inserts into <span className="font-mono text-white/55">fi_deals_canonical</span> for the Fresh Capital feed.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded p-1 text-white/40 hover:bg-white/10 hover:text-white" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <TF label="Company name" value={companyName} onChange={setCompanyName} placeholder="PortfolioCo Inc." />
+          <SFld label="Round type" value={roundType} onChange={setRoundType} options={[...ROUND_TYPES]} allowEmpty={false} />
+          <TF label="Announced date" value={announcedDate} onChange={setAnnouncedDate} type="date" />
+          <TF label="Amount (display)" value={amountRaw} onChange={setAmountRaw} placeholder="$25M, €10m, …" />
+          <TF label="Lead investor" value={leadInvestor} onChange={setLeadInvestor} />
+          <TF label="Company website" value={companyWebsite} onChange={setCompanyWebsite} placeholder="https://…" />
+          <SFld label="Source type" value={sourceType} onChange={setSourceType} options={[...SOURCE_TYPES]} allowEmpty={false} />
+          <label className="flex cursor-pointer items-center gap-2 text-[12px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <input
+              type="checkbox"
+              checked={needsReview}
+              onChange={e => setNeedsReview(e.target.checked)}
+              className="rounded border-white/20"
+            />
+            Flag for review queue
+          </label>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={submit}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold disabled:opacity-50"
+            style={{ background: "#2EE6A6", color: "#050505" }}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Create round
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-4 py-2 text-[12px] font-medium"
+            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Fund Watch Component ───────────────────────────────────────────────────────
 
 function FreshFundsAdmin() {
@@ -1057,6 +1495,7 @@ function FreshFundsAdmin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<FreshFundRow | null>(null);
+  const [addFundOpen, setAddFundOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1086,14 +1525,26 @@ function FreshFundsAdmin() {
             Edits the public /fresh-capital Fund Watch rows from vc_funds + firm_records.
           </p>
         </div>
-        <button
-          onClick={() => { setPage(0); void load(); }}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors"
-          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setAddFundOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+            style={{ borderColor: "rgba(46,230,166,0.35)", color: "#2EE6A6", background: "rgba(46,230,166,0.08)" }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add fund
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPage(0); void load(); }}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -1219,8 +1670,23 @@ function FreshFundsAdmin() {
           row={selected}
           onClose={() => setSelected(null)}
           onSaved={handleSaved}
+          onDeleted={(id) => {
+            setRows(prev => prev.filter(r => r.id !== id));
+            setTotal(t => Math.max(0, t - 1));
+            setSelected(null);
+          }}
         />
       )}
+
+      <AddFundModal
+        open={addFundOpen}
+        onClose={() => setAddFundOpen(false)}
+        onCreated={(row) => {
+          setRows(prev => [row, ...prev]);
+          setTotal(t => t + 1);
+          setSelected(row);
+        }}
+      />
     </div>
   );
 }
@@ -1237,6 +1703,7 @@ function LatestFundingDealsAdmin() {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const [selected,   setSelected]   = useState<DealRow | null>(null);
+  const [addDealOpen, setAddDealOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1276,14 +1743,26 @@ function LatestFundingDealsAdmin() {
             Raw funding intelligence from fi_deals_canonical — click any row to edit.
           </p>
         </div>
-        <button
-          onClick={() => { setPage(0); void load(); }}
-          className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors"
-          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setAddDealOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+            style={{ borderColor: "rgba(46,230,166,0.35)", color: "#2EE6A6", background: "rgba(46,230,166,0.08)" }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add funding round
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPage(0); void load(); }}
+            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-medium transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -1450,31 +1929,47 @@ function LatestFundingDealsAdmin() {
           sectorOptions={sectorOptions}
           onClose={() => setSelected(null)}
           onSaved={handleSaved}
+          onDeleted={(id) => {
+            setRows(prev => prev.filter(r => r.id !== id));
+            setTotal(t => Math.max(0, t - 1));
+            setSelected(null);
+          }}
         />
       )}
+
+      <AddDealModal
+        open={addDealOpen}
+        onClose={() => setAddDealOpen(false)}
+        onCreated={(row) => {
+          setRows(prev => [row, ...prev]);
+          setTotal(t => t + 1);
+          setSelected(row);
+        }}
+      />
     </div>
   );
 }
 
 export function AdminFreshCapital() {
-  const [view, setView] = useState<"funds" | "deals">("funds");
+  const [view, setView] = useState<"funds" | "deals" | "enrichment">("funds");
 
   return (
     <div className="flex h-full flex-col gap-5">
       <div
-        className="inline-flex w-max items-center gap-1 rounded-lg border p-1"
+        className="inline-flex w-max flex-wrap items-center gap-1 rounded-lg border p-1"
         style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
       >
         {[
           ["funds", "Fund Watch"],
           ["deals", "Latest Funding"],
+          ["enrichment", "Enrichment"],
         ].map(([key, label]) => {
           const active = view === key;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setView(key as "funds" | "deals")}
+              onClick={() => setView(key as "funds" | "deals" | "enrichment")}
               className="rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors"
               style={{
                 background: active ? "rgba(46,230,166,0.12)" : "transparent",
@@ -1486,7 +1981,9 @@ export function AdminFreshCapital() {
           );
         })}
       </div>
-      {view === "funds" ? <FreshFundsAdmin /> : <LatestFundingDealsAdmin />}
+      {view === "funds" && <FreshFundsAdmin />}
+      {view === "deals" && <LatestFundingDealsAdmin />}
+      {view === "enrichment" && <FreshCapitalEnrichmentAdmin />}
     </div>
   );
 }

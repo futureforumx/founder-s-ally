@@ -2311,6 +2311,30 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_category_page_overrides: {
+        Row: {
+          category_slug: string
+          description: string | null
+          meta: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          category_slug: string
+          description?: string | null
+          meta?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category_slug?: string
+          description?: string | null
+          meta?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       firm_data_qa_flags: {
         Row: {
           confidence_score: number
@@ -3121,6 +3145,7 @@ export type Database = {
           sub_sectors: string[] | null
           substack_url: string | null
           tagline: string | null
+          team_people_url: string | null
           theme_classification:
             | Database["public"]["Enums"]["theme_classification"]
             | null
@@ -3321,6 +3346,7 @@ export type Database = {
           sub_sectors?: string[] | null
           substack_url?: string | null
           tagline?: string | null
+          team_people_url?: string | null
           theme_classification?:
             | Database["public"]["Enums"]["theme_classification"]
             | null
@@ -3521,6 +3547,7 @@ export type Database = {
           sub_sectors?: string[] | null
           substack_url?: string | null
           tagline?: string | null
+          team_people_url?: string | null
           theme_classification?:
             | Database["public"]["Enums"]["theme_classification"]
             | null
@@ -10231,7 +10258,11 @@ export type Database = {
         | "Pre-Seed"
         | "Seed"
         | "Series A"
+        | "Series B"
         | "Series B+"
+        | "Series C"
+        | "Series C+"
+        | "Series D"
         | "Growth"
       StartupDataSource:
         | "SEEDTABLE"
@@ -10614,7 +10645,11 @@ export const Constants = {
         "Pre-Seed",
         "Seed",
         "Series A",
+        "Series B",
         "Series B+",
+        "Series C",
+        "Series C+",
+        "Series D",
         "Growth",
       ],
       StartupDataSource: [

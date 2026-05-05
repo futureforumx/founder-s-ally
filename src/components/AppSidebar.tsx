@@ -18,6 +18,7 @@ import {
   Orbit,
   ChevronLeft,
   ChevronRight,
+  Plug,
 } from "lucide-react";
 import { NETWORK_SURFACE_SECTION_HEADING } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,8 @@ type ViewType =
   | "settings"
   | "profile-workspace"
   | "targeting"
-  | "circles";
+  | "circles"
+  | "integrations";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -189,17 +191,17 @@ export function AppSidebar({
   }, [clearAgentPopoverCloseTimer]);
 
   const rail = cn(
-    "ml-1 flex flex-col gap-1 border-l border-sidebar-border/40 pl-2",
+    "ml-1 flex flex-col gap-0.5 border-l border-sidebar-border/40 pl-2",
     collapsed && "ml-0 max-w-full items-center border-l-0 pl-0",
   );
   const navBtn = (active: boolean) =>
     cn(
-      "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+      "flex w-full items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
       active && "border",
       collapsed && "justify-center px-1.5",
     );
   const sectionLabel = cn(
-    "mt-2 px-2 pb-0.5 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50",
+    "mt-1 px-2 pb-0 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50",
     collapsed && "sr-only",
   );
 
@@ -209,9 +211,9 @@ export function AppSidebar({
       aria-label="Pulse — market intelligence feed"
       onClick={() => goView("market-intelligence")}
       className={cn(
-        "flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground border border-transparent",
+        "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground border border-transparent",
         pulseRouteActive && "border",
-        collapsed && "justify-center px-1.5 py-1.5",
+        collapsed && "justify-center px-1.5 py-1",
       )}
       style={pulseRouteActive ? activeNavStyle : undefined}
     >
@@ -224,14 +226,14 @@ export function AppSidebar({
     <TooltipProvider delayDuration={300}>
       <aside
         className={cn(
-          "flex h-screen min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out",
+          "flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out",
           collapsed ? "w-14" : "w-44",
         )}
         data-sidebar-collapsed={collapsed ? "true" : "false"}
       >
         <div
           className={cn(
-            "flex shrink-0 gap-2 pb-3 pt-3",
+            "flex shrink-0 gap-2 pb-2 pt-2",
             collapsed ? "flex-col items-center px-2" : "items-start px-3 pl-2",
           )}
         >
@@ -275,7 +277,7 @@ export function AppSidebar({
               sidebarMode={collapsed ? "collapsed" : "expanded"}
               className={cn(
                 "object-contain",
-                collapsed ? "max-h-14 w-auto max-w-full" : "max-h-20 w-auto max-w-full",
+                collapsed ? "max-h-12 w-auto max-w-full" : "max-h-14 w-auto max-w-full",
               )}
             />
           </button>
@@ -283,10 +285,15 @@ export function AppSidebar({
 
         <nav
           className={cn(
-            "flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden overflow-x-hidden",
+            "flex min-h-0 flex-1 flex-col gap-0 overflow-hidden",
             collapsed ? "px-1.5" : "px-3",
           )}
         >
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col gap-0 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            )}
+          >
           <div className={rail}>
             {collapsed ? (
               <SidebarHint collapsed={collapsed} label="Pulse — market intelligence feed">
@@ -357,7 +364,7 @@ export function AppSidebar({
                 {!collapsed && "Network"}
               </button>
             </SidebarHint>
-            <div className="flex w-full flex-col gap-1">
+            <div className="flex w-full flex-col gap-0.5">
               <SidebarHint collapsed={collapsed} label="Investor targeting">
                 <button
                   type="button"
@@ -474,6 +481,24 @@ export function AppSidebar({
               </button>
             </SidebarHint>
           )}
+          </div>
+
+          <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
+            <div className={sectionLabel}>Integrations</div>
+            <div className={rail}>
+              <SidebarHint collapsed={collapsed} label="Data integrations">
+                <button
+                  type="button"
+                  onClick={() => goView("integrations")}
+                  className={navBtn(activeView === "integrations")}
+                  style={activeView === "integrations" ? activeNavStyle : undefined}
+                >
+                  <Plug className="h-4 w-4 shrink-0" />
+                  {!collapsed && "Integrations"}
+                </button>
+              </SidebarHint>
+            </div>
+          </div>
         </nav>
 
         <div className={cn("shrink-0 space-y-2 border-t border-sidebar-border/30 px-3 py-3", collapsed && "px-2")}>
