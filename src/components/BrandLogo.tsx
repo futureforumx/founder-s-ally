@@ -12,12 +12,12 @@ interface BrandLogoProps {
 }
 
 const LOGO_BLACK = "/brand/vekta-black.svg";
-const LOGO_WHITE_EXPANDED = "/brand/vekta-sidebar-expanded.png";
-const LOGO_WHITE_COLLAPSED = "/brand/vekta-sidebar-collapsed.png";
+/** Square wordmark (light on dark); used for expanded + collapsed sidebar rail. */
+const LOGO_WHITE = "/brand/vekta-wordmark.png";
 
-function logoSrc(variant: "black" | "white", sidebarMode?: "expanded" | "collapsed"): string {
+function logoSrc(variant: "black" | "white", _sidebarMode?: "expanded" | "collapsed"): string {
   if (variant === "black") return LOGO_BLACK;
-  return sidebarMode === "collapsed" ? LOGO_WHITE_COLLAPSED : LOGO_WHITE_EXPANDED;
+  return LOGO_WHITE;
 }
 
 export function BrandLogo({

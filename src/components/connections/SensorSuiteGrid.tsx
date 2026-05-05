@@ -47,7 +47,7 @@ import {
   Table2, PieChart, ShoppingCart, DollarSign, Wallet, Banknote,
   Zap, GitBranch, Workflow, Repeat2,
   MailOpen, Palette, Megaphone,
-  LineChart, Eye, UserCheck, Search
+  LineChart, Eye, UserCheck, Search, Download,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -81,6 +81,7 @@ import {
 } from "@/lib/connectorClient";
 import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
 import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
+import { notifyConnectorsUpdated } from "@/lib/connectorStorageEvents";
 
 // ── Types ──
 export type SourceKey =
@@ -134,6 +135,7 @@ function loadConnectedScoped(ownerContextId: string): Record<SourceKey, boolean>
 function saveConnectedScoped(ownerContextId: string, s: Record<SourceKey, boolean>) {
   try {
     localStorage.setItem(contextScopedStorageKey(CONNECTION_STATUS_BASE, ownerContextId), JSON.stringify(s));
+    notifyConnectorsUpdated();
   } catch {}
 }
 
@@ -615,15 +617,27 @@ interface SensorSuiteGridProps {
   showHeader?: boolean;
   showTerminal?: boolean;
   showCategoryFilter?: boolean;
+  /** Light app-store style layout: pill filters, 3-column cards, teal CTAs */
+  integrationCatalogMode?: boolean;
+  /** When false, omit Network Intelligence + Live opportunities (parent renders). Default true. */
+  showIntelligenceSummary?: boolean;
 }
 
-export function SensorSuiteGrid({ compact = false, showHeader = true, showTerminal = true, showCategoryFilter = false }: SensorSuiteGridProps) {
+export function SensorSuiteGrid({
+  compact = false,
+  showHeader = true,
+  showTerminal = true,
+  showCategoryFilter = false,
+  integrationCatalogMode = false,
+  showIntelligenceSummary = true,
+}: SensorSuiteGridProps) {
   const { activeContextId, activeContextLabel, canManageConnectorIntegrations } = useActiveContext();
   const { getAccessToken: getToken } = useAuth();
   const queryClient = useQueryClient();
   const { data: remoteAccounts = [], isFetched: remoteAccountsFetched } = useConnectedAccounts(activeContextId);
 
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("crm");
+  const [catalogFilter, setCatalogFilter] = useState<FilterCategory | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [connected, setConnected] = useState<Record<SourceKey, boolean>>(() => loadConnectedScoped(activeContextId));
