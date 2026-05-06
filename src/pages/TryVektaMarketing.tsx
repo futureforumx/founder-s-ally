@@ -42,7 +42,7 @@ const VALUE_PROPS = [
   },
 ] as const;
 
-/** Simple Icons CDN — white glyphs on dark tiles (slug per simpleicons.org). */
+/** Self-hosted SVGs in `/public/brand/integration-logos/` — works with CSP & offline (no third-party img hosts). */
 const INTEGRATION_BRANDS: { name: string; slug: string }[] = [
   { name: "Notion", slug: "notion" },
   { name: "HubSpot", slug: "hubspot" },
@@ -55,7 +55,9 @@ const INTEGRATION_BRANDS: { name: string; slug: string }[] = [
 
 function IntegrationLogo({ name, slug }: { name: string; slug: string }) {
   const [failed, setFailed] = useState(false);
-  const src = `https://cdn.simpleicons.org/${slug}/ffffff`;
+  const src = `/brand/integration-logos/${slug}.svg`;
+  /** Simple Icons assets are black glyphs; LinkedIn asset here uses white fill — invert only monochrome marks. */
+  const invertMonochrome = slug !== "linkedin";
   return (
     <div className="flex aspect-square flex-col items-center justify-center rounded-xl border border-white/[0.08] bg-zinc-800/90 px-3 py-4 shadow-inner shadow-black/20">
       {failed ? (
@@ -68,10 +70,12 @@ function IntegrationLogo({ name, slug }: { name: string; slug: string }) {
           alt=""
           width={36}
           height={36}
-          className="h-9 w-9 object-contain opacity-95"
+          className={cn(
+            "h-9 w-9 object-contain opacity-95",
+            invertMonochrome && "brightness-0 invert",
+          )}
           loading="lazy"
           decoding="async"
-          referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
         />
       )}

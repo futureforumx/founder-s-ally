@@ -31,6 +31,8 @@ interface ImportMetaEnv {
   readonly VITE_ACCESS_PAGE_VIDEO_CDN_BASE?: string;
   /** Overrides default `https://tryvekta.com/#features` for referrals “See what you’ll get” links. */
   readonly VITE_PRODUCT_FEATURES_URL?: string;
+  /** When `"true"`, logged-out `/` shows tryvekta marketing on any host (useful for Vercel preview). */
+  readonly VITE_MARKETING_HOME?: string;
 }
 
 interface ImportMeta {

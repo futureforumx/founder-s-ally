@@ -263,10 +263,15 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function isTryVektaMarketingHost(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.hostname.replace(/^www\./i, "").toLowerCase();
-  return h === "tryvekta.com";
+  if (h === "tryvekta.com") return true;
+  /** Local preview of marketing at `/` without deploying to tryvekta.com */
+  if (import.meta.env.DEV && (h === "localhost" || h === "127.0.0.1")) return true;
+  /** Set `VITE_MARKETING_HOME=true` on Vercel (e.g. preview/staging) to show marketing at `/` when logged out */
+  if (import.meta.env.VITE_MARKETING_HOME === "true") return true;
+  return false;
 }
 
-/** Public marketing landing on tryvekta.com; app shell everywhere else (and for signed-in users). */
+/** Public marketing landing on tryvekta.com (and dev localhost); app shell elsewhere / when signed in. */
 function MarketingHomeGate() {
   const { user, loading } = useAuth();
 
@@ -366,6 +371,14 @@ const App = () => (
                 element={
                   <Suspense fallback={null}>
                     <OutboundPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/welcome"
+                element={
+                  <Suspense fallback={<RouteLoader label="Loading…" />}>
+                    <TryVektaMarketing />
                   </Suspense>
                 }
               />
