@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
   AlertCircle, Building2, ExternalLink, X, CheckCircle2, XCircle,
-  MapPin, DollarSign, Users, Briefcase, Save, Copy,
+  MapPin, DollarSign, Users, Briefcase, Save, Copy, Plus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -185,6 +185,19 @@ async function patchFirm(id: string, patch: Record<string, unknown>): Promise<{ 
     if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
     return { row: json.row };
   } catch (e: unknown) { return { error: (e as Error)?.message }; }
+}
+
+async function createFirm(body: Record<string, unknown>): Promise<{ row?: FirmRow; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  const url = `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firms`;
+  try {
+    const res = await fetch(url, { method: "POST", headers: await adminHeaders(), body: JSON.stringify(body) });
+    const json = await res.json().catch(() => ({})) as { row?: FirmRow; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) {
+    return { error: (e as Error)?.message };
+  }
 }
 
 async function fetchFirmLinkedRows<T>(entity: "firm-investors" | "firm-portfolio", firmId: string): Promise<{ rows: T[]; total: number; error?: string }> {
@@ -1165,6 +1178,112 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
   );
 }
 
+function AddFirmModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (row: FirmRow) => void | Promise<void>;
+}) {
+  const [firmName, setFirmName] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [slug, setSlug] = useState("");
+  const [legalName, setLegalName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setFirmName("");
+      setWebsiteUrl("");
+      setSlug("");
+      setLegalName("");
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    const name = firmName.trim();
+    if (!name) {
+      toast.error("Firm name is required");
+      return;
+    }
+    setSubmitting(true);
+    const body: Record<string, unknown> = { firm_name: name };
+    const w = websiteUrl.trim();
+    const s = slug.trim();
+    const l = legalName.trim();
+    if (w) body.website_url = w;
+    if (s) body.slug = s;
+    if (l) body.legal_name = l;
+    const { row, error } = await createFirm(body);
+    setSubmitting(false);
+    if (error) {
+      toast.error("Could not create firm", { description: error });
+      return;
+    }
+    if (row) {
+      toast.success("Firm created — opens as NEEDS REVIEW");
+      await Promise.resolve(onCreated(row));
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <button type="button" aria-label="Close add firm dialog" className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0c0c0c] p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-white/90">Add firm record</h2>
+            <p className="mt-1 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Creates a new row in <span className="font-mono text-white/55">firm_records</span>. Status defaults to NEEDS REVIEW; fill the rest in the editor.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <TF label="Firm name *" value={firmName} onChange={setFirmName} placeholder="e.g. Acme Ventures" />
+          <UF label="Website URL" value={websiteUrl} onChange={setWebsiteUrl} placeholder="https://…" />
+          <TF label="Slug" value={slug} onChange={setSlug} placeholder="Optional URL slug" />
+          <TF label="Legal name" value={legalName} onChange={setLegalName} placeholder="Optional registered name" />
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-[12px] font-medium text-white/55 transition-colors hover:bg-white/10 hover:text-white/85"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => void submit()}
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12px] font-semibold disabled:opacity-50"
+            style={{ background: "#2EE6A6", color: "#020403" }}
+          >
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {submitting ? "Creating…" : "Create firm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export function AdminFirmRecords() {
@@ -1178,6 +1297,7 @@ export function AdminFirmRecords() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage]           = useState(0);
   const [selected, setSelected]   = useState<FirmRow | null>(null);
+  const [addOpen, setAddOpen]     = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setDSearch(search); setPage(0); }, 350);
@@ -1204,17 +1324,35 @@ export function AdminFirmRecords() {
     setSelected(updated);
   };
 
+  const handleFirmCreated = useCallback(
+    async (row: FirmRow) => {
+      await loadRows();
+      setSelected(row);
+    },
+    [loadRows],
+  );
+
   const pages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-6">
       {/* header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-semibold text-white/90">Firm Records</h1>
           <p className="mt-0.5 text-[13px]" style={{ color: "rgba(255,255,255,0.35)" }}>Click any row to view and edit all fields</p>
         </div>
-        <Building2 className="h-5 w-5 shrink-0 mt-1" style={{ color: "#2EE6A6" }} />
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold"
+            style={{ background: "rgba(46,230,166,0.14)", color: "#2EE6A6", border: "1px solid rgba(46,230,166,0.35)" }}
+          >
+            <Plus className="h-4 w-4" /> Add firm
+          </button>
+          <Building2 className="h-5 w-5" style={{ color: "#2EE6A6" }} />
+        </div>
       </div>
 
       {/* toolbar */}
@@ -1321,6 +1459,8 @@ export function AdminFirmRecords() {
           <button disabled={page >= pages - 1} onClick={() => setPage(p => Math.min(pages - 1, p + 1))} className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-[12px] disabled:opacity-30" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)" }}>Next <ChevronRight className="h-3.5 w-3.5" /></button>
         </div>
       )}
+
+      <AddFirmModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleFirmCreated} />
 
       {/* slide-in edit panel */}
       {selected && <FirmEditPanel row={selected} onClose={() => setSelected(null)} onSaved={handleSaved} />}
