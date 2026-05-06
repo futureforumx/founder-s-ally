@@ -49,6 +49,44 @@ function json(body: unknown, status = 200) {
 }
 function err(msg: string, status = 400) { return json({ error: msg }, status); }
 
+/** Match `firm_records.id` query params without treating them as a name search. */
+function looksLikeUuid(s: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.trim());
+}
+
+/** Max rows pulled from `search_firm_records` before secondary filters + pagination (admin-only). */
+const FIRM_SEARCH_RPC_CAP = 25_000;
+
+function searchFirmRecordsWrongRpcShape(error: { message?: string; code?: string; details?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST202") return true;
+  const t = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return (
+    t.includes("schema cache") ||
+    t.includes("could not find the function") ||
+    t.includes("does not exist")
+  );
+}
+
+async function rpcSearchFirmRecordsCompat(
+  db: SupabaseClient,
+  payload: { p_limit: number; p_query: string; p_ready_for_live: boolean | null },
+) {
+  const legacyTry = await db.rpc("search_firm_records", payload);
+  if (!legacyTry.error) return legacyTry;
+  if (!searchFirmRecordsWrongRpcShape(legacyTry.error)) return legacyTry;
+  return db.rpc("search_firm_records", { args: payload });
+}
+
+/** PostgREST `.or()` breaks on commas in values — strip them. Escape `%` / `_` for `ilike`. */
+function firmAdminBroadOrClause(raw: string): string | null {
+  const t = raw.replace(/,/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (t.length < 2) return null;
+  const esc = t.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+  const pat = `%${esc}%`;
+  return `firm_name.ilike.${pat},legal_name.ilike.${pat},slug.ilike.${pat},normalized_name.ilike.${pat}`;
+}
+
 function asPermission(v: unknown): AppPermission | null {
   const p = String(v ?? "").toLowerCase();
   if (p === "user" || p === "manager" || p === "admin" || p === "god") return p as AppPermission;
@@ -883,9 +921,82 @@ Deno.serve(async (req) => {
     const review     = url.searchParams.get("needs_review")   ?? "";
     const live       = url.searchParams.get("ready_for_live")  ?? "";
     const status     = url.searchParams.get("status")          ?? "";
+
+    const passesSecondaryFirmFilters = (row: Record<string, unknown>): boolean => {
+      if (enrichment && String(row.enrichment_status ?? "") !== enrichment) return false;
+      if (review === "true" && row.needs_review !== true) return false;
+      if (review === "false" && row.needs_review !== false) return false;
+      if (live === "true" && row.ready_for_live !== true) return false;
+      if (live === "false" && row.ready_for_live !== false) return false;
+      if (status && String(row.status ?? "") !== status) return false;
+      return true;
+    };
+
+    // Primary key paste — avoids mismatch when the live display label differs from `firm_name`.
+    if (search && looksLikeUuid(search)) {
+      let q = db.from("firm_records").select(FIRM_COLS, { count: "exact" })
+        .eq("id", search)
+        .is("deleted_at", null)
+        .order("completeness_score", { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (enrichment)         q = q.eq("enrichment_status", enrichment);
+      if (review === "true")  q = q.eq("needs_review", true);
+      if (review === "false") q = q.eq("needs_review", false);
+      if (live   === "true")  q = q.eq("ready_for_live", true);
+      if (live   === "false") q = q.eq("ready_for_live", false);
+      if (status)             q = q.eq("status", status);
+      const { data, error, count } = await q;
+      if (error) return err(error.message, 500);
+      return json({ rows: data ?? [], total: count ?? 0 });
+    }
+
+    // `search_firm_records` + parallel broad `ilike` (spacing/punctuation edge cases; RPC DB must be migrated).
+    if (search) {
+      const liveParam: boolean | null = live === "true" ? true : live === "false" ? false : null;
+      const broadOr = firmAdminBroadOrClause(search);
+      const broadQ = broadOr
+        ? (() => {
+            let q = db.from("firm_records").select(FIRM_COLS)
+              .is("deleted_at", null)
+              .or(broadOr)
+              .order("completeness_score", { ascending: false })
+              .limit(800);
+            if (live === "true") q = q.eq("ready_for_live", true);
+            if (live === "false") q = q.eq("ready_for_live", false);
+            return q;
+          })()
+        : null;
+
+      const firmRpcPayload = {
+        p_limit: FIRM_SEARCH_RPC_CAP,
+        p_query: search,
+        p_ready_for_live: liveParam,
+      };
+      const [rpcRes, broadRes] = await Promise.all([
+        rpcSearchFirmRecordsCompat(db, firmRpcPayload),
+        broadQ ?? Promise.resolve({ data: [] as unknown[], error: null }),
+      ]);
+
+      if (rpcRes.error) return err(rpcRes.error.message, 500);
+      if (broadRes.error) return err(broadRes.error.message, 500);
+
+      const byId = new Map<string, Record<string, unknown>>();
+      for (const r of [...(rpcRes.data ?? []), ...(broadRes.data ?? [])]) {
+        const row = r as Record<string, unknown>;
+        const id = typeof row.id === "string" ? row.id : "";
+        if (id && !byId.has(id)) byId.set(id, row);
+      }
+      let merged = [...byId.values()].sort(
+        (a, b) => Number(b.completeness_score ?? 0) - Number(a.completeness_score ?? 0),
+      );
+      merged = merged.filter((r) => passesSecondaryFirmFilters(r));
+      const total = merged.length;
+      const rows = merged.slice(offset, offset + limit);
+      return json({ rows, total });
+    }
+
     let q = db.from("firm_records").select(FIRM_COLS, { count: "exact" })
       .is("deleted_at", null).order("completeness_score", { ascending: false }).range(offset, offset + limit - 1);
-    if (search)             q = q.ilike("firm_name", `%${search}%`);
     if (enrichment)         q = q.eq("enrichment_status", enrichment);
     if (review === "true")  q = q.eq("needs_review", true);
     if (review === "false") q = q.eq("needs_review", false);

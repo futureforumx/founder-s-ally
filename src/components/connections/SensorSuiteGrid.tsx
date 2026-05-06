@@ -39,7 +39,7 @@ const BRAND_ICONS: Record<string, string> = {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Linkedin, Twitter, CheckCircle2, Lock,
-  Shield, RefreshCw, Sparkles, AlertCircle,
+  Shield, RefreshCw, AlertCircle,
   Users, Network, TrendingUp, BarChart3, X as XIcon,
   Settings2, Activity, Check, CreditCard, BookOpen, FileText,
   MessageSquare, Contact, Layers, Video, MonitorSmartphone, Hash,
@@ -47,7 +47,7 @@ import {
   Table2, PieChart, ShoppingCart, DollarSign, Wallet, Banknote,
   Zap, GitBranch, Workflow, Repeat2,
   MailOpen, Palette, Megaphone,
-  LineChart, Eye, UserCheck, Search, Download,
+  LineChart, Eye, UserCheck, Search,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -56,16 +56,9 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { requestAppNavigate } from "@/lib/appShellNavigate";
 import {
-  buildLiveOpportunities,
-  buildNetworkIntelligenceHeader,
-  buildUnlockAccessCards,
   getIntegrationOutcomePresentation,
   NETWORK_INTELLIGENCE_COPY,
 } from "@/lib/networkIntelligenceViewModel";
-import { NetworkIntelligenceHeader } from "@/components/connections/network-intelligence/NetworkIntelligenceHeader";
-import { LiveOpportunitiesPanel } from "@/components/connections/network-intelligence/LiveOpportunitiesPanel";
-import { NetworkMapPreview } from "@/components/connections/network-intelligence/NetworkMapPreview";
-import { UnlockMoreAccessSection } from "@/components/connections/network-intelligence/UnlockMoreAccessSection";
 import { useActiveContext } from "@/context/ActiveContext";
 import {
   ACTIVE_OWNER_CONTEXT_STORAGE_KEY,
@@ -82,6 +75,7 @@ import {
 import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
 import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
 import { notifyConnectorsUpdated } from "@/lib/connectorStorageEvents";
+import { cn } from "@/lib/utils";
 
 // ── Types ──
 export type SourceKey =
@@ -614,24 +608,19 @@ const FILTER_CATEGORIES: { key: FilterCategory; label: string }[] = [
 
 interface SensorSuiteGridProps {
   compact?: boolean;
-  showHeader?: boolean;
   showTerminal?: boolean;
   showCategoryFilter?: boolean;
   /** Light app-store style layout: pill filters, 3-column cards, teal CTAs */
   integrationCatalogMode?: boolean;
-  /** When false, omit Network Intelligence + Live opportunities (parent renders). Default true. */
-  showIntelligenceSummary?: boolean;
 }
 
 export function SensorSuiteGrid({
   compact = false,
-  showHeader = true,
   showTerminal = true,
   showCategoryFilter = false,
   integrationCatalogMode = false,
-  showIntelligenceSummary = true,
 }: SensorSuiteGridProps) {
-  const { activeContextId, activeContextLabel, canManageConnectorIntegrations } = useActiveContext();
+  const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
   const { getAccessToken: getToken } = useAuth();
   const queryClient = useQueryClient();
   const { data: remoteAccounts = [], isFetched: remoteAccountsFetched } = useConnectedAccounts(activeContextId);
@@ -691,8 +680,6 @@ export function SensorSuiteGrid({
 
   const connectedCount = ALL_KEYS.filter((k) => connected[k]).length;
   const serverAccountCount = remoteAccounts.length;
-  const showContextEmptyHint =
-    connectedCount === 0 && remoteAccountsFetched && isOwnerContextUuid(activeContextId) && serverAccountCount === 0;
 
   const handleConnect = useCallback(async (key: SourceKey) => {
     if (activeConnect) return;
@@ -798,31 +785,6 @@ export function SensorSuiteGrid({
     setDisconnectTarget(null);
   }, [disconnectTarget, activeContextId, connected, getToken, queryClient, canManageConnectorIntegrations]);
 
-  const intelligenceFlags = useMemo(
-    () => ({
-      totalConnected: connectedCount,
-      google: connected.google,
-      linkedin: connected.linkedin,
-      notion: connected.notion,
-    }),
-    [connected, connectedCount],
-  );
-
-  const headerModel = useMemo(() => buildNetworkIntelligenceHeader(intelligenceFlags), [intelligenceFlags]);
-
-  const liveOpportunities = useMemo(() => buildLiveOpportunities(intelligenceFlags), [intelligenceFlags]);
-
-  const unlockCardsResolved = useMemo(
-    () =>
-      buildUnlockAccessCards(connected as Record<string, boolean>).map((c) => ({
-        ...c,
-        iconUrl: SOURCES.find((s) => s.key === (c.key as SourceKey))?.customIcon,
-        onConnect: () => handleConnect(c.key as SourceKey),
-        disabled: activeConnect !== null || !canManageConnectorIntegrations,
-      })),
-    [connected, activeConnect, handleConnect, canManageConnectorIntegrations],
-  );
-
   function formatLastSynced(iso: string | null): string {
     if (!iso) return "Never";
     const diff = Date.now() - new Date(iso).getTime();
@@ -840,12 +802,14 @@ export function SensorSuiteGrid({
     sensorId,
     sensorName,
     displayIcon,
+    catalogStyle = false,
   }: {
     source: SourceConfig;
     index: number;
     sensorId: string;
     sensorName: string;
     displayIcon?: string;
+    catalogStyle?: boolean;
   }) {
     const Icon = source.icon;
     const isConnected = connected[source.key];
@@ -866,6 +830,118 @@ export function SensorSuiteGrid({
     useEffect(() => {
       setIconLoadFailed(false);
     }, [displayIcon]);
+
+    const catalogMetric =
+      source.connectedStats[0]?.value ??
+      source.liveStats.split(/[·•]/)[0]?.trim() ??
+      "—";
+
+    if (catalogStyle) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.04 }}
+          className="flex h-full flex-col overflow-hidden rounded-xl border border-[#e5e5ea] bg-[#fafafa] shadow-sm dark:border-border dark:bg-card"
+        >
+          <div className="flex items-start justify-between gap-3 p-4 pb-2">
+            <div
+              className={cn(
+                "relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl",
+                "bg-gradient-to-br from-white via-white to-neutral-100/95",
+                "shadow-[0_4px_18px_-10px_rgba(15,23,42,0.22),inset_0_1px_0_rgba(255,255,255,0.95)]",
+                "ring-1 ring-neutral-900/[0.06]",
+                "dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-950",
+                "dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_22px_-12px_rgba(0,0,0,0.65)]",
+                "dark:ring-white/[0.09]",
+              )}
+            >
+              {displayIcon && !iconLoadFailed ? (
+                <img
+                  key={sensorId}
+                  src={displayIcon}
+                  alt=""
+                  className="relative z-10 h-7 w-7 object-contain drop-shadow-[0_2px_6px_rgba(15,23,42,0.08)] dark:drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+                  onError={() => setIconLoadFailed(true)}
+                />
+              ) : null}
+              {displayIcon && iconLoadFailed && isGoogleSensor ? (
+                <div
+                  className="relative z-10 flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[hsl(239_100%_62%)] to-[hsl(239_85%_52%)] text-[11px] font-black text-white shadow-inner shadow-white/15 ring-1 ring-white/20"
+                >
+                  G
+                </div>
+              ) : null}
+              {(!displayIcon || (iconLoadFailed && !isGoogleSensor)) ? (
+                <Icon
+                  className="relative z-10 h-6 w-6 stroke-[1.35] text-neutral-500 dark:text-neutral-400"
+                  aria-hidden
+                />
+              ) : null}
+            </div>
+            <div className="flex items-center gap-1 text-[#8e8e93] dark:text-muted-foreground">
+              <BarChart3 className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+              <span className="max-w-[7rem] truncate text-[11px] font-semibold tabular-nums">{catalogMetric}</span>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 px-4 pb-3">
+            <h3 className="text-[15px] font-bold leading-tight text-[#1c1c1e] dark:text-foreground">{source.label}</h3>
+            <p className="mt-1.5 text-[13px] leading-snug text-[#636366] dark:text-muted-foreground">{source.description}</p>
+          </div>
+          <div className="mt-auto border-t border-[#ececef] p-4 pt-3 dark:border-border">
+            {isSyncing ? (
+              <Button
+                type="button"
+                disabled
+                className="h-10 w-full cursor-wait rounded-lg border border-[#e0e0e4] bg-white text-[13px] font-semibold text-[#636366] dark:border-border dark:bg-muted"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className="mr-2 inline-block h-4 w-4 border-2 border-[#d0d0d4] border-t-[#34b878] rounded-full"
+                />
+                Installing…
+              </Button>
+            ) : !isConnected ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full rounded-lg border-violet-500/55 bg-transparent text-[10px] font-normal uppercase tracking-[0.22em] text-violet-700 shadow-none hover:bg-violet-500/[0.06] hover:text-violet-800 dark:border-violet-400/50 dark:text-violet-300 dark:hover:bg-violet-500/10 dark:hover:text-violet-200"
+                onClick={() => handleConnect(source.key)}
+                disabled={activeConnect !== null || !canManageConnectorIntegrations}
+                title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
+              >
+                <RefreshCw className="mr-2 h-3.5 w-3.5 opacity-80" strokeWidth={2} />
+                SYNC
+              </Button>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 flex-1 rounded-lg border-[#d8d8dc] text-[13px] font-medium dark:border-border"
+                  onClick={() => handleResync(source.key)}
+                  disabled={activeConnect !== null || !canManageConnectorIntegrations}
+                  title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
+                >
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  Sync
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 flex-1 rounded-lg border border-destructive/25 text-[13px] font-medium text-destructive hover:bg-destructive/5"
+                  onClick={() => setDisconnectTarget(source.key)}
+                  disabled={!canManageConnectorIntegrations}
+                >
+                  Remove
+                </Button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      );
+    }
 
     if (compact) {
       return (
@@ -1120,7 +1196,6 @@ export function SensorSuiteGrid({
                 >
                   {source.connectLabel}
                 </Button>
-                {source.note && <p className="text-[10px] text-muted-foreground/50 font-mono">{source.note}</p>}
               </div>
             )}
             {isConnected && !isSyncing && (
@@ -1224,15 +1299,10 @@ export function SensorSuiteGrid({
       </AnimatePresence>
 
       <div className="space-y-6">
-        {/* Intelligence header + live opportunities */}
-        {showHeader && (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_min(360px,100%)] xl:items-stretch">
-            <NetworkIntelligenceHeader model={headerModel} />
-            <LiveOpportunitiesPanel opportunities={liveOpportunities} />
-          </div>
-        )}
-
-        {isOwnerContextUuid(activeContextId) && remoteAccountsFetched && serverAccountCount > 0 && (
+        {isOwnerContextUuid(activeContextId) &&
+          remoteAccountsFetched &&
+          serverAccountCount > 0 &&
+          !integrationCatalogMode && (
           <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
             <span className="font-medium text-foreground">{serverAccountCount}</span> linked account
             {serverAccountCount === 1 ? "" : "s"} in Supabase for this context
@@ -1244,42 +1314,83 @@ export function SensorSuiteGrid({
           </div>
         )}
 
-        {showContextEmptyHint && (
-          <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-            No connectors linked for this context yet.
+        {/* Search + Category Filter — catalog (integrations page) */}
+        {showCategoryFilter && integrationCatalogMode && (
+          <div className="space-y-5">
+            <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-xl bg-[#e8e8ed] p-1.5 touch-pan-x dark:bg-muted/50 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mx-auto flex w-max min-w-full flex-nowrap justify-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCatalogFilter("all")}
+                  className={cn(
+                    "shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-[13px] font-medium transition-all",
+                    catalogFilter === "all"
+                      ? "bg-white text-[#1c1c1e] shadow-sm dark:bg-background dark:text-foreground"
+                      : "text-[#636366] hover:text-[#1c1c1e] dark:text-muted-foreground dark:hover:text-foreground",
+                  )}
+                >
+                  All
+                </button>
+                {FILTER_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setCatalogFilter(cat.key)}
+                    className={cn(
+                      "shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-[12px] font-medium transition-all sm:px-4 sm:text-[13px]",
+                      catalogFilter === cat.key
+                        ? "bg-white text-[#1c1c1e] shadow-sm dark:bg-background dark:text-foreground"
+                        : "text-[#636366] hover:text-[#1c1c1e] dark:text-muted-foreground dark:hover:text-foreground",
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8e8e93] dark:text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find an integration…"
+                className="h-10 w-full rounded-xl border border-[#e5e5ea] bg-white pl-10 pr-3 text-[13px] text-[#1c1c1e] placeholder:text-[#8e8e93] shadow-sm focus:border-[#34b878]/50 focus:outline-none focus:ring-2 focus:ring-[#34b878]/20 dark:border-border dark:bg-background dark:text-foreground"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {SOURCES.filter((s) => {
+                if (searchQuery.trim()) {
+                  return s.label.toLowerCase().includes(searchQuery.trim().toLowerCase());
+                }
+                if (catalogFilter === "all") return true;
+                return s.filterCategories.includes(catalogFilter);
+              }).map((source, i) => {
+                const sensor = { id: String(source.key), name: source.label, icon_url: source.customIcon };
+                const displayIcon =
+                  sensor.id === "google_workspace" || sensor.name?.toLowerCase().includes("google")
+                    ? "https://cdn.simpleicons.org/googleworkspace/4285F4"
+                    : sensor.icon_url;
+                return (
+                  <SensorCard
+                    key={source.key}
+                    catalogStyle
+                    source={source}
+                    index={i}
+                    sensorId={sensor.id}
+                    sensorName={sensor.name}
+                    displayIcon={displayIcon}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Empty State */}
-        {connectedCount === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="rounded-2xl border border-dashed border-border bg-secondary/30 p-12 flex flex-col items-center justify-center text-center"
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 border border-accent/20 mb-4">
-              <Sparkles className="h-7 w-7 text-accent" />
-            </div>
-            <h3 className="text-lg font-bold text-foreground mb-1">Unlock intro intelligence</h3>
-            <p className="text-sm text-muted-foreground max-w-xs mb-6">
-              Connect Gmail or LinkedIn to map relationships and warm paths. Integrations are scoped to{" "}
-              <span className="font-medium text-foreground/90">{activeContextLabel}</span>.
-            </p>
-            <Button
-              size="sm"
-              onClick={() => handleConnect("google")}
-              disabled={activeConnect !== null || !canManageConnectorIntegrations}
-              title={!canManageConnectorIntegrations ? CONNECTOR_MANAGE_DENIED_MESSAGE : undefined}
-              className="rounded-lg text-sm font-semibold h-10 px-6 bg-accent text-accent-foreground hover:bg-accent/90 transition-all"
-            >
-              Connect Google
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Search + Category Filter */}
-        {showCategoryFilter && (
+        {/* Search + Category Filter — settings / legacy */}
+        {showCategoryFilter && !integrationCatalogMode && (
           <div className="space-y-4">
             {/* Search bar + filter dropdown row */}
             <div className="flex items-center gap-2 w-full">
@@ -1428,15 +1539,8 @@ export function SensorSuiteGrid({
           </>
         )}
 
-        {showHeader && (
-          <div className="space-y-5">
-            <UnlockMoreAccessSection cards={unlockCardsResolved} />
-            <NetworkMapPreview />
-          </div>
-        )}
-
         {/* Live Traffic Terminal */}
-        {showTerminal && connectedCount >= 1 && (
+        {showTerminal && !integrationCatalogMode && connectedCount >= 1 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl border border-border bg-card p-5 overflow-hidden">
             <div className="flex items-center gap-2 mb-4">
               <motion.div className="h-2 w-2 rounded-full bg-success" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
@@ -1455,10 +1559,17 @@ export function SensorSuiteGrid({
         )}
 
         {/* Footer */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center justify-center gap-2 rounded-xl bg-secondary/50 border border-border p-4">
-          <Lock className="h-3.5 w-3.5 text-muted-foreground/40" />
-          <p className="text-[11px] text-muted-foreground/60">🔒 Read-only access · AES-256 encrypted · Never shared</p>
-        </motion.div>
+        {!integrationCatalogMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="flex items-center justify-center gap-2 rounded-xl bg-secondary/50 border border-border p-4"
+          >
+            <Lock className="h-3.5 w-3.5 text-muted-foreground/40" />
+            <p className="text-[11px] text-muted-foreground/60">🔒 Read-only access · AES-256 encrypted · Never shared</p>
+          </motion.div>
+        )}
       </div>
     </div>
   );

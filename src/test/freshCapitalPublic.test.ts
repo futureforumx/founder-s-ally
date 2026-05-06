@@ -12,11 +12,69 @@ import {
   formatFundSizeUsd,
   fundNameForDisplay,
   geographyFocusForDisplay,
+  mergeSorohanLinkedinMay2026CuratedFreshCapitalRows,
   normalizeGeoFocusDisplayChip,
   parseFreshCapitalFundRow,
   sectorFocusForDisplay,
   stageFocusForDisplay,
 } from "@/lib/freshCapitalPublic";
+
+describe("mergeSorohanLinkedinMay2026CuratedFreshCapitalRows", () => {
+  it("adds sixteen curated VC rows when RPC returns none", () => {
+    expect(mergeSorohanLinkedinMay2026CuratedFreshCapitalRows([], "all", null)).toHaveLength(16);
+  });
+
+  it("skips overlays when canonical RPC already carries the firm (case + alias tolerant)", () => {
+    const base = mergeSorohanLinkedinMay2026CuratedFreshCapitalRows([], "all", null);
+    expect(base.some((r) => r.firm_name === "Mantis Venture Capital")).toBe(true);
+    const withDup = mergeSorohanLinkedinMay2026CuratedFreshCapitalRows(
+      [
+        parseFreshCapitalFundRow({
+          vc_fund_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          firm_record_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          firm_name: "mantis",
+          fund_name: "Fund IV",
+          fund_type: null,
+          fund_sequence_number: null,
+          vintage_year: 2027,
+          announced_date: "2027-01-01",
+          close_date: null,
+          target_size_usd: null,
+          final_size_usd: null,
+          status: null,
+          source_confidence: 0.5,
+          announcement_url: null,
+          announcement_title: null,
+          stage_focus: ["Seed"],
+          sector_focus: ["AI"],
+          geography_focus: null,
+          has_fresh_capital: true,
+          fresh_capital_priority_score: 0.99,
+          likely_actively_deploying: true,
+          firm_logo_url: null,
+          firm_domain: null,
+          firm_location: null,
+          firm_website_url: null,
+          firm_aum_usd: null,
+        })!,
+      ],
+      "all",
+      null,
+    );
+    expect(withDup.filter((r) => sorohanOverlayMantisOrMantisVp(r.firm_name)).length).toBe(1);
+  });
+
+  it("respects Seed tab overlap with stage_focus (∧ same rule as RPC)", () => {
+    const onlySeed = mergeSorohanLinkedinMay2026CuratedFreshCapitalRows([], "seed", null);
+    expect(onlySeed.length).toBeGreaterThan(0);
+    expect(onlySeed.every((r) => (r.stage_focus ?? []).includes("Seed"))).toBe(true);
+  });
+});
+
+function sorohanOverlayMantisOrMantisVp(name: string): boolean {
+  const k = name.toLowerCase();
+  return k.includes("mantis");
+}
 
 describe("geographyFocusForDisplay", () => {
   it("shows Europe for Credo Ventures (display override)", () => {

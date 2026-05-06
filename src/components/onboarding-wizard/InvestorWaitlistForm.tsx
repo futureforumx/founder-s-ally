@@ -4,7 +4,7 @@ import { Briefcase, ArrowRight, Loader2, CheckCircle2, Mail } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { submitInvestorWaitlistSignup } from "@/lib/investorWaitlistEdge";
 
 export function InvestorWaitlistForm() {
   const [firstName, setFirstName] = useState("");
@@ -29,10 +29,17 @@ export function InvestorWaitlistForm() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.functions.invoke("investor-waitlist", {
-        body: { firstName: firstName.trim(), lastName: lastName.trim(), firm: firm.trim(), email: email.trim() },
+      const res = await submitInvestorWaitlistSignup({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        firm: firm.trim(),
+        email: email.trim(),
+        signupContext: "onboarding_waitlist",
       });
-      if (error) throw error;
+      if (res.ok === false) {
+        toast({ variant: "destructive", title: "Something went wrong", description: res.message });
+        return;
+      }
       setSubmitted(true);
     } catch (err) {
       console.error(err);

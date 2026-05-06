@@ -1221,7 +1221,7 @@ export function AdminFirmRecords() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
-          <Input placeholder="Search firms…" value={search} onChange={e => setSearch(e.target.value)}
+          <Input placeholder="Search name / slug, or paste firm record UUID…" value={search} onChange={e => setSearch(e.target.value)}
             className="h-8 pl-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }} />
         </div>
         <Select value={filterEnrich} onValueChange={v => { setFilterEnrich(v); setPage(0); }}>

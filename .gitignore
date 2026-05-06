@@ -71,6 +71,10 @@ data/enrichment-logs/
 data/enrichment-evidence/
 data/tracxn-auth.json
 data/cbi-auth.json
+# YC bulk export (yc-oss JSON + optional founder HTML scrape output)
+data/yc-export/
+# Work at a Startup ↔ YC linker exports
+data/waas-export/
 .aidesigner/*
 !.aidesigner/.gitkeep
 

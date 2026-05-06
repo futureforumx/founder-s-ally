@@ -816,6 +816,472 @@ export function aggregateSectorHeatmap(rows: FreshCapitalFundRow[], topN = 8): H
   });
 }
 
+/**
+ * Guarantee firms from Andrew Sorohan’s early‑2026 LinkedIn roundup appear on `/fresh-capital` when absent
+ * from `get_new_vc_funds` (RPC limit, ingestion lag, filters). Rows are additive only; canonical DB wins on name match.
+ * @see https://www.linkedin.com/posts/andrew-sorohan-140086236_if-youre-an-early-stage-founder-raising-share-7457575134371938304-zPcK
+ */
+function sorohanRoundup2026CanonicalFirmKey(raw: string): string {
+  let k = raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\./g, "");
+  const aliases: Record<string, string> = {
+    antifund: "anti fund",
+    "anti funds": "anti fund",
+    mantis: "mantis venture capital",
+    "the chainsmokers": "mantis venture capital",
+    "pax vc": "pax ventures",
+  };
+  return aliases[k] ?? k;
+}
+
+function curatedFreshCapitalRowPassesStage(row: FreshCapitalFundRow, stage: FreshCapitalStageFilter): boolean {
+  if (stage === "all") return true;
+  const need = new Set(stageFilterToRpcArray(stage) ?? []);
+  return (row.stage_focus ?? []).some((t) => need.has(t));
+}
+
+function curatedFreshCapitalRowPassesSector(row: FreshCapitalFundRow, sector: string | null): boolean {
+  const s = sector?.trim();
+  if (!s) return true;
+  return (row.sector_focus ?? []).some((tag) => tag === s);
+}
+
+/** Fixed synthetic ids (non‑DB) so merged rows stay stable and never collide with real UUID columns in normal use. */
+function sorohanCuratedIds(index1: number): { firm_id: string; fund_id: string } {
+  const hex = index1.toString(16).padStart(2, "0");
+  return {
+    firm_id: `b00b1e10-2026-4060-a000-0000000000${hex}`,
+    fund_id: `b00b1e10-2026-4060-b000-0000000000${hex}`,
+  };
+}
+
+const SOROHAN_LINKEDIN_MAY2026_CURATED_FUNDS: FreshCapitalFundRow[] = (() => {
+  const mk = (
+    i: number,
+    args: Omit<FreshCapitalFundRow, "vc_fund_id" | "firm_record_id"> & {
+      has_fresh_capital?: boolean | null;
+      likely_actively_deploying?: boolean | null;
+    },
+  ): FreshCapitalFundRow => {
+    const { firm_id, fund_id } = sorohanCuratedIds(i);
+    return {
+      ...args,
+      vc_fund_id: fund_id,
+      firm_record_id: firm_id,
+      has_fresh_capital: args.has_fresh_capital ?? true,
+      likely_actively_deploying: args.likely_actively_deploying ?? true,
+    };
+  };
+
+  return [
+    mk(1, {
+      firm_name: "2048 Ventures",
+      fund_name: "Fund III",
+      fund_type: "venture",
+      fund_sequence_number: 3,
+      vintage_year: 2026,
+      announced_date: "2026-01-15",
+      close_date: "2026-01-15",
+      target_size_usd: null,
+      final_size_usd: 82_000_000,
+      status: "final_close",
+      source_confidence: 0.55,
+      announcement_url: "https://www.2048.vc/blog/2048-ventures-fund-iii",
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["AI", "Enterprise", "Healthcare", "Deep Tech"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.86,
+      firm_logo_url: null,
+      firm_domain: "2048.vc",
+      firm_location: "New York, NY, US",
+      firm_website_url: "https://2048.vc",
+      firm_aum_usd: null,
+    }),
+    mk(2, {
+      firm_name: "Afore Capital",
+      fund_name: "Pre-seed flagship fund",
+      fund_type: "venture",
+      fund_sequence_number: null,
+      vintage_year: 2026,
+      announced_date: "2026-01-20",
+      close_date: null,
+      target_size_usd: null,
+      final_size_usd: null,
+      status: "announced",
+      source_confidence: 0.5,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Enterprise", "AI"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.84,
+      firm_logo_url: null,
+      firm_domain: "afore.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://afore.vc",
+      firm_aum_usd: null,
+    }),
+    mk(3, {
+      firm_name: "Anti Fund",
+      fund_name: "Fund I",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2025,
+      announced_date: "2025-12-01",
+      close_date: "2025-12-01",
+      target_size_usd: null,
+      final_size_usd: 30_000_000,
+      status: "final_close",
+      source_confidence: 0.55,
+      announcement_url:
+        "https://refreshmiami.com/news/anti-fund-closes-30m-fund-i-adds-logan-paul-as-general-partner/",
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["AI", "Consumer", "Robotics"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.83,
+      firm_logo_url: null,
+      firm_domain: "antifund.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://antifund.vc",
+      firm_aum_usd: null,
+    }),
+    mk(4, {
+      firm_name: "basecase capital",
+      fund_name: "Fund III",
+      fund_type: "venture",
+      fund_sequence_number: 3,
+      vintage_year: 2026,
+      announced_date: "2026-03-01",
+      close_date: null,
+      target_size_usd: null,
+      final_size_usd: null,
+      status: "inferred_active",
+      source_confidence: 0.48,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Enterprise"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.8,
+      firm_logo_url: null,
+      firm_domain: "basecase.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://basecase.vc",
+      firm_aum_usd: null,
+    }),
+    mk(5, {
+      firm_name: "Haun Ventures",
+      fund_name: "New crypto + AI agent funds",
+      fund_type: "venture",
+      fund_sequence_number: null,
+      vintage_year: 2026,
+      announced_date: "2026-05-01",
+      close_date: null,
+      target_size_usd: 1_000_000_000,
+      final_size_usd: null,
+      status: "announced",
+      source_confidence: 0.5,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A", "Growth"],
+      sector_focus: ["Crypto", "AI"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.9,
+      firm_logo_url: null,
+      firm_domain: "haun.co",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://haun.co",
+      firm_aum_usd: null,
+    }),
+    mk(6, {
+      firm_name: "Haystack",
+      fund_name: "Fund VIII (+ Needles III)",
+      fund_type: "venture",
+      fund_sequence_number: 8,
+      vintage_year: 2026,
+      announced_date: "2026-02-01",
+      close_date: null,
+      target_size_usd: 85_000_000,
+      final_size_usd: null,
+      status: "announced",
+      source_confidence: 0.5,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Enterprise", "Consumer", "AI"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.87,
+      firm_logo_url: null,
+      firm_domain: "haystack.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://haystack.vc",
+      firm_aum_usd: null,
+    }),
+    mk(7, {
+      firm_name: "Hummingbird Ventures",
+      fund_name: "Fund V",
+      fund_type: "venture",
+      fund_sequence_number: 5,
+      vintage_year: 2026,
+      announced_date: "2026-03-16",
+      close_date: null,
+      target_size_usd: 800_000_000,
+      final_size_usd: null,
+      status: "announced",
+      source_confidence: 0.52,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A", "Growth"],
+      sector_focus: ["AI", "Consumer", "Enterprise"],
+      geography_focus: ["Global"],
+      fresh_capital_priority_score: 0.92,
+      firm_logo_url: null,
+      firm_domain: "hummingbird.vc",
+      firm_location: "London, U.K.",
+      firm_website_url: "https://hummingbird.vc",
+      firm_aum_usd: 1_200_000_000,
+    }),
+    mk(8, {
+      firm_name: "Mantis Venture Capital",
+      fund_name: "Fund III",
+      fund_type: "venture",
+      fund_sequence_number: 3,
+      vintage_year: 2025,
+      announced_date: "2025-07-15",
+      close_date: "2025-07-15",
+      target_size_usd: null,
+      final_size_usd: 100_000_000,
+      status: "final_close",
+      source_confidence: 0.52,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["AI", "B2B", "Consumer"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.85,
+      firm_logo_url: null,
+      firm_domain: "mantisvc.com",
+      firm_location: "Los Angeles, CA, US",
+      firm_website_url: "https://mantisvc.com",
+      firm_aum_usd: 225_000_000,
+    }),
+    mk(9, {
+      firm_name: "Mighty Capital",
+      fund_name: "Fund III",
+      fund_type: "venture",
+      fund_sequence_number: 3,
+      vintage_year: 2026,
+      announced_date: "2026-04-01",
+      close_date: "2026-04-01",
+      target_size_usd: null,
+      final_size_usd: 91_000_000,
+      status: "final_close",
+      source_confidence: 0.52,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["Enterprise", "B2B"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.85,
+      firm_logo_url: null,
+      firm_domain: "mighty.capital",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://mighty.capital",
+      firm_aum_usd: null,
+    }),
+    mk(10, {
+      firm_name: "Mischief",
+      fund_name: "Fund II",
+      fund_type: "venture",
+      fund_sequence_number: 2,
+      vintage_year: 2026,
+      announced_date: "2026-02-15",
+      close_date: null,
+      target_size_usd: null,
+      final_size_usd: 80_000_000,
+      status: "announced",
+      source_confidence: 0.5,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["Enterprise", "Software"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.84,
+      firm_logo_url: null,
+      firm_domain: "mischief.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://mischief.vc",
+      firm_aum_usd: null,
+    }),
+    mk(11, {
+      firm_name: "Modern Technical Fund",
+      fund_name: "Debut fund",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2025,
+      announced_date: "2025-04-15",
+      close_date: "2025-04-15",
+      target_size_usd: null,
+      final_size_usd: 22_000_000,
+      status: "final_close",
+      source_confidence: 0.52,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Infrastructure", "Security", "Developer Tools"],
+      geography_focus: ["North America", "Israel"],
+      fresh_capital_priority_score: 0.82,
+      firm_logo_url: null,
+      firm_domain: "moderntechnicalfund.com",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://moderntechnicalfund.com",
+      firm_aum_usd: null,
+    }),
+    mk(12, {
+      firm_name: "Pax Ventures",
+      fund_name: "Fund I",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2026,
+      announced_date: "2026-03-09",
+      close_date: null,
+      target_size_usd: 50_000_000,
+      final_size_usd: null,
+      status: "announced",
+      source_confidence: 0.52,
+      announcement_url: "https://www.newcomer.co/p/exclusive-ex-a16z-partner-michelle",
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Industrial", "Defense", "Energy", "AI"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.84,
+      firm_logo_url: null,
+      firm_domain: "pax.vc",
+      firm_location: "Pacifica, CA, US",
+      firm_website_url: "https://pax.vc",
+      firm_aum_usd: null,
+    }),
+    mk(13, {
+      firm_name: "Precursor Ventures",
+      fund_name: "Fund V",
+      fund_type: "venture",
+      fund_sequence_number: 5,
+      vintage_year: 2025,
+      announced_date: "2025-04-10",
+      close_date: "2025-04-10",
+      target_size_usd: null,
+      final_size_usd: 66_000_000,
+      status: "final_close",
+      source_confidence: 0.55,
+      announcement_url: null,
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["Enterprise", "Consumer", "AI"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.86,
+      firm_logo_url: null,
+      firm_domain: "precursorvc.com",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://precursorvc.com",
+      firm_aum_usd: null,
+    }),
+    mk(14, {
+      firm_name: "Seven Stars",
+      fund_name: "Debut fund",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2025,
+      announced_date: "2025-06-11",
+      close_date: "2025-06-11",
+      target_size_usd: null,
+      final_size_usd: 40_000_000,
+      status: "final_close",
+      source_confidence: 0.55,
+      announcement_url: "https://fortune.com/2025/06/11/term-sheet-next-steven-lee-an-sv-angel-alum-launches-seven-stars-with-40-million-vc-fund-for-seed-and-pre-seed-ai-startups/",
+      announcement_title: null,
+      stage_focus: ["Pre-Seed", "Seed"],
+      sector_focus: ["AI", "Consumer", "Enterprise"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.83,
+      firm_logo_url: null,
+      firm_domain: "sevenstars.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://sevenstars.vc",
+      firm_aum_usd: null,
+    }),
+    mk(15, {
+      firm_name: "Striker Venture Partners",
+      fund_name: "Fund I",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2025,
+      announced_date: "2025-10-01",
+      close_date: "2025-10-01",
+      target_size_usd: null,
+      final_size_usd: 165_000_000,
+      status: "final_close",
+      source_confidence: 0.55,
+      announcement_url: "https://startupwired.com/2025/10/01/striker-venture-partners-launches-with-165-million-fund/",
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["AI", "Cybersecurity"],
+      geography_focus: ["North America", "Israel"],
+      fresh_capital_priority_score: 0.87,
+      firm_logo_url: null,
+      firm_domain: "striker.vc",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://striker.vc",
+      firm_aum_usd: null,
+    }),
+    mk(16, {
+      firm_name: "Zero Shot Fund",
+      fund_name: "Debut fund",
+      fund_type: "venture",
+      fund_sequence_number: 1,
+      vintage_year: 2026,
+      announced_date: "2026-04-08",
+      close_date: null,
+      target_size_usd: 100_000_000,
+      final_size_usd: 20_000_000,
+      status: "first_close",
+      source_confidence: 0.52,
+      announcement_url: "https://techfundingnews.com/zero-shot-20m-vc-fund-openai-alumni/",
+      announcement_title: null,
+      stage_focus: ["Seed", "Series A"],
+      sector_focus: ["AI", "Robotics", "Energy"],
+      geography_focus: ["North America"],
+      fresh_capital_priority_score: 0.88,
+      firm_logo_url: null,
+      firm_domain: "zeroshotfund.com",
+      firm_location: "San Francisco, CA, US",
+      firm_website_url: "https://zeroshotfund.com",
+      firm_aum_usd: null,
+    }),
+  ];
+})();
+
+/** Fills Sorohan roundup picks when canonical `vc_funds` misses them — exported only for Vitest (`freshCapitalPublic.test.ts`). */
+export function mergeSorohanLinkedinMay2026CuratedFreshCapitalRows(
+  rpcRows: FreshCapitalFundRow[],
+  stage: FreshCapitalStageFilter,
+  sector: string | null,
+): FreshCapitalFundRow[] {
+  const existing = new Set(rpcRows.map((r) => sorohanRoundup2026CanonicalFirmKey(r.firm_name)));
+  const adds: FreshCapitalFundRow[] = [];
+  for (const row of SOROHAN_LINKEDIN_MAY2026_CURATED_FUNDS) {
+    if (existing.has(sorohanRoundup2026CanonicalFirmKey(row.firm_name))) continue;
+    if (!curatedFreshCapitalRowPassesStage(row, stage)) continue;
+    if (!curatedFreshCapitalRowPassesSector(row, sector)) continue;
+    adds.push(row);
+  }
+  return adds.length ? [...rpcRows, ...adds] : rpcRows;
+}
+
 const DEMO_FUNDS: FreshCapitalFundRow[] = [
   {
     vc_fund_id: "00000000-0000-4000-8000-000000000001",
@@ -1038,6 +1504,7 @@ export async function fetchFreshCapitalLive(input: {
     if (input.sector) {
       funds = funds.filter((f) => (f.sector_focus ?? []).includes(input.sector));
     }
+    funds = mergeSorohanLinkedinMay2026CuratedFreshCapitalRows(funds, input.stage, input.sector);
     return {
       funds: sortFreshCapitalRows(funds),
       heatmapFromRpc: null,
@@ -1070,7 +1537,8 @@ export async function fetchFreshCapitalLive(input: {
   }
 
   const parsed = (fundsRes.data ?? []).map(parseFreshCapitalFundRow).filter((x): x is FreshCapitalFundRow => Boolean(x));
-  const hydrated = await hydrateFreshCapitalRowsWithFirmRecords(parsed);
+  const merged = mergeSorohanLinkedinMay2026CuratedFreshCapitalRows(parsed, input.stage, input.sector);
+  const hydrated = await hydrateFreshCapitalRowsWithFirmRecords(merged);
   // Canonical RPC rows remain displayable even when announced/close dates are sparse; the UI
   // already degrades safely to "—" for date cells, so do not drop fresh-capital rows here.
   const funds = sortFreshCapitalRows(hydrated);

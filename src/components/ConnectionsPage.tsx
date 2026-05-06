@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import type { CompanyData, AnalysisResult } from "@/components/company-profile/types";
 import { IntroPathfinder } from "@/components/dashboard/investor-detail/IntroPathfinder";
 import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
-import { ConnectorContextBanner } from "@/components/ConnectorContextBanner";
 import { NetworkGraph } from "@/components/connections/NetworkGraph";
 
 const CommunityView = lazy(() =>
@@ -345,8 +344,7 @@ export function ConnectionsPage({
       {/* Intelligence Sensor Suite */}
       <div>
         <p className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Intelligence Sensor Suite</p>
-        <ConnectorContextBanner className="mb-3" />
-        <SensorSuiteGrid showHeader={true} showTerminal={true} />
+        <SensorSuiteGrid showTerminal={true} />
       </div>
 
       {/* Founder Experiences */}

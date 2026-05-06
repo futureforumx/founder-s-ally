@@ -5,13 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Fresh Capital / fundraising page — NOTIFY ME subscriptions (Loops mailing list ID). */
+const LOOPS_FUNDRAISING_NOTIFY_LIST_ID = "cmoth451907f70i3f3exm618d";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { firstName, lastName, firm, email } = await req.json();
+    const body = await req.json();
+    const { firstName, lastName, firm, email, signupContext } = body;
     const cleanEmail = String(email ?? "").trim().toLowerCase();
     const cleanFirstName = String(firstName ?? "").trim();
     const cleanLastName = String(lastName ?? "").trim();
@@ -42,15 +46,33 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const payload = {
-      email: cleanEmail,
-      firstName: cleanFirstName,
-      lastName: cleanLastName,
-      subscribed: true,
-      userGroup: "investor_waitlist",
-      firm: cleanFirm,
-      source: "onboarding_waitlist",
-    };
+    const ctxRaw = typeof signupContext === "string" ? signupContext.trim() : "";
+    const isFundraisingPage = ctxRaw === "fundraising_page";
+
+    const payload =
+      isFundraisingPage ?
+        ({
+          email: cleanEmail,
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          subscribed: true,
+          firm: cleanFirm,
+          source: "FUNDRAISING PAGE",
+          mailingLists: {
+            [LOOPS_FUNDRAISING_NOTIFY_LIST_ID]: true,
+          },
+          // Omit `userGroup` so onboarding’s investor cohort is never applied from this funnel.
+        } as Record<string, unknown>)
+      : ({
+          email: cleanEmail,
+          firstName: cleanFirstName,
+          lastName: cleanLastName,
+          subscribed: true,
+          userGroup: "investor_waitlist",
+          firm: cleanFirm,
+          source: "onboarding_waitlist",
+          // Onboarding funnel: do not add the fundraising NOTIFY ME list unless we pass this context intentionally.
+        } as Record<string, unknown>);
 
     const createRes = await fetch("https://app.loops.so/api/v1/contacts/create", {
       method: "POST",

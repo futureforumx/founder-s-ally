@@ -5,6 +5,18 @@ import { safeTrim } from "@/lib/utils";
 
 type SB = SupabaseClient<Database>;
 
+/** PostgREST PGRST202 / missing-RPC retry — match message, details, and code. */
+function searchFirmRecordsWrongRpcShape(error: { message?: string; code?: string; details?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST202") return true;
+  const t = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return (
+    t.includes("schema cache") ||
+    t.includes("could not find the function") ||
+    t.includes("does not exist")
+  );
+}
+
 /** Ranked `firm_records` rows (Supabase RPC `search_firm_records`). */
 export async function rpcSearchFirmRecords(
   query: string,
@@ -14,11 +26,16 @@ export async function rpcSearchFirmRecords(
 ): Promise<Record<string, unknown>[]> {
   const q = safeTrim(query);
   if (q.length < 2) return [];
-  const { data, error } = await client.rpc("search_firm_records", {
+  const legacyArgs = {
     p_query: q,
     p_limit: limit,
     p_ready_for_live: readyForLive,
-  });
+  };
+  // Hosted DBs often still expose `(text,int,bool)` — never call `{ args: jsonb }` first or PostgREST errors on every request.
+  let { data, error } = await client.rpc("search_firm_records", legacyArgs);
+  if (error && searchFirmRecordsWrongRpcShape(error)) {
+    ({ data, error } = await client.rpc("search_firm_records", { args: legacyArgs }));
+  }
   if (error) {
     console.warn("search_firm_records", error.message);
     return [];

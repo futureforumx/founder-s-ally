@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useVcFundSyncFreshness } from "@/hooks/useVcFundSyncFreshness";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -35,6 +44,8 @@ import {
   type HeatmapBucket,
 } from "@/lib/freshCapitalPublic";
 import { buildOutboundUrl } from "@/lib/outboundUrl";
+import { submitInvestorWaitlistSignup } from "@/lib/investorWaitlistEdge";
+import { toast } from "@/hooks/use-toast";
 
 /** Aligns live feed surfaces with `/access` (AccessRequestForm + “What happens next” card). */
 const ACCESS_CARD = cn(
@@ -311,9 +322,13 @@ function formatSyncTimestamp(iso: string): string {
   }
 }
 
-/** Dark analogue of CommunityView global tabs: `rounded-full border … bg-secondary/35 p-1`. */
+/** Stage tabs row inside the Latest funding filter bar. */
 const STAGE_SEGMENT_LIST = cn(
-  "inline-flex w-max flex-nowrap items-center gap-1 rounded-full border border-zinc-700/60 bg-zinc-900/35 p-1 shadow-sm backdrop-blur-sm",
+  "inline-flex w-max flex-nowrap items-center gap-1 rounded-none bg-transparent p-0",
+);
+
+const LATEST_FUNDING_FILTER_BAR = cn(
+  "rounded-md bg-slate-950 px-1.5 py-1 shadow-inner shadow-black/40",
 );
 
 const STAGE_TABS: { id: FreshCapitalStageFilter; label: string }[] = [
@@ -327,8 +342,8 @@ const STAGE_TABS: { id: FreshCapitalStageFilter; label: string }[] = [
 const SECTOR_SELECT_ALL = "__all_sectors__";
 
 const SECTOR_SELECT_TRIGGER = cn(
-  "h-[38px] min-w-[10.5rem] shrink-0 rounded-full border border-zinc-700/60 bg-zinc-900/35 px-3 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-[#eeeeee] shadow-sm backdrop-blur-sm ring-offset-black",
-  "focus:ring-2 focus:ring-zinc-500/50 focus:ring-offset-2 focus:ring-offset-black data-[placeholder]:text-[#b3b3b3]",
+  "h-8 min-w-[10.5rem] shrink-0 rounded-none border border-slate-700/70 bg-slate-900/70 px-2.5 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-[#eeeeee] shadow-sm ring-offset-slate-950",
+  "focus:ring-2 focus:ring-slate-500/45 focus:ring-offset-2 focus:ring-offset-slate-950 data-[placeholder]:text-[#b3b3b3]",
 );
 
 const SECTOR_SELECT_CONTENT = "border-zinc-700 bg-zinc-950 text-[#eeeeee] shadow-lg";
@@ -359,6 +374,15 @@ export function FreshCapitalLiveFeed({
   onSectorChange,
   insightsHeatmapBuckets,
 }: Props) {
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [notifySubmitting, setNotifySubmitting] = useState(false);
+  const [notifySubmitted, setNotifySubmitted] = useState(false);
+  const [notifyFirstName, setNotifyFirstName] = useState("");
+  const [notifyLastName, setNotifyLastName] = useState("");
+  const [notifyCompany, setNotifyCompany] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifyErrors, setNotifyErrors] = useState<Record<string, string>>({});
+
   const displayRows = useMemo(() => expandFreshCapitalRowsForDisplay(rows), [rows]);
   const [mainTab, setMainTab] = useState<(typeof FEED_MAIN_TABS)[number]["id"]>("fresh_funds");
   const { data: freshnessData } = useVcFundSyncFreshness();
@@ -381,30 +405,199 @@ export function FreshCapitalLiveFeed({
     return buildDedupedSectorChoices(raw);
   }, [sectorChoices, latestFundingSectors]);
 
+  const resetNotifyForm = () => {
+    setNotifySubmitted(false);
+    setNotifySubmitting(false);
+    setNotifyErrors({});
+    setNotifyFirstName("");
+    setNotifyLastName("");
+    setNotifyCompany("");
+    setNotifyEmail("");
+  };
+
+  const validateNotify = (): boolean => {
+    const next: Record<string, string> = {};
+    if (!notifyFirstName.trim()) next.firstName = "First name is required.";
+    if (!notifyLastName.trim()) next.lastName = "Last name is required.";
+    if (!notifyCompany.trim()) next.company = "Company is required.";
+    const email = notifyEmail.trim();
+    if (!email) next.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = "Enter a valid email.";
+    setNotifyErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const submitNotify = async () => {
+    if (!validateNotify()) return;
+    setNotifySubmitting(true);
+    try {
+      const res = await submitInvestorWaitlistSignup({
+        firstName: notifyFirstName.trim(),
+        lastName: notifyLastName.trim(),
+        firm: notifyCompany.trim(),
+        email: notifyEmail.trim().toLowerCase(),
+        signupContext: "fundraising_page",
+      });
+      if (res.ok === false) {
+        console.warn("[FreshCapital] notify waitlist failed", res.message);
+        toast({ variant: "destructive", title: "Couldn’t submit", description: res.message });
+        return;
+      }
+      setNotifySubmitted(true);
+    } catch (error) {
+      console.error("[FreshCapital] notify waitlist failed", error);
+      toast({
+        variant: "destructive",
+        title: "Couldn’t submit",
+        description: "Please try again in a moment.",
+      });
+    } finally {
+      setNotifySubmitting(false);
+    }
+  };
+
   return (
     <section id={id} className="border-b border-zinc-800 bg-black font-spaceGrotesk">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
-        <div className={cn("mb-5", PRIMARY_SEGMENT_LIST)} role="tablist" aria-label="Feed view">
-          {FEED_MAIN_TABS.map((tab) => {
-            const isActive = mainTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setMainTab(tab.id)}
-                className={cn(
-                  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-all sm:px-5",
-                  isActive
-                    ? "bg-[#1a1a1a] text-[#eeeeee] shadow-sm ring-1 ring-zinc-500/55"
-                    : "text-[#b3b3b3] hover:bg-white/[0.06] hover:text-[#eeeeee]",
-                )}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className={PRIMARY_SEGMENT_LIST} role="tablist" aria-label="Feed view">
+            {FEED_MAIN_TABS.map((tab) => {
+              const isActive = mainTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setMainTab(tab.id)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-[11px] font-medium uppercase tracking-[0.14em] transition-all sm:px-5",
+                    isActive
+                      ? "bg-[#1a1a1a] text-[#eeeeee] shadow-sm ring-1 ring-zinc-500/55"
+                      : "text-[#b3b3b3] hover:bg-white/[0.06] hover:text-[#eeeeee]",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <Dialog
+            open={notifyOpen}
+            onOpenChange={(next) => {
+              setNotifyOpen(next);
+              if (!next) resetNotifyForm();
+            }}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setNotifyOpen(true)}
+              className="rounded-full border-zinc-600/70 bg-zinc-950/50 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#eeeeee] hover:bg-white/[0.06]"
+            >
+              Notify me
+            </Button>
+            <DialogContent className="border-zinc-700 bg-[#0a0a0a] text-[#eeeeee]">
+              {notifySubmitted ? (
+                <div className="py-4 text-center">
+                  <DialogHeader>
+                    <DialogTitle className="text-[#eeeeee]">You did it.</DialogTitle>
+                    <DialogDescription className="text-[#b3b3b3]">
+                      We'll keep you in the loop with the latest fundraising activity.
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+              ) : (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="text-[#eeeeee]">Notify me of funding activity</DialogTitle>
+                    <DialogDescription className="text-[#b3b3b3]">
+                      Enter your details and get notified about new funds and successful rounds.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="mt-2 space-y-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] uppercase tracking-[0.12em] text-[#b3b3b3]">First name</label>
+                        <Input
+                          value={notifyFirstName}
+                          onChange={(e) => {
+                            setNotifyFirstName(e.target.value);
+                            if (notifyErrors.firstName) setNotifyErrors((prev) => ({ ...prev, firstName: "" }));
+                          }}
+                          placeholder="Jane"
+                          className="border-zinc-700 bg-zinc-950 text-[#eeeeee]"
+                        />
+                        {notifyErrors.firstName ? <p className="text-xs text-red-400">{notifyErrors.firstName}</p> : null}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] uppercase tracking-[0.12em] text-[#b3b3b3]">Last name</label>
+                        <Input
+                          value={notifyLastName}
+                          onChange={(e) => {
+                            setNotifyLastName(e.target.value);
+                            if (notifyErrors.lastName) setNotifyErrors((prev) => ({ ...prev, lastName: "" }));
+                          }}
+                          placeholder="Doe"
+                          className="border-zinc-700 bg-zinc-950 text-[#eeeeee]"
+                        />
+                        {notifyErrors.lastName ? <p className="text-xs text-red-400">{notifyErrors.lastName}</p> : null}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] uppercase tracking-[0.12em] text-[#b3b3b3]">Company</label>
+                      <Input
+                        value={notifyCompany}
+                        onChange={(e) => {
+                          setNotifyCompany(e.target.value);
+                          if (notifyErrors.company) setNotifyErrors((prev) => ({ ...prev, company: "" }));
+                        }}
+                        placeholder="Your company"
+                        className="border-zinc-700 bg-zinc-950 text-[#eeeeee]"
+                      />
+                      {notifyErrors.company ? <p className="text-xs text-red-400">{notifyErrors.company}</p> : null}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] uppercase tracking-[0.12em] text-[#b3b3b3]">Email</label>
+                      <Input
+                        value={notifyEmail}
+                        onChange={(e) => {
+                          setNotifyEmail(e.target.value);
+                          if (notifyErrors.email) setNotifyErrors((prev) => ({ ...prev, email: "" }));
+                        }}
+                        placeholder="jane@company.com"
+                        type="email"
+                        className="border-zinc-700 bg-zinc-950 text-[#eeeeee]"
+                      />
+                      {notifyErrors.email ? <p className="text-xs text-red-400">{notifyErrors.email}</p> : null}
+                    </div>
+
+                    <div className="pt-1">
+                      <Button
+                        type="button"
+                        onClick={submitNotify}
+                        disabled={notifySubmitting}
+                        className="w-full rounded-full bg-[#eeeeee] text-black hover:bg-white"
+                      >
+                        {notifySubmitting ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Submitting...
+                          </span>
+                        ) : (
+                          "Join notify list"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
 
         {mainTab === "fresh_funds" && (
@@ -590,8 +783,13 @@ export function FreshCapitalLiveFeed({
 
         {mainTab === "latest_funding" && (
           <>
-            <div className="mb-5 flex min-w-0 flex-nowrap items-center gap-2 sm:gap-3">
-              <div className="min-h-[38px] min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+            <div
+              className={cn(
+                "mb-5 flex min-w-0 flex-nowrap items-center gap-2 sm:gap-3",
+                LATEST_FUNDING_FILTER_BAR,
+              )}
+            >
+              <div className="min-h-8 min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
                 <div className={STAGE_SEGMENT_LIST} role="tablist" aria-label="Stage focus">
                   {STAGE_TABS.map((t) => {
                     const isActive = stage === t.id;
@@ -603,10 +801,10 @@ export function FreshCapitalLiveFeed({
                         aria-selected={isActive}
                         onClick={() => onStageChange(t.id)}
                         className={cn(
-                          "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
+                          "inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-none px-3 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
                           isActive
-                            ? "bg-[#141414] text-[#eeeeee] shadow-sm ring-1 ring-zinc-600/60"
-                            : "text-[#b3b3b3] hover:bg-white/[0.06] hover:text-[#eeeeee]",
+                            ? "bg-slate-800 text-[#eeeeee] shadow-sm ring-1 ring-slate-600/55"
+                            : "text-slate-500 hover:bg-slate-900 hover:text-[#eeeeee]",
                         )}
                       >
                         {t.label}

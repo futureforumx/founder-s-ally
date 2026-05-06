@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { useAutosave } from "@/hooks/useAutosave";
@@ -10,7 +11,10 @@ import {
   Eye, Globe, Phone, MapPin, Sun, Moon, Monitor, Download, Trash2, Network,
   MessageSquare, AlertTriangle, Loader2, Upload, FileText, CloudUpload, X, ChevronRight,
 } from "lucide-react";
-import { SensorSuiteGrid } from "@/components/connections/SensorSuiteGrid";
+import { SensorSuiteGrid, ALL_KEYS, loadConnected } from "@/components/connections/SensorSuiteGrid";
+import { NetworkIntelligenceHeader } from "@/components/connections/network-intelligence/NetworkIntelligenceHeader";
+import { buildNetworkIntelligenceHeader } from "@/lib/networkIntelligenceViewModel";
+import { CONNECTOR_STORAGE_EVENT } from "@/lib/connectorStorageEvents";
 import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
 import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
@@ -29,7 +33,6 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CompanyTab } from "@/components/settings/CompanyTab";
 import { CopilotMissionBanner } from "@/components/settings/CopilotMissionBanner";
-import { ConnectorContextBanner } from "@/components/ConnectorContextBanner";
 import { useActiveContext } from "@/context/ActiveContext";
 import { contextScopedStorageKey, isOwnerContextUuid } from "@/lib/connectorContextStorage";
 import { CONNECTOR_MANAGE_DENIED_MESSAGE } from "@/lib/connectorPermissions";
@@ -1206,7 +1209,7 @@ const PERSONAL_INTEGRATIONS = [
   },
 ] as const;
 
-function PersonalNetworkSection() {
+function PersonalNetworkSection({ bare }: { bare?: boolean }) {
   const { activeContextId, canManageConnectorIntegrations } = useActiveContext();
   const { getAccessToken: getToken } = useAuth();
   const queryClient = useQueryClient();
@@ -1320,16 +1323,18 @@ function PersonalNetworkSection() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <User className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-foreground">Accounts for active context</h3>
-          <Badge variant="outline" className="text-[9px] font-mono ml-1">{connectedCount}/{PERSONAL_INTEGRATIONS.length}</Badge>
+      {!bare ? (
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <User className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Accounts for active context</h3>
+            <Badge variant="outline" className="text-[9px] font-mono ml-1">{connectedCount}/{PERSONAL_INTEGRATIONS.length}</Badge>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Integrations below use your active <span className="font-semibold text-foreground">owner_context_id</span> (same model as workspace and personal contexts).
+          </p>
         </div>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Integrations below use your active <span className="font-semibold text-foreground">owner_context_id</span> (same model as workspace and personal contexts).
-        </p>
-      </div>
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         {PERSONAL_INTEGRATIONS.map((integration) => {
@@ -1400,40 +1405,92 @@ function PersonalNetworkSection() {
 // ── Network / integrations (also surfaced from sidebar Integrations) ──
 export function IntegrationsManagePanel() {
   const [networkView, setNetworkView] = useState<"company" | "personal">("company");
+  const { activeContextId } = useActiveContext();
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const onUpdate = () => bump();
+    window.addEventListener(CONNECTOR_STORAGE_EVENT, onUpdate);
+    return () => window.removeEventListener(CONNECTOR_STORAGE_EVENT, onUpdate);
+  }, []);
+
+  const intelligenceFlags = useMemo(() => {
+    const c = loadConnected(activeContextId);
+    const totalConnected = ALL_KEYS.filter((k) => c[k]).length;
+    return {
+      totalConnected,
+      google: c.google,
+      linkedin: c.linkedin,
+      notion: c.notion,
+    };
+  }, [activeContextId, bump]);
+
+  const headerModel = useMemo(() => buildNetworkIntelligenceHeader(intelligenceFlags), [intelligenceFlags]);
 
   return (
-    <TabWrapper>
-      <div className="space-y-6">
-        <ConnectorContextBanner />
-        {/* View Toggle */}
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-muted w-fit">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
+      className="space-y-6"
+    >
+      <NetworkIntelligenceHeader model={headerModel} tone="catalog" />
+
+      <div className="flex items-start gap-3 rounded-xl border border-[#e5e5ea] bg-[#f7f7f8] px-4 py-3.5 dark:border-border dark:bg-muted/30">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400">
+          <Shield className="h-5 w-5" aria-hidden />
+        </div>
+        <p className="min-w-0 flex-1 pt-1 text-[13px] leading-snug text-[#3a3a3c] dark:text-foreground">
+          Use two-factor authentication (2FA) when you sign in to better protect your account.{" "}
+          <button
+            type="button"
+            className="font-semibold text-teal-600 underline underline-offset-2 hover:text-teal-700 dark:text-teal-400"
+            onClick={() => navigate("/?view=settings&tab=account")}
+          >
+            Manage Account
+          </button>
+        </p>
+      </div>
+
+      <div className="flex justify-center">
+        <div className="inline-flex gap-1 rounded-xl bg-[#e8e8ed] p-1.5 dark:bg-muted/50">
           {(["company", "personal"] as const).map((view) => (
             <button
               key={view}
+              type="button"
               onClick={() => setNetworkView(view)}
               className={cn(
-                "px-4 py-1.5 rounded-md text-xs uppercase tracking-wide transition-all font-mono font-medium text-muted-foreground",
+                "rounded-lg px-5 py-2 text-[13px] font-medium capitalize transition-all",
                 networkView === view
-                  ? "bg-background text-foreground shadow-sm"
-                  : "hover:text-foreground"
+                  ? "bg-white text-[#1c1c1e] shadow-sm dark:bg-background dark:text-foreground"
+                  : "text-[#636366] hover:text-[#1c1c1e] dark:text-muted-foreground dark:hover:text-foreground",
               )}
             >
               {view}
             </button>
           ))}
         </div>
-
-        {networkView === "company" && (
-          <div className="rounded-2xl overflow-hidden">
-            <div className="p-6">
-              <SensorSuiteGrid compact={false} showHeader={true} showTerminal={true} showCategoryFilter={true} />
-            </div>
-          </div>
-        )}
-
-        {networkView === "personal" && <PersonalNetworkSection />}
       </div>
-    </TabWrapper>
+
+      {networkView === "company" && (
+        <div className="rounded-2xl border border-[#e5e5ea] bg-white p-4 shadow-sm dark:border-border dark:bg-card md:p-6">
+          <SensorSuiteGrid
+            compact={false}
+            showTerminal={false}
+            showCategoryFilter
+            integrationCatalogMode
+          />
+        </div>
+      )}
+
+      {networkView === "personal" && (
+        <div className="rounded-2xl border border-[#e5e5ea] bg-white p-4 shadow-sm dark:border-border dark:bg-card md:p-6">
+          <PersonalNetworkSection bare />
+        </div>
+      )}
+    </motion.div>
   );
 }
 

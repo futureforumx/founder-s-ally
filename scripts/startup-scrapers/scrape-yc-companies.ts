@@ -19,7 +19,6 @@
  *   YC_COMPANIES_CONCURRENCY=4 npx tsx scripts/startup-scrapers/scrape-yc-companies.ts
  */
 
-import { execFileSync } from "node:child_process";
 import {
   upsertStartup,
   normalizeDomain,
@@ -30,6 +29,14 @@ import {
   type FounderIngestPayload,
 } from "../lib/startupScraper";
 
+import {
+  YC_COMPANY_SITEMAP_URL as SITEMAP_URL,
+  fetchYcCompanyHtml as fetchText,
+  parseSlugsFromYcCompanySitemap as parseSlugsFromSitemap,
+  parseYcCompanyPage as parseCompanyPage,
+  type YcCompanyPageData as YCCompanyData,
+} from "../lib/ycCompanyHtml";
+
 // Supabase client (REST API — no DATABASE_URL needed)
 import { initSupabase } from "../lib/startupScraper";
 const sb = initSupabase();
@@ -38,155 +45,6 @@ const DRY_RUN = process.env.DRY_RUN === "1";
 const MAX_ITEMS = parseInt(process.env.YC_COMPANIES_MAX || "0", 10);
 const DELAY_MS = parseInt(process.env.YC_COMPANIES_DELAY_MS || "200", 10);
 const CONCURRENCY = parseInt(process.env.YC_COMPANIES_CONCURRENCY || "4", 10);
-const SITEMAP_URL = "https://www.ycombinator.com/companies/sitemap";
-
-const YC_FETCH_UA =
-  process.env.YC_FETCH_USER_AGENT?.trim() ||
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
-const SKIP_SLUGS = new Set([
-  "industry", "batch", "sitemap", "_metadata", "featured",
-  "breakthrough", "black-founders", "hispanic-latino-founders",
-  "women-founders", "founders-you-may-know", "top-companies",
-]);
-
-// ---------------------------------------------------------------------------
-// HTTP helpers (match the pattern in seed-yc-professionals.ts)
-// ---------------------------------------------------------------------------
-
-function fetchTextViaCurl(url: string): string {
-  return execFileSync("curl", ["-sS", "-L", "-A", YC_FETCH_UA, url], {
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  });
-}
-
-async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": YC_FETCH_UA,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    redirect: "follow",
-  });
-  if (res.ok) return res.text();
-  if (process.env.YC_FETCH_DISABLE_CURL === "1") {
-    throw new Error(`GET ${url} → ${res.status}`);
-  }
-  try {
-    return fetchTextViaCurl(url);
-  } catch (e) {
-    throw new Error(`GET ${url} → ${res.status} (fetch); curl fallback: ${e instanceof Error ? e.message : e}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Sitemap parsing
-// ---------------------------------------------------------------------------
-
-function parseSlugsFromSitemap(xml: string): string[] {
-  const re = /<loc>https:\/\/www\.ycombinator\.com\/companies\/([^<]+)<\/loc>/g;
-  const slugs: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) {
-    const slug = decodeURIComponent(m[1]!).split("?")[0]!.split("#")[0]!;
-    if (!SKIP_SLUGS.has(slug) && slug.length > 1 && !slug.includes("/")) {
-      slugs.push(slug);
-    }
-  }
-  return [...new Set(slugs)];
-}
-
-// ---------------------------------------------------------------------------
-// Company page parsing
-// ---------------------------------------------------------------------------
-
-type YCCompanyData = {
-  name: string;
-  slug: string;
-  batch?: string;
-  status?: string;
-  description?: string;
-  longDescription?: string;
-  website?: string;
-  location?: string;
-  teamSize?: number;
-  sector?: string;
-  tags?: string[];
-  founders?: Array<{ name: string; title?: string; linkedin?: string }>;
-  logoUrl?: string;
-};
-
-function parseCompanyPage(html: string, slug: string): YCCompanyData | null {
-  const data: YCCompanyData = { name: "", slug };
-
-  // Try to extract from __NEXT_DATA__ JSON (most reliable)
-  const nextDataMatch = html.match(/<script\s+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (nextDataMatch) {
-    try {
-      const nd = JSON.parse(nextDataMatch[1]!);
-      const pp = nd?.props?.pageProps;
-      const company = pp?.company || pp?.startup || pp;
-      if (company?.name) {
-        data.name = company.name;
-        data.batch = company.batch || company.ycBatch || null;
-        data.status = company.status || null;
-        data.description = company.one_liner || company.tagline || company.short_description || null;
-        data.longDescription = company.long_description || company.description || null;
-        data.website = company.website || company.url || null;
-        data.location = company.location || company.city || null;
-        data.teamSize = company.team_size || company.num_employees || null;
-        data.sector = company.industry || company.vertical || null;
-        data.tags = company.tags || company.industries || [];
-        data.logoUrl = company.image_url || company.small_logo_thumb_url || company.logo_url || null;
-
-        if (company.founders && Array.isArray(company.founders)) {
-          data.founders = company.founders.map((f: any) => ({
-            name: f.full_name || f.name || `${f.first_name || ""} ${f.last_name || ""}`.trim(),
-            title: f.title || null,
-            linkedin: f.linkedin_url || f.linkedin || null,
-          }));
-        }
-        return data;
-      }
-    } catch { /* parse failed, fall through to regex */ }
-  }
-
-  // Fallback: regex parsing from meta tags and HTML
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
-  const name = titleMatch?.[1]?.replace(/\s*[|–-]\s*Y Combinator.*$/, "").trim();
-  if (!name) return null;
-  data.name = name;
-
-  // Meta description
-  const metaDesc = html.match(/<meta\s+(?:name|property)="(?:og:)?description"\s+content="([^"]+)"/);
-  data.description = metaDesc?.[1]?.trim() || null;
-
-  // Batch — typically shown as "S21", "W22", etc.
-  const batchMatch = html.match(/\b([SWF]\d{2})\b/);
-  data.batch = batchMatch?.[1] || null;
-
-  // Logo from og:image
-  const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
-  data.logoUrl = ogImage?.[1] || null;
-
-  // Website — look for external link
-  const websiteMatch = html.match(/href="(https?:\/\/(?!www\.ycombinator\.com)[^"]+)"\s*(?:target="_blank"|rel="noopener")/);
-  data.website = websiteMatch?.[1] || null;
-
-  // Founders — look for "Founders:" section or structured data
-  const founderSection = html.match(/(?:Founders?|Team)[\s:]+([^<]{5,200})/i);
-  if (founderSection) {
-    data.founders = founderSection[1]!
-      .split(/[,&]/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 2 && s.length < 60)
-      .map((name) => ({ name }));
-  }
-
-  return data;
-}
 
 // ---------------------------------------------------------------------------
 // Main scrape
