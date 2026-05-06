@@ -33,6 +33,8 @@ interface ImportMetaEnv {
   readonly VITE_PRODUCT_FEATURES_URL?: string;
   /** When `"true"`, logged-out `/` shows tryvekta marketing on any host (useful for Vercel preview). */
   readonly VITE_MARKETING_HOME?: string;
+  /** When `"true"`, logged-out `/` shows tryvekta marketing even when hostname is not tryvekta.com (emergency / alternate domain). */
+  readonly VITE_FORCE_TRYVEKTA_LANDING?: string;
 }
 
 interface ImportMeta {

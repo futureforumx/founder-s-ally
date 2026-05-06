@@ -11,6 +11,7 @@ import { ActiveContextProvider } from "@/context/ActiveContext";
 import { ConnectorOAuthReturnListener } from "@/components/ConnectorOAuthReturnListener";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Loader2 } from "lucide-react";
+import TryVektaMarketing from "./pages/TryVektaMarketing";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
@@ -24,7 +25,6 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
-const TryVektaMarketing = lazy(() => import("./pages/TryVektaMarketing.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -268,23 +268,31 @@ function isTryVektaMarketingHost(): boolean {
   if (import.meta.env.DEV && (h === "localhost" || h === "127.0.0.1")) return true;
   /** Set `VITE_MARKETING_HOME=true` on Vercel (e.g. preview/staging) to show marketing at `/` when logged out */
   if (import.meta.env.VITE_MARKETING_HOME === "true") return true;
+  /** Nuclear option: show tryvekta landing at `/` on any host when logged out (debug / alternate domains). */
+  if (import.meta.env.VITE_FORCE_TRYVEKTA_LANDING === "true") return true;
   return false;
 }
 
-/** Public marketing landing on tryvekta.com (and dev localhost); app shell elsewhere / when signed in. */
+/**
+ * Public marketing at `/` for tryvekta.com (etc.). Must NOT wait on auth `loading` first —
+ * otherwise visitors stare at RouteLoader until Supabase session resolves and never see the page.
+ */
 function MarketingHomeGate() {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return <RouteLoader />;
+  if (isTryVektaMarketingHost()) {
+    if (user) {
+      return (
+        <ProtectedRoute>
+          <AppIndexRoute />
+        </ProtectedRoute>
+      );
+    }
+    return <TryVektaMarketing />;
   }
 
-  if (isTryVektaMarketingHost() && !user) {
-    return (
-      <Suspense fallback={<RouteLoader label="Loading…" />}>
-        <TryVektaMarketing />
-      </Suspense>
-    );
+  if (loading) {
+    return <RouteLoader />;
   }
 
   return (
@@ -374,14 +382,8 @@ const App = () => (
                   </Suspense>
                 }
               />
-              <Route
-                path="/welcome"
-                element={
-                  <Suspense fallback={<RouteLoader label="Loading…" />}>
-                    <TryVektaMarketing />
-                  </Suspense>
-                }
-              />
+              <Route path="/welcome" element={<TryVektaMarketing />} />
+              <Route path="/marketing" element={<TryVektaMarketing />} />
               <Route path="/" element={<MarketingHomeGate />} />
               <Route path="/intelligence" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><AppOnboardingRoute /></ProtectedRoute>} />
