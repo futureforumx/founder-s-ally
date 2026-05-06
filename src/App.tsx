@@ -24,6 +24,7 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
+const TryVektaMarketing = lazy(() => import("./pages/TryVektaMarketing.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -259,6 +260,35 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function isTryVektaMarketingHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname.replace(/^www\./i, "").toLowerCase();
+  return h === "tryvekta.com";
+}
+
+/** Public marketing landing on tryvekta.com; app shell everywhere else (and for signed-in users). */
+function MarketingHomeGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <RouteLoader />;
+  }
+
+  if (isTryVektaMarketingHost() && !user) {
+    return (
+      <Suspense fallback={<RouteLoader label="Loading…" />}>
+        <TryVektaMarketing />
+      </Suspense>
+    );
+  }
+
+  return (
+    <ProtectedRoute>
+      <AppIndexRoute />
+    </ProtectedRoute>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -339,7 +369,7 @@ const App = () => (
                   </Suspense>
                 }
               />
-              <Route path="/" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
+              <Route path="/" element={<MarketingHomeGate />} />
               <Route path="/intelligence" element={<ProtectedRoute><AppIndexRoute /></ProtectedRoute>} />
               <Route path="/onboarding" element={<ProtectedRoute><AppOnboardingRoute /></ProtectedRoute>} />
               <Route path="/admin" element={<Navigate to="/admin/intelligence" replace />} />
