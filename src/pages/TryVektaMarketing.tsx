@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Binoculars, CircleDollarSign, Moon, Network, Sun, Workflow } from "lucide-react";
+import { AccessRequestForm } from "@/components/public/AccessRequestForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { applyTheme, readStoredTheme, toggleTheme, type AppTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +92,48 @@ function IntegrationLogo({ name, slug }: { name: string; slug: string }) {
   );
 }
 
+/** Same host rules as marketing home — show Access form in a dialog instead of navigating to `/access`. */
+function useAccessFormInPopover(): boolean {
+  const [v, setV] = useState(false);
+  useEffect(() => {
+    const h = window.location.hostname.replace(/^www\./i, "").toLowerCase();
+    setV(
+      h === "tryvekta.com" ||
+        (import.meta.env.DEV && (h === "localhost" || h === "127.0.0.1")) ||
+        import.meta.env.VITE_MARKETING_HOME === "true",
+    );
+  }, []);
+  return v;
+}
+
+function GetEarlyAccessCta({
+  usePopover,
+  onOpen,
+  className,
+}: {
+  usePopover: boolean;
+  onOpen: () => void;
+  className: string;
+}) {
+  if (usePopover) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={className}
+        style={{ backgroundColor: BRAND_PURPLE }}
+      >
+        Get early access
+      </button>
+    );
+  }
+  return (
+    <Link to="/access" className={className} style={{ backgroundColor: BRAND_PURPLE }}>
+      Get early access
+    </Link>
+  );
+}
+
 function ThemeToggleButton() {
   const [theme, setTheme] = useState<AppTheme>(() => readStoredTheme());
 
@@ -112,6 +162,9 @@ function ThemeToggleButton() {
 }
 
 export default function TryVektaMarketing() {
+  const accessFormPopover = useAccessFormInPopover();
+  const [accessOpen, setAccessOpen] = useState(false);
+
   useEffect(() => {
     const prev = document.title;
     document.title = "Vekta — AI operating system for founders";
@@ -156,13 +209,11 @@ export default function TryVektaMarketing() {
             >
               Log in
             </Link>
-            <Link
-              to="/access"
+            <GetEarlyAccessCta
+              usePopover={accessFormPopover}
+              onOpen={() => setAccessOpen(true)}
               className="inline-flex items-center justify-center rounded-full px-4 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: BRAND_PURPLE }}
-            >
-              Get early access
-            </Link>
+            />
             <ThemeToggleButton />
           </div>
         </div>
@@ -177,9 +228,29 @@ export default function TryVektaMarketing() {
               </li>
             ))}
           </ul>
-          <Link to="/login" className="mt-2 inline-block text-[12px] font-medium text-[#eeeeee] hover:text-white">
-            Log in
-          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {accessFormPopover ? (
+              <button
+                type="button"
+                onClick={() => setAccessOpen(true)}
+                className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: BRAND_PURPLE }}
+              >
+                Get early access
+              </button>
+            ) : (
+              <Link
+                to="/access"
+                className="inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: BRAND_PURPLE }}
+              >
+                Get early access
+              </Link>
+            )}
+            <Link to="/login" className="text-[12px] font-medium text-[#eeeeee] hover:text-white">
+              Log in
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -221,13 +292,11 @@ export default function TryVektaMarketing() {
           </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link
-              to="/access"
+            <GetEarlyAccessCta
+              usePopover={accessFormPopover}
+              onOpen={() => setAccessOpen(true)}
               className="inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ backgroundColor: BRAND_PURPLE }}
-            >
-              Get early access
-            </Link>
+            />
             <a
               href="https://tryvekta.com/aurora"
               target="_blank"
@@ -288,13 +357,11 @@ export default function TryVektaMarketing() {
               </div>
 
               <div className="mt-10 flex flex-wrap items-center gap-3">
-                <Link
-                  to="/access"
+                <GetEarlyAccessCta
+                  usePopover={accessFormPopover}
+                  onOpen={() => setAccessOpen(true)}
                   className="inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: BRAND_PURPLE }}
-                >
-                  Get early access
-                </Link>
+                />
                 <a
                   href="#integration-logos"
                   className="inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold transition-opacity hover:opacity-90"
@@ -315,6 +382,22 @@ export default function TryVektaMarketing() {
           </section>
         ))}
       </main>
+
+      {accessFormPopover ? (
+        <Dialog open={accessOpen} onOpenChange={setAccessOpen}>
+          <DialogContent className="z-[100] max-h-[min(92vh,920px)] max-w-lg overflow-y-auto border-zinc-700 bg-[#0a0a0a] p-5 text-[#eeeeee] sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-[#eeeeee]">Request access to Vekta</DialogTitle>
+              <DialogDescription className="text-[#b3b3b3]">
+                Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-2 border-t border-zinc-800 pt-4">
+              <AccessRequestForm />
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
