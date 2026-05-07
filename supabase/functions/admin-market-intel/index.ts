@@ -16,7 +16,8 @@
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
  *
- * POST ?entity=fresh-funds|deals  body: { … }  → { row }  (create)
+ * POST ?entity=fresh-funds|deals|firms  body: { … }  → { row }  (create)
+ *   - firms: requires `firm_name`; optional `website_url`, `slug`, `legal_name`. New rows default to needs-review / not live.
  *
  * DELETE ?entity=fresh-funds|deals&id=<uuid>
  *   → { ok: true }   (fresh-funds: soft-delete vc_funds.deleted_at; deals: hard-delete fi_deals_canonical row)
@@ -72,10 +73,19 @@ async function rpcSearchFirmRecordsCompat(
   db: SupabaseClient,
   payload: { p_limit: number; p_query: string; p_ready_for_live: boolean | null },
 ) {
+  /** Current migrations expose a single `search_firm_records(args jsonb)` — try that first. */
+  const jsonbTry = await db.rpc("search_firm_records", { args: payload });
+  if (!jsonbTry.error) return jsonbTry;
+
+  const tryLegacy =
+    searchFirmRecordsWrongRpcShape(jsonbTry.error) || jsonbTry.error.code === "PGRST202";
+  if (!tryLegacy) return jsonbTry;
+
   const legacyTry = await db.rpc("search_firm_records", payload);
   if (!legacyTry.error) return legacyTry;
-  if (!searchFirmRecordsWrongRpcShape(legacyTry.error)) return legacyTry;
-  return db.rpc("search_firm_records", { args: payload });
+
+  if (searchFirmRecordsWrongRpcShape(legacyTry.error)) return jsonbTry;
+  return legacyTry;
 }
 
 /** PostgREST `.or()` breaks on commas in values — strip them. Escape `%` / `_` for `ilike`. */
@@ -84,7 +94,8 @@ function firmAdminBroadOrClause(raw: string): string | null {
   if (t.length < 2) return null;
   const esc = t.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
   const pat = `%${esc}%`;
-  return `firm_name.ilike.${pat},legal_name.ilike.${pat},slug.ilike.${pat},normalized_name.ilike.${pat}`;
+  /** Omit `normalized_name` — some DBs pre-date that column; RPC still fuzzy-matches on normalized_name when present. */
+  return `firm_name.ilike.${pat},legal_name.ilike.${pat},slug.ilike.${pat}`;
 }
 
 function asPermission(v: unknown): AppPermission | null {
@@ -497,7 +508,7 @@ Deno.serve(async (req) => {
     return adminDeleteResource(db, entity, id);
   }
 
-  // ── POST: create fresh fund or canonical deal ─────────────────────────────
+  // ── POST: create fresh fund, canonical deal, or firm record ────────────────
   if (req.method === "POST") {
     const action = url.searchParams.get("action")?.trim().toLowerCase() ?? "";
     if (action === "delete") {
@@ -652,6 +663,46 @@ Deno.serve(async (req) => {
         .single();
       if (dealErr) return err(dealErr.message, 500);
       return json({ row: dealRow });
+    }
+
+    if (entity === "firms") {
+      const firmName = typeof body.firm_name === "string" ? body.firm_name.trim() : "";
+      if (!firmName) return err("firm_name is required", 400);
+
+      const websiteRaw = typeof body.website_url === "string" ? body.website_url.trim() : "";
+      const slugRaw = typeof body.slug === "string" ? body.slug.trim() : "";
+      const legalRaw = typeof body.legal_name === "string" ? body.legal_name.trim() : "";
+
+      const insertRow: Record<string, unknown> = {
+        firm_name: firmName,
+        enrichment_status: "pending",
+        completeness_score: 0,
+        needs_review: true,
+        ready_for_live: false,
+        manual_review_status: "needs_review",
+        aliases: [],
+        thesis_verticals: [],
+        recent_deals: [],
+      };
+
+      if (websiteRaw) insertRow.website_url = websiteRaw;
+      if (slugRaw) insertRow.slug = slugRaw;
+      if (legalRaw) insertRow.legal_name = legalRaw;
+
+      const { data: inserted, error: insErr } = await db
+        .from("firm_records")
+        .insert(insertRow)
+        .select(FIRM_COLS)
+        .single();
+
+      if (insErr) {
+        const code = (insErr as { code?: string }).code;
+        if (code === "23505") {
+          return err("A firm with this slug (or other unique field) already exists.", 409);
+        }
+        return err(insErr.message, 500);
+      }
+      return json({ row: inserted });
     }
 
     return err(`POST not supported for entity: ${entity}`, 400);
@@ -977,11 +1028,14 @@ Deno.serve(async (req) => {
         broadQ ?? Promise.resolve({ data: [] as unknown[], error: null }),
       ]);
 
-      if (rpcRes.error) return err(rpcRes.error.message, 500);
+      if (rpcRes.error) {
+        console.warn("[admin-market-intel] search_firm_records failed — using broad ilike matches only:", rpcRes.error.message);
+      }
       if (broadRes.error) return err(broadRes.error.message, 500);
 
+      const rpcRows = rpcRes.error ? [] : (rpcRes.data ?? []);
       const byId = new Map<string, Record<string, unknown>>();
-      for (const r of [...(rpcRes.data ?? []), ...(broadRes.data ?? [])]) {
+      for (const r of [...rpcRows, ...(broadRes.data ?? [])]) {
         const row = r as Record<string, unknown>;
         const id = typeof row.id === "string" ? row.id : "";
         if (id && !byId.has(id)) byId.set(id, row);
