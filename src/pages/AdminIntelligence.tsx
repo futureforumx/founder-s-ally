@@ -128,7 +128,7 @@ export default function AdminIntelligence() {
         {activeView === "users"          && <AdminUserManagement />}
         {activeView === "firm-records"   && <AdminFirmRecords />}
         {activeView === "market-intel"   && <AdminMarketIntelligence />}
-        {activeView === "fresh-capital"  && <AdminFreshCapital />}
+        {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={setActiveView} />}
         {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health"     && <AdminApiHealth />}

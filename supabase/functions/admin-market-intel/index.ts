@@ -333,7 +333,9 @@ const VCFUND_COLS = [
   "source_confidence", "source_count", "announcement_url", "announcement_title",
   "stage_focus", "sector_focus", "geography_focus", "likely_actively_deploying",
   "active_deployment_window_start", "active_deployment_window_end",
-  "manually_verified", "verification_status", "created_at", "updated_at",
+  "manually_verified", "verification_status",
+  "estimated_check_min_usd", "estimated_check_max_usd",
+  "created_at", "updated_at",
 ].join(", ");
 
 /** Omit `domain`: not present on all deployed DBs (added in migration 20260418150000). Derive in `freshFundRow`. */
@@ -722,6 +724,7 @@ Deno.serve(async (req) => {
         "stage_focus","sector_focus","geography_focus","likely_actively_deploying",
         "active_deployment_window_start","active_deployment_window_end",
         "manually_verified","verification_status",
+        "estimated_check_min_usd","estimated_check_max_usd",
       ]);
       const firmKeys = new Set([
         "firm_name","website_url","logo_url","location","hq_city","hq_state","hq_country",

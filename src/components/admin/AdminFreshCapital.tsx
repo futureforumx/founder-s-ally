@@ -160,6 +160,8 @@ type FreshFundRow = {
   active_deployment_window_end: string | null;
   manually_verified: boolean | null;
   verification_status: string | null;
+  estimated_check_min_usd: number | null;
+  estimated_check_max_usd: number | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -951,11 +953,13 @@ function FreshFundEditPanel({
   onClose,
   onSaved,
   onDeleted,
+  onNavigate,
 }: {
   row: FreshFundRow;
   onClose: () => void;
   onSaved: (updated: FreshFundRow) => void;
   onDeleted: (id: string) => void;
+  onNavigate?: (view: string) => void;
 }) {
   const [draft, setDraft] = useState<FreshFundRow>({ ...row });
   const [saving, setSaving] = useState(false);
@@ -998,6 +1002,8 @@ function FreshFundEditPanel({
       active_deployment_window_end: draft.active_deployment_window_end,
       manually_verified: draft.manually_verified,
       verification_status: draft.verification_status,
+      estimated_check_min_usd: draft.estimated_check_min_usd,
+      estimated_check_max_usd: draft.estimated_check_max_usd,
       firm_name: draft.firm_name,
       website_url: websiteUrlFromDomain,
       logo_url: draft.firm_logo_url,
@@ -1067,6 +1073,31 @@ function FreshFundEditPanel({
 
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
         <Sect title="Firm / Company" />
+        {/* Firm record ID + navigation */}
+        <div className="rounded-lg border px-3 py-2.5 flex items-center justify-between gap-3"
+          style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+          <div className="min-w-0">
+            <p className="font-mono text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Linked Firm ID</p>
+            <p className="font-mono text-[11px] truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{draft.firm_record_id}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              title="Copy firm ID"
+              onClick={() => { navigator.clipboard.writeText(draft.firm_record_id); toast.success("Firm ID copied"); }}
+              className="rounded border px-2 py-1 font-mono text-[10px] transition-colors hover:bg-white/[0.06]"
+              style={{ borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.5)" }}
+            >Copy</button>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => { onNavigate("firm-records"); toast.info("Firm ID copied — paste it in the search box", { duration: 4000 }); navigator.clipboard.writeText(draft.firm_record_id); }}
+                className="rounded border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-emerald-500/10"
+                style={{ borderColor: "rgba(46,230,166,0.35)", color: "#2EE6A6" }}
+              >View in Firm Records ↗</button>
+            )}
+          </div>
+        </div>
         <TF label="Firm Name" value={draft.firm_name} onChange={v => set("firm_name", v)} />
         <div className="flex items-end gap-3">
           <LogoPreview
@@ -1104,6 +1135,10 @@ function FreshFundEditPanel({
         <div className="grid grid-cols-2 gap-3">
           <NF label="Target Size USD" value={draft.target_size_usd} onChange={v => set("target_size_usd", v)} step={1000000} />
           <NF label="Final Size USD" value={draft.final_size_usd} onChange={v => set("final_size_usd", v)} step={1000000} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <NF label="Est. Check Min (USD)" value={draft.estimated_check_min_usd} onChange={v => set("estimated_check_min_usd", v)} step={25000} />
+          <NF label="Est. Check Max (USD)" value={draft.estimated_check_max_usd} onChange={v => set("estimated_check_max_usd", v)} step={25000} />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <NF label="Fund #" value={draft.fund_sequence_number} onChange={v => set("fund_sequence_number", v)} />
@@ -1486,7 +1521,7 @@ function AddDealModal({
 
 // ── Fund Watch Component ───────────────────────────────────────────────────────
 
-function FreshFundsAdmin() {
+function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }) {
   const [rows, setRows] = useState<FreshFundRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -1675,6 +1710,7 @@ function FreshFundsAdmin() {
             setTotal(t => Math.max(0, t - 1));
             setSelected(null);
           }}
+          onNavigate={onNavigate}
         />
       )}
 
@@ -1950,7 +1986,7 @@ function LatestFundingDealsAdmin() {
   );
 }
 
-export function AdminFreshCapital() {
+export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) => void } = {}) {
   const [view, setView] = useState<"funds" | "deals" | "enrichment">("funds");
 
   return (
@@ -1981,7 +2017,7 @@ export function AdminFreshCapital() {
           );
         })}
       </div>
-      {view === "funds" && <FreshFundsAdmin />}
+      {view === "funds" && <FreshFundsAdmin onNavigate={onNavigate} />}
       {view === "deals" && <LatestFundingDealsAdmin />}
       {view === "enrichment" && <FreshCapitalEnrichmentAdmin />}
     </div>

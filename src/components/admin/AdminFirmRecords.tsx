@@ -149,6 +149,8 @@ type FirmLinkedFundRow = {
   announcement_title: string | null;
   manually_verified: boolean | null;
   verification_status: string | null;
+  estimated_check_min_usd: number | null;
+  estimated_check_max_usd: number | null;
 };
 
 // ── API ────────────────────────────────────────────────────────────────────────
@@ -231,6 +233,17 @@ async function fetchFirmLinkedFunds(firmRecordId: string): Promise<{ rows: FirmL
   } catch (e: unknown) {
     return { rows: [], total: 0, error: (e as Error)?.message };
   }
+}
+
+async function patchFund(id: string, patch: Record<string, unknown>): Promise<{ row?: FirmLinkedFundRow; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  const url = `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fresh-funds&id=${encodeURIComponent(id)}`;
+  try {
+    const res = await fetch(url, { method: "PATCH", headers: await adminHeaders(), body: JSON.stringify(patch) });
+    const json = await res.json().catch(() => ({})) as { row?: FirmLinkedFundRow; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
 }
 
 async function patchLinkedRow<T>(entity: "firm-investors" | "firm-portfolio", id: string, patch: Record<string, unknown>): Promise<{ row?: T; error?: string }> {
@@ -548,6 +561,7 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
   const [draft, setDraft] = useState<FirmRow>({ ...row });
   const [activeTab, setActiveTab] = useState<FirmModalTab>("profile");
   const [funds, setFunds] = useState<FirmLinkedFundRow[]>([]);
+  const [fundDrafts, setFundDrafts] = useState<Record<string, { min: number | null; max: number | null; saving: boolean }>>({});
   const [investors, setInvestors] = useState<FirmInvestorRow[]>([]);
   const [portfolio, setPortfolio] = useState<FirmPortfolioRow[]>([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
@@ -586,6 +600,12 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
       const error = fundRes.error ?? investorRes.error ?? portfolioRes.error ?? null;
       setLinkedError(error);
       setFunds(fundRes.rows);
+      // Initialise per-fund check size drafts
+      const initialDrafts: Record<string, { min: number | null; max: number | null; saving: boolean }> = {};
+      for (const f of fundRes.rows) {
+        initialDrafts[f.id] = { min: f.estimated_check_min_usd ?? null, max: f.estimated_check_max_usd ?? null, saving: false };
+      }
+      setFundDrafts(initialDrafts);
       setInvestors(investorRes.rows);
       setPortfolio(portfolioRes.rows);
     }).finally(() => {
@@ -601,6 +621,25 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
     if (error) { toast.error("Save failed", { description: error }); }
     else { toast.success("Saved"); if (updated) onSaved(updated); }
     setSaving(false);
+  };
+
+  const saveFundCheckSize = async (fundId: string) => {
+    const d = fundDrafts[fundId];
+    if (!d) return;
+    setFundDrafts(prev => ({ ...prev, [fundId]: { ...prev[fundId], saving: true } }));
+    const { error } = await patchFund(fundId, {
+      estimated_check_min_usd: d.min,
+      estimated_check_max_usd: d.max,
+    });
+    if (error) toast.error("Fund save failed", { description: error });
+    else {
+      toast.success("Check size saved");
+      setFunds(prev => prev.map(f => f.id === fundId
+        ? { ...f, estimated_check_min_usd: d.min, estimated_check_max_usd: d.max }
+        : f
+      ));
+    }
+    setFundDrafts(prev => ({ ...prev, [fundId]: { ...prev[fundId], saving: false } }));
   };
 
   const saveInvestor = async (item: FirmInvestorRow) => {
@@ -957,6 +996,43 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
                       {fund.announcement_title}
                     </p>
                   ) : null}
+                  {/* Inline check size editing */}
+                  <div className="mt-3 flex items-end gap-3 border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex-1">
+                      <label className="block font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.32)" }}>Est. Check Min (USD)</label>
+                      <input
+                        type="number"
+                        className="w-full rounded px-2.5 py-1.5 text-[12px] text-white/80 focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                        value={fundDrafts[fund.id]?.min ?? ""}
+                        onChange={e => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], min: e.target.value === "" ? null : Number(e.target.value) } }))}
+                        placeholder="e.g. 250000"
+                        step={25000}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.32)" }}>Est. Check Max (USD)</label>
+                      <input
+                        type="number"
+                        className="w-full rounded px-2.5 py-1.5 text-[12px] text-white/80 focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                        value={fundDrafts[fund.id]?.max ?? ""}
+                        onChange={e => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], max: e.target.value === "" ? null : Number(e.target.value) } }))}
+                        placeholder="e.g. 1000000"
+                        step={25000}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={fundDrafts[fund.id]?.saving}
+                      onClick={() => saveFundCheckSize(fund.id)}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-40"
+                      style={{ background: "#2EE6A6", color: "#020403" }}
+                    >
+                      {fundDrafts[fund.id]?.saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      {fundDrafts[fund.id]?.saving ? "Saving…" : "Save"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
