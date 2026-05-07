@@ -1,5 +1,8 @@
 -- Align waitlist_signup RPC with waitlist_get_status: rename p_referral_code_used → p_referral_code
 -- (Incoming ref from URL; table column waitlist_users.referral_code remains the user's own code.)
+--
+-- Renamed from 20260427120000 → 20260427120100: unique `schema_migrations.version`
+-- (collision with get_new_vc_funds_restore_location_website.sql).
 
 DROP FUNCTION IF EXISTS public.waitlist_signup(
   text, text, text, text, text, text[], text, text, text, text, text, text, text, jsonb

@@ -13,5 +13,4 @@ UPDATE public.vc_firms vf
 SET
   aum_band = 'MEGA_FUND'::"AumBand",
   updated_at = now()
-WHERE vf.deleted_at IS NULL
-  AND lower(trim(vf.firm_name)) = lower(trim('Otro Capital'));
+WHERE lower(trim(vf.name)) = lower(trim('Otro Capital'));

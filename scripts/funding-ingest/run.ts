@@ -64,6 +64,8 @@ function envInt(name: string, def: number): number {
 const DRY = process.env.INGEST_DRY_RUN === "1";
 const USE_OPENAI = Boolean(process.env.OPENAI_API_KEY) && process.env.INGEST_DISABLE_OPENAI !== "1";
 const MAX_PER_SOURCE = envInt("INGEST_MAX_ARTICLES_PER_SOURCE", 40);
+/** When `INGEST_REQUIRE_PACIFIC_HOUR=1`, only run if local hour in `America/Los_Angeles` matches (0–23). Default 4 = 4:00 AM Pacific. */
+const PACIFIC_TARGET_HOUR = envInt("INGEST_PACIFIC_TARGET_HOUR", 4);
 const SKIP_SOURCES = new Set(
   (process.env.INGEST_SKIP_SOURCES ?? "")
     .split(",")
@@ -82,9 +84,9 @@ async function flushLogs(rows: Prisma.ExtractionLogCreateManyInput[]) {
 async function main() {
   const requirePacific = process.env.INGEST_REQUIRE_PACIFIC_HOUR === "1";
   const skipPacific = process.env.INGEST_SKIP_PACIFIC_GUARD === "1";
-  if (requirePacific && !skipPacific && pacificHour() !== 1) {
+  if (requirePacific && !skipPacific && pacificHour() !== PACIFIC_TARGET_HOUR) {
     log(
-      `Pacific guard: local hour in America/Los_Angeles is ${pacificHour()} (need 1). Exiting without work. ` +
+      `Pacific guard: local hour in America/Los_Angeles is ${pacificHour()} (need ${PACIFIC_TARGET_HOUR}). Exiting without work. ` +
         `Set INGEST_SKIP_PACIFIC_GUARD=1 for ad-hoc runs.`,
     );
     process.exit(0);

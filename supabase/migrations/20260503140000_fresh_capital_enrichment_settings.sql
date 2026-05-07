@@ -21,6 +21,9 @@ CREATE TRIGGER fresh_capital_enrichment_settings_updated_at
 
 ALTER TABLE public.fresh_capital_enrichment_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "fresh_capital_enrichment_settings_service_all"
+  ON public.fresh_capital_enrichment_settings;
+
 CREATE POLICY "fresh_capital_enrichment_settings_service_all"
   ON public.fresh_capital_enrichment_settings
   FOR ALL TO service_role USING (true) WITH CHECK (true);

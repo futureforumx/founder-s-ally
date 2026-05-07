@@ -31,10 +31,10 @@ export async function rpcSearchFirmRecords(
     p_limit: limit,
     p_ready_for_live: readyForLive,
   };
-  // Hosted DBs often still expose `(text,int,bool)` — never call `{ args: jsonb }` first or PostgREST errors on every request.
-  let { data, error } = await client.rpc("search_firm_records", legacyArgs);
+  /** Prefer jsonb RPC (`search_firm_records(args jsonb)`) — latest migrations drop named-arg overloads. */
+  let { data, error } = await client.rpc("search_firm_records", { args: legacyArgs });
   if (error && searchFirmRecordsWrongRpcShape(error)) {
-    ({ data, error } = await client.rpc("search_firm_records", { args: legacyArgs }));
+    ({ data, error } = await client.rpc("search_firm_records", legacyArgs));
   }
   if (error) {
     console.warn("search_firm_records", error.message);

@@ -42,14 +42,13 @@ UPDATE public.vc_firms vf
 SET
   email = 'dw@2020.co',
   crunchbase_url = 'https://www.crunchbase.com/organization/2020-ventures',
-  website_url = COALESCE(NULLIF(TRIM(vf.website_url), ''), 'https://2020.co'),
+  website = COALESCE(NULLIF(TRIM(vf.website), ''), 'https://2020.co'),
   partner_names = (
     SELECT COALESCE(ARRAY_AGG(DISTINCT t.n), ARRAY[]::text[])
     FROM unnest(COALESCE(vf.partner_names, ARRAY[]::text[]) || ARRAY['David Williams'::text]) AS t(n)
   ),
   updated_at = NOW()
-WHERE vf.deleted_at IS NULL
-  AND lower(btrim(vf.firm_name)) = '2020 ventures';
+WHERE lower(btrim(vf.name)) = '2020 ventures';
 
 UPDATE public.vc_people vp
 SET
@@ -61,9 +60,9 @@ SET
 FROM (
   SELECT vp2.id
   FROM public.vc_people vp2
-  INNER JOIN public.vc_firms vf ON vf.id = vp2.firm_id AND vf.deleted_at IS NULL
+  INNER JOIN public.vc_firms vf ON vf.id = vp2.firm_id
   WHERE vp2.deleted_at IS NULL
-    AND lower(btrim(vf.firm_name)) = '2020 ventures'
+    AND lower(btrim(vf.name)) = '2020 ventures'
   ORDER BY vp2.created_at ASC NULLS LAST
   LIMIT 1
 ) pick

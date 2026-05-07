@@ -113,7 +113,7 @@ BEGIN
   EXECUTE format(
     'UPDATE public.vc_firms
       SET aum_band = %L::"AumBand"%s
-      WHERE lower(trim(firm_name)) = lower(trim(%L))%s',
+      WHERE lower(trim(name)) = lower(trim(%L))%s',
     'SMALL',
     CASE WHEN has_updated_at THEN ', updated_at = now()' ELSE '' END,
     'Heartland Ventures',

@@ -24,6 +24,19 @@ BEGIN
   IF to_regclass('public.funding_deals') IS NOT NULL
      AND to_regclass('public.fi_deals_canonical') IS NOT NULL
   THEN
+    -- If this RPC was already replaced by a later migration (e.g. 20260430120000 adds
+    -- source_type / confirmation_status / confidence_score), CREATE OR REPLACE with a
+    -- different RETURNS TABLE shape fails. Skip when the union body is already present.
+    IF EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'get_recent_funding_feed'
+        AND pg_get_functiondef(p.oid) LIKE '%fi_deals_canonical%'
+    ) THEN
+      RAISE NOTICE 'get_recent_funding_feed already includes fi_deals_canonical; skipping 20260430110000.';
+    ELSE
     EXECUTE $fn$
 
 CREATE OR REPLACE FUNCTION public.get_recent_funding_feed(p_limit integer DEFAULT 80)
@@ -220,6 +233,7 @@ $body$;
     GRANT EXECUTE ON FUNCTION public.get_recent_funding_feed(integer)
       TO anon, authenticated, service_role;
 
+    END IF;
   ELSIF to_regclass('public.funding_deals') IS NOT NULL THEN
     -- fi_deals_canonical doesn't exist yet — keep existing RPC unchanged
     RAISE NOTICE 'fi_deals_canonical not found; get_recent_funding_feed unchanged.';

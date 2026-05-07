@@ -12,7 +12,7 @@ BEGIN
   IF to_regclass('public.vc_firms') IS NOT NULL THEN
     UPDATE public.vc_firms
     SET website = 'https://kleinerperkins.com'
-    WHERE deleted_at IS NULL
-      AND LOWER(TRIM(id)) = 'kleinerperkins.com';
+    WHERE LOWER(TRIM(name)) = 'kleiner perkins'
+       OR LOWER(TRIM(name)) LIKE 'kleiner perkins caufield%';
   END IF;
 END $$;

@@ -90,7 +90,8 @@ npm run funding:ingest:samples
 | `OPENAI_MODEL` | No | Override model id |
 | `INGEST_DRY_RUN` | No | `1` = no DB writes |
 | `INGEST_MAX_ARTICLES_PER_SOURCE` | No | Default `40` per source per run |
-| `INGEST_REQUIRE_PACIFIC_HOUR` | No | `1` = exit unless Pacific hour is **01** |
+| `INGEST_REQUIRE_PACIFIC_HOUR` | No | `1` = exit unless America/Los_Angeles clock hour matches target |
+| `INGEST_PACIFIC_TARGET_HOUR` | No | `0`–`23` (default **4**) — used with `INGEST_REQUIRE_PACIFIC_HOUR`; CI uses **4** for 4:00 AM Pacific |
 | `INGEST_SKIP_PACIFIC_GUARD` | No | `1` = bypass Pacific hour guard |
 | `INGEST_SKIP_SOURCES` | No | Comma list: `GEEKWIRE_FUNDINGS`, `TECHCRUNCH_VENTURE`, … |
 | `INGEST_DISABLE_OPENAI` | No | `1` = never call OpenAI |

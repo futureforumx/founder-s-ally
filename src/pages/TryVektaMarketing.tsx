@@ -93,15 +93,20 @@ function IntegrationLogo({ name, slug }: { name: string; slug: string }) {
 }
 
 /** Same host rules as marketing home — show Access form in a dialog instead of navigating to `/access`. */
+function readAccessFormPopover(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname.replace(/^www\./i, "").toLowerCase();
+  return (
+    h === "tryvekta.com" ||
+    (import.meta.env.DEV && (h === "localhost" || h === "127.0.0.1")) ||
+    import.meta.env.VITE_MARKETING_HOME === "true"
+  );
+}
+
 function useAccessFormInPopover(): boolean {
-  const [v, setV] = useState(false);
+  const [v, setV] = useState(() => readAccessFormPopover());
   useEffect(() => {
-    const h = window.location.hostname.replace(/^www\./i, "").toLowerCase();
-    setV(
-      h === "tryvekta.com" ||
-        (import.meta.env.DEV && (h === "localhost" || h === "127.0.0.1")) ||
-        import.meta.env.VITE_MARKETING_HOME === "true",
-    );
+    setV(readAccessFormPopover());
   }, []);
   return v;
 }
@@ -163,7 +168,7 @@ function ThemeToggleButton() {
 
 export default function TryVektaMarketing() {
   const accessFormPopover = useAccessFormInPopover();
-  const [accessOpen, setAccessOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(() => readAccessFormPopover());
 
   useEffect(() => {
     const prev = document.title;
@@ -385,7 +390,12 @@ export default function TryVektaMarketing() {
 
       {accessFormPopover ? (
         <Dialog open={accessOpen} onOpenChange={setAccessOpen}>
-          <DialogContent className="z-[100] max-h-[min(92vh,920px)] max-w-lg overflow-y-auto border-zinc-700 bg-[#0a0a0a] p-5 text-[#eeeeee] sm:p-6">
+          <DialogContent
+            className="z-[100] max-h-[min(92vh,920px)] max-w-lg overflow-y-auto border-zinc-700 bg-[#0a0a0a] p-5 text-[#eeeeee] sm:p-6"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle className="text-[#eeeeee]">Request access to Vekta</DialogTitle>
               <DialogDescription className="text-[#b3b3b3]">

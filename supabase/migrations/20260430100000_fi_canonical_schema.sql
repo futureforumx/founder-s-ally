@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS public.fi_sources (
 CREATE INDEX IF NOT EXISTS idx_fi_sources_active ON public.fi_sources (active) WHERE active;
 CREATE INDEX IF NOT EXISTS idx_fi_sources_slug   ON public.fi_sources (slug);
 
+DROP TRIGGER IF EXISTS fi_sources_touch_updated_at ON public.fi_sources;
 CREATE TRIGGER fi_sources_touch_updated_at
   BEFORE UPDATE ON public.fi_sources
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -137,6 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_fi_documents_url_hash     ON public.fi_documents 
 CREATE INDEX IF NOT EXISTS idx_fi_documents_parse_status ON public.fi_documents (parse_status);
 CREATE INDEX IF NOT EXISTS idx_fi_documents_fetched_at   ON public.fi_documents (fetched_at DESC);
 
+DROP TRIGGER IF EXISTS fi_documents_touch_updated_at ON public.fi_documents;
 CREATE TRIGGER fi_documents_touch_updated_at
   BEFORE UPDATE ON public.fi_documents
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -197,6 +199,7 @@ CREATE INDEX IF NOT EXISTS idx_fi_deals_raw_canonical_deal_id   ON public.fi_dea
 CREATE INDEX IF NOT EXISTS idx_fi_deals_raw_normalization_status ON public.fi_deals_raw (normalization_status);
 CREATE INDEX IF NOT EXISTS idx_fi_deals_raw_created_at          ON public.fi_deals_raw (created_at DESC);
 
+DROP TRIGGER IF EXISTS fi_deals_raw_touch_updated_at ON public.fi_deals_raw;
 CREATE TRIGGER fi_deals_raw_touch_updated_at
   BEFORE UPDATE ON public.fi_deals_raw
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -286,6 +289,7 @@ CREATE INDEX IF NOT EXISTS idx_fi_deals_canonical_not_rumor
 CREATE INDEX IF NOT EXISTS idx_fi_deals_canonical_created_at
   ON public.fi_deals_canonical (created_at DESC);
 
+DROP TRIGGER IF EXISTS fi_deals_canonical_touch_updated_at ON public.fi_deals_canonical;
 CREATE TRIGGER fi_deals_canonical_touch_updated_at
   BEFORE UPDATE ON public.fi_deals_canonical
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -377,6 +381,15 @@ ALTER TABLE public.fi_deal_source_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fi_errors            ENABLE ROW LEVEL SECURITY;
 
 -- Service role has full access (used by Edge Functions)
+DROP POLICY IF EXISTS fi_sources_service_all ON public.fi_sources;
+DROP POLICY IF EXISTS fi_fetch_runs_service_all ON public.fi_fetch_runs;
+DROP POLICY IF EXISTS fi_documents_service_all ON public.fi_documents;
+DROP POLICY IF EXISTS fi_deals_raw_service_all ON public.fi_deals_raw;
+DROP POLICY IF EXISTS fi_deals_canonical_service_all ON public.fi_deals_canonical;
+DROP POLICY IF EXISTS fi_deal_investors_service_all ON public.fi_deal_investors;
+DROP POLICY IF EXISTS fi_deal_source_links_service_all ON public.fi_deal_source_links;
+DROP POLICY IF EXISTS fi_errors_service_all ON public.fi_errors;
+
 CREATE POLICY fi_sources_service_all           ON public.fi_sources           FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY fi_fetch_runs_service_all        ON public.fi_fetch_runs        FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY fi_documents_service_all         ON public.fi_documents         FOR ALL TO service_role USING (true) WITH CHECK (true);
