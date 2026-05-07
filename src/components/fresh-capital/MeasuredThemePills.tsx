@@ -116,6 +116,9 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
 
   const n = themes.length;
 
+  // Never show a "+1" badge — just render the single chip instead.
+  // Apply this before the expanded branch so it also covers the initial render.
+
   if (expanded) {
     return (
       <>
@@ -142,10 +145,15 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
 
   const measured = fitCount !== null;
   /** Until layout runs, show one chip + `+N` so a narrow column never wraps/clips before measurement. */
-  const visibleEnd = measured ? Math.min(fitCount!, n) : n <= 1 ? n : 1;
+  let visibleEnd = measured ? Math.min(fitCount!, n) : n <= 1 ? n : 1;
+  let hiddenCount = n - visibleEnd;
+  // Never show "+1" — if exactly one chip would be hidden, just show it instead.
+  if (hiddenCount === 1) {
+    visibleEnd = n;
+    hiddenCount = 0;
+  }
   const collapsedVisible = themes.slice(0, visibleEnd);
-  const hiddenCount = n - visibleEnd;
-  const showOverflowChip = measured ? fitCount! < n : n > 1;
+  const showOverflowChip = hiddenCount > 0;
 
   return (
     <>

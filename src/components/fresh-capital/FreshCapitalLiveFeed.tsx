@@ -275,6 +275,13 @@ function StageFocusChips({ stages }: { stages: string[] | null | undefined }) {
   );
 }
 
+/** Expand a single normalized geo chip into one or more display chips.
+ *  "North America" → ["U.S.", "Canada"] so both countries show as separate badges. */
+function expandGeoChip(chip: string): string[] {
+  if (chip.toLowerCase() === "north america") return ["U.S.", "Canada"];
+  return [chip];
+}
+
 /** Geo focus column — same chip treatment as {@link StageFocusChips}. */
 function GeoFocusChips({ geos }: { geos: string[] | null | undefined }) {
   const labels: string[] = [];
@@ -283,9 +290,13 @@ function GeoFocusChips({ geos }: { geos: string[] | null | undefined }) {
     const t = typeof raw === "string" ? raw.trim() : "";
     if (!t) continue;
     const chip = normalizeGeoFocusDisplayChip(t);
-    if (!chip || seen.has(chip)) continue;
-    seen.add(chip);
-    labels.push(chip);
+    if (!chip) continue;
+    for (const expanded of expandGeoChip(chip)) {
+      if (seen.has(expanded)) continue;
+      seen.add(expanded);
+      labels.push(expanded);
+      if (labels.length >= 4) break;
+    }
     if (labels.length >= 4) break;
   }
 
