@@ -219,7 +219,7 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
   if (attempt >= candidates.length) {
     return (
       <span
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[3px] border border-zinc-600/90 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border border-zinc-600/90 bg-zinc-900 text-[11px] font-semibold uppercase leading-none text-zinc-400"
         aria-hidden
       >
         {letter}
@@ -231,9 +231,9 @@ function FirmRowMark({ row }: { row: FreshCapitalFundRow }) {
     <img
       src={currentSrc}
       alt=""
-      width={20}
-      height={20}
-      className="h-5 w-5 shrink-0 rounded-[3px] border border-zinc-600/80 bg-zinc-950 object-contain"
+      width={28}
+      height={28}
+      className="h-7 w-7 shrink-0 rounded-[4px] border border-zinc-600/80 bg-zinc-950 object-contain"
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"

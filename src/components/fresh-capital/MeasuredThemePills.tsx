@@ -161,7 +161,7 @@ export function MeasuredThemePills({ themes, rowKey }: MeasuredThemePillsProps) 
 
       <div
         ref={containerRef}
-        className="flex min-w-0 max-w-full flex-nowrap items-center gap-1"
+        className="flex w-full min-w-0 max-w-full flex-nowrap items-center gap-1"
       >
         {collapsedVisible.map((theme, i) => (
           <span key={`${theme}-${i}`} title={theme} className={CHIP_CLASS}>
