@@ -74,24 +74,14 @@ export default function AccessRequest() {
         </header>
 
         <main className="flex flex-col gap-10">
-          <div className="flex items-start gap-3 text-left sm:gap-4">
-            <img
-              src="/brand/vekta-form-header-mark.png"
-              alt=""
-              aria-hidden="true"
-              className="mt-1 h-11 w-11 shrink-0 object-contain opacity-95 sm:h-12 sm:w-12"
-              width={48}
-              height={48}
-            />
-            <div className="min-w-0 space-y-3">
-              <p className="text-2xs font-medium uppercase tracking-wider text-primary">Early access</p>
-              <h1 className="text-balance text-3xl font-semibold tracking-tight text-[#eeeeee] sm:text-4xl">
-                Request access to Vekta
-              </h1>
-              <p className="text-pretty text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-                Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
-              </p>
-            </div>
+          <div className="space-y-3 text-left">
+            <p className="text-2xs font-medium uppercase tracking-wider text-primary">Early access</p>
+            <h1 className="text-balance text-3xl font-semibold tracking-tight text-[#eeeeee] sm:text-4xl">
+              Request access to Vekta
+            </h1>
+            <p className="text-pretty text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
+              Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+            </p>
           </div>
 
           <AccessRequestForm />
