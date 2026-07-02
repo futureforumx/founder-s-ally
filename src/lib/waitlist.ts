@@ -45,6 +45,50 @@ function supabaseOrigin(): string {
   return typeof u === "string" ? u.replace(/\/$/, "") : "";
 }
 
+const WAITLIST_TEMPORARY_ERROR_MESSAGE =
+  "The Vekta waitlist is temporarily unavailable. Please try again in a minute.";
+
+const WAITLIST_RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504, 521, 522, 523, 524]);
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLikelyHtmlResponse(raw: string, contentType: string | null): boolean {
+  const trimmed = raw.trimStart().slice(0, 120).toLowerCase();
+  return Boolean(contentType?.toLowerCase().includes("text/html")) || trimmed.startsWith("<!doctype html") || trimmed.startsWith("<html");
+}
+
+function errorMessageFromParsedBody(parsed: unknown): string | null {
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "error" in parsed &&
+    typeof (parsed as { error: unknown }).error === "string"
+  ) {
+    const message = (parsed as { error: string }).error.trim();
+    return message || null;
+  }
+  return null;
+}
+
+function waitlistHttpErrorMessage(params: {
+  name: string;
+  status: number;
+  raw: string;
+  contentType: string | null;
+  parsed: unknown;
+}): string {
+  if (isLikelyHtmlResponse(params.raw, params.contentType)) {
+    return WAITLIST_TEMPORARY_ERROR_MESSAGE;
+  }
+  if (params.status >= 500 || WAITLIST_RETRYABLE_HTTP_STATUSES.has(params.status)) {
+    return WAITLIST_TEMPORARY_ERROR_MESSAGE;
+  }
+  return errorMessageFromParsedBody(params.parsed) ?? `${params.name} failed (HTTP ${params.status})`;
+}
+
 /**
  * Read JSON error body from FunctionsHttpError (or duck-typed equivalent —
  * duplicate @supabase packages can break `instanceof`).
@@ -103,57 +147,64 @@ async function invokeWaitlistFunction<T>(name: string, body: unknown): Promise<T
     throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY");
   }
 
-  const res = await fetch(`${origin}/functions/v1/${name}`, {
-    method: "POST",
-    headers: waitlistEdgeRequestHeaders(),
-    body: JSON.stringify(body),
-  });
+  const maxAttempts = 3;
 
-  const raw = await res.text();
-  let parsed: unknown = null;
-  if (raw) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let res: Response;
     try {
-      parsed = JSON.parse(raw) as unknown;
-    } catch {
-      parsed = { error: raw.slice(0, 500) };
+      res = await fetch(`${origin}/functions/v1/${name}`, {
+        method: "POST",
+        headers: waitlistEdgeRequestHeaders(),
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      console.warn(`[waitlist] ${name} network error`, err);
+      if (attempt < maxAttempts - 1) {
+        await wait(500 * (attempt + 1));
+        continue;
+      }
+      throw new Error(WAITLIST_TEMPORARY_ERROR_MESSAGE);
     }
-  }
 
-  if (!res.ok) {
-    console.warn(`[waitlist] ${name} HTTP ${res.status}`, parsed ?? raw?.slice?.(0, 300));
-    const fromBody =
-      parsed &&
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "error" in parsed &&
-      typeof (parsed as { error: unknown }).error === "string"
-        ? (parsed as { error: string }).error
-        : null;
-    if (res.status === 401) {
-      const hint401 =
-        publishableKey().startsWith("sb_publishable_") && !edgeFunctionBearerJwt()
-          ? " If this persists: set VITE_SUPABASE_ANON_KEY to the legacy anon JWT (eyJ…) from Dashboard → API, or confirm Edge Functions use --no-verify-jwt."
-          : "";
-      throw new Error((fromBody ?? `${name} failed (HTTP 401)`) + hint401);
+    const raw = await res.text();
+    const contentType = res.headers.get("content-type");
+    let parsed: unknown = null;
+    if (raw && !isLikelyHtmlResponse(raw, contentType)) {
+      try {
+        parsed = JSON.parse(raw) as unknown;
+      } catch {
+        parsed = { error: raw.slice(0, 500) };
+      }
     }
-    throw new Error(fromBody ?? `${name} failed (HTTP ${res.status})`);
+
+    if (!res.ok) {
+      console.warn(`[waitlist] ${name} HTTP ${res.status}`, parsed ?? raw?.slice?.(0, 300));
+      if (WAITLIST_RETRYABLE_HTTP_STATUSES.has(res.status) && attempt < maxAttempts - 1) {
+        await wait(500 * (attempt + 1));
+        continue;
+      }
+      const fromBody = errorMessageFromParsedBody(parsed);
+      if (res.status === 401) {
+        const hint401 =
+          publishableKey().startsWith("sb_publishable_") && !edgeFunctionBearerJwt()
+            ? " If this persists: set VITE_SUPABASE_ANON_KEY to the legacy anon JWT (eyJ…) from Dashboard -> API, or confirm Edge Functions use --no-verify-jwt."
+            : "";
+        throw new Error((fromBody ?? `${name} failed (HTTP 401)`) + hint401);
+      }
+      throw new Error(waitlistHttpErrorMessage({ name, status: res.status, raw, contentType, parsed }));
+    }
+
+    const fromBody = errorMessageFromParsedBody(parsed);
+    if (fromBody) throw new Error(fromBody);
+
+    if (import.meta.env.DEV && name === "founder-waitlist-snapshot") {
+      console.debug("[waitlist] founder-waitlist-snapshot OK", res.status, parsed);
+    }
+
+    return parsed as T;
   }
 
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    parsed !== null &&
-    "error" in parsed &&
-    typeof (parsed as { error: unknown }).error === "string"
-  ) {
-    throw new Error((parsed as { error: string }).error);
-  }
-
-  if (import.meta.env.DEV && name === "founder-waitlist-snapshot") {
-    console.debug("[waitlist] founder-waitlist-snapshot OK", res.status, parsed);
-  }
-
-  return parsed as T;
+  throw new Error(WAITLIST_TEMPORARY_ERROR_MESSAGE);
 }
 
 // ---------------------------------------------------------------------------

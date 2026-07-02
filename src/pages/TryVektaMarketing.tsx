@@ -396,11 +396,23 @@ export default function TryVektaMarketing() {
             onInteractOutside={(e) => e.preventDefault()}
             onEscapeKeyDown={(e) => e.preventDefault()}
           >
-            <DialogHeader>
-              <DialogTitle className="text-[#eeeeee]">Request access to Vekta</DialogTitle>
-              <DialogDescription className="text-[#b3b3b3]">
-                Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
-              </DialogDescription>
+            <DialogHeader className="pr-8 text-left sm:pr-10">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <img
+                  src="/brand/vekta-form-header-mark.png"
+                  alt=""
+                  aria-hidden="true"
+                  className="mt-0.5 h-10 w-10 shrink-0 object-contain opacity-95 sm:h-11 sm:w-11"
+                  width={44}
+                  height={44}
+                />
+                <div className="min-w-0 space-y-1.5">
+                  <DialogTitle className="text-[#eeeeee]">Request access to Vekta</DialogTitle>
+                  <DialogDescription className="text-[#b3b3b3]">
+                    Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
             <div className="mt-2 border-t border-zinc-800 pt-4">
               <AccessRequestForm />

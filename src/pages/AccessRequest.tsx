@@ -52,7 +52,7 @@ export default function AccessRequest() {
         <div className="pointer-events-none absolute inset-0 opacity-45" style={{ background: brandGradientOverlay }} />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-16 pt-10 sm:px-6 sm:pt-14">
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-8 pt-10 sm:px-6 sm:pt-14">
         <header className="mb-10 flex items-center justify-between gap-4">
           <Link to="/" className="inline-flex items-center gap-2 rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <img
@@ -73,15 +73,25 @@ export default function AccessRequest() {
           </a>
         </header>
 
-        <main className="flex flex-1 flex-col gap-10">
-          <div className="space-y-3 text-center sm:text-left">
-            <p className="text-2xs font-medium uppercase tracking-wider text-primary">Early access</p>
-            <h1 className="text-balance text-3xl font-semibold tracking-tight text-[#eeeeee] sm:text-4xl">
-              Request access to Vekta
-            </h1>
-            <p className="text-pretty text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-              Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
-            </p>
+        <main className="flex flex-col gap-10">
+          <div className="flex items-start gap-3 text-left sm:gap-4">
+            <img
+              src="/brand/vekta-form-header-mark.png"
+              alt=""
+              aria-hidden="true"
+              className="mt-1 h-11 w-11 shrink-0 object-contain opacity-95 sm:h-12 sm:w-12"
+              width={48}
+              height={48}
+            />
+            <div className="min-w-0 space-y-3">
+              <p className="text-2xs font-medium uppercase tracking-wider text-primary">Early access</p>
+              <h1 className="text-balance text-3xl font-semibold tracking-tight text-[#eeeeee] sm:text-4xl">
+                Request access to Vekta
+              </h1>
+              <p className="text-pretty text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
+                Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+              </p>
+            </div>
           </div>
 
           <AccessRequestForm />
@@ -101,7 +111,7 @@ export default function AccessRequest() {
           </section>
         </main>
 
-        <footer className="mt-12 text-center text-2xs text-[#b3b3b3] sm:text-left">
+        <footer className="mt-5 text-center text-2xs text-[#b3b3b3] sm:text-left">
           © {new Date().getFullYear()} Vekta. All rights reserved.
         </footer>
       </div>
