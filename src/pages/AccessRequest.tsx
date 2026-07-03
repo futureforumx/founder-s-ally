@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
+import { X } from "lucide-react";
 import { AccessRequestForm } from "@/components/public/AccessRequestForm";
 import { getAccessPageBackgroundVideoUrl } from "@/lib/accessPageVideoUrl";
 
@@ -10,6 +11,26 @@ const brandGradientOverlay =
 export default function AccessRequest() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoSrc = useMemo(() => getAccessPageBackgroundVideoUrl(), []);
+  const handleClose = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "vekta:access-close" }, "*");
+      return;
+    }
+
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.assign("https://tryvekta.com");
+  }, []);
 
   useEffect(() => {
     const prev = document.title;
@@ -63,14 +84,14 @@ export default function AccessRequest() {
               height={32}
             />
           </Link>
-          <a
-            href="https://vekta.so"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-2xs font-medium text-[#eeeeee] underline-offset-4 transition-colors hover:text-white hover:underline"
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close request access"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#eeeeee] transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
-            Learn more
-          </a>
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
         </header>
 
         <main className="flex flex-col gap-10">
