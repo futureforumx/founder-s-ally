@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import { X } from "lucide-react";
 import { AccessRequestForm } from "@/components/public/AccessRequestForm";
 import { getAccessPageBackgroundVideoUrl } from "@/lib/accessPageVideoUrl";
 
@@ -11,26 +10,6 @@ const brandGradientOverlay =
 export default function AccessRequest() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoSrc = useMemo(() => getAccessPageBackgroundVideoUrl(), []);
-  const handleClose = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: "vekta:access-close" }, "*");
-      return;
-    }
-
-    if (window.opener && !window.opener.closed) {
-      window.close();
-      return;
-    }
-
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    window.location.assign("https://tryvekta.com");
-  }, []);
 
   useEffect(() => {
     const prev = document.title;
@@ -74,7 +53,7 @@ export default function AccessRequest() {
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-lg flex-col px-5 pb-4 pt-10 sm:px-6 sm:pt-14">
-        <header className="mb-10 flex items-center justify-between gap-4">
+        <header className="mb-10 flex items-center">
           <Link to="/" className="inline-flex items-center gap-2 rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <img
               src="/brand/vekta-access-mark.png"
@@ -84,14 +63,6 @@ export default function AccessRequest() {
               height={32}
             />
           </Link>
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label="Close request access"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#eeeeee] transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
         </header>
 
         <main className="flex flex-col gap-10">
