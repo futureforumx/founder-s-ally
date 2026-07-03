@@ -35,8 +35,8 @@ export default function AccessRequest() {
   }, [videoSrc]);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-black font-spaceGrotesk">
-      <div className="pointer-events-none absolute inset-0 min-h-[100dvh] overflow-hidden bg-black" aria-hidden>
+    <div className="relative overflow-x-hidden bg-black font-spaceGrotesk">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden bg-black" aria-hidden>
         <video
           ref={videoRef}
           key={videoSrc}
@@ -52,7 +52,7 @@ export default function AccessRequest() {
         <div className="pointer-events-none absolute inset-0 opacity-45" style={{ background: brandGradientOverlay }} />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col px-5 pb-8 pt-10 sm:px-6 sm:pt-14">
+      <div className="relative z-10 mx-auto flex max-w-lg flex-col px-5 pb-4 pt-10 sm:px-6 sm:pt-14">
         <header className="mb-10 flex items-center justify-between gap-4">
           <Link to="/" className="inline-flex items-center gap-2 rounded-md outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
             <img
