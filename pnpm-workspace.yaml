@@ -1,0 +1,16 @@
+packages:
+  - "."
+
+overrides:
+  "@aws-sdk/core": "3.973.26"
+  "@aws-sdk/util-format-url": "3.972.8"
+
+allowBuilds:
+  "@prisma/client": true
+  "@prisma/engines": true
+  "browser-tabs-lock": false
+  "canvas": false
+  "core-js": true
+  "esbuild": true
+  "prisma": true
+  "supabase": false

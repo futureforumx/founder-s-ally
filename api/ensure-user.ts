@@ -14,7 +14,7 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { ensureAppUserRows } from "./_ensureAppUser";
+import { ensureAppUserRows } from "./_ensureAppUser.js";
 
 function setCors(res: VercelResponse): VercelResponse {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     avatarUrl,
   });
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return setCors(res).status(result.status).json({ error: result.error });
   }
 

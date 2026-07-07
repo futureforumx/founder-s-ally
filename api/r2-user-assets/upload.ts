@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest";
-import { parseMultipartAsset, r2ConfiguredFor, uploadR2UserAsset } from "../_r2UserAssets";
+import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest.js";
+import { parseMultipartAsset, r2ConfiguredFor, uploadR2UserAsset } from "../_r2UserAssets.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const parsed = await parseMultipartAsset(req);
-  if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+  if (parsed.ok === false) return res.status(400).json({ error: parsed.error });
 
   const userId = await getClerkUserIdFromAuthHeader(req.headers.authorization as string | undefined);
   if (!userId) return res.status(401).json({ error: "Missing or invalid Authorization bearer token" });

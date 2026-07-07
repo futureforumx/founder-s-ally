@@ -5,6 +5,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } fro
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type R2UserAssetType = "pitch-deck" | "company-logo" | "founder-headshot";
+type R2S3Command = PutObjectCommand | DeleteObjectCommand | GetObjectCommand;
+type R2S3Client = S3Client & { send(command: R2S3Command): Promise<unknown> };
 
 const ASSET_LIMITS: Record<R2UserAssetType, number> = {
   "pitch-deck": 50 * 1024 * 1024,
@@ -65,8 +67,8 @@ export function r2ConfiguredFor(type: R2UserAssetType): { ok: boolean; missing: 
   return { ok: missing.length === 0, missing };
 }
 
-let cachedS3: S3Client | null = null;
-function s3(): S3Client {
+let cachedS3: R2S3Client | null = null;
+function s3(): R2S3Client {
   if (!cachedS3) {
     cachedS3 = new S3Client({
       region: "auto",
@@ -76,7 +78,7 @@ function s3(): S3Client {
         secretAccessKey: e("CF_R2_SECRET_ACCESS_KEY"),
       },
       forcePathStyle: false,
-    });
+    }) as R2S3Client;
   }
   return cachedS3;
 }

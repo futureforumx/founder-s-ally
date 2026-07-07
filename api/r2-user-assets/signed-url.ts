@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest";
-import { parseR2StoredValue, r2ConfiguredFor, signedR2PitchDeckUrl } from "../_r2UserAssets";
-import { readJsonBody } from "../_readJsonBody";
+import { getClerkUserIdFromAuthHeader } from "../_clerkFromRequest.js";
+import { parseR2StoredValue, r2ConfiguredFor, signedR2PitchDeckUrl } from "../_r2UserAssets.js";
+import { readJsonBody } from "../_readJsonBody.js";
 
 function setCors(res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = await getClerkUserIdFromAuthHeader(req.headers.authorization as string | undefined);
   if (!userId) return res.status(401).json({ error: "Missing or invalid Authorization bearer token" });
 
-  const body = await readJsonBody(req).catch(() => ({}));
+  const body = (await readJsonBody(req).catch(() => ({}))) as Record<string, unknown>;
   const fileUrl = typeof body.file_url === "string" ? body.file_url : "";
   const key = parseR2StoredValue(fileUrl);
   if (!key || !key.startsWith(`pitch-decks/${userId}/`)) return res.status(400).json({ error: "Invalid pitch deck key" });
