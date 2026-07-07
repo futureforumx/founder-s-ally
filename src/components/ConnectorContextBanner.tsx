@@ -19,8 +19,7 @@ export function ConnectorContextBanner({ className }: ConnectorContextBannerProp
         className,
       )}
     >
-      <span className="font-medium text-foreground">Installing for:</span>{" "}
-      {ctx?.activeContextKind === "personal" ? "Personal" : label}
+      <span className="font-medium text-foreground">Installing for:</span> {label}
     </div>
   );
 }

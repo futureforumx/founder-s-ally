@@ -5,13 +5,11 @@ import {
   Gauge,
   BookOpen,
   Link2,
-  MapPin,
   UserCog,
   UserCircle,
   TrendingUp,
   Zap,
   Share2,
-  UsersRound,
   UserSearch,
   Handshake,
   Target,
@@ -28,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { BrandLogo } from "@/components/BrandLogo";
 import { ContextSwitcher } from "@/components/ContextSwitcher";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
+import { useActiveContext } from "@/context/ActiveContext";
 
 type ViewType =
   | "home"
@@ -75,8 +74,6 @@ interface AppSidebarProps {
 
 const communityItems = [
   { id: "directory" as const, label: "Directory", icon: BookOpen },
-  { id: "groups" as const, label: "Groups", icon: UsersRound },
-  { id: "events" as const, label: "Events", icon: MapPin },
 ];
 
 function isMarketIntelView(v: ViewType) {
@@ -119,6 +116,7 @@ export function AppSidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const { isAppAdmin } = useAppAdmin();
+  const { activeContextKind } = useActiveContext();
   const pendingNavFrameRef = useRef<number | null>(null);
 
   const goView = useCallback((view: ViewType) => {
@@ -204,6 +202,27 @@ export function AppSidebar({
     "mt-1 px-2 pb-0 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50",
     collapsed && "sr-only",
   );
+  const showCompanySection = activeContextKind === "workspace";
+  const showProfileSection = activeContextKind === "personal";
+
+  const goSettingsNetwork = useCallback(() => {
+    if (typeof window === "undefined") {
+      onViewChange("settings");
+      return;
+    }
+
+    if (pendingNavFrameRef.current !== null) {
+      window.cancelAnimationFrame(pendingNavFrameRef.current);
+    }
+
+    pendingNavFrameRef.current = window.requestAnimationFrame(() => {
+      pendingNavFrameRef.current = null;
+      startTransition(() => {
+        navigate({ pathname: "/", search: "?view=settings&tab=network" });
+        onViewChange("settings");
+      });
+    });
+  }, [navigate, onViewChange]);
 
   const pulseButton = (
     <button
@@ -442,28 +461,6 @@ export function AppSidebar({
                 {!collapsed && "Matches"}
               </button>
             </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Data Room">
-              <button
-                type="button"
-                onClick={() => goView("data-room")}
-                className={navBtn(activeView === "data-room")}
-                style={activeView === "data-room" ? activeNavStyle : undefined}
-              >
-                <FileText className="h-4 w-4 shrink-0" />
-                {!collapsed && "Data Room"}
-              </button>
-            </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Profile & Workspace">
-              <button
-                type="button"
-                onClick={() => goView("profile-workspace")}
-                className={navBtn(activeView === "profile-workspace")}
-                style={activeView === "profile-workspace" ? activeNavStyle : undefined}
-              >
-                <UserCircle className="h-4 w-4 shrink-0" />
-                {!collapsed && "Profile & Workspace"}
-              </button>
-            </SidebarHint>
           </div>
 
           {isAppAdmin && (
@@ -483,22 +480,64 @@ export function AppSidebar({
           )}
           </div>
 
-          <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
-            <div className={sectionLabel}>Integrations</div>
-            <div className={rail}>
-              <SidebarHint collapsed={collapsed} label="Data integrations">
-                <button
-                  type="button"
-                  onClick={() => goView("integrations")}
-                  className={navBtn(activeView === "integrations")}
-                  style={activeView === "integrations" ? activeNavStyle : undefined}
-                >
-                  <Plug className="h-4 w-4 shrink-0" />
-                  {!collapsed && "Integrations"}
-                </button>
-              </SidebarHint>
+          {showCompanySection && (
+            <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
+              <div className={sectionLabel}>My Company</div>
+              <div className={rail}>
+                <SidebarHint collapsed={collapsed} label="Data Room">
+                  <button
+                    type="button"
+                    onClick={() => goView("data-room")}
+                    className={navBtn(activeView === "data-room")}
+                    style={activeView === "data-room" ? activeNavStyle : undefined}
+                  >
+                    <FileText className="h-4 w-4 shrink-0" />
+                    {!collapsed && "Data Room"}
+                  </button>
+                </SidebarHint>
+                <SidebarHint collapsed={collapsed} label="Data integrations">
+                  <button
+                    type="button"
+                    onClick={() => goView("integrations")}
+                    className={navBtn(activeView === "integrations")}
+                    style={activeView === "integrations" ? activeNavStyle : undefined}
+                  >
+                    <Plug className="h-4 w-4 shrink-0" />
+                    {!collapsed && "Integrations"}
+                  </button>
+                </SidebarHint>
+              </div>
             </div>
-          </div>
+          )}
+          {showProfileSection && (
+            <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
+              <div className={sectionLabel}>My Profile</div>
+              <div className={rail}>
+                <SidebarHint collapsed={collapsed} label="Profile & Workspace">
+                  <button
+                    type="button"
+                    onClick={() => goView("profile-workspace")}
+                    className={navBtn(activeView === "profile-workspace")}
+                    style={activeView === "profile-workspace" ? activeNavStyle : undefined}
+                  >
+                    <UserCircle className="h-4 w-4 shrink-0" />
+                    {!collapsed && "Profile & Workspace"}
+                  </button>
+                </SidebarHint>
+                <SidebarHint collapsed={collapsed} label="Integrations">
+                  <button
+                    type="button"
+                    onClick={goSettingsNetwork}
+                    className={navBtn(activeView === "settings")}
+                    style={activeView === "settings" ? activeNavStyle : undefined}
+                  >
+                    <Plug className="h-4 w-4 shrink-0" />
+                    {!collapsed && "Integrations"}
+                  </button>
+                </SidebarHint>
+              </div>
+            </div>
+          )}
         </nav>
 
         <div className={cn("shrink-0 space-y-2 border-t border-sidebar-border/30 px-3 py-3", collapsed && "px-2")}>

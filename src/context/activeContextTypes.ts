@@ -1,6 +1,9 @@
 /** Synthetic id when `owner_contexts` has no personal row yet (localStorage + UI). */
 export const PERSONAL_CONTEXT_SENTINEL = "personal" as const;
 
+/** Synthetic id when no company workspace / owner_context is available yet. */
+export const COMPANY_CONTEXT_SENTINEL = "company" as const;
+
 export type ActiveContextKind = "personal" | "workspace";
 
 export type AvailableContextPersonal = {
@@ -13,7 +16,7 @@ export type AvailableContextWorkspace = {
   kind: "workspace";
   ownerContextId: string;
   workspaceId: string;
-  label: string;
+  label: "Company";
   role: string;
   slug: string;
 };

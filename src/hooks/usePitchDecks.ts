@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getSupabaseAccessToken } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import { deleteR2PitchDeck, getR2PitchDeckSignedUrl, isR2PrivateUrl, uploadR2UserAsset } from "@/lib/r2UserAssets";
 
 export interface PitchDeck {
   id: string;
@@ -74,18 +75,7 @@ export function usePitchDecks() {
       const rlsUserId = await resolveRlsUserId();
       if (!rlsUserId) throw new Error("Not authenticated");
 
-      // Upload file to storage
-      const filePath = `${rlsUserId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("pitch-decks")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get the file URL
-      const { data: urlData } = supabase.storage
-        .from("pitch-decks")
-        .getPublicUrl(filePath);
+      const uploaded = await uploadR2UserAsset("pitch-deck", file);
 
       // Insert record (trigger auto-deactivates others)
       const { data, error } = await supabase
@@ -93,7 +83,7 @@ export function usePitchDecks() {
         .insert({
           user_id: rlsUserId,
           file_name: file.name,
-          file_url: filePath,
+          file_url: uploaded.url,
           is_active: true,
           file_size_bytes: file.size,
         } as any)
@@ -136,7 +126,11 @@ export function usePitchDecks() {
     try {
       const deck = decks.find(d => d.id === deckId);
       if (deck) {
-        await supabase.storage.from("pitch-decks").remove([deck.file_url]);
+        if (isR2PrivateUrl(deck.file_url)) {
+          await deleteR2PitchDeck(deck.file_url);
+        } else {
+          await supabase.storage.from("pitch-decks").remove([deck.file_url]);
+        }
       }
 
       const { error } = await supabase
@@ -155,6 +149,7 @@ export function usePitchDecks() {
 
   const getDownloadUrl = useCallback(async (fileUrl: string): Promise<string | null> => {
     try {
+      if (isR2PrivateUrl(fileUrl)) return await getR2PitchDeckSignedUrl(fileUrl);
       const { data, error } = await supabase.storage
         .from("pitch-decks")
         .createSignedUrl(fileUrl, 3600);

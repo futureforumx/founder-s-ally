@@ -15,6 +15,7 @@ import {
   type WorkspaceIdentityBundle,
 } from "@/lib/workspaceIdentityFetch";
 import {
+  COMPANY_CONTEXT_SENTINEL,
   PERSONAL_CONTEXT_SENTINEL,
   type ActiveContextKind,
   type ActiveContextValue,
@@ -44,37 +45,69 @@ function writeStoredContextId(id: string) {
   }
 }
 
-function buildAvailableContexts(bundle: WorkspaceIdentityBundle | null): AvailableContext[] {
-  if (!bundle) {
-    return [{ kind: "personal", ownerContextId: PERSONAL_CONTEXT_SENTINEL, label: "Personal" }];
-  }
+const PERSONAL_AND_COMPANY_FALLBACK: AvailableContext[] = [
+  { kind: "personal", ownerContextId: PERSONAL_CONTEXT_SENTINEL, label: "Personal" },
+  {
+    kind: "workspace",
+    ownerContextId: COMPANY_CONTEXT_SENTINEL,
+    workspaceId: "",
+    label: "Company",
+    role: "",
+    slug: "",
+  },
+];
 
-  const out: AvailableContext[] = [];
-  const personalId = bundle.personalOwnerContext?.id ?? PERSONAL_CONTEXT_SENTINEL;
-  out.push({ kind: "personal", ownerContextId: personalId, label: "Personal" });
-
+function pickCompanyContext(bundle: WorkspaceIdentityBundle): AvailableContextWorkspace | null {
   const ocByWorkspace = new Map<string, string>();
   for (const oc of bundle.workspaceOwnerContexts) {
     if (oc.workspace_id) ocByWorkspace.set(oc.workspace_id, oc.id);
   }
 
-  for (const m of bundle.memberships) {
-    const w = m.workspace;
-    if (!w?.id) continue;
-    const ownerContextId = ocByWorkspace.get(w.id);
-    if (!ownerContextId) continue;
-    const row: AvailableContextWorkspace = {
+  const tryMembership = (workspaceId: string | null | undefined): AvailableContextWorkspace | null => {
+    if (!workspaceId) return null;
+    const ownerContextId = ocByWorkspace.get(workspaceId);
+    if (!ownerContextId) return null;
+    const membership = bundle.memberships.find((m) => m.workspace?.id === workspaceId);
+    const workspace = membership?.workspace;
+    if (!workspace?.id) return null;
+    return {
       kind: "workspace",
       ownerContextId,
-      workspaceId: w.id,
-      label: w.name,
-      role: m.role,
-      slug: w.slug,
+      workspaceId: workspace.id,
+      label: "Company",
+      role: membership.role,
+      slug: workspace.slug,
     };
-    out.push(row);
+  };
+
+  const fromDefault = tryMembership(bundle.userRow?.default_workspace_id);
+  if (fromDefault) return fromDefault;
+
+  for (const m of bundle.memberships) {
+    const picked = tryMembership(m.workspace?.id);
+    if (picked) return picked;
   }
 
-  return out;
+  return null;
+}
+
+function buildAvailableContexts(bundle: WorkspaceIdentityBundle | null): AvailableContext[] {
+  if (!bundle) return PERSONAL_AND_COMPANY_FALLBACK;
+
+  const personalId = bundle.personalOwnerContext?.id ?? PERSONAL_CONTEXT_SENTINEL;
+  const company = pickCompanyContext(bundle);
+
+  return [
+    { kind: "personal", ownerContextId: personalId, label: "Personal" },
+    company ?? {
+      kind: "workspace",
+      ownerContextId: COMPANY_CONTEXT_SENTINEL,
+      workspaceId: "",
+      label: "Company",
+      role: "",
+      slug: "",
+    },
+  ];
 }
 
 function pickInitialContextId(
@@ -87,6 +120,9 @@ function pickInitialContextId(
 
   const personal = contexts.find((c) => c.kind === "personal");
   if (stored === PERSONAL_CONTEXT_SENTINEL && personal) return personal.ownerContextId;
+
+  const company = contexts.find((c) => c.kind === "workspace");
+  if (stored === COMPANY_CONTEXT_SENTINEL && company) return company.ownerContextId;
 
   if (defaultWorkspaceId) {
     const match = contexts.find((c) => c.kind === "workspace" && c.workspaceId === defaultWorkspaceId);
@@ -111,12 +147,8 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   });
 
   const availableContexts = useMemo(() => {
-    if (!userId) {
-      return [{ kind: "personal" as const, ownerContextId: PERSONAL_CONTEXT_SENTINEL, label: "Personal" as const }];
-    }
-    if (!isSupabaseConfigured || demoMode) {
-      return [{ kind: "personal" as const, ownerContextId: PERSONAL_CONTEXT_SENTINEL, label: "Personal" as const }];
-    }
+    if (!userId) return PERSONAL_AND_COMPANY_FALLBACK;
+    if (!isSupabaseConfigured || demoMode) return PERSONAL_AND_COMPANY_FALLBACK;
     return buildAvailableContexts(bundle ?? null);
   }, [userId, bundle, demoMode]);
 
@@ -161,7 +193,7 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
     if (match.kind === "personal") {
       return { activeContextKind: "personal" as const, activeContextLabel: "Personal" };
     }
-    return { activeContextKind: "workspace" as const, activeContextLabel: match.label };
+    return { activeContextKind: "workspace" as const, activeContextLabel: "Company" };
   }, [availableContexts, activeContextId]);
 
   const canManageConnectorIntegrations = useMemo(() => {

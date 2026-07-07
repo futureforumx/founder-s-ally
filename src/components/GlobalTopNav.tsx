@@ -1411,43 +1411,29 @@ export function GlobalTopNav({
 
         {/* ── Pulse (`/intelligence`) — Brief, Category, Funding, Regulatory, Customer, M&A ── */}
         {!searchOpen && location.pathname === "/intelligence" && (
-          <>
-            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
-              <TopNavSegmentedControl
-                segments={MARKET_INTEL_SEGMENTS}
-                activeId={marketIntelActiveId}
-                onSelect={(id) => routeView(id as ViewType)}
-                ariaLabel="Market intelligence views"
-                density="compact"
-                labelTransform="none"
-                segmentLayout="hug"
-              />
-            </div>
-
-            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
-                    <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold tracking-normal normal-case">
-                      {pulseIntelActiveLabel(marketIntelActiveId)}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-44">
-                  {MARKET_INTEL_SEGMENTS.map((seg) => (
-                    <DropdownMenuItem
-                      key={seg.id}
-                      onClick={() => routeView(seg.id)}
-                      className={cn(activeView === seg.id && "bg-accent/10 text-accent")}
-                    >
-                      {seg.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
+          <div className="shrink-0 pl-1.5 pr-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
+                  <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold tracking-normal normal-case">
+                    {pulseIntelActiveLabel(marketIntelActiveId)}
+                  </span>
+                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                {MARKET_INTEL_SEGMENTS.map((seg) => (
+                  <DropdownMenuItem
+                    key={seg.id}
+                    onClick={() => routeView(seg.id)}
+                    className={cn(activeView === seg.id && "bg-accent/10 text-accent")}
+                  >
+                    {seg.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
 
         {/* ── Raise (home): Data Room only when not on /intelligence */}

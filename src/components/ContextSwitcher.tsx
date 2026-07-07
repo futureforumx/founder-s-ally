@@ -16,9 +16,9 @@ type ContextSwitcherProps = {
 };
 
 export function ContextSwitcher({ collapsed = false }: ContextSwitcherProps) {
-  const { activeContextLabel, activeContextKind, availableContexts, setActiveContext, isLoading } = useActiveContext();
+  const { activeContextKind, availableContexts, setActiveContext, isLoading } = useActiveContext();
 
-  const triggerLabel = activeContextKind === "personal" ? "Personal" : activeContextLabel;
+  const triggerLabel = activeContextKind === "personal" ? "Personal" : "Company";
 
   return (
     <DropdownMenu>
@@ -44,7 +44,7 @@ export function ContextSwitcher({ collapsed = false }: ContextSwitcherProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="start" side="right">
         <DropdownMenuLabel className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
-          Context
+          Profile
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {availableContexts.map((c) => (
@@ -53,10 +53,7 @@ export function ContextSwitcher({ collapsed = false }: ContextSwitcherProps) {
             className="text-xs"
             onClick={() => setActiveContext(c.ownerContextId)}
           >
-            <span className="font-medium">{c.kind === "personal" ? "Personal" : c.label}</span>
-            {c.kind === "workspace" && (
-              <span className="ml-2 text-[10px] text-muted-foreground">({c.role})</span>
-            )}
+            <span className="font-medium">{c.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

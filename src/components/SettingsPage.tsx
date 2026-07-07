@@ -50,6 +50,7 @@ import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
 import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { uploadR2UserAsset } from "@/lib/r2UserAssets";
 
 function splitFullName(full: string): { first: string; last: string } {
   const t = full.trim();
@@ -579,18 +580,8 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
     setAvatarUploading(true);
     setAvatarError(false);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${userId}/avatar-${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(path);
+      const uploaded = await uploadR2UserAsset("founder-headshot", file);
+      const publicUrl = uploaded.url;
 
       await upsertProfile({ avatar_url: publicUrl } as any);
       setAvatarUrl(publicUrl);

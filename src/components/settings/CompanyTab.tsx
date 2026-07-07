@@ -213,21 +213,6 @@ export function CompanyTab() {
       .limit(1)
       .maybeSingle();
 
-    // #region agent log
-    fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-      body: JSON.stringify({
-        sessionId: "35fbb4",
-        hypothesisId: "H1",
-        location: "CompanyTab.tsx:bootstrap:after-members-query",
-        message: "membership row + local seed",
-        data: { hasMem: !!mem, localSeedName: localSeed?.name ?? null, userIdLen: user!.id?.length ?? 0 },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-
     if (!mem && localSeed) {
       const ensured = await ensureCompanyWorkspace(user!.id, {
         name: localSeed.name,
@@ -342,42 +327,7 @@ export function CompanyTab() {
         lsProfileName = null;
       }
 
-      // #region agent log
-      fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-        body: JSON.stringify({
-          sessionId: "35fbb4",
-          hypothesisId: "H2",
-          location: "CompanyTab.tsx:bootstrap:no-mem-branch",
-          message: "profile + storage gates",
-          data: {
-            profileCompanyId: profileCompanyId ?? null,
-            uuidOk,
-            localSeedName: localSeed?.name ?? null,
-            lsProfileName,
-            bootstrapGen: gen,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
-
       if (profileCompanyId) {
-        // #region agent log
-        fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-          body: JSON.stringify({
-            sessionId: "35fbb4",
-            hypothesisId: "H4",
-            location: "CompanyTab.tsx:bootstrap:profile-company-id",
-            message: "linked via profiles.company_id",
-            data: { hasProfileCompanyId: true },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setMembership({ id: "", company_id: profileCompanyId, role: "manager" });
         setState("linked");
         if (!membershipFallbackRetryScheduledRef.current) {
@@ -410,37 +360,9 @@ export function CompanyTab() {
             /* ignore */
           }
         } else if (!isStale()) {
-          // #region agent log
-          fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-            body: JSON.stringify({
-              sessionId: "35fbb4",
-              hypothesisId: "H3",
-              location: "CompanyTab.tsx:bootstrap:ensure-failed",
-              message: "last-resort ensureCompanyWorkspace did not link",
-              data: { lastOk: last.ok, stale: isStale(), localSeedName: localSeed.name },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           setState("search");
         }
       } else {
-        // #region agent log
-        fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-          body: JSON.stringify({
-            sessionId: "35fbb4",
-            hypothesisId: "H5",
-            location: "CompanyTab.tsx:bootstrap:search-no-local-seed",
-            message: "fallthrough setState(search)",
-            data: { hadLocalSeed: !!localSeed?.name },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setState("search");
       }
     }
@@ -850,26 +772,6 @@ export function CompanyTab() {
     if (fromState) return true;
     return readPersistedCompanyProfileName() != null;
   }, [companyData?.name]);
-
-  // #region agent log
-  useEffect(() => {
-    if (!loading && state === "search" && hasLocalCompanyProfile) {
-      fetch("http://127.0.0.1:7495/ingest/6fb0ce79-c45e-47a9-a25c-e1e40763a812", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35fbb4" },
-        body: JSON.stringify({
-          sessionId: "35fbb4",
-          runId: "post-fix",
-          hypothesisId: "VFY",
-          location: "CompanyTab.tsx:local-profile-ui",
-          message: "showing company editor despite search state (local profile bypass)",
-          data: { hasLocalCompanyProfile },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-  }, [loading, state, hasLocalCompanyProfile]);
-  // #endregion
 
   const showWorkspaceEditor =
     !loading && (state === "linked" || (state === "search" && hasLocalCompanyProfile));

@@ -13,10 +13,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   supabase,
-  supabaseVcDirectory,
   isSupabaseConfigured,
   getSupabaseAccessToken,
 } from "@/integrations/supabase/client";
+import { uploadR2UserAsset } from "@/lib/r2UserAssets";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
@@ -738,19 +738,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setUploadingLogo(true);
     setError(null);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${crypto.randomUUID()}.${ext}`;
       let publicUrl: string;
       if (!isSupabaseConfigured) {
         publicUrl = URL.createObjectURL(file);
       } else {
-        // Publishable-key client only (no Clerk JWT). Storage policy allows anon uploads to
-        // `company-logos`; the session-scoped client triggers RS256/CryptoKey errors on upload.
-        const { error: uploadErr } = await supabaseVcDirectory.storage
-          .from("company-logos")
-          .upload(path, file, { upsert: true });
-        if (uploadErr) throw uploadErr;
-        publicUrl = supabaseVcDirectory.storage.from("company-logos").getPublicUrl(path).data.publicUrl;
+        const uploaded = await uploadR2UserAsset("company-logo", file);
+        publicUrl = uploaded.url;
       }
       setLogoUrl(publicUrl);
       // Clear logo validation error and revoke section confirmation
