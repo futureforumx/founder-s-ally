@@ -1,0 +1,28 @@
+---
+description: Vekta brand — colors, type, logos, UI constraints
+alwaysApply: true
+---
+
+# Vekta Brand
+
+Follow [DESIGN.md](mdc:DESIGN.md) for visual decisions. Tokens: `src/index.css`, `tailwind.config.ts`.
+
+## Non-negotiables
+
+- **Primary**: `#5B5CFF` → `bg-primary` / `text-primary` / `hsl(var(--primary))`
+- **Success mint**: `#2EE6A6` → `bg-success` / brand green scale
+- **App font**: Inter (`font-sans`). **Public/access**: Space Grotesk (`font-spaceGrotesk`)
+- **Dark-first**: black / near-black shells; do not invent cream/serif brochure themes
+- **Logos**: `/public/brand/` via `BrandLogo` or existing paths (`vekta-access-mark.png`, wordmark, etc.)
+
+## Do
+
+- Prefer semantic tokens over arbitrary hex
+- Match the surface you are editing (app shell vs `/access` vs tryvekta)
+- Reuse `src/components/ui/*` primitives
+
+## Don't
+
+- Drift primary to other purples/indigos
+- Add generic Inter-on-white SaaS templates for marketing
+- Hotlink third-party brand CDNs when `/brand/` has the asset
