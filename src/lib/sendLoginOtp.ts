@@ -26,6 +26,8 @@ function authRedirectUrl(): string {
   return `${window.location.origin}/auth`;
 }
 
+const OTP_REQUEST_TIMEOUT_MS = 8_000;
+
 export async function sendLoginOtp(email: string): Promise<void> {
   const origin = supabaseOrigin();
   const key = publishableKey();
@@ -35,6 +37,9 @@ export async function sendLoginOtp(email: string): Promise<void> {
     throw new Error("Supabase is not configured for this build.");
   }
 
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), OTP_REQUEST_TIMEOUT_MS);
+
   const response = await fetch(`${origin}/functions/v1/send-login-otp`, {
     method: "POST",
     headers: {
@@ -42,11 +47,12 @@ export async function sendLoginOtp(email: string): Promise<void> {
       apikey: key,
       Authorization: `Bearer ${bearerToken()}`,
     },
+    signal: controller.signal,
     body: JSON.stringify({
       email: normalizedEmail,
       redirectTo: authRedirectUrl(),
     }),
-  });
+  }).finally(() => window.clearTimeout(timeoutId));
 
   const raw = await response.text();
   let parsed: unknown = null;

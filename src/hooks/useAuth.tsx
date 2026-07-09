@@ -47,6 +47,8 @@ function avatarForUser(user: User): string | undefined {
   return avatar.trim() || undefined;
 }
 
+const AUTH_SESSION_TIMEOUT_MS = 8_000;
+
 function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,30 +56,52 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let resolvedInitial = false;
+
+    const resolveInitial = (nextSession: Session | null) => {
+      if (!mounted || resolvedInitial) return;
+      resolvedInitial = true;
+      setSession(nextSession);
+      setLoading(false);
+    };
 
     const {
       data: { subscription },
     } = supabaseAuth.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
       setSession(nextSession);
-      setLoading(false);
+      if (!resolvedInitial) {
+        resolvedInitial = true;
+        setLoading(false);
+      }
     });
+
+    const timeoutId = window.setTimeout(() => {
+      if (!mounted || resolvedInitial) return;
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[auth] getSession exceeded ${AUTH_SESSION_TIMEOUT_MS}ms — clearing stuck session and continuing signed out`,
+        );
+      }
+      void supabaseAuth.auth.signOut({ scope: "local" }).catch(() => {});
+      resolveInitial(null);
+    }, AUTH_SESSION_TIMEOUT_MS);
 
     supabaseAuth.auth
       .getSession()
       .then(({ data }) => {
-        if (!mounted) return;
-        setSession(data.session ?? null);
-        setLoading(false);
+        resolveInitial(data.session ?? null);
       })
       .catch(() => {
-        if (!mounted) return;
-        setSession(null);
-        setLoading(false);
+        resolveInitial(null);
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
       });
 
     return () => {
       mounted = false;
+      window.clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -139,7 +163,24 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter your email address.");
     }
 
-    await sendLoginOtp(normalizedEmail);
+    try {
+      await sendLoginOtp(normalizedEmail);
+      return;
+    } catch (customOtpError) {
+      if (import.meta.env.DEV) {
+        console.warn("[auth] custom OTP email failed, falling back to Supabase OTP:", customOtpError);
+      }
+    }
+
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+    const { error } = await supabaseAuth.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: redirectTo,
+      },
+    });
+
+    if (error) throw error;
   }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
