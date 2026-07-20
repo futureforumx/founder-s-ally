@@ -3,7 +3,19 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
-import { sendLoginOtp } from "@/lib/sendLoginOtp";
+import { LoginOtpError, sendLoginOtp } from "@/lib/sendLoginOtp";
+
+export type SignUpInput = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+};
+
+export type SignUpResult = {
+  /** True when Supabase created the user but email confirmation is still required. */
+  needsEmailConfirmation: boolean;
+};
 
 interface AuthCtx {
   user: User | null;
@@ -11,6 +23,8 @@ interface AuthCtx {
   loading: boolean;
   isConfigured: boolean;
   signIn: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUp: (input: SignUpInput) => Promise<SignUpResult>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -22,6 +36,8 @@ const AuthContext = createContext<AuthCtx>({
   loading: true,
   isConfigured: false,
   signIn: async () => {},
+  signInWithPassword: async () => {},
+  signUp: async () => ({ needsEmailConfirmation: false }),
   verifyOtp: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
@@ -35,7 +51,11 @@ function displayNameForUser(user: User): string {
     typeof metadata.full_name === "string" ? metadata.full_name :
     typeof metadata.name === "string" ? metadata.name :
     "";
-  return metadataName.trim() || user.email?.split("@")[0] || "";
+  if (metadataName.trim()) return metadataName.trim();
+  const first = typeof metadata.first_name === "string" ? metadata.first_name.trim() : "";
+  const last = typeof metadata.last_name === "string" ? metadata.last_name.trim() : "";
+  const combined = [first, last].filter(Boolean).join(" ");
+  return combined || user.email?.split("@")[0] || "";
 }
 
 function avatarForUser(user: User): string | undefined {
@@ -48,6 +68,11 @@ function avatarForUser(user: User): string | undefined {
 }
 
 const AUTH_SESSION_TIMEOUT_MS = 8_000;
+
+function isGenericFetchFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return error.message === "Failed to fetch" || error.message === "Load failed";
+}
 
 function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -163,24 +188,122 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter your email address.");
     }
 
+    let customOtpError: unknown = null;
     try {
       await sendLoginOtp(normalizedEmail);
       return;
-    } catch (customOtpError) {
+    } catch (error) {
+      customOtpError = error;
       if (import.meta.env.DEV) {
-        console.warn("[auth] custom OTP email failed, falling back to Supabase OTP:", customOtpError);
+        const willFallback = !(error instanceof LoginOtpError) || error.fallbackToSupabaseOtp;
+        console.warn(
+          willFallback
+            ? "[auth] custom OTP email failed, falling back to Supabase OTP:"
+            : "[auth] custom OTP email failed:",
+          error,
+        );
+      }
+      if (error instanceof LoginOtpError && !error.fallbackToSupabaseOtp) {
+        throw error;
       }
     }
 
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
-    const { error } = await supabaseAuth.auth.signInWithOtp({
-      email: normalizedEmail,
-      options: {
-        emailRedirectTo: redirectTo,
-      },
-    });
+    let fallbackError: unknown = null;
+    try {
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const { error } = await supabaseAuth.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      });
 
-    if (error) throw error;
+      if (!error) return;
+      fallbackError = error;
+    } catch (error) {
+      fallbackError = error;
+    }
+
+    if (isGenericFetchFailure(fallbackError)) {
+      if (customOtpError instanceof Error && customOtpError.message) {
+        throw customOtpError;
+      }
+      throw new Error("Supabase Auth is not responding. Please try signing in again in a few minutes.");
+    }
+
+    if (fallbackError instanceof Error) {
+      throw fallbackError;
+    }
+
+    throw new Error("Could not start sign-in. Please try again.");
+  }, []);
+
+  const signInWithPassword = useCallback(async (email: string, password: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Enter your email address.");
+    }
+    if (!password) {
+      throw new Error("Enter your password.");
+    }
+
+    try {
+      const { error } = await supabaseAuth.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+      if (error) throw error;
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error("Could not sign in. Please try again.");
+    }
+  }, []);
+
+  const signUp = useCallback(async (input: SignUpInput): Promise<SignUpResult> => {
+    const email = input.email.trim().toLowerCase();
+    const password = input.password;
+    const firstName = input.firstName.trim();
+    const lastName = input.lastName.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(" ");
+
+    if (!firstName) throw new Error("Enter your first name.");
+    if (!lastName) throw new Error("Enter your last name.");
+    if (!email) throw new Error("Enter your email address.");
+    if (password.length < 8) throw new Error("Password must be at least 8 characters.");
+
+    try {
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const { data, error } = await supabaseAuth.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            full_name: fullName,
+            name: fullName,
+          },
+        },
+      });
+      if (error) throw error;
+
+      const identities = data.user?.identities;
+      if (data.user && Array.isArray(identities) && identities.length === 0) {
+        throw new Error("An account with this email already exists. Sign in instead.");
+      }
+
+      return { needsEmailConfirmation: !data.session };
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error("Could not create your account. Please try again.");
+    }
   }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
@@ -190,13 +313,20 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Enter the code from your email.");
     }
 
-    const { error } = await supabaseAuth.auth.verifyOtp({
-      email: normalizedEmail,
-      token: normalizedToken,
-      type: "email",
-    });
+    try {
+      const { error } = await supabaseAuth.auth.verifyOtp({
+        email: normalizedEmail,
+        token: normalizedToken,
+        type: "email",
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
       throw error;
     }
   }, []);
@@ -216,11 +346,13 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       loading,
       isConfigured: true,
       signIn,
+      signInWithPassword,
+      signUp,
       verifyOtp,
       signOut,
       getAccessToken,
     }),
-    [user, session, loading, signIn, verifyOtp, signOut, getAccessToken]
+    [user, session, loading, signIn, signInWithPassword, signUp, verifyOtp, signOut, getAccessToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -245,6 +377,8 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       loading: false,
       isConfigured: false,
       signIn: async () => {},
+      signInWithPassword: async () => {},
+      signUp: async () => ({ needsEmailConfirmation: false }),
       verifyOtp: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,

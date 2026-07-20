@@ -13,6 +13,7 @@ interface SendLoginOtpRequest {
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AUTH_LINK_TIMEOUT_MS = 12_000;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -49,13 +50,28 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: normalizedEmail,
-      options: {
-        redirectTo: redirectTo?.trim() || undefined,
-      },
-    });
+    let linkResult;
+    try {
+      linkResult = await withTimeout(
+        supabaseAdmin.auth.admin.generateLink({
+          type: "magiclink",
+          email: normalizedEmail,
+          options: {
+            redirectTo: redirectTo?.trim() || undefined,
+          },
+        }),
+        AUTH_LINK_TIMEOUT_MS,
+        "Supabase Auth did not respond while generating the OTP link"
+      );
+    } catch (error) {
+      console.error("[send-login-otp] Supabase Auth unavailable", error);
+      return jsonResponse(
+        { error: "Sign-in service is temporarily unavailable. Please try again in a few minutes." },
+        503
+      );
+    }
+
+    const { data, error } = linkResult;
 
     if (error || !data?.properties?.email_otp) {
       console.error("[send-login-otp] Failed to generate OTP", error);
@@ -101,6 +117,13 @@ function jsonResponse(body: Record<string, unknown>, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(resolve, reject).finally(() => clearTimeout(timeoutId));
   });
 }
 

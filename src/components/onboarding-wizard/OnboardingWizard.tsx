@@ -12,8 +12,10 @@ import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types
 import type { OnboardingState } from "@/components/onboarding-wizard/types";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { ProgressBar } from "./ProgressBar";
+import { StepWelcome } from "./StepWelcome";
 import { StepIdentity } from "./StepIdentity";
 import { StepCompanyDNA } from "./StepCompanyDNA";
+import { CheckCircle2, LockKeyhole, Network, Radar, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
@@ -341,19 +343,75 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      <ProgressBar currentStep={state.step} />
+    <div className="relative min-h-screen overflow-x-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_16%,hsl(var(--primary)/0.12),transparent_30%),radial-gradient(circle_at_88%_82%,hsl(var(--success)/0.06),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(hsl(var(--foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground))_1px,transparent_1px)] [background-size:48px_48px]" />
 
-      <div className="flex-1 flex items-start justify-center px-4 py-2 min-h-0 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          {state.step === 1 && (
-            <StepIdentity key="s1" state={state} update={update} onNext={() => goTo(2)} />
-          )}
-          {state.step === 2 && (
-            <StepCompanyDNA key="s2" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(1)} />
-          )}
-        </AnimatePresence>
-      </div>
+      <header className="relative z-10 flex h-16 items-center justify-between border-b border-border/60 px-5 sm:px-8">
+        <img src="/brand/vekta-wordmark.png" alt="Vekta" className="h-9 w-24 object-contain" />
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <LockKeyhole className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Your setup is private</span>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
+        <aside className="hidden border-r border-border/60 px-10 py-14 lg:flex lg:flex-col lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Start with signal</p>
+            <h2 className="mt-4 max-w-sm text-3xl font-semibold leading-tight tracking-tight text-foreground">
+              Make every introduction and insight more relevant.
+            </h2>
+            <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+              A few details give Vekta the context to prioritize the people, companies, and opportunities that matter to you.
+            </p>
+
+            <div className="mt-10 space-y-5">
+              {[
+                { icon: Radar, title: "Sharper recommendations", copy: "Ranked against your stage, role, and goals." },
+                { icon: Network, title: "Useful network paths", copy: "See the strongest route to the right person." },
+                { icon: Sparkles, title: "Less setup later", copy: "Start with a workspace that already knows your context." },
+              ].map(({ icon: Icon, title, copy }) => (
+                <div key={title} className="flex gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{title}</p>
+                    <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{copy}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Autosaved as you go
+          </div>
+        </aside>
+
+        <section className="flex items-start justify-center px-4 py-7 sm:px-8 sm:py-10 lg:px-14 lg:py-14">
+          <div className="w-full max-w-xl">
+            <div className="mb-7 rounded-xl border border-border/70 bg-card/70 px-5 py-4 shadow-sm backdrop-blur-xl">
+              <ProgressBar currentStep={state.step} />
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-card/85 p-5 shadow-lg backdrop-blur-xl sm:p-8">
+              <AnimatePresence mode="wait">
+                {state.step === 1 && (
+                  <StepWelcome key="s1" state={state} update={update} onNext={() => goTo(2)} />
+                )}
+                {state.step === 2 && (
+                  <StepIdentity key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
+                )}
+                {state.step === 3 && (
+                  <StepCompanyDNA key="s3" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(2)} />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

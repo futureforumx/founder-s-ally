@@ -849,6 +849,74 @@ async function syncToHubSpot(parsed: ParsedPayload): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Loops waitlist confirmation email
+// Set LOOPS_API_KEY_WAITLIST and LOOPS_WAITLIST_TRANSACTIONAL_ID in Supabase
+// Edge Function secrets. The Loops template should define data variables:
+// referralCode, referralLink, waitlistPosition.
+// ---------------------------------------------------------------------------
+
+async function sendWaitlistLoopsEmail(opts: {
+  email: string;
+  result: Record<string, unknown>;
+}): Promise<void> {
+  const loopsApiKey = Deno.env.get("LOOPS_API_KEY_WAITLIST");
+  const transactionalId = Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID");
+
+  if (!loopsApiKey || !transactionalId) {
+    console.log("[waitlist-signup] Loops email skipped: missing Loops secrets");
+    return;
+  }
+
+  if (String(opts.result.status ?? "") !== "created") {
+    console.log("[waitlist-signup] Loops email skipped: waitlist user already exists");
+    return;
+  }
+
+  try {
+    const idempotencyKey = `waitlist-confirmation-${String(opts.result.id ?? opts.email)}`;
+    const referralCode = String(opts.result.referral_code ?? "");
+    const referralLink = String(opts.result.referral_link ?? "");
+    const waitlistPosition =
+      opts.result.waitlist_position === null || opts.result.waitlist_position === undefined
+        ? ""
+        : String(opts.result.waitlist_position);
+    const res = await fetch("https://app.loops.so/api/v1/transactional", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${loopsApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({
+        transactionalId,
+        email: opts.email,
+        addToAudience: true,
+        dataVariables: {
+          referralCode,
+          referral_code: referralCode,
+          code: referralCode,
+          referralLink,
+          referral_link: referralLink,
+          inviteLink: referralLink,
+          waitlistPosition,
+          waitlist_position: waitlistPosition,
+        },
+      }),
+    });
+
+    const body = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.warn("[waitlist-signup] Loops API error:", res.status, body.slice(0, 500));
+      return;
+    }
+
+    console.log("[waitlist-signup] Loops waitlist email sent to", opts.email);
+  } catch (err) {
+    console.warn("[waitlist-signup] sendWaitlistLoopsEmail error:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
@@ -938,14 +1006,21 @@ serve(async (req) => {
       );
     }
 
+    const result = {
+      ...rpcPayload,
+      referral_link: waitlistReferralShareUrl(String(rpcPayload.referral_code ?? "")),
+    };
+
     // ===== GOOGLE SHEETS + HUBSPOT SYNC =====
     console.log("[waitlist-signup] sync-check", {
       hasSheetUrl: !!Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL"),
       hasHubspot: !!Deno.env.get("HUBSPOT_ACCESS_TOKEN"),
+      hasLoops: !!Deno.env.get("LOOPS_API_KEY_WAITLIST") && !!Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID"),
     });
     await Promise.all([
       syncToGoogleSheet(parsed, rpcPayload),
       syncToHubSpot(parsed),
+      sendWaitlistLoopsEmail({ email, result }),
     ]);
     console.log("[waitlist-signup] sync-done");
 
@@ -985,11 +1060,6 @@ if (email) {
     console.error("[waitlist-signup] match/email error", err);
   }
 }
-
-    const result = {
-      ...rpcPayload,
-      referral_link: waitlistReferralShareUrl(String(rpcPayload.referral_code ?? "")),
-    };
 
     return new Response(JSON.stringify(result), {
       status: 200,

@@ -26,7 +26,30 @@ function authRedirectUrl(): string {
   return `${window.location.origin}/auth`;
 }
 
-const OTP_REQUEST_TIMEOUT_MS = 8_000;
+const OTP_REQUEST_TIMEOUT_MS = 30_000;
+
+export class LoginOtpError extends Error {
+  readonly fallbackToSupabaseOtp: boolean;
+
+  constructor(message: string, options: { fallbackToSupabaseOtp?: boolean } = {}) {
+    super(message);
+    this.name = "LoginOtpError";
+    this.fallbackToSupabaseOtp = Boolean(options.fallbackToSupabaseOtp);
+  }
+}
+
+function requestFailureMessage(error: unknown): string {
+  const name =
+    typeof error === "object" && error !== null && "name" in error
+      ? String((error as { name?: unknown }).name)
+      : "";
+
+  if (name === "AbortError") {
+    return "The sign-in email service timed out. Please try again in a moment.";
+  }
+
+  return "Could not reach the sign-in email service. Please try again in a moment.";
+}
 
 export async function sendLoginOtp(email: string): Promise<void> {
   const origin = supabaseOrigin();
@@ -34,25 +57,32 @@ export async function sendLoginOtp(email: string): Promise<void> {
   const normalizedEmail = email.trim().toLowerCase();
 
   if (!origin || !key) {
-    throw new Error("Supabase is not configured for this build.");
+    throw new LoginOtpError("Supabase is not configured for this build.");
   }
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), OTP_REQUEST_TIMEOUT_MS);
 
-  const response = await fetch(`${origin}/functions/v1/send-login-otp`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: key,
-      Authorization: `Bearer ${bearerToken()}`,
-    },
-    signal: controller.signal,
-    body: JSON.stringify({
-      email: normalizedEmail,
-      redirectTo: authRedirectUrl(),
-    }),
-  }).finally(() => window.clearTimeout(timeoutId));
+  let response: Response;
+  try {
+    response = await fetch(`${origin}/functions/v1/send-login-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: key,
+        Authorization: `Bearer ${bearerToken()}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        email: normalizedEmail,
+        redirectTo: authRedirectUrl(),
+      }),
+    });
+  } catch (error) {
+    throw new LoginOtpError(requestFailureMessage(error), { fallbackToSupabaseOtp: true });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   const raw = await response.text();
   let parsed: unknown = null;
@@ -73,7 +103,7 @@ export async function sendLoginOtp(email: string): Promise<void> {
       typeof (parsed as { error: unknown }).error === "string"
         ? (parsed as { error: string }).error
         : `Could not send sign-in code (HTTP ${response.status}).`;
-    throw new Error(message);
+    throw new LoginOtpError(message);
   }
 
   if (
@@ -83,6 +113,6 @@ export async function sendLoginOtp(email: string): Promise<void> {
     "error" in parsed &&
     typeof (parsed as { error: unknown }).error === "string"
   ) {
-    throw new Error((parsed as { error: string }).error);
+    throw new LoginOtpError((parsed as { error: string }).error);
   }
 }
