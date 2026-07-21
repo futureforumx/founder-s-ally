@@ -764,7 +764,7 @@ export default function Auth() {
         </div>
 
         <footer className="mx-auto mt-10 w-full max-w-sm text-center text-[10px] text-zinc-700">
-          <p>Protected by first-party data controls</p>
+          <p>© 2026 Kova Ventures. All rights reserved.</p>
         </footer>
       </section>
 
