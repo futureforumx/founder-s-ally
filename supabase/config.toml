@@ -45,6 +45,9 @@ verify_jwt = false
 [functions.send-login-otp]
 verify_jwt = false
 
+[functions.signup-with-otp]
+verify_jwt = false
+
 # ── Vyta KB + Agent Backend (feature-flagged, not yet production) ──
 
 [functions.kb-notes]

@@ -4,6 +4,7 @@ import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
 import { LoginOtpError, sendLoginOtp } from "@/lib/sendLoginOtp";
+import { signupWithOtp } from "@/lib/signupWithOtp";
 
 export type SignUpInput = {
   email: string;
@@ -17,6 +18,8 @@ export type SignUpResult = {
   needsEmailConfirmation: boolean;
 };
 
+export type OAuthProvider = "google" | "linkedin_oidc";
+
 interface AuthCtx {
   user: User | null;
   session: Session | null;
@@ -24,7 +27,11 @@ interface AuthCtx {
   isConfigured: boolean;
   signIn: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<SignUpResult>;
+  resendSignupConfirmation: (email: string) => Promise<void>;
+  verifySignupConfirmation: (email: string, token: string) => Promise<boolean>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -37,7 +44,11 @@ const AuthContext = createContext<AuthCtx>({
   isConfigured: false,
   signIn: async () => {},
   signInWithPassword: async () => {},
+  signInWithOAuth: async () => {},
+  resetPassword: async () => {},
   signUp: async () => ({ needsEmailConfirmation: false }),
+  resendSignupConfirmation: async () => {},
+  verifySignupConfirmation: async () => false,
   verifyOtp: async () => {},
   signOut: async () => {},
   getAccessToken: async () => null,
@@ -262,12 +273,76 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
+    try {
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const { data, error } = await supabaseAuth.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+          skipBrowserRedirect: false,
+        },
+      });
+      if (error) throw error;
+      if (!data.url && import.meta.env.DEV) {
+        console.warn(`[auth] signInWithOAuth(${provider}) returned no redirect URL`);
+      }
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error(
+        provider === "google"
+          ? "Could not start Google sign-in. Please try again."
+          : "Could not start LinkedIn sign-in. Please try again.",
+      );
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Enter your email address first.");
+    }
+
+    try {
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const { error } = await supabaseAuth.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo,
+      });
+      if (error) throw error;
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error("Could not send a password reset email. Please try again.");
+    }
+  }, []);
+
+  const resendSignupConfirmation = useCallback(async (email: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Enter your email address.");
+    }
+
+    try {
+      await signupWithOtp({ email: normalizedEmail, resend: true });
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error("Could not resend the confirmation code. Please try again.");
+    }
+  }, []);
+
   const signUp = useCallback(async (input: SignUpInput): Promise<SignUpResult> => {
     const email = input.email.trim().toLowerCase();
     const password = input.password;
     const firstName = input.firstName.trim();
     const lastName = input.lastName.trim();
-    const fullName = [firstName, lastName].filter(Boolean).join(" ");
 
     if (!firstName) throw new Error("Enter your first name.");
     if (!lastName) throw new Error("Enter your last name.");
@@ -275,28 +350,13 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     if (password.length < 8) throw new Error("Password must be at least 8 characters.");
 
     try {
-      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
-      const { data, error } = await supabaseAuth.auth.signUp({
+      await signupWithOtp({
         email,
         password,
-        options: {
-          emailRedirectTo: redirectTo,
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            full_name: fullName,
-            name: fullName,
-          },
-        },
+        firstName,
+        lastName,
       });
-      if (error) throw error;
-
-      const identities = data.user?.identities;
-      if (data.user && Array.isArray(identities) && identities.length === 0) {
-        throw new Error("An account with this email already exists. Sign in instead.");
-      }
-
-      return { needsEmailConfirmation: !data.session };
+      return { needsEmailConfirmation: true };
     } catch (error) {
       if (isGenericFetchFailure(error)) {
         throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
@@ -304,6 +364,25 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       if (error instanceof Error) throw error;
       throw new Error("Could not create your account. Please try again.");
     }
+  }, []);
+
+  const verifySignupConfirmation = useCallback(async (email: string, token: string) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedToken = token.replace(/\s+/g, "");
+    if (!normalizedEmail || !normalizedToken) {
+      throw new Error("Enter the code from your email.");
+    }
+
+    const result = await signupWithOtp({ email: normalizedEmail, token: normalizedToken });
+    if (result.accessToken && result.refreshToken) {
+      const { error } = await supabaseAuth.auth.setSession({
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
+      });
+      if (error) throw error;
+      return true;
+    }
+    return false;
   }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
@@ -314,15 +393,25 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { error } = await supabaseAuth.auth.verifyOtp({
-        email: normalizedEmail,
-        token: normalizedToken,
-        type: "email",
-      });
+      const verificationTypes = ["email", "magiclink", "signup"] as const;
+      let lastError: Error | null = null;
 
-      if (error) {
-        throw error;
+      for (const type of verificationTypes) {
+        const { error } = await supabaseAuth.auth.verifyOtp({
+          email: normalizedEmail,
+          token: normalizedToken,
+          type,
+        });
+
+        if (!error) return;
+        lastError = error;
+
+        if (error.code !== "otp_expired" && !/expired|invalid/i.test(error.message)) {
+          throw error;
+        }
       }
+
+      throw lastError ?? new Error("That code could not be verified.");
     } catch (error) {
       if (isGenericFetchFailure(error)) {
         throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
@@ -347,12 +436,30 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       isConfigured: true,
       signIn,
       signInWithPassword,
+      signInWithOAuth,
+      resetPassword,
       signUp,
+      resendSignupConfirmation,
+      verifySignupConfirmation,
       verifyOtp,
       signOut,
       getAccessToken,
     }),
-    [user, session, loading, signIn, signInWithPassword, signUp, verifyOtp, signOut, getAccessToken]
+    [
+      user,
+      session,
+      loading,
+      signIn,
+      signInWithPassword,
+      signInWithOAuth,
+      resetPassword,
+      signUp,
+      resendSignupConfirmation,
+      verifySignupConfirmation,
+      verifyOtp,
+      signOut,
+      getAccessToken,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -378,7 +485,11 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       isConfigured: false,
       signIn: async () => {},
       signInWithPassword: async () => {},
+      signInWithOAuth: async () => {},
+      resetPassword: async () => {},
       signUp: async () => ({ needsEmailConfirmation: false }),
+      resendSignupConfirmation: async () => {},
+      verifySignupConfirmation: async () => false,
       verifyOtp: async () => {},
       signOut: async () => {},
       getAccessToken: async () => null,
