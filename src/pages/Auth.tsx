@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
 import { getAuthPageBackgroundVideoUrl } from "@/lib/authPageVideoUrl";
@@ -80,8 +80,11 @@ export default function Auth() {
     verifyOtp,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const [mode, setMode] = useState<AuthMode>(() =>
+    location.pathname.startsWith("/register") ? "sign-up" : "sign-in",
+  );
   const [useEmailCode, setUseEmailCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
@@ -91,6 +94,7 @@ export default function Auth() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState(pendingSignupEmail);
   const [password, setPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [signupConfirmationPending, setSignupConfirmationPending] = useState(
@@ -112,8 +116,7 @@ export default function Auth() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const switchMode = (next: AuthMode) => {
-    setMode(next);
+  const resetTransientAuthState = () => {
     setLocalError(null);
     setInfoMessage(null);
     setOtpSent(false);
@@ -121,8 +124,24 @@ export default function Auth() {
     setSignupConfirmationPending(false);
     window.sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY);
     setUseEmailCode(false);
-    clearLoginErrorParam();
+    setAcceptedTerms(false);
   };
+
+  const switchMode = (next: AuthMode) => {
+    setMode(next);
+    resetTransientAuthState();
+    clearLoginErrorParam();
+    const targetPath = next === "sign-up" ? "/register" : "/login";
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search }, { replace: true });
+    }
+  };
+
+  // Keep mode in sync with the URL (direct navigation, back/forward).
+  useEffect(() => {
+    const pathMode: AuthMode = location.pathname.startsWith("/register") ? "sign-up" : "sign-in";
+    setMode((current) => (current === pathMode ? current : pathMode));
+  }, [location.pathname]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hostname === "www.vekta.so") {
@@ -486,7 +505,33 @@ export default function Auth() {
               </div>
             </div>
 
-            <button type="submit" className={primaryButtonClassName} disabled={submitting}>
+            <div className="flex items-center gap-3 text-left">
+              <input
+                id="accept-terms"
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                className="h-5 w-5 shrink-0 cursor-pointer accent-white"
+                required
+              />
+              <label htmlFor="accept-terms" className="text-sm text-zinc-400">
+                I agree to the{" "}
+                <a
+                  href="https://tryvekta.com/terms-of-service"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-zinc-200 underline decoration-zinc-500 underline-offset-2 transition hover:text-white"
+                >
+                  Terms &amp; Conditions.
+                </a>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className={primaryButtonClassName}
+              disabled={submitting || !acceptedTerms}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />

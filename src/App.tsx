@@ -316,6 +316,7 @@ const App = () => (
             <ConnectorOAuthReturnListener />
             <Routes>
               <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route path="/register" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><AuthCallback /></Suspense>} />
               <Route
                 path="/access"
