@@ -1,0 +1,13 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - region "Notifications (F8)":
+      - list
+    - region "Notifications alt+T"
+    - generic [ref=e3]:
+      - paragraph [ref=e4]: Sign in to continue
+      - paragraph [ref=e5]: Enter your email and we'll send a secure Supabase sign-in code.
+      - generic [ref=e6]:
+        - generic [ref=e7]: Email
+        - textbox "Email" [ref=e9]:
+          - /placeholder: you@company.com
+        - button "Send sign-in code" [ref=e10] [cursor=pointer]

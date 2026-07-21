@@ -1,0 +1,65 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - link "Vekta" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Vekta" [ref=e7]
+      - link "Learn more" [ref=e8] [cursor=pointer]:
+        - /url: https://vekta.so
+    - main [ref=e9]:
+      - generic [ref=e10]:
+        - img [ref=e11]
+        - generic [ref=e12]:
+          - paragraph [ref=e13]: Early access
+          - heading "Request access to Vekta" [level=1] [ref=e14]
+          - paragraph [ref=e15]: Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]: First name *
+            - textbox "First name *" [ref=e21]
+          - generic [ref=e22]:
+            - generic [ref=e23]: Last name *
+            - textbox "Last name *" [ref=e24]
+        - generic [ref=e25]:
+          - generic [ref=e26]: Work email *
+          - textbox "Work email *" [ref=e27]
+        - generic [ref=e28]:
+          - generic [ref=e29]: Role *
+          - combobox "Role *" [ref=e30]:
+            - option "Select role" [disabled]
+            - option "Founder" [selected]
+            - option "Investor"
+            - option "Operator"
+            - option "Advisor"
+            - option "Other"
+        - generic [ref=e40]:
+          - generic [ref=e41]: Stage *
+          - combobox "Stage *" [ref=e42]:
+            - option "Select stage" [disabled] [selected]
+            - option "Idea"
+            - option "Pre-Seed"
+            - option "Seed"
+            - option "Series A"
+            - option "Series B"
+            - option "Series C+"
+        - generic [ref=e43]:
+          - generic [ref=e44]: Company name or website *
+          - textbox "Company name or website *" [ref=e45]:
+            - /placeholder: Acme Inc or acme.com
+        - generic [ref=e46]:
+          - generic [ref=e47]: LinkedIn or X profile *
+          - textbox "LinkedIn or X profile *" [ref=e48]:
+            - /placeholder: Paste profile link or @handle
+          - paragraph [ref=e49]: "Use a LinkedIn/X URL or X handle. Example: linkedin.com/in/jane-doe or @janedoe"
+        - button "Request access" [ref=e31] [cursor=pointer]
+      - region "What happens next" [ref=e32]:
+        - heading "What happens next" [level=2] [ref=e33]
+        - list [ref=e34]:
+          - listitem [ref=e35]: We review your request and how you plan to use Vekta.
+          - listitem [ref=e36]: You’ll get an email when access is ready—no spam.
+          - listitem [ref=e37]: Share your referral link to move up for priority consideration.
+    - contentinfo [ref=e38]: © 2026 Vekta. All rights reserved.

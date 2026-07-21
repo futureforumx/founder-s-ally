@@ -1,0 +1,45 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - banner [ref=e5]:
+      - link "Vekta" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img "Vekta" [ref=e7]
+      - link "Learn more" [ref=e8] [cursor=pointer]:
+        - /url: https://vekta.so
+    - main [ref=e9]:
+      - generic [ref=e10]:
+        - img [ref=e11]
+        - paragraph [ref=e12]: Early access
+        - heading "Request access to Vekta" [level=1] [ref=e13]
+        - paragraph [ref=e14]: Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: First name *
+            - textbox "First name *" [ref=e20]
+          - generic [ref=e21]:
+            - generic [ref=e22]: Last name *
+            - textbox "Last name *" [ref=e23]
+        - generic [ref=e24]:
+          - generic [ref=e25]: Work email *
+          - textbox "Work email *" [ref=e26]
+        - generic [ref=e27]:
+          - generic [ref=e28]: Role *
+          - combobox "Role *" [ref=e29]:
+            - option "Select role" [disabled] [selected]
+            - option "Founder"
+            - option "Investor"
+            - option "Operator"
+            - option "Advisor"
+            - option "Other"
+        - button "Request access" [ref=e30] [cursor=pointer]
+      - region "What happens next" [ref=e31]:
+        - heading "What happens next" [level=2] [ref=e32]
+        - list [ref=e33]:
+          - listitem [ref=e34]: We review your request and how you plan to use Vekta.
+          - listitem [ref=e35]: You’ll get an email when access is ready—no spam.
+          - listitem [ref=e36]: Share your referral link to move up for priority consideration.
+    - contentinfo [ref=e37]: © 2026 Vekta. All rights reserved.

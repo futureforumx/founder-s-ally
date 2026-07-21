@@ -1,0 +1,156 @@
+- generic:
+  - generic:
+    - list
+    - region "Notifications alt+T"
+    - generic:
+      - banner:
+        - generic:
+          - link:
+            - /url: /
+            - text: vekta
+          - navigation:
+            - list:
+              - listitem:
+                - link:
+                  - /url: "#founders"
+                  - text: Founders
+              - listitem:
+                - link:
+                  - /url: "#features"
+                  - text: Features
+              - listitem:
+                - link:
+                  - /url: "#benefits"
+                  - text: Benefits
+              - listitem:
+                - link:
+                  - /url: "#integrations"
+                  - text: Integrations
+              - listitem:
+                - link:
+                  - /url: "#data"
+                  - text: Data
+              - listitem:
+                - link:
+                  - /url: "#network"
+                  - text: Network
+              - listitem:
+                - link:
+                  - /url: "#insights"
+                  - text: Insights
+          - generic:
+            - link:
+              - /url: /login
+              - text: Log in
+            - button: Get early access
+            - button:
+              - img
+      - main:
+        - generic:
+          - paragraph: About
+          - heading [level=1]: The AI operating system for founder decision-making.
+          - paragraph: Vekta connects your internal data with real-time market intelligence —so you can see what's happening, understand what matters, and know exactly what to do next.
+          - generic:
+            - generic: Investor matching
+            - generic: Warm intros mapping
+            - generic: Fundraising automation
+            - generic: Competitor tracking
+            - generic: BizOp optimization
+          - generic:
+            - button: Get early access
+            - link:
+              - /url: https://tryvekta.com/aurora
+              - text: For agents
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - heading [level=3]: Investor intelligence
+                - paragraph: Find the right investors—and why they'll invest.
+              - generic:
+                - generic:
+                  - img
+                - heading [level=3]: Market signals
+                - paragraph: See what's changing before everyone else.
+              - generic:
+                - generic:
+                  - img
+                - heading [level=3]: Network intelligence
+                - paragraph: Surface insights hidden in your network.
+              - generic:
+                - generic:
+                  - img
+                - heading [level=3]: AI workflows
+                - paragraph: Turn signals into next steps—instantly.
+        - generic:
+          - generic:
+            - generic:
+              - paragraph:
+                - generic: Integrations
+              - heading [level=2]: "Unlock your greatest asset: your data"
+              - paragraph: Connect your tools, conversations, and data sources—Vekta structures everything into signals, insights, and clear next steps.
+              - generic:
+                - generic:
+                  - generic: Notion
+                - generic:
+                  - generic: HubSpot
+                - generic:
+                  - generic: Substack
+                - generic:
+                  - generic: LinkedIn
+                - generic:
+                  - generic: WhatsApp
+                - generic:
+                  - generic: Stripe
+                - generic:
+                  - generic: Slack
+              - generic:
+                - button: Get early access
+                - link:
+                  - /url: "#integration-logos"
+                  - text: See integrations
+        - generic:
+          - generic:
+            - heading [level=2]: founders
+        - generic:
+          - generic:
+            - heading [level=2]: benefits
+        - generic:
+          - generic:
+            - heading [level=2]: data
+        - generic:
+          - generic:
+            - heading [level=2]: network
+        - generic:
+          - generic:
+            - heading [level=2]: insights
+  - dialog "Request access to Vekta" [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Request access to Vekta" [level=2] [ref=e4]
+      - paragraph [ref=e5]: Connect your data. Turn real-time signals into opportunities across funding, markets, and people.
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]: First name *
+          - textbox "First name *" [active] [ref=e12]
+        - generic [ref=e13]:
+          - generic [ref=e14]: Last name *
+          - textbox "Last name *" [ref=e15]
+      - generic [ref=e16]:
+        - generic [ref=e17]: Work email *
+        - textbox "Work email *" [ref=e18]
+      - generic [ref=e19]:
+        - generic [ref=e20]: Role *
+        - combobox "Role *" [ref=e21]:
+          - option "Select role" [disabled] [selected]
+          - option "Founder"
+          - option "Investor"
+          - option "Operator"
+          - option "Advisor"
+          - option "Other"
+      - button "Request access" [ref=e22] [cursor=pointer]
+    - button "Close" [ref=e23] [cursor=pointer]:
+      - img [ref=e24]
+      - generic [ref=e27]: Close
