@@ -7,10 +7,6 @@ import { safeTrim } from "@/lib/utils";
 import { SectorClassification } from "@/components/SectorTags";
 import { HomeView } from "@/components/dashboard/HomeView";
 import { GlobalTopNav } from "@/components/GlobalTopNav";
-import { supabase } from "@/integrations/supabase/client";
-import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
-import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
-import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
 import { VEKTA_APP_NAVIGATE_EVENT, type NavigateableAppView } from "@/lib/appShellNavigate";
@@ -24,8 +20,6 @@ const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((modu
 const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((module) => ({ default: module.CompetitiveBenchmarking })));
 const InvestorMatch = lazy(() => import("@/components/InvestorMatch").then((module) => ({ default: module.InvestorMatch })));
 const CompetitorsView = lazy(() => import("@/components/CompetitorsView").then((module) => ({ default: module.CompetitorsView })));
-const OnboardingStepper = lazy(() => import("@/components/OnboardingStepper").then((module) => ({ default: module.OnboardingStepper })));
-const AnalysisTerminal = lazy(() => import("@/components/AnalysisTerminal").then((module) => ({ default: module.AnalysisTerminal })));
 const CompanyView = lazy(() => import("@/components/dashboard/CompanyView").then((module) => ({ default: module.CompanyView })));
 const CompetitiveView = lazy(() => import("@/components/dashboard/CompetitiveView").then((module) => ({ default: module.CompetitiveView })));
 const IndustryView = lazy(() => import("@/components/dashboard/IndustryView").then((module) => ({ default: module.IndustryView })));
@@ -48,6 +42,7 @@ const CirclesPage = lazy(() =>
   import("@/components/targeting/CirclesPage").then((m) => ({ default: m.CirclesPage })),
 );
 const IntegrationsPage = lazy(() => import("@/components/IntegrationsPage"));
+const DataHubPage = lazy(() => import("@/components/DataHubPage").then((m) => ({ default: m.DataHubPage })));
 
 type ViewType =
   | "home"
@@ -81,7 +76,8 @@ type ViewType =
   | "profile-workspace"
   | "targeting"
   | "circles"
-  | "integrations";
+  | "integrations"
+  | "data-hub";
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -98,45 +94,6 @@ function getStoredCompanyLogoUrl(): string | null {
   } catch {
     return null;
   }
-}
-
-/** Persist stepper output via edge function (avoids PostgREST RLS when Clerk has no supabase JWT). */
-function buildCompanyAnalysisPatchForDb(company: CompanyData, analysis: AnalysisResult): Record<string, unknown> {
-  type AR = AnalysisResult & {
-    scrapedHeader?: string;
-    scrapedValueProp?: string;
-    scrapedPricing?: string;
-  };
-  const a = analysis as AR;
-  const deckParts = [
-    a.scrapedHeader,
-    a.scrapedValueProp,
-    analysis.header,
-    analysis.valueProposition,
-  ].filter(Boolean);
-  const deck_text = deckParts.length ? deckParts.join("\n\n") : null;
-
-  const patch: Record<string, unknown> = {
-    company_name: company.name,
-    website_url: company.website || null,
-    deck_text,
-    stage: company.stage || null,
-    sector: company.sector || null,
-    executive_summary: analysis.executiveSummary || null,
-    health_score: analysis.healthScore,
-    mrr: analysis.metrics?.mrr?.value || null,
-    burn_rate: analysis.metrics?.burnRate?.value || null,
-    runway: analysis.metrics?.runway?.value || null,
-    cac: analysis.metrics?.cac?.value || null,
-    ltv: analysis.metrics?.ltv?.value || null,
-    scraped_header: a.scrapedHeader || analysis.header || null,
-    scraped_value_prop: a.scrapedValueProp || analysis.valueProposition || null,
-    scraped_pricing: a.scrapedPricing || analysis.pricingStructure || null,
-  };
-  if (typeof patch.health_score !== "number" || Number.isNaN(patch.health_score as number)) {
-    delete patch.health_score;
-  }
-  return patch;
 }
 
 function SectionLoader({ label }: { label: string }) {
@@ -168,7 +125,6 @@ function readSidebarCollapsedFromStorage(): boolean {
 }
 
 const Index = () => {
-  const { user: authUser } = useAuth();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   // Read post-onboarding-view on first Index mount (not module load) so /onboarding can set it first.
@@ -326,19 +282,6 @@ const Index = () => {
     } catch {}
     return null;
   });
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    try {
-      const saved = localStorage.getItem("company-profile");
-      if (saved) {
-        const c = sanitizeCompanyData(JSON.parse(saved));
-        if (c) return false;
-      }
-    } catch {}
-    return true;
-  });
-  const [showTerminal, setShowTerminal] = useState(false);
-  const [profileKey, setProfileKey] = useState(0);
-
   const [isProfileVerified, setIsProfileVerified] = useState(() => {
     try { return localStorage.getItem("company-profile-verified") === "true"; } catch { return false; }
   });
@@ -357,7 +300,6 @@ const Index = () => {
     } catch { return null; }
   });
 
-  const profileComplete = !!companyData && !!analysisResult;
   const profileCompletion = useMemo(() => {
     if (!companyData) return 0;
     return getCompletionPercent({ ...EMPTY_FORM, ...companyData });
@@ -438,103 +380,6 @@ const Index = () => {
     });
   };
 
-  const handleOnboardingComplete = async (company: CompanyData, analysis: AnalysisResult) => {
-    const profile = sanitizeCompanyData(company) ?? company;
-    setCompanyData(profile);
-    setAnalysisResult(analysis);
-    setShowOnboarding(false);
-    setShowTerminal(true);
-
-    try {
-      if (authUser) {
-        const ws = await ensureCompanyWorkspace(authUser.id, profile);
-        if (!ws.ok) {
-          console.warn("[onboarding] ensureCompanyWorkspace:", ws.error);
-        } else {
-          const sync = await completeFounderOnboardingEdge({
-            userId: authUser.id,
-            companyId: ws.companyId,
-            companyFields: buildCompanyAnalysisPatchForDb(profile, analysis),
-            profile: {
-              has_completed_onboarding: true,
-              company_id: ws.companyId,
-            },
-          });
-          if (!sync.ok) {
-            if (sync.fallbackToClient) {
-              const { error: pe } = await (supabase as any)
-                .from("profiles")
-                .update({ has_completed_onboarding: true, company_id: ws.companyId })
-                .eq("user_id", authUser.id);
-              if (pe) {
-                console.warn("[onboarding] profile sync (RLS — deploy complete-founder-onboarding):", pe.message);
-              }
-            } else {
-              console.warn("[onboarding] complete-founder-onboarding:", sync.error);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[onboarding] profile/workspace sync:", e);
-    }
-
-    if (analysis.stageClassification) {
-      setStageClassification(analysis.stageClassification);
-    }
-    if (analysis.sectorMapping) {
-      setSectorClassification({
-        primary_sector: analysis.sectorMapping.sector,
-        modern_tags: analysis.sectorMapping.keywords || [],
-      });
-    }
-
-    try {
-      localStorage.setItem("company-profile", JSON.stringify(profile));
-      localStorage.setItem("company-analysis", JSON.stringify(analysis));
-      if (analysis.stageClassification) {
-        localStorage.setItem("company-stage-classification", JSON.stringify(analysis.stageClassification));
-      }
-      if (analysis.sectorMapping) {
-        localStorage.setItem("company-sector-tags", JSON.stringify(analysis.sectorMapping));
-      }
-      if (analysis.sourceVerification) {
-        localStorage.setItem("company-source-verification", JSON.stringify(analysis.sourceVerification));
-      }
-      if (analysis.metricSources) {
-        localStorage.setItem("company-metric-sources", JSON.stringify(analysis.metricSources));
-      }
-      if (profile.website) {
-        const domain = (() => {
-          try {
-            let u = profile.website.trim();
-            if (!/^https?:\/\//i.test(u)) u = "https://" + u;
-            return new URL(u).hostname.replace(/^www\./, "");
-          } catch { return null; }
-        })();
-        if (domain) {
-          const logoUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
-          localStorage.setItem("company-logo-url", logoUrl);
-          setNavLogoUrl(logoUrl);
-          window.dispatchEvent(new Event("company-logo-changed"));
-        }
-      }
-      const now = new Date();
-      setLastSyncedAt(now);
-      localStorage.setItem("last-synced-at", now.toISOString());
-    } catch {}
-
-    setProfileKey(k => k + 1);
-  };
-
-  const handleTerminalComplete = () => {
-    setShowTerminal(false);
-    setActiveView("settings");
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", "company");
-    window.history.replaceState({}, "", url.toString());
-  };
-
   const handleAnalysis = (result: AnalysisResult) => {
     setAnalysisResult(result);
     setIsAnalysisRunning(false);
@@ -576,24 +421,6 @@ const Index = () => {
 
   return (
     <div className="flex h-screen min-h-0 overflow-hidden" style={shellStyle}>
-      {showOnboarding && !profileComplete && (
-        <DeferredSection label="Loading onboarding…">
-          <OnboardingStepper
-            onComplete={handleOnboardingComplete}
-            onSkip={() => setShowOnboarding(false)}
-          />
-        </DeferredSection>
-      )}
-
-      {showTerminal && (
-        <DeferredSection label="Loading analysis…">
-          <AnalysisTerminal
-            companyName={companyData?.name}
-            onComplete={handleTerminalComplete}
-          />
-        </DeferredSection>
-      )}
-
       <AppSidebar
         activeView={activeView}
         onViewChange={setActiveView}
@@ -799,6 +626,10 @@ const Index = () => {
           ) : activeView === "integrations" ? (
             <DeferredSection label="Loading integrations…">
               <IntegrationsPage />
+            </DeferredSection>
+          ) : activeView === "data-hub" ? (
+            <DeferredSection label="Loading data hub…">
+              <DataHubPage />
             </DeferredSection>
           ) : activeView === "settings" ? (
             <DeferredSection label="Loading settings…">

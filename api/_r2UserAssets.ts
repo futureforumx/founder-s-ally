@@ -98,8 +98,8 @@ function parseType(raw: string): R2UserAssetType | null {
 function validateContent(type: R2UserAssetType, fileName: string, mimeType: string): string | null {
   const lower = fileName.toLowerCase();
   if (type === "pitch-deck") {
-    if (lower.endsWith(".pdf") || lower.endsWith(".txt") || lower.endsWith(".md")) return null;
-    return "Pitch deck must be PDF, TXT, or MD.";
+    if ([".pdf", ".ppt", ".pptx", ".doc", ".docx", ".txt", ".md"].some((extension) => lower.endsWith(extension))) return null;
+    return "Investor material must be PDF, PowerPoint, Word, TXT, or MD.";
   }
   if (mimeType.startsWith("image/")) return null;
   return "Image upload must have an image content type.";

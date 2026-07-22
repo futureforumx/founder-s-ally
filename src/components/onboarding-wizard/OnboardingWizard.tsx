@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useOnboardingState } from "@/hooks/useOnboardingState";
@@ -9,16 +9,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
-import type { OnboardingState } from "@/components/onboarding-wizard/types";
+import { defaultOnboardingState, type OnboardingState } from "@/components/onboarding-wizard/types";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { ProgressBar } from "./ProgressBar";
 import { StepWelcome } from "./StepWelcome";
-import { StepIdentity } from "./StepIdentity";
+import { StepPersonalDetails } from "./StepPersonalDetails";
 import { StepCompanyDNA } from "./StepCompanyDNA";
+import { StepConnections } from "./StepConnections";
+import { StepInvestorMaterials } from "./StepInvestorMaterials";
 import { CheckCircle2, LockKeyhole, Network, Radar, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
+import { cn } from "@/lib/utils";
+import { ThinkingOrb } from "thinking-orbs";
 
 function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: string): CompanyData {
   const fundBits = [
@@ -37,11 +41,11 @@ function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: s
   const extra = [fundBits.join(" · "), opsBits.join(" · ")].filter(Boolean).join("\n");
   const description = [state.deckText?.trim(), extra].filter(Boolean).join("\n\n").slice(0, 8000);
   const teamSize =
-    state.cofounderCount === "Solo"
+    state.headcount || (state.cofounderCount === "Solo"
       ? "1"
       : state.cofounderCount && /^\d+$/.test(state.cofounderCount)
         ? state.cofounderCount
-        : state.cofounderCount || "";
+        : state.cofounderCount || "");
 
   return {
     ...EMPTY_FORM,
@@ -51,10 +55,28 @@ function buildLocalCompanyProfile(state: OnboardingState, resolvedCompanyName: s
     sector: state.sectors?.[0] || "",
     subsectors: state.sectors?.length > 1 ? state.sectors.slice(1) : [],
     description,
-    currentARR: state.revenueBand || "",
+    currentARR: state.recurringRevenue || state.revenueBand || "",
     totalHeadcount: teamSize,
+    burnRate: state.burnRate,
+    cac: state.cac,
+    ltv: state.ltv,
     uniqueValueProp: state.superpowers?.length ? state.superpowers.join(" · ") : "",
   };
+}
+
+function parseCompactAmount(value: string): number {
+  const cleaned = value.trim().toLowerCase().replace(/[$,\s]/g, "");
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)([kmb]?)$/);
+  if (!match) return 0;
+  const multiplier = match[2] === "k" ? 1_000 : match[2] === "m" ? 1_000_000 : match[2] === "b" ? 1_000_000_000 : 1;
+  return Number(match[1]) * multiplier;
+}
+
+function resolvedMonthlyRevenue(state: OnboardingState): string | null {
+  if (!state.recurringRevenue.trim()) return null;
+  if (state.recurringRevenuePeriod === "mrr") return state.recurringRevenue.trim();
+  const annual = parseCompactAmount(state.recurringRevenue);
+  return annual ? String(Math.round(annual / 12)) : null;
 }
 
 function buildExecutiveSummaryForDb(state: OnboardingState): string | null {
@@ -71,16 +93,58 @@ function buildExecutiveSummaryForDb(state: OnboardingState): string | null {
 }
 
 export function OnboardingWizard() {
-  const { state, update, reset } = useOnboardingState();
+  const { state, update, reset, hasStoredState } = useOnboardingState();
   const { user } = useAuth();
   const { upsertProfile } = useProfile();
-  const { upsertPrefs } = useUserPreferences();
+  const { onboardingData, loading: preferencesLoading, upsertPrefs } = useUserPreferences();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [resumeReady, setResumeReady] = useState(false);
+  const onboardingDataRef = useRef(onboardingData);
+  const lastRemoteCheckpointRef = useRef("");
+
+  useEffect(() => {
+    onboardingDataRef.current = onboardingData;
+  }, [onboardingData]);
+
+  useEffect(() => {
+    if (preferencesLoading || resumeReady) return;
+
+    const remoteState = onboardingData?.wizardState;
+    if (!hasStoredState && remoteState) {
+      const step = Math.min(5, Math.max(1, Number(remoteState.step) || 1));
+      update({ ...remoteState, step });
+      lastRemoteCheckpointRef.current = JSON.stringify({ ...defaultOnboardingState, ...remoteState, step });
+    }
+    setResumeReady(true);
+  }, [hasStoredState, onboardingData, preferencesLoading, resumeReady, update]);
+
+  useEffect(() => {
+    if (!resumeReady || !user || saving) return;
+    const serialized = JSON.stringify(state);
+    if (serialized === lastRemoteCheckpointRef.current) return;
+
+    const timeout = window.setTimeout(() => {
+      void upsertPrefs({
+        onboarding_data: {
+          ...(onboardingDataRef.current || {}),
+          wizardState: state,
+        },
+      }).then((result) => {
+        if (result.ok) lastRemoteCheckpointRef.current = serialized;
+      });
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [resumeReady, saving, state, upsertPrefs, user]);
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
 
-  const handleFinish = async (overrideCompanyName?: string, overrideExistingCompanyId?: string) => {
+  const handleFinish = async (
+    overrideCompanyName?: string,
+    overrideExistingCompanyId?: string,
+    overrideConnectedIntegrations?: string[],
+  ) => {
     if (!user || saving) return;
     playSound("/sounds/success.wav", 0.6);
     setSaving(true);
@@ -89,36 +153,35 @@ export function OnboardingWizard() {
       let companyId: string | null = null;
 
       const resolvedCompanyName = overrideCompanyName || state.companyName;
-      // When the user joins an existing in-network company, use its real DB id directly
-      // instead of creating a duplicate company_analyses row with the same name.
+      // Existing portals require admin approval; never grant or promote membership here.
       const resolvedExistingId = overrideExistingCompanyId ?? state.existingCompanyId;
+      const resolvedConnectedIntegrations = overrideConnectedIntegrations ?? state.connectedIntegrations;
 
       if (resolvedExistingId) {
-        // Joining an existing company — just ensure membership, then link profile
-        companyId = resolvedExistingId;
-        const { supabase: _sb } = await import("@/integrations/supabase/client");
-        const { ensureManagerMembership: _emm } = await import("@/lib/ensureManagerMembership");
-        const memRes = await _emm(_sb as any, user.id, resolvedExistingId);
-        if (!memRes.ok) {
-          // Membership insert likely blocked by RLS (company owned by someone else).
-          // Fall back to a pending membership request — users can request access.
-          const { error: pendingErr } = await (_sb as any)
+        const { error: pendingErr } = await (supabase as any)
+          .from("company_members")
+          .insert({ user_id: user.id, company_id: resolvedExistingId, role: "pending" });
+
+        if (pendingErr?.code === "23505") {
+          // A unique conflict means this user already requested or already has access.
+          const { data: existingMembership } = await (supabase as any)
             .from("company_members")
-            .insert({ user_id: user.id, company_id: resolvedExistingId, role: "pending" });
-          if (pendingErr && pendingErr.code !== "23505") {
-            toast({
-              title: "Couldn't join company",
-              description: pendingErr.message,
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
+            .select("role")
+            .eq("user_id", user.id)
+            .eq("company_id", resolvedExistingId)
+            .maybeSingle();
+          if (existingMembership?.role && existingMembership.role !== "pending") {
+            companyId = resolvedExistingId;
           }
+        } else if (pendingErr) {
+          toast({
+            title: "Couldn't request portal access",
+            description: pendingErr.message,
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
         }
-        // Keep the service-role route as the stable path across auth providers.
-        // Use the service-role API route instead. company_id will also be saved via
-        // completeFounderOnboardingEdge below, so this is just a best-effort early link.
-        await upsertProfile({ company_id: resolvedExistingId } as any);
       } else if (resolvedCompanyName) {
         const ws = await ensureCompanyWorkspace(user.id, {
           name: resolvedCompanyName,
@@ -140,8 +203,20 @@ export function OnboardingWizard() {
         companyId = ws.companyId;
       }
 
+      const isPendingAccessRequest = Boolean(resolvedExistingId && !companyId);
+
       const prefsPayload = {
         onboarding_data: {
+          firstName: state.firstName,
+          lastName: state.lastName,
+          email: state.email,
+          linkedinUrl: state.linkedinUrl,
+          twitterUrl: state.twitterUrl,
+          substackUrl: state.substackUrl,
+          tiktokUrl: state.tiktokUrl,
+          requestedCompanyId: isPendingAccessRequest ? resolvedExistingId : undefined,
+          requestedCompanyName: isPendingAccessRequest ? resolvedCompanyName : undefined,
+          companyLogoUrl: state.companyLogoUrl || undefined,
           stage: state.stage,
           sectors: state.sectors,
           revenueBand: state.revenueBand,
@@ -151,7 +226,15 @@ export function OnboardingWizard() {
           targetRaise: state.targetRaise,
           roundType: state.roundType,
           targetCloseDate: state.targetCloseDate,
-          connectedIntegrations: state.connectedIntegrations,
+          connectedIntegrations: resolvedConnectedIntegrations,
+          deckFileName: state.deckFileName,
+          deckFileUrl: state.deckFileUrl,
+          recurringRevenuePeriod: state.recurringRevenuePeriod,
+          recurringRevenue: state.recurringRevenue,
+          burnRate: state.burnRate,
+          cac: state.cac,
+          ltv: state.ltv,
+          headcount: state.headcount,
         },
         privacy_settings: {
           aiInboxPaths: state.aiInboxPaths,
@@ -162,7 +245,7 @@ export function OnboardingWizard() {
       };
 
       const execSummary = buildExecutiveSummaryForDb(state);
-      const derivedLogoUrl = getPrimaryCompanyLogoUrl({ websiteUrl: state.websiteUrl, size: 128 });
+      const derivedLogoUrl = state.companyLogoUrl || getPrimaryCompanyLogoUrl({ websiteUrl: state.websiteUrl, size: 128 });
       const edgePayload = {
         userId: user.id,
         companyId: companyId || undefined,
@@ -176,8 +259,13 @@ export function OnboardingWizard() {
                 website_url: state.websiteUrl || null,
                 logo_url: derivedLogoUrl,
                 deck_text: state.deckText || null,
+                deck_file_path: state.deckFileUrl || null,
                 stage: state.stage || null,
                 sector: state.sectors?.[0] || null,
+                mrr: resolvedMonthlyRevenue(state),
+                burn_rate: state.burnRate || null,
+                cac: state.cac || null,
+                ltv: state.ltv || null,
                 ...(execSummary ? { executive_summary: execSummary } : {}),
               }
             : undefined,
@@ -209,8 +297,13 @@ export function OnboardingWizard() {
                 website_url: state.websiteUrl || null,
                 logo_url: derivedLogoUrl,
                 deck_text: state.deckText || null,
+                deck_file_path: state.deckFileUrl || null,
                 stage: state.stage || null,
                 sector: state.sectors?.[0] || null,
+                mrr: resolvedMonthlyRevenue(state),
+                burn_rate: state.burnRate || null,
+                cac: state.cac || null,
+                ltv: state.ltv || null,
                 updated_at: new Date().toISOString(),
               })
               .eq("id", companyId);
@@ -281,11 +374,20 @@ export function OnboardingWizard() {
         localStorage.setItem("pending-company-seed", JSON.stringify({
           companyName: resolvedCompanyName || "",
           websiteUrl: state.websiteUrl || "",
+          companyLogoUrl: derivedLogoUrl || "",
           deckText: state.deckText || "",
+          deckFileName: state.deckFileName || "",
+          deckFileUrl: state.deckFileUrl || "",
+          recurringRevenuePeriod: state.recurringRevenuePeriod,
+          recurringRevenue: state.recurringRevenue,
+          burnRate: state.burnRate,
+          cac: state.cac,
+          ltv: state.ltv,
+          headcount: state.headcount,
           stage: state.stage || "",
           sectors: state.sectors || [],
         }));
-        if (resolvedCompanyName?.trim()) {
+        if (resolvedCompanyName?.trim() && !isPendingAccessRequest) {
           localStorage.setItem(
             "company-profile",
             JSON.stringify({
@@ -295,6 +397,11 @@ export function OnboardingWizard() {
               stage: state.stage || "",
               sector: state.sectors?.[0] || "",
               subsectors: state.sectors?.length ? state.sectors.slice(1) : [],
+              currentARR: state.recurringRevenue || "",
+              totalHeadcount: state.headcount || "",
+              burnRate: state.burnRate || "",
+              cac: state.cac || "",
+              ltv: state.ltv || "",
             }),
           );
           if (derivedLogoUrl) {
@@ -316,16 +423,24 @@ export function OnboardingWizard() {
           location: state.location,
           linkedin_url: state.linkedinUrl,
           twitter_url: state.twitterUrl,
+          substack_url: state.substackUrl,
+          tiktok_url: state.tiktokUrl,
           avatar_url: state.avatarUrl,
         }));
       } catch {}
 
       // Auto-verify company profile after onboarding completion to unlock features like Generate Profile
-      try {
-        localStorage.setItem("company-profile-verified", "true");
-      } catch {}
+      if (!isPendingAccessRequest) {
+        try {
+          localStorage.setItem("company-profile-verified", "true");
+        } catch {}
+      }
 
-      toast({ title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." });
+      toast(
+        isPendingAccessRequest
+          ? { title: "Portal access requested", description: `A ${resolvedCompanyName || "company"} admin must approve your request.` }
+          : { title: `Welcome, ${state.fullName || resolvedCompanyName || "Founder"}!`, description: "Let's set up your company profile." },
+      );
       trackMixpanelEvent("Conversion", {
         "Conversion Type": "onboarding_complete",
         "Conversion Value": 0,
@@ -334,13 +449,27 @@ export function OnboardingWizard() {
       window.dispatchEvent(new CustomEvent("vekta:onboarding-complete"));
       reset();
       try { localStorage.setItem("post-onboarding-view", "settings"); } catch {}
-      navigate({ pathname: "/", search: "?view=settings&tab=account&tour=true" });
+      navigate({
+        pathname: "/",
+        search: isPendingAccessRequest ? "?view=settings&tab=company" : "?view=settings&tab=account&tour=true",
+      });
     } catch (e: any) {
       toast({ title: "Error saving", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
+
+  if (!resumeReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+          Restoring your progress…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background">
@@ -390,24 +519,66 @@ export function OnboardingWizard() {
           </div>
         </aside>
 
-        <section className="flex items-start justify-center px-4 py-7 sm:px-8 sm:py-10 lg:px-14 lg:py-14">
-          <div className="w-full max-w-xl">
+        <section className="flex min-w-0 items-start justify-center px-4 py-7 sm:px-8 sm:py-10 lg:px-14 lg:py-14">
+          <div className={cn("min-w-0 w-full", state.step >= 4 ? "max-w-2xl" : "max-w-xl")}>
             <div className="mb-7 rounded-xl border border-border/70 bg-card/70 px-5 py-4 shadow-sm backdrop-blur-xl">
               <ProgressBar currentStep={state.step} />
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-card/85 p-5 shadow-lg backdrop-blur-xl sm:p-8">
-              <AnimatePresence mode="wait">
-                {state.step === 1 && (
-                  <StepWelcome key="s1" state={state} update={update} onNext={() => goTo(2)} />
-                )}
-                {state.step === 2 && (
-                  <StepIdentity key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
-                )}
-                {state.step === 3 && (
-                  <StepCompanyDNA key="s3" state={state} update={update} onNext={(name, existingId) => { void handleFinish(name, existingId); }} onBack={() => goTo(2)} />
-                )}
-              </AnimatePresence>
+            <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-5 shadow-lg backdrop-blur-xl sm:p-8">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute right-3 top-3 z-0 opacity-25 blur-[0.4px] sm:right-6 sm:top-5"
+              >
+                <ThinkingOrb state="composing" size={64} speed={0.70} />
+              </div>
+
+              <div className="relative z-10">
+                <AnimatePresence mode="wait">
+                  {state.step === 1 && (
+                    <StepPersonalDetails key="s1" state={state} update={update} onNext={() => goTo(2)} />
+                  )}
+                  {state.step === 2 && (
+                    <StepWelcome key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
+                  )}
+                  {state.step === 3 && (
+                    <StepCompanyDNA
+                      key="s3"
+                      state={state}
+                      update={update}
+                      onNext={(companyName, existingCompanyId) => {
+                        update({
+                          companyName: companyName ?? state.companyName,
+                          existingCompanyId: existingCompanyId ?? state.existingCompanyId,
+                          step: 4,
+                        });
+                      }}
+                      onBack={() => goTo(2)}
+                    />
+                  )}
+                  {state.step === 4 && (
+                    <StepConnections
+                      key="s4"
+                      state={state}
+                      update={update}
+                      onBack={() => goTo(3)}
+                      onNext={(connectedIntegrations) => {
+                        update({ connectedIntegrations, step: 5 });
+                      }}
+                    />
+                  )}
+                  {state.step === 5 && (
+                    <StepInvestorMaterials
+                      key="s5"
+                      state={state}
+                      update={update}
+                      onBack={() => goTo(4)}
+                      onFinish={() => { void handleFinish(); }}
+                      saving={saving}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </section>

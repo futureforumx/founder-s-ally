@@ -7,7 +7,11 @@ describe("first-login onboarding welcome", () => {
   it("lets a founder continue into profile setup", () => {
     const onNext = vi.fn();
     render(
-      <StepWelcome state={defaultOnboardingState} update={vi.fn()} onNext={onNext} />,
+      <StepWelcome
+        state={{ ...defaultOnboardingState, userType: "founder", title: "CEO & Founder" }}
+        update={vi.fn()}
+        onNext={onNext}
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /continue as a founder/i }));
@@ -21,6 +25,25 @@ describe("first-login onboarding welcome", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /operator/i }));
-    expect(update).toHaveBeenCalledWith({ userType: "operator" });
+    expect(update).toHaveBeenCalledWith({ userType: "operator", title: "" });
+  });
+
+  it("reveals the smart title field only after a path is selected", () => {
+    const { rerender } = render(
+      <StepWelcome state={defaultOnboardingState} update={vi.fn()} onNext={vi.fn()} />,
+    );
+
+    expect(screen.queryByText(/what is your title/i)).not.toBeInTheDocument();
+
+    rerender(
+      <StepWelcome
+        state={{ ...defaultOnboardingState, userType: "investor" }}
+        update={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/what is your title/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/general partner/i)).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import { ArrowUp, ChevronLeft, ChevronRight, TrendingUp, Users, Swords, Zap } from "lucide-react";
+import { ThinkingOrb } from "thinking-orbs";
 import { AnimatedPlaceholderInput } from "@/components/AnimatedPlaceholderInput";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/useProfile";
@@ -266,14 +267,9 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
             }}
             aria-hidden
           />
-          <img
-            src="/brand/vyta-mark.svg"
-            alt=""
-            width={52}
-            height={52}
-            className="relative z-10 h-[52px] w-[52px] object-contain invert"
-            style={{ filter: "invert(1)" }}
-          />
+          <div className="relative z-10">
+            <ThinkingOrb state="working" size={64} speed={0.90} />
+          </div>
         </div>
 
         <h1

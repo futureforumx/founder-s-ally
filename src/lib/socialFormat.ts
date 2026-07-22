@@ -8,13 +8,15 @@
  *  4. Already-valid `https://…` URLs → leave unchanged.
  */
 
-export type SocialPlatform = "x" | "linkedin" | "linkedin_personal" | "instagram";
+export type SocialPlatform = "x" | "linkedin" | "linkedin_personal" | "instagram" | "substack" | "tiktok";
 
 const BASE_URLS: Record<SocialPlatform, string> = {
   x: "https://x.com/",
   linkedin: "https://linkedin.com/company/",
   linkedin_personal: "https://linkedin.com/in/",
   instagram: "https://instagram.com/",
+  substack: "https://substack.com/@",
+  tiktok: "https://tiktok.com/@",
 };
 
 // Patterns that indicate the value already contains a domain path
@@ -23,6 +25,8 @@ const DOMAIN_PATTERNS: Record<SocialPlatform, RegExp> = {
   linkedin: /linkedin\.com\//i,
   linkedin_personal: /linkedin\.com\//i,
   instagram: /instagram\.com\//i,
+  substack: /(?:substack\.com\/|\.substack\.com)/i,
+  tiktok: /tiktok\.com\//i,
 };
 
 /**

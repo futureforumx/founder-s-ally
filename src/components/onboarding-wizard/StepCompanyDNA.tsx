@@ -1,12 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Upload, FileText, X, Loader2, Building2, UserPlus, Plus, Search, KeyRound, CheckCircle2 } from "lucide-react";
+import { Globe, Upload, X, Loader2, Building2, UserPlus, Plus, Search, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { normalizeDomain, getFaviconUrl } from "@/utils/company-utils";
+import { normalizeDomain } from "@/utils/company-utils";
 import { FirmLogo } from "@/components/ui/firm-logo";
+import { TaxonomyCombobox } from "@/components/company-profile/TaxonomyCombobox";
+import { SECTOR_OPTIONS as SYSTEM_SECTOR_OPTIONS } from "@/constants/taxonomy";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadR2UserAsset } from "@/lib/r2UserAssets";
+import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +19,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { OnboardingState } from "./types";
+import { STAGES, type OnboardingState } from "./types";
 
 interface StepCompanyDNAProps {
   state: OnboardingState;
@@ -40,33 +44,31 @@ function extractDomain(url: string): string | null {
   return normalizeDomain(url) || null;
 }
 
-function faviconSrc(domain: string): string {
-  return getFaviconUrl(domain, 64);
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
-  const [deckFile, setDeckFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState(state.companyName || "");
   const [searchResults, setSearchResults] = useState<CompanyResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyResult | null>(() =>
+    state.existingCompanyId && state.companyName
+      ? {
+          id: state.existingCompanyId,
+          name: state.companyName,
+          websiteUrl: state.websiteUrl || null,
+          sector: state.sectors?.[0] || null,
+          stage: state.stage || null,
+          inDatabase: true,
+          isClaimed: true,
+        }
+      : null,
+  );
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [isWebsiteSuggested, setIsWebsiteSuggested] = useState(false);
-  const [approvalCode, setApprovalCode] = useState("");
-  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -134,6 +136,8 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     update({
       companyName: company.name,
       websiteUrl: pulledWebsite,
+      stage: company.stage || state.stage,
+      sectors: company.sector ? [company.sector] : state.sectors,
       // Store the real DB id when joining an existing company; clear for new ones
       existingCompanyId: company.inDatabase ? company.id : "",
     });
@@ -148,7 +152,9 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
         stage: state.stage || "",
         sectors: state.sectors || [],
       }));
-    } catch {}
+    } catch {
+      // Local persistence is best-effort; remote onboarding checkpoints still apply.
+    }
 
     setShowDropdown(false);
   };
@@ -161,7 +167,9 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     // Clear the seed when company is cleared
     try {
       localStorage.removeItem("pending-company-seed");
-    } catch {}
+    } catch {
+      // Ignore unavailable local storage.
+    }
   };
 
   const handleContinue = () => {
@@ -195,76 +203,62 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
     onNext(companyName, existingId);
   };
 
-  const validateApprovalCode = useCallback(async (code: string) => {
-    if (!code.trim() || !selectedCompany) return;
-    setCodeStatus("checking");
+  const handleLogoFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Choose an image", description: "Upload a PNG, JPG, WebP, or SVG logo.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Logo is too large", description: "Choose an image under 5 MB.", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingLogo(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("company_approval_codes")
-        .select("id, company_id")
-        .eq("code", code.trim().toUpperCase())
-        .eq("company_id", selectedCompany.id)
-        .eq("is_active", true)
-        .gte("expires_at", new Date().toISOString())
-        .maybeSingle();
-
-      if (error || !data) {
-        setCodeStatus("invalid");
-      } else {
-        setCodeStatus("valid");
-      }
-    } catch {
-      setCodeStatus("invalid");
-    }
-  }, [selectedCompany]);
-
-  const extractTextFromFile = useCallback(async (file: File): Promise<string> => {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".txt") || name.endsWith(".md")) {
-      return await file.text();
-    }
-    if (name.endsWith(".pdf")) {
-      const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const pages: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
-        pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
-      }
-      return pages.join("\n\n");
-    }
-    throw new Error("Unsupported file type.");
-  }, []);
-
-  const handleFile = useCallback(async (file: File) => {
-    if (file.size > 50 * 1024 * 1024) return;
-    setDeckFile(file);
-    setIsExtracting(true);
-    try {
-      const text = await extractTextFromFile(file);
-      update({ deckText: text, deckFileName: file.name });
-    } catch {
-      update({ deckText: "", deckFileName: file.name });
+      const uploaded = await uploadR2UserAsset("company-logo", file);
+      update({ companyLogoUrl: uploaded.url });
+      toast({ title: "Logo replaced", description: "Your uploaded logo will override the website favicon." });
+    } catch (error) {
+      toast({
+        title: "Couldn't upload logo",
+        description: error instanceof Error ? error.message : "Try another image.",
+        variant: "destructive",
+      });
     } finally {
-      setIsExtracting(false);
+      setIsUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
     }
-  }, [extractTextFromFile, update]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
-
-  const removeDeck = () => {
-    setDeckFile(null);
-    update({ deckText: "", deckFileName: "" });
   };
+
+  const renderLogoPreview = () => (
+    <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 p-2.5">
+      <FirmLogo
+        firmName={selectedCompany?.name || searchQuery.trim() || state.companyName || websiteDomain || "Company"}
+        logoUrl={state.companyLogoUrl || null}
+        websiteUrl={state.websiteUrl}
+        size="md"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-foreground">
+          {state.companyLogoUrl ? "Custom logo" : "Logo pulled from website"}
+        </p>
+        <p className="truncate text-[10px] text-muted-foreground">
+          {state.companyLogoUrl ? "Overrides the website favicon" : websiteDomain}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 shrink-0 gap-1.5 px-2.5 text-xs text-primary hover:text-primary"
+        disabled={isUploadingLogo}
+        onClick={() => logoInputRef.current?.click()}
+      >
+        {isUploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        {isUploadingLogo ? "Uploading" : "Replace"}
+      </Button>
+    </div>
+  );
 
   return (
     <motion.div
@@ -401,6 +395,20 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
           </div>
         </div>
 
+        {isJoinMode && (
+          <div role="status" className="flex gap-3 rounded-xl border border-primary/25 bg-primary/[0.07] p-3.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold text-foreground">This company portal already exists</p>
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                Continue to request access from a company admin. Your account will remain pending until an admin approves it.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Website URL */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -425,11 +433,52 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
             <p className="text-[11px] font-medium text-[#6C44FC]">Is this your correct URL?</p>
           )}
           {websiteDomain && (
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <img src={faviconSrc(websiteDomain)} alt="" className="h-3 w-3 rounded-sm" />
-              {websiteDomain}
-            </div>
+            renderLogoPreview()
           )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Stage <span className="text-primary">*</span>
+          </label>
+          <div role="radiogroup" aria-label="Company stage" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {STAGES.map((stage) => {
+              const selected = state.stage === stage;
+              return (
+                <button
+                  key={stage}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => update({ stage })}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    selected
+                      ? "border-primary/60 bg-primary/10 text-primary"
+                      : "border-border/80 bg-background/60 text-muted-foreground hover:border-primary/30 hover:text-foreground",
+                  )}
+                >
+                  {stage}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Sector <span className="text-primary">*</span>
+          </label>
+          <TaxonomyCombobox
+            options={SYSTEM_SECTOR_OPTIONS}
+            value={state.sectors[0] || ""}
+            onChange={(sector) => update({ sectors: sector ? [sector] : [] })}
+            placeholder="Type a sector or keyword…"
+            allowCustom={false}
+          />
+          <p className="text-[10px] leading-4 text-muted-foreground">
+            Search by keywords like payments, LLM, logistics, healthcare, or creator.
+          </p>
         </div>
 
       </div>
@@ -439,10 +488,10 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
         <Button
           size="sm"
           onClick={handleContinue}
-          disabled={!(searchQuery.trim() || state.companyName.trim())}
+          disabled={!(searchQuery.trim() || state.companyName.trim()) || !state.stage || !state.sectors[0]}
         >
           {isJoinMode ? (
-            <><UserPlus className="h-3.5 w-3.5 mr-1" /> Join Company</>
+            <><UserPlus className="h-3.5 w-3.5 mr-1" /> Request portal access</>
           ) : (
             <><Plus className="h-3.5 w-3.5 mr-1" /> Add Company</>
           )}
@@ -450,66 +499,22 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       </div>
 
       {/* Join Request Modal */}
-      <Dialog open={showJoinModal} onOpenChange={(open) => { setShowJoinModal(open); if (!open) { setApprovalCode(""); setCodeStatus("idle"); } }}>
+      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-accent" />
-              Join {selectedCompany?.name}
+              Request access to {selectedCompany?.name}
             </DialogTitle>
             <DialogDescription>
-              You are requesting to join <strong>{selectedCompany?.name}</strong>. An admin will be notified and can approve your request.
+              Your request will be sent to a company admin. You will not receive portal access until an admin approves it.
             </DialogDescription>
           </DialogHeader>
-
-          {/* Approval Code Section */}
-          <div className="space-y-2 py-2">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              Have the approval code? Input here.
-            </p>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
-                <Input
-                  value={approvalCode}
-                  onChange={(e) => { setApprovalCode(e.target.value.toUpperCase()); setCodeStatus("idle"); }}
-                  placeholder="e.g. A1B2C3D4"
-                  className={cn(
-                    "pl-9 font-mono text-sm tracking-wider uppercase",
-                    codeStatus === "valid" && "border-green-500/50 bg-green-500/5",
-                    codeStatus === "invalid" && "border-destructive/50 bg-destructive/5",
-                  )}
-                  maxLength={12}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => validateApprovalCode(approvalCode)}
-                disabled={!approvalCode.trim() || codeStatus === "checking"}
-                className="shrink-0"
-              >
-                {codeStatus === "checking" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : codeStatus === "valid" ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                ) : (
-                  "Verify"
-                )}
-              </Button>
-            </div>
-            {codeStatus === "valid" && (
-              <p className="text-[10px] text-green-500 font-medium">✓ Code verified — you'll be auto-approved.</p>
-            )}
-            {codeStatus === "invalid" && (
-              <p className="text-[10px] text-destructive font-medium">Invalid or expired code. You can still request to join below.</p>
-            )}
-          </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" size="sm" onClick={() => setShowJoinModal(false)}>Cancel</Button>
             <Button size="sm" onClick={handleJoinConfirm}>
-              {codeStatus === "valid" ? "Join & Continue" : "Confirm & Continue"}
+              Send access request
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -553,61 +558,10 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
                 <p className="text-[11px] font-medium text-[#6C44FC]">is this your correct URL?</p>
               )}
               {websiteDomain && (
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <img src={faviconSrc(websiteDomain)} alt="" className="h-3 w-3 rounded-sm" />
-                  {websiteDomain}
-                </div>
+                renderLogoPreview()
               )}
             </div>
 
-            {/* Pitch Deck Upload */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Pitch Deck <span className="text-muted-foreground/50 normal-case">(optional)</span>
-              </label>
-              {deckFile || state.deckFileName ? (
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-                  <FileText className="h-4 w-4 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{deckFile?.name || state.deckFileName}</p>
-                    {deckFile && (
-                      <p className="text-[10px] text-muted-foreground">{formatFileSize(deckFile.size)}</p>
-                    )}
-                  </div>
-                  {isExtracting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                  ) : (
-                    <button onClick={removeDeck} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-5 cursor-pointer transition-colors",
-                    isDragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40 hover:bg-muted/20"
-                  )}
-                >
-                  <Upload className="h-5 w-5 text-muted-foreground/50" />
-                  <p className="text-xs text-muted-foreground">
-                    Drop your deck here or <span className="text-primary font-medium">browse</span>
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/50">PDF up to 50 MB</p>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt,.md"
-                className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-              />
-            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -618,6 +572,16 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleLogoFile(file);
+        }}
+      />
     </motion.div>
   );
 }

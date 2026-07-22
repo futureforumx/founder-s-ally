@@ -14,6 +14,7 @@ const COMPANY_ANALYSIS_KEYS = new Set([
   "website_url",
   "logo_url",
   "deck_text",
+  "deck_file_path",
   "stage",
   "sector",
   "executive_summary",

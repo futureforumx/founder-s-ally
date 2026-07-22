@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plug,
+  Database,
 } from "lucide-react";
 import { NETWORK_SURFACE_SECTION_HEADING } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,8 @@ type ViewType =
   | "profile-workspace"
   | "targeting"
   | "circles"
-  | "integrations";
+  | "integrations"
+  | "data-hub";
 
 interface AppSidebarProps {
   activeView: ViewType;
@@ -459,6 +461,21 @@ export function AppSidebar({
               >
                 <Zap className="h-4 w-4 shrink-0" />
                 {!collapsed && "Matches"}
+              </button>
+            </SidebarHint>
+          </div>
+
+          <div className={sectionLabel}>Data Hub</div>
+          <div className={rail}>
+            <SidebarHint collapsed={collapsed} label="Data Hub">
+              <button
+                type="button"
+                onClick={() => goView("data-hub")}
+                className={navBtn(activeView === "data-hub")}
+                style={activeView === "data-hub" ? activeNavStyle : undefined}
+              >
+                <Database className="h-4 w-4 shrink-0" />
+                {!collapsed && "Data Hub"}
               </button>
             </SidebarHint>
           </div>

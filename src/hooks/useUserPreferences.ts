@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import type { OnboardingState } from "@/components/onboarding-wizard/types";
 
 export interface PrivacySettings {
   aiInboxPaths: boolean;
@@ -10,6 +11,16 @@ export interface PrivacySettings {
 }
 
 export interface OnboardingData {
+  wizardState?: Partial<OnboardingState>;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  substackUrl?: string;
+  tiktokUrl?: string;
+  requestedCompanyId?: string;
+  requestedCompanyName?: string;
   stage?: string;
   sectors?: string[];
   revenueBand?: string;

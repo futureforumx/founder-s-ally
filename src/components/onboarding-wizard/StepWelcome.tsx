@@ -1,6 +1,8 @@
-import { ArrowRight, BriefcaseBusiness, Check, Sparkles, UserRoundCog, UsersRound } from "lucide-react";
-import { motion } from "framer-motion";
+import { ArrowLeft, ArrowRight, BriefcaseBusiness, Check, Sparkles, UserRoundCog, UsersRound } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { SmartCombobox, type ComboboxOption } from "@/components/ui/smart-combobox";
+import { ROLE_OPTIONS } from "@/constants/roleOptions";
 import { cn } from "@/lib/utils";
 import { InvestorWaitlistForm } from "./InvestorWaitlistForm";
 import type { OnboardingState } from "./types";
@@ -9,6 +11,7 @@ interface StepWelcomeProps {
   state: OnboardingState;
   update: (partial: Partial<OnboardingState>) => void;
   onNext: () => void;
+  onBack?: () => void;
 }
 
 const paths = [
@@ -17,7 +20,23 @@ const paths = [
   { id: "investor", label: "Investor", description: "Discover companies and build a sharper market view.", icon: BriefcaseBusiness },
 ] as const;
 
-export function StepWelcome({ state, update, onNext }: StepWelcomeProps) {
+const POPULAR_TITLES: Record<string, string[]> = {
+  founder: ["Founder", "Co-Founder", "CEO & Founder", "CEO & Co-Founder", "Solo Founder", "CTO & Co-Founder", "COO", "CPO"],
+  operator: ["COO", "Chief of Staff", "VP of Operations", "VP of Product", "Head of Ops", "Head of Product", "Head of Growth", "Strategy & Ops"],
+  investor: ["Managing Partner", "General Partner", "Partner", "Venture Partner", "Principal", "Investment Director", "Investment Manager", "Investment Associate", "Investment Analyst", "Angel Investor"],
+};
+
+function titleOptionsFor(userType: string): ComboboxOption[] {
+  const priorities = POPULAR_TITLES[userType] || [];
+  const order = new Map(priorities.map((title, index) => [title, index]));
+  return [...ROLE_OPTIONS].sort((a, b) => {
+    const aOrder = order.get(a.value) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = order.get(b.value) ?? Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
+}
+
+export function StepWelcome({ state, update, onNext, onBack }: StepWelcomeProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -48,7 +67,7 @@ export function StepWelcome({ state, update, onNext }: StepWelcomeProps) {
               key={path.id}
               type="button"
               aria-pressed={selected}
-              onClick={() => update({ userType: path.id })}
+              onClick={() => update({ userType: path.id, ...(state.userType === path.id ? {} : { title: "" }) })}
               className={cn(
                 "group flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all duration-200",
                 selected
@@ -79,21 +98,66 @@ export function StepWelcome({ state, update, onNext }: StepWelcomeProps) {
         })}
       </fieldset>
 
-      {state.userType === "investor" ? (
+      <AnimatePresence initial={false}>
+        {state.userType && (
+          <motion.div
+            key={state.userType}
+            initial={{ opacity: 0, height: 0, y: -6 }}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-visible"
+          >
+            <div className="mt-6 border-t border-border/70 pt-6">
+              <label className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                What is your title? <span className="text-primary">*</span>
+              </label>
+              <p className="mb-3 mt-1 text-xs text-muted-foreground">
+                Start typing or select a popular {state.userType} title.
+              </p>
+              <SmartCombobox
+                value={state.title}
+                onChange={(title) => update({ title })}
+                options={titleOptionsFor(state.userType)}
+                placeholder={state.userType === "investor" ? "e.g. General Partner" : state.userType === "operator" ? "e.g. Chief of Staff" : "e.g. CEO & Founder"}
+                required
+                className="[&_input]:h-11"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {state.userType === "investor" && state.title.trim() ? (
         <div className="mt-6 border-t border-border/70 pt-6">
           <InvestorWaitlistForm />
         </div>
-      ) : (
+      ) : state.userType && state.userType !== "investor" ? (
         <div className="mt-7">
-          <Button onClick={onNext} className="h-11 w-full gap-2 text-sm">
-            Continue as {state.userType === "operator" ? "an operator" : "a founder"}
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-3">
+            {onBack && (
+              <Button variant="outline" onClick={onBack} className="h-11 gap-2 px-4 text-sm">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
+            <Button onClick={onNext} disabled={!state.title.trim()} className="h-11 flex-1 gap-2 text-sm">
+              Continue as {state.userType === "operator" ? "an operator" : "a founder"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
           <p className="mt-3 text-center text-[11px] text-muted-foreground">
             About 2 minutes · You can update everything later
           </p>
         </div>
-      )}
+      ) : !state.userType && onBack ? (
+        <div className="mt-7">
+          <Button variant="ghost" onClick={onBack} className="h-10 gap-2 px-2 text-sm text-muted-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
+      ) : null}
     </motion.div>
   );
 }

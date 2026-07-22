@@ -1,6 +1,18 @@
 import type { ComboboxOption } from "@/components/ui/smart-combobox";
 
 export const ROLE_OPTIONS: ComboboxOption[] = [
+  // Common founder & investor titles
+  { value: "Founder", label: "Founder", desc: "Company founder" },
+  { value: "Co-Founder", label: "Co-Founder", desc: "Company co-founder" },
+  { value: "Partner", label: "Partner", desc: "Investment or operating partner" },
+  { value: "Venture Partner", label: "Venture Partner", desc: "Venture fund partner" },
+  { value: "Principal", label: "Principal", desc: "Senior investment professional" },
+  { value: "Investment Director", label: "Investment Director", desc: "Investment team leadership" },
+  { value: "Investment Manager", label: "Investment Manager", desc: "Investment sourcing and portfolio work" },
+  { value: "Investment Associate", label: "Investment Associate", desc: "Deal evaluation and portfolio support" },
+  { value: "Investment Analyst", label: "Investment Analyst", desc: "Research and deal analysis" },
+  { value: "Angel Investor", label: "Angel Investor", desc: "Independent early-stage investor" },
+
   // Executive & Founding
   { value: "CEO", label: "CEO", desc: "Founder, Managing Director, President" },
   { value: "CEO & Founder", label: "CEO & Founder", desc: "Chief Executive Officer" },

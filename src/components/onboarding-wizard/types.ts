@@ -7,17 +7,21 @@ export interface OnboardingState {
   email: string;
   linkedinUrl: string;
   twitterUrl: string;
+  substackUrl: string;
+  tiktokUrl: string;
   fullName: string;
   title: string;
   bio: string;
   avatarUrl: string;
   location: string;
-  // Step 2: Company DNA
+  // Step 3: Company DNA
   companyName: string;
   existingCompanyId: string; // set when user selects an existing (in-network) company to join
   websiteUrl: string;
+  companyLogoUrl: string;
   deckText: string;
   deckFileName: string;
+  deckFileUrl: string;
   role: string;
   stage: string;
   sectors: string[];
@@ -28,9 +32,16 @@ export interface OnboardingState {
   targetRaise: string;
   roundType: string;
   targetCloseDate: string;
-  // Step 3: Power Up
+  // Step 4: Connections
   connectedIntegrations: string[];
-  // Step 4: Privacy
+  // Step 5: Investor materials
+  recurringRevenuePeriod: "mrr" | "arr";
+  recurringRevenue: string;
+  burnRate: string;
+  cac: string;
+  ltv: string;
+  headcount: string;
+  // Saved privacy defaults
   aiInboxPaths: boolean;
   shareAnonMetrics: boolean;
   discoverableToInvestors: boolean;
@@ -39,12 +50,14 @@ export interface OnboardingState {
 
 export const defaultOnboardingState: OnboardingState = {
   step: 1,
-  userType: "founder",
+  userType: "",
   firstName: "",
   lastName: "",
   email: "",
   linkedinUrl: "",
   twitterUrl: "",
+  substackUrl: "",
+  tiktokUrl: "",
   fullName: "",
   title: "",
   bio: "",
@@ -53,8 +66,10 @@ export const defaultOnboardingState: OnboardingState = {
   companyName: "",
   existingCompanyId: "",
   websiteUrl: "",
+  companyLogoUrl: "",
   deckText: "",
   deckFileName: "",
+  deckFileUrl: "",
   role: "",
   stage: "",
   sectors: [],
@@ -66,13 +81,19 @@ export const defaultOnboardingState: OnboardingState = {
   roundType: "",
   targetCloseDate: "",
   connectedIntegrations: [],
+  recurringRevenuePeriod: "mrr",
+  recurringRevenue: "",
+  burnRate: "",
+  cac: "",
+  ltv: "",
+  headcount: "",
   aiInboxPaths: false,
   shareAnonMetrics: false,
   discoverableToInvestors: false,
   useMeetingNotes: false,
 };
 
-export const STAGES = ["Pre-Idea", "Idea", "Pre-Seed", "Seed", "Series A"];
+export const STAGES = ["MVP", "Accelerator", "Pre-Seed", "Seed", "Series A", "Series B +"];
 export const REVENUE_BANDS = ["Pre-revenue", "<$10K MRR", "$10–50K", "$50–100K", "$100K+"];
 export const COFOUNDER_OPTIONS = ["Solo", "2", "3", "4+"];
 export const SUPERPOWERS = ["GTM", "Technical", "Fundraising", "Design", "Sales", "Operations", "Finance", "Community"];

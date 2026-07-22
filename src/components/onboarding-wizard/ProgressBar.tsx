@@ -2,9 +2,11 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const steps = [
-  { num: 1, label: "Your path" },
-  { num: 2, label: "Profile" },
+  { num: 1, label: "Your profile" },
+  { num: 2, label: "Your path" },
   { num: 3, label: "Company" },
+  { num: 4, label: "Connections" },
+  { num: 5, label: "Materials" },
 ];
 
 interface ProgressBarProps {
@@ -32,7 +34,7 @@ export function ProgressBar({ currentStep }: ProgressBarProps) {
               </div>
               <span
                 className={cn(
-                  "whitespace-nowrap text-[10px] font-medium transition-colors sm:text-[11px]",
+                  "text-center text-[9px] font-medium leading-tight transition-colors min-[420px]:whitespace-nowrap sm:text-[11px]",
                   currentStep >= s.num ? "text-foreground" : "text-muted-foreground"
                 )}
               >
