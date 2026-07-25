@@ -32,7 +32,7 @@ export function DataHubPage() {
           <Database className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Data Hub</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">Data Room</h1>
           <p className="text-sm text-muted-foreground">
             Your workspace's connected data, documents, and enriched intelligence in one place.
           </p>

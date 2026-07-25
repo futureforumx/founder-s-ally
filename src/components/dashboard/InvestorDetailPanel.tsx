@@ -1467,7 +1467,7 @@ export function InvestorDetailPanel({
                   <div className="absolute -top-8 right-0 w-64 h-64 rounded-full bg-emerald-500/[0.06] blur-3xl" />
                 </div>
                 {/* Identity + Scores + Actions row */}
-                <div className="relative z-10 flex items-start gap-6 px-8 pt-6 pb-3">
+                <div className="relative z-10 flex items-start gap-5 px-8 pt-6 pb-3">
 
                   {/* Left: Identity block */}
                   <div className="flex min-w-0 flex-[1_1_0%] items-start gap-3.5">
@@ -1618,8 +1618,8 @@ export function InvestorDetailPanel({
                     </div>
                   </div>
 
-                  {/* Middle: Score strip */}
-                  <div className="min-w-0 flex-[0_1_420px]">
+                  {/* Middle: Score strip — right-anchored so the identity block keeps room for the full name + pitch */}
+                  <div className="ml-auto min-w-0 flex-[0_1_360px]">
                     <ScoreTilesRow
                       matchScore={matchScore}
                       firmName={heroName}

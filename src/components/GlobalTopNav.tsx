@@ -1119,31 +1119,33 @@ export function GlobalTopNav({
 
         {/* ── Search ── */}
         <div ref={searchRef} className={cn("relative transition-all duration-300", searchOpen ? "min-w-[220px] flex-1 max-w-4xl" : "")}>
-          <button
-            onClick={handleSearchClick}
-            className={cn(
-              "group flex h-9 cursor-text items-center gap-2.5 rounded-xl border bg-muted/30 pl-3.5 pr-3 transition-all hover:bg-muted/50",
-              searchOpen
-                ? "w-full border-accent/40 bg-muted/50 shadow-sm"
-                : "w-9 border-border/50 hover:border-border justify-center"
-            )}
-          >
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
-            {searchOpen && (
-              <>
-                <span className="flex-1 truncate text-left text-[13px] text-muted-foreground/40">
-                  Search...
-                </span>
-                <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
-                  ⌘K
-                </kbd>
-              </>
-            )}
-          </button>
+          {searchOpen ? (
+            <div className="group flex h-9 w-full items-center gap-2.5 rounded-xl border border-accent/40 bg-muted/50 pl-3.5 pr-3 shadow-sm transition-all">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search investors, firms…"
+                value={investorSearchQuery || ""}
+                onChange={(e) => onInvestorSearchQueryChange?.(e.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/40"
+              />
+              <kbd className="hidden items-center rounded-md border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground/40 sm:inline-flex">
+                ⌘K
+              </kbd>
+            </div>
+          ) : (
+            <button
+              onClick={handleSearchClick}
+              className="group flex h-9 w-9 cursor-text items-center justify-center rounded-xl border border-border/50 bg-muted/30 transition-all hover:border-border hover:bg-muted/50"
+            >
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
+            </button>
+          )}
 
           {searchOpen && (
             <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-2xl border border-border/50 bg-popover shadow-2xl backdrop-blur-xl">
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 px-4 py-2.5">
+              <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
                 {FILTER_CHIPS.map(chip => {
                   const Icon = chip.icon;
@@ -1167,17 +1169,6 @@ export function GlobalTopNav({
                     </button>
                   );
                 })}
-              </div>
-
-              <div className="border-b border-border/40 px-4 py-2.5">
-                <input
-                  type="text"
-                  placeholder="Search investors, firms…"
-                  value={investorSearchQuery || ""}
-                  onChange={(e) => onInvestorSearchQueryChange?.(e.target.value)}
-                  className="w-full rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground/45 focus:border-accent/35 focus:bg-background focus:ring-2 focus:ring-accent/10"
-                  autoFocus
-                />
               </div>
 
               <div className="max-h-[min(70vh,420px)] overflow-y-auto overscroll-contain px-2 py-1">

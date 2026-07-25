@@ -465,9 +465,9 @@ export function AppSidebar({
             </SidebarHint>
           </div>
 
-          <div className={sectionLabel}>Data Hub</div>
+          <div className={sectionLabel}>Data Room</div>
           <div className={rail}>
-            <SidebarHint collapsed={collapsed} label="Data Hub">
+            <SidebarHint collapsed={collapsed} label="Data Room">
               <button
                 type="button"
                 onClick={() => goView("data-hub")}
@@ -475,7 +475,7 @@ export function AppSidebar({
                 style={activeView === "data-hub" ? activeNavStyle : undefined}
               >
                 <Database className="h-4 w-4 shrink-0" />
-                {!collapsed && "Data Hub"}
+                {!collapsed && "Data Room"}
               </button>
             </SidebarHint>
           </div>

@@ -11,7 +11,7 @@ interface Subscore {
   note?: string;
 }
 
-type TileId = "match" | "founderSentiment" | "founderReputation" | "industryReputation";
+type TileId = "match" | "founderSentiment" | "founderReputation" | "activity";
 
 export type { TileId };
 
@@ -51,7 +51,7 @@ export interface ScoreTilesRowProps {
   investorContext?: InvestorContext | null;
   founderSentimentScore?: number;
   founderReputationScore?: number;
-  industryReputationScore?: number;
+  activityScore?: number;
   lastUpdated?: string;
   confidenceScore?: number;
   activeTileId?: TileId | null;
@@ -66,6 +66,13 @@ function getCaption(score: number): string {
   if (score >= 85) return "High";
   if (score >= 70) return "Good";
   if (score >= 55) return "Medium";
+  return "Low";
+}
+
+/** Activity is expressed as deployment intensity, not quality — Low / Moderate / High. */
+function getActivityCaption(score: number): string {
+  if (score >= 70) return "High";
+  if (score >= 40) return "Moderate";
   return "Low";
 }
 
@@ -147,44 +154,46 @@ function founderReputationNote(
   return m[row][t];
 }
 
-function industryReputationNote(
-  row: "tier" | "brand" | "signal" | "authority",
+function activityNote(
+  row: "pace" | "recency" | "frequency" | "dryPowder",
   score: number
 ): string {
   const t = tierForSubscore(score);
   const m: Record<typeof row, Record<SubscoreTier, string>> = {
-    tier: {
-      high: "Top-quartile firm in peer rankings",
-      good: "Well-regarded institutional brand",
-      medium: "Credible but not tier-defining",
-      low: "Below peers on perceived firm quality",
+    pace: {
+      high: "Deploying at a rapid clip right now",
+      good: "Steady, healthy deal cadence",
+      medium: "Occasional deals; slower cadence",
+      low: "Very few new deals lately",
     },
-    brand: {
-      high: "Highly recognized name in the market",
-      good: "Solid brand familiarity among founders",
-      medium: "Known in niche circles more than broadly",
-      low: "Limited brand recognition vs peers",
+    recency: {
+      high: "Multiple rounds in the last quarter",
+      good: "Active within the last few months",
+      medium: "Last deal was a while ago",
+      low: "No recent deals on record",
     },
-    signal: {
-      high: "Their logo strongly validates a round",
-      good: "Positive signal to other investors",
-      medium: "Modest signaling effect",
-      low: "Weak signal to follow-on capital",
+    frequency: {
+      high: "Writing new checks frequently",
+      good: "Regular check-writing pattern",
+      medium: "Infrequent check writing",
+      low: "Rarely writing new checks",
     },
-    authority: {
-      high: "Seen as a thought leader in the space",
-      good: "Credible sector perspective",
-      medium: "Average sector voice and influence",
-      low: "Limited authority in your vertical",
+    dryPowder: {
+      high: "Fresh fund with capital to deploy",
+      good: "Ample dry powder available",
+      medium: "Limited remaining dry powder",
+      low: "Likely near end of fund cycle",
     },
   };
   return m[row][t];
 }
 
-// Returns color tokens for a given score.
+// Returns color tokens for a given tone.
 // `subtleCls` is used on inactive tiles so the score reads quieter than the big MATCH pill.
-function colorTokens(score: number) {
-  if (score >= 85)
+type ScoreTone = "success" | "warning" | "destructive";
+
+function tokensForTone(tone: ScoreTone) {
+  if (tone === "success")
     return {
       valueCls: "text-success",
       subtleCls: "text-success/70",
@@ -192,7 +201,7 @@ function colorTokens(score: number) {
       activeBorder: "border-success/25",
       barCls: "bg-success",
     };
-  if (score >= 65)
+  if (tone === "warning")
     return {
       valueCls: "text-warning",
       subtleCls: "text-warning/70",
@@ -207,6 +216,19 @@ function colorTokens(score: number) {
     activeBorder: "border-destructive/25",
     barCls: "bg-destructive",
   };
+}
+
+function colorTokens(score: number) {
+  if (score >= 85) return tokensForTone("success");
+  if (score >= 65) return tokensForTone("warning");
+  return tokensForTone("destructive");
+}
+
+/** Activity tiers mirror the Low / Moderate / High caption: more deployment reads greener. */
+function activityColorTokens(score: number) {
+  if (score >= 70) return tokensForTone("success");
+  if (score >= 40) return tokensForTone("warning");
+  return tokensForTone("destructive");
 }
 
 // ─── Subscore row ─────────────────────────────────────────────────────────────
@@ -258,7 +280,7 @@ export function ScoreTilesRow({
   investorContext,
   founderSentimentScore = 74,
   founderReputationScore = 68,
-  industryReputationScore = 81,
+  activityScore = 84,
   lastUpdated,
   confidenceScore = 87,
   activeTileId,
@@ -349,17 +371,17 @@ export function ScoreTilesRow({
       ],
     },
     {
-      id: "industryReputation",
-      shortLabel: "INDUSTRY",
-      displayLabel: "Industry Reputation",
-      value: industryReputationScore,
+      id: "activity",
+      shortLabel: "ACTIVITY",
+      displayLabel: "Investing Activity",
+      value: activityScore,
       definition:
-        "How this firm is perceived in the wider market and within your sector.",
+        "How actively this firm is deploying capital right now — recent deal pace, check frequency, and remaining dry powder.",
       subscores: [
-        { label: "Tier", value: 85, note: industryReputationNote("tier", 85) },
-        { label: "Brand recognition", value: 90, note: industryReputationNote("brand", 90) },
-        { label: "Investor signal", value: 82, note: industryReputationNote("signal", 82) },
-        { label: "Sector authority", value: 78, note: industryReputationNote("authority", 78) },
+        { label: "Deal pace", value: 86, note: activityNote("pace", 86) },
+        { label: "Recent rounds", value: 82, note: activityNote("recency", 82) },
+        { label: "Check frequency", value: 80, note: activityNote("frequency", 80) },
+        { label: "Dry powder", value: 84, note: activityNote("dryPowder", 84) },
       ],
     },
   ];
@@ -382,11 +404,12 @@ export function ScoreTilesRow({
   return (
     <div className="w-full min-w-0">
       {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      {showTiles && <div className="flex w-fit max-w-full gap-2">
+      {showTiles && <div className="flex w-fit max-w-full gap-2 ml-auto">
         {tiles.map((tile) => {
           const isActive = activeTile === tile.id;
-          const colors = colorTokens(tile.value);
-          const caption = getCaption(tile.value);
+          const isActivity = tile.id === "activity";
+          const colors = isActivity ? activityColorTokens(tile.value) : colorTokens(tile.value);
+          const caption = isActivity ? getActivityCaption(tile.value) : getCaption(tile.value);
 
           return (
             <button
