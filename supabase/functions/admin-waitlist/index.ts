@@ -32,87 +32,101 @@ type DecisionEmailResult = {
   messageId?: string;
 };
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function decisionEmailContent(applicant: WaitlistApplicant, status: DecisionStatus) {
-  const firstName = applicant.name?.trim().split(/\s+/)[0] || "there";
-  const greeting = escapeHtml(firstName);
-
-  if (status === "approved") {
-    return {
-      subject: "You're approved — welcome to Vekta",
-      text: `Hi ${firstName},\n\nYour Vekta access request has been approved. Sign in with this email to continue: https://vekta.so/login\n\nWelcome to Vekta.\n— The Vekta Team`,
-      html: `<div style="margin:0;background:#080808;padding:40px 20px;font-family:Inter,Arial,sans-serif;color:#f5f5f5"><div style="max-width:560px;margin:0 auto;border:1px solid #262626;border-radius:12px;background:#0d0d0d;padding:36px"><div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#2ee6a6">Access approved</div><h1 style="margin:14px 0 18px;font-size:28px;line-height:1.2;color:#fff">Welcome to Vekta</h1><p style="margin:0 0 16px;line-height:1.7;color:#d4d4d4">Hi ${greeting},</p><p style="margin:0 0 26px;line-height:1.7;color:#d4d4d4">Your Vekta access request has been approved. Sign in with this email to continue.</p><a href="https://vekta.so/login" style="display:inline-block;border-radius:7px;background:#2ee6a6;padding:12px 20px;color:#04130e;text-decoration:none;font-weight:700">Sign in to Vekta</a><p style="margin:28px 0 0;line-height:1.6;color:#737373;font-size:13px">Welcome aboard.<br>— The Vekta Team</p></div></div>`,
-    };
-  }
-
-  return {
-    subject: "An update on your Vekta access request",
-    text: `Hi ${firstName},\n\nThank you for your interest in Vekta. We're unable to approve your access request at this time. We appreciate the time you took to apply and will keep you in mind as access expands.\n\n— The Vekta Team`,
-    html: `<div style="margin:0;background:#080808;padding:40px 20px;font-family:Inter,Arial,sans-serif;color:#f5f5f5"><div style="max-width:560px;margin:0 auto;border:1px solid #262626;border-radius:12px;background:#0d0d0d;padding:36px"><div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#a3a3a3">Access request update</div><h1 style="margin:14px 0 18px;font-size:28px;line-height:1.2;color:#fff">Thank you for your interest</h1><p style="margin:0 0 16px;line-height:1.7;color:#d4d4d4">Hi ${greeting},</p><p style="margin:0 0 16px;line-height:1.7;color:#d4d4d4">We're unable to approve your Vekta access request at this time.</p><p style="margin:0;line-height:1.7;color:#a3a3a3">We appreciate the time you took to apply and will keep you in mind as access expands.</p><p style="margin:28px 0 0;line-height:1.6;color:#737373;font-size:13px">— The Vekta Team</p></div></div>`,
-  };
-}
+const DEFAULT_APPROVAL_TRANSACTIONAL_ID = "cmscl69gf4s540j1bb0kbgikb";
+const DEFAULT_REJECTION_TRANSACTIONAL_ID = "cmsclviu10xw80jzs6f4vg7l3";
 
 async function sendDecisionEmail(
   applicant: WaitlistApplicant,
   status: DecisionStatus,
 ): Promise<DecisionEmailResult> {
-  const resendKey = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (!resendKey) {
-    return { sent: false, status: "not_configured", detail: "RESEND_API_KEY is not configured" };
+  const loopsApiKey = (Deno.env.get("LOOPS_API_KEY_WAITLIST") ?? Deno.env.get("LOOPS_API_KEY"))?.trim();
+  const transactionalId = status === "approved"
+    ? Deno.env.get("LOOPS_WAITLIST_APPROVAL_TRANSACTIONAL_ID")?.trim() || DEFAULT_APPROVAL_TRANSACTIONAL_ID
+    : Deno.env.get("LOOPS_WAITLIST_REJECTION_TRANSACTIONAL_ID")?.trim() || DEFAULT_REJECTION_TRANSACTIONAL_ID;
+  if (!loopsApiKey || !transactionalId) {
+    return { sent: false, status: "not_configured", detail: "Loops decision email is not configured" };
   }
 
-  const content = decisionEmailContent(applicant, status);
   const reviewedAt = applicant.reviewed_at ? Date.parse(applicant.reviewed_at) : Date.now();
+  const firstName = applicant.name?.trim().split(/\s+/)[0] || "there";
+  const knownDataVariables: Record<string, string> = {
+    firstname: firstName,
+    firstName,
+    first_name: firstName,
+    email: applicant.email,
+    loginLink: "https://vekta.so/login",
+    login_link: "https://vekta.so/login",
+    loginUrl: "https://vekta.so/login",
+    login_url: "https://vekta.so/login",
+    status,
+  };
+
   try {
-    const response = await fetch("https://api.resend.com/emails", {
+    let dataVariables = knownDataVariables;
+    try {
+      const templatesResponse = await fetch(
+        "https://app.loops.so/api/v1/transactional?perPage=50",
+        { headers: { Authorization: `Bearer ${loopsApiKey}` } },
+      );
+      if (templatesResponse.ok) {
+        const templatesBody = await templatesResponse.json() as {
+          data?: Array<{ id?: string; dataVariables?: string[] }>;
+        };
+        const template = templatesBody.data?.find((item) => item.id === transactionalId);
+        if (template?.dataVariables) {
+          dataVariables = Object.fromEntries(
+            template.dataVariables.map((variable) => [variable, knownDataVariables[variable] ?? ""]),
+          );
+        }
+      }
+    } catch (error) {
+      console.warn("[admin-waitlist] Loops template lookup failed; using compatible aliases:", error);
+    }
+
+    const response = await fetch("https://app.loops.so/api/v1/transactional", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${resendKey}`,
+        Authorization: `Bearer ${loopsApiKey}`,
         "Content-Type": "application/json",
         "Idempotency-Key": `waitlist-decision/${applicant.id}/${status}/${reviewedAt}`,
       },
       body: JSON.stringify({
-        from: Deno.env.get("WAITLIST_DECISION_FROM_EMAIL")?.trim() ||
-          "Vekta Access <access@updates.vekta.so>",
-        to: [applicant.email],
-        subject: content.subject,
-        html: content.html,
-        text: content.text,
+        transactionalId,
+        email: applicant.email,
+        addToAudience: true,
+        dataVariables,
       }),
     });
     const responseBody = await response.text().catch(() => "");
+    if (response.status === 409) {
+      return { sent: true, status: "sent" };
+    }
     if (!response.ok) {
-      let detail = `Resend HTTP ${response.status}`;
+      let detail = `Loops HTTP ${response.status}`;
       try {
-        const parsed = JSON.parse(responseBody) as { message?: unknown };
-        if (typeof parsed.message === "string") detail += `: ${parsed.message.slice(0, 240)}`;
+        const parsed = JSON.parse(responseBody) as { message?: unknown; error?: { message?: unknown } };
+        const message = parsed.message ?? parsed.error?.message;
+        if (typeof message === "string") detail += `: ${message.slice(0, 240)}`;
       } catch {
         // Do not persist arbitrary provider HTML in the audit log.
       }
       return { sent: false, status: "failed", detail };
     }
 
-    let messageId: string | undefined;
     try {
-      const parsed = JSON.parse(responseBody) as { id?: unknown };
-      if (typeof parsed.id === "string") messageId = parsed.id;
+      const parsed = JSON.parse(responseBody) as { success?: unknown };
+      if (parsed.success !== true) {
+        return { sent: false, status: "failed", detail: "Loops did not confirm success" };
+      }
     } catch {
-      // A successful status is sufficient if Resend returns no JSON body.
+      // A successful HTTP status is sufficient if Loops returns no JSON body.
     }
-    return { sent: true, status: "sent", messageId };
+    return { sent: true, status: "sent" };
   } catch (error) {
     return {
       sent: false,
       status: "failed",
-      detail: error instanceof Error ? error.message : "Unexpected Resend error",
+      detail: error instanceof Error ? error.message : "Unexpected Loops error",
     };
   }
 }
@@ -128,7 +142,7 @@ async function recordDecisionEmailResult(
     user_id: applicant.id,
     event_type: result.sent ? "decision_email_sent" : "decision_email_not_sent",
     payload: {
-      provider: "resend",
+      provider: "loops",
       status: decision,
       delivery_status: result.status,
       reviewed_by: reviewer.id,
