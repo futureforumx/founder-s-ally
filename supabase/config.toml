@@ -80,6 +80,10 @@ verify_jwt = false
 [functions.admin-market-intel]
 verify_jwt = false
 
+[functions.admin-waitlist]
+# Clerk session JWTs are verified inside the function by resolveAdminCaller.
+verify_jwt = false
+
 # ── Funding ingestion pipeline ──────────────────────────────────────────────
 # Auth is done via FUNDING_INGEST_CRON_SECRET or SUPABASE_SERVICE_ROLE_KEY.
 # JWT verification is disabled so the Supabase cron scheduler can call this

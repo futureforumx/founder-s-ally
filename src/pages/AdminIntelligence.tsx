@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
-  Building2, X, BarChart2, Flag, Bot,
+  Building2, X, BarChart2, Flag, Bot, ClipboardCheck,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminApiHealth }          from "@/components/admin/AdminApiHealth";
@@ -16,10 +16,12 @@ import { AdminFirmRecords }        from "@/components/admin/AdminFirmRecords";
 import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntelligence";
 import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
+import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
 
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
   { key: "users",          label: "Users",           icon: Users      },
+  { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
   { key: "firm-records",   label: "Firm Records",    icon: Building2  },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
@@ -126,6 +128,7 @@ export default function AdminIntelligence() {
 
         {activeView === "overview"       && <AdminOverview onNavigate={setActiveView} />}
         {activeView === "users"          && <AdminUserManagement />}
+        {activeView === "waitlist"       && <AdminWaitlist />}
         {activeView === "firm-records"   && <AdminFirmRecords />}
         {activeView === "market-intel"   && <AdminMarketIntelligence />}
         {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={setActiveView} />}

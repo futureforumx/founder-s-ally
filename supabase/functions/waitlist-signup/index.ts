@@ -526,164 +526,6 @@ function normalizeStage(raw: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Match + email helpers (file-scope so handler can call them)
-// ---------------------------------------------------------------------------
-
-interface MatchResult {
-  name: string;
-  firm?: string;
-}
-
-function classifySignup(signup: {
-  role: string | null;
-  stage: string | null;
-  intent?: string[];
-  urgency?: string | null;
-}): "investor" | "founder" | "other" {
-  const role = (signup.role ?? "").toLowerCase();
-  const stage = (signup.stage ?? "").toLowerCase();
-  const urgency = (signup.urgency ?? "").toLowerCase();
-  const intentStr = (signup.intent ?? []).join(" ").toLowerCase();
-
-  // Investor keyword set (role)
-  const INVESTOR_ROLE = ["investor", "vc", "venture", "angel", "fund", "capital", "partner"];
-  // Founder keyword set (role)
-  const FOUNDER_ROLE = ["founder", "ceo", "cofounder", "co-founder", "entrepreneur", "startup"];
-  // Deploying signals (stage / urgency)
-  const DEPLOYING_STAGE = ["deploy", "investing", "active", "capital"];
-  // Raising signals (stage / urgency)
-  const RAISING_STAGE = ["raising", "fundraising", "fundraise", "pitching"];
-
-  const isInvestorRole = INVESTOR_ROLE.some((kw) => role.includes(kw));
-  const isFounderRole  = FOUNDER_ROLE.some((kw) => role.includes(kw));
-  const isDeploying    = DEPLOYING_STAGE.some((kw) => stage.includes(kw) || urgency.includes(kw));
-  const isRaising      = RAISING_STAGE.some((kw) => stage.includes(kw) || urgency.includes(kw));
-
-  // Primary: role is unambiguous
-  if (isInvestorRole && !isFounderRole) return "investor";
-  if (isFounderRole && !isInvestorRole) return "founder";
-
-  // Secondary: role is ambiguous / missing — use stage/urgency signals
-  if (isDeploying) return "investor";
-  if (isRaising)   return "founder";
-
-  // Tertiary: intent fallback
-  if (intentStr.includes("source_deals") || intentStr.includes("find_founders") || intentStr.includes("monitor_market")) return "investor";
-  if (intentStr.includes("find_investors") || intentStr.includes("get_warm_intros")) return "founder";
-
-  // Final: if at least one role keyword matched, use it
-  if (isInvestorRole) return "investor";
-  if (isFounderRole)  return "founder";
-
-  return "other";
-}
-
-async function generateMatches(
-  // deno-lint-ignore no-explicit-any
-  supabase: any,
-  classification: "investor" | "founder" | "other",
-): Promise<MatchResult[]> {
-  try {
-    if (classification === "founder") {
-      // Founders want to find investors → query firm_investors + firm_records
-      const { data, error } = await supabase
-        .from("firm_investors")
-        .select("full_name, firm_records(firm_name)")
-        .is("deleted_at", null)
-        .limit(5);
-      if (error) {
-        console.warn("[waitlist-signup] generateMatches firm_investors error:", error.message);
-        return [];
-      }
-      return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
-        name: (r.full_name as string) ?? "Unknown",
-        firm: (r.firm_records as Record<string, unknown> | null)?.firm_name as string | undefined,
-      }));
-    }
-
-    if (classification === "investor") {
-      // Investors want to find founders/operators → query operator_profiles
-      const { data, error } = await supabase
-        .from("operator_profiles")
-        .select("full_name, current_company_name")
-        .is("deleted_at", null)
-        .limit(5);
-      if (error) {
-        console.warn("[waitlist-signup] generateMatches operator_profiles error:", error.message);
-        return [];
-      }
-      return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
-        name: (r.full_name as string) ?? "Unknown",
-        firm: (r.current_company_name as string | null) ?? undefined,
-      }));
-    }
-
-    return [];
-  } catch (err) {
-    console.warn("[waitlist-signup] generateMatches unexpected error:", err);
-    return [];
-  }
-}
-
-async function sendMatchEmail(opts: {
-  email: string;
-  classification: "investor" | "founder" | "other";
-  matches: MatchResult[];
-}): Promise<void> {
-  const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendKey) {
-    console.warn("[waitlist-signup] RESEND_API_KEY not set — skipping match email");
-    return;
-  }
-  if (opts.classification === "other") {
-    console.log("[waitlist-signup] classification=other — skipping match email");
-    return;
-  }
-  if (opts.matches.length === 0) {
-    console.log("[waitlist-signup] no matches found — skipping match email");
-    return;
-  }
-
-  const label = opts.classification === "founder" ? "investors" : "founders";
-  const rows = opts.matches
-    .map((m) => `<li>${m.name}${m.firm ? ` — <em>${m.firm}</em>` : ""}</li>`)
-    .join("\n");
-
-  const html = `
-<p>Hi,</p>
-<p>You've joined the Vekta waitlist. Here are some ${label} you might want to connect with:</p>
-<ul>
-${rows}
-</ul>
-<p>We'll be in touch soon.<br/>— The Vekta Team</p>
-`;
-
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: Deno.env.get("RESEND_FROM") || "Vekta <hello@tryvekta.com>",
-        to: [opts.email],
-        subject: `Your Vekta matches are ready`,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.warn("[waitlist-signup] Resend API error:", res.status, body);
-    } else {
-      console.log("[waitlist-signup] match email sent to", opts.email);
-    }
-  } catch (err) {
-    console.warn("[waitlist-signup] sendMatchEmail fetch error:", err);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Direct JSON parser
 // ---------------------------------------------------------------------------
 
@@ -850,36 +692,112 @@ async function syncToHubSpot(parsed: ParsedPayload): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Loops waitlist confirmation email
-// Set LOOPS_API_KEY_WAITLIST and LOOPS_WAITLIST_TRANSACTIONAL_ID in Supabase
-// Edge Function secrets. The Loops template should define data variables:
+// Set LOOPS_API_KEY (or the waitlist-specific LOOPS_API_KEY_WAITLIST override)
+// in Supabase Edge Function secrets. LOOPS_WAITLIST_TRANSACTIONAL_ID can
+// optionally override the published template configured below.
+// The Loops template should define data variables:
 // referralCode, referralLink, waitlistPosition.
 // ---------------------------------------------------------------------------
+
+const DEFAULT_LOOPS_WAITLIST_TRANSACTIONAL_ID = "cmrmhqcic00670jxx9srojqea";
+
+type WaitlistConfirmationEmailResult = {
+  sent: boolean;
+  status: "sent" | "already_sent" | "not_configured" | "failed";
+  detail?: string;
+};
 
 async function sendWaitlistLoopsEmail(opts: {
   email: string;
   result: Record<string, unknown>;
-}): Promise<void> {
-  const loopsApiKey = Deno.env.get("LOOPS_API_KEY_WAITLIST");
-  const transactionalId = Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID");
+  name?: string;
+  companyName?: string;
+  alreadySent: boolean;
+}): Promise<WaitlistConfirmationEmailResult> {
+  const loopsApiKey = Deno.env.get("LOOPS_API_KEY_WAITLIST") ?? Deno.env.get("LOOPS_API_KEY");
+  const transactionalId =
+    Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID")?.trim() ||
+    DEFAULT_LOOPS_WAITLIST_TRANSACTIONAL_ID;
 
   if (!loopsApiKey || !transactionalId) {
     console.log("[waitlist-signup] Loops email skipped: missing Loops secrets");
-    return;
+    return { sent: false, status: "not_configured" };
   }
 
-  if (String(opts.result.status ?? "") !== "created") {
-    console.log("[waitlist-signup] Loops email skipped: waitlist user already exists");
-    return;
+  if (opts.alreadySent) {
+    console.log("[waitlist-signup] Loops confirmation already recorded for", opts.email);
+    return { sent: true, status: "already_sent" };
   }
 
   try {
-    const idempotencyKey = `waitlist-confirmation-${String(opts.result.id ?? opts.email)}`;
+    // A fresh key is required for each database-authorized retry: Loops retains
+    // an idempotency key even when the original request was rejected with 400.
+    const idempotencyKey = `waitlist-confirmation-${String(opts.result.id ?? "user")}-${crypto.randomUUID()}`;
     const referralCode = String(opts.result.referral_code ?? "");
     const referralLink = String(opts.result.referral_link ?? "");
     const waitlistPosition =
       opts.result.waitlist_position === null || opts.result.waitlist_position === undefined
         ? ""
         : String(opts.result.waitlist_position);
+    const name = opts.name?.trim() ?? "";
+    const [firstName = "", ...lastNameParts] = name.split(/\s+/).filter(Boolean);
+    const lastName = lastNameParts.join(" ");
+    const knownDataVariables: Record<string, string> = {
+      referralCode,
+      referral_code: referralCode,
+      code: referralCode,
+      referralLink,
+      referral_link: referralLink,
+      inviteLink: referralLink,
+      invite_link: referralLink,
+      shareLink: referralLink,
+      share_link: referralLink,
+      confirmationUrl: referralLink,
+      confirmation_url: referralLink,
+      waitlistPosition,
+      waitlist_position: waitlistPosition,
+      position: waitlistPosition,
+      email: opts.email,
+      name,
+      fullName: name,
+      fullname: name,
+      full_name: name,
+      firstName,
+      firstname: firstName,
+      first_name: firstName,
+      lastName,
+      lastname: lastName,
+      last_name: lastName,
+      company: opts.companyName?.trim() ?? "",
+      companyName: opts.companyName?.trim() ?? "",
+      companyname: opts.companyName?.trim() ?? "",
+      company_name: opts.companyName?.trim() ?? "",
+    };
+
+    // Loops rejects requests when any variable configured on the published
+    // template is absent. Resolve the template first so edits in Loops do not
+    // silently break waitlist confirmations.
+    let dataVariables = knownDataVariables;
+    try {
+      const templatesRes = await fetch(
+        "https://app.loops.so/api/v1/transactional?perPage=50",
+        { headers: { Authorization: `Bearer ${loopsApiKey}` } },
+      );
+      if (templatesRes.ok) {
+        const templatesBody = await templatesRes.json() as {
+          data?: Array<{ id?: string; dataVariables?: string[] }>;
+        };
+        const template = templatesBody.data?.find((item) => item.id === transactionalId);
+        if (template?.dataVariables) {
+          dataVariables = Object.fromEntries(
+            template.dataVariables.map((variable) => [variable, knownDataVariables[variable] ?? ""]),
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("[waitlist-signup] Loops template lookup failed; using compatible aliases:", err);
+    }
+
     const res = await fetch("https://app.loops.so/api/v1/transactional", {
       method: "POST",
       headers: {
@@ -891,29 +809,98 @@ async function sendWaitlistLoopsEmail(opts: {
         transactionalId,
         email: opts.email,
         addToAudience: true,
-        dataVariables: {
-          referralCode,
-          referral_code: referralCode,
-          code: referralCode,
-          referralLink,
-          referral_link: referralLink,
-          inviteLink: referralLink,
-          waitlistPosition,
-          waitlist_position: waitlistPosition,
-        },
+        dataVariables,
       }),
     });
 
     const body = await res.text().catch(() => "");
+    if (res.status === 409) {
+      console.log("[waitlist-signup] Loops confirmation already accepted for", opts.email);
+      return { sent: true, status: "already_sent" };
+    }
     if (!res.ok) {
       console.warn("[waitlist-signup] Loops API error:", res.status, body.slice(0, 500));
-      return;
+      let providerMessage = "";
+      try {
+        const errorBody = JSON.parse(body) as {
+          message?: unknown;
+          error?: { message?: unknown };
+        };
+        const message = errorBody.message ?? errorBody.error?.message;
+        if (typeof message === "string") {
+          providerMessage = message.replace(/[\r\n]+/g, " ").slice(0, 300);
+        }
+      } catch {
+        // Keep the audit entry useful without persisting arbitrary response HTML.
+      }
+      return {
+        sent: false,
+        status: "failed",
+        detail: `Loops HTTP ${res.status}${providerMessage ? `: ${providerMessage}` : ""}`,
+      };
+    }
+
+    let parsedBody: Record<string, unknown> | null = null;
+    try {
+      parsedBody = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      // A successful HTTP response is sufficient when Loops returns no JSON body.
+    }
+    if (parsedBody && parsedBody.success !== true) {
+      console.warn("[waitlist-signup] Loops API did not confirm success:", body.slice(0, 500));
+      return { sent: false, status: "failed", detail: "Loops did not confirm success" };
     }
 
     console.log("[waitlist-signup] Loops waitlist email sent to", opts.email);
+    return { sent: true, status: "sent" };
   } catch (err) {
     console.warn("[waitlist-signup] sendWaitlistLoopsEmail error:", err);
+    return {
+      sent: false,
+      status: "failed",
+      detail: err instanceof Error ? err.message : "Unexpected Loops error",
+    };
   }
+}
+
+async function recordWaitlistConfirmationEmailResult(
+  supabase: ReturnType<typeof createClient>,
+  userId: unknown,
+  emailResult: WaitlistConfirmationEmailResult,
+): Promise<void> {
+  if (typeof userId !== "string" || !userId) return;
+  if (emailResult.status === "already_sent") return;
+  const { error } = await supabase.from("waitlist_events").insert({
+    user_id: userId,
+    event_type: emailResult.sent ? "confirmation_email_sent" : "confirmation_email_not_sent",
+    payload: {
+      provider: "loops",
+      status: emailResult.status,
+      ...(emailResult.detail ? { detail: emailResult.detail } : {}),
+    },
+  });
+  if (error) {
+    console.warn("[waitlist-signup] confirmation email event insert failed:", error.message);
+  }
+}
+
+async function hasSentWaitlistConfirmationEmail(
+  supabase: ReturnType<typeof createClient>,
+  userId: unknown,
+): Promise<boolean> {
+  if (typeof userId !== "string" || !userId) return false;
+  const { data, error } = await supabase
+    .from("waitlist_events")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("event_type", "confirmation_email_sent")
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn("[waitlist-signup] confirmation email audit lookup failed:", error.message);
+    return false;
+  }
+  return Boolean(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -1015,53 +1002,30 @@ serve(async (req) => {
     console.log("[waitlist-signup] sync-check", {
       hasSheetUrl: !!Deno.env.get("WAITLIST_SHEETS_WEBHOOK_URL"),
       hasHubspot: !!Deno.env.get("HUBSPOT_ACCESS_TOKEN"),
-      hasLoops: !!Deno.env.get("LOOPS_API_KEY_WAITLIST") && !!Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID"),
+      hasLoops: !!(Deno.env.get("LOOPS_API_KEY_WAITLIST") ?? Deno.env.get("LOOPS_API_KEY")) &&
+        !!(Deno.env.get("LOOPS_WAITLIST_TRANSACTIONAL_ID")?.trim() ||
+          DEFAULT_LOOPS_WAITLIST_TRANSACTIONAL_ID),
     });
-    await Promise.all([
+    const confirmationAlreadySent = await hasSentWaitlistConfirmationEmail(supabase, rpcPayload.id);
+    const [, , confirmationEmail] = await Promise.all([
       syncToGoogleSheet(parsed, rpcPayload),
       syncToHubSpot(parsed),
-      sendWaitlistLoopsEmail({ email, result }),
+      sendWaitlistLoopsEmail({
+        email,
+        result,
+        name: parsed.name,
+        companyName: parsed.company_name,
+        alreadySent: confirmationAlreadySent,
+      }),
     ]);
+    await recordWaitlistConfirmationEmailResult(supabase, rpcPayload.id, confirmationEmail);
     console.log("[waitlist-signup] sync-done");
 
-    // ===== MATCH + EMAIL TRIGGER =====
-if (email) {
-  try {
-    console.log("[waitlist-signup] classify input", {
-      role: parsed.role,
-      stage: parsed.stage,
-      urgency: parsed.urgency,
-      intent: parsed.intent,
-    });
-
-    const signup = {
-      email,
-      role: parsed.role,
-      stage: parsed.stage,
-      intent: parsed.intent,
-      urgency: parsed.urgency,
-    };
-
-    const classification = classifySignup(signup);
-    const matches = await generateMatches(supabase, classification);
-
-    await sendMatchEmail({
-      email,
-      classification,
-      matches,
-    });
-
-    console.log("[waitlist-signup] match + email sent", {
-      email,
-      classification,
-      matchCount: matches.length,
-    });
-  } catch (err) {
-    console.error("[waitlist-signup] match/email error", err);
-  }
-}
-
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      ...result,
+      confirmation_email_sent: confirmationEmail.sent,
+      confirmation_email_status: confirmationEmail.status,
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
