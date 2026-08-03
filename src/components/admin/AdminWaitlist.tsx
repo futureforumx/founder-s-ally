@@ -32,6 +32,17 @@ interface WaitlistListResponse {
   applicants?: WaitlistApplicant[];
 }
 
+interface DecisionNotification {
+  sent: boolean;
+  status: "sent" | "not_configured" | "failed" | "unchanged" | "not_applicable";
+  detail?: string;
+}
+
+interface WaitlistUpdateResponse {
+  applicant?: WaitlistApplicant;
+  notification?: DecisionNotification;
+}
+
 type AdminWaitlistInvokeOptions = NonNullable<Parameters<typeof invokeEdgeFunction>[1]> & {
   body: Record<string, unknown>;
 };
@@ -114,10 +125,19 @@ export function AdminWaitlist() {
         status,
       });
       if (error) throw error;
-      const updated = (data as { applicant?: WaitlistApplicant } | null)?.applicant;
+      const payload = data as WaitlistUpdateResponse | null;
+      const updated = payload?.applicant;
       if (!updated) throw new Error("The waitlist update returned no applicant");
       setApplicants((current) => current.map((item) => item.id === updated.id ? updated : item));
-      toast.success(status === "approved" ? "Applicant approved" : status === "rejected" ? "Applicant rejected" : "Applicant returned to pending");
+      if (status === "pending") {
+        toast.success("Applicant returned to pending");
+      } else if (payload?.notification?.sent) {
+        toast.success(status === "approved" ? "Applicant approved and emailed" : "Applicant rejected and emailed");
+      } else {
+        toast.warning(status === "approved" ? "Applicant approved, but email was not sent" : "Applicant rejected, but email was not sent", {
+          description: payload?.notification?.detail || "Check the decision-email configuration and audit log.",
+        });
+      }
     } catch (error) {
       toast.error("Failed to update applicant", {
         description: await formatEdgeFunctionInvokeError(error),
