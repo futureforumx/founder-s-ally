@@ -416,7 +416,7 @@ const Index = () => {
   }, []);
 
   const shellStyle = {
-    "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "11rem",
+    "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "13rem",
   } as CSSProperties;
 
   return (

@@ -350,6 +350,15 @@
 }
 
 @layer utilities {
+  /* Hide scrollbars while preserving scroll behavior */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Semantic Typography Styles */
 
   /* Display & Page Titles */

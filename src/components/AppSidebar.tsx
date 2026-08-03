@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, startTransition, Fragment, type ReactElement } from "react";
+import { useState, useRef, useCallback, useEffect, startTransition, type ReactElement } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -19,7 +19,6 @@ import {
   Plug,
   Database,
 } from "lucide-react";
-import { NETWORK_SURFACE_SECTION_HEADING } from "@/lib/networkNavVariant";
 import { cn } from "@/lib/utils";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -74,10 +73,6 @@ interface AppSidebarProps {
   onToggleCollapsed?: () => void;
 }
 
-const communityItems = [
-  { id: "directory" as const, label: "Directory", icon: BookOpen },
-];
-
 function isMarketIntelView(v: ViewType) {
   return (
     v === "market-intelligence" ||
@@ -101,12 +96,10 @@ function SidebarHint({ collapsed, label, children }: { collapsed: boolean; label
   );
 }
 
-const activeNavStyle = {
-  backgroundColor: "rgba(255, 255, 255, 0.08)",
-  borderColor: "rgba(255, 255, 255, 0.18)",
-  color: "#f5f7fa",
-  boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.07)",
-} as const;
+/** Thin full-width rule used to separate logical groups (replaces uppercase section labels). */
+function NavDivider() {
+  return <div className="my-2 h-px shrink-0 bg-sidebar-border/50" aria-hidden />;
+}
 
 export function AppSidebar({
   activeView,
@@ -190,20 +183,16 @@ export function AppSidebar({
     }, 150);
   }, [clearAgentPopoverCloseTimer]);
 
-  const rail = cn(
-    "ml-1 flex flex-col gap-0.5 border-l border-sidebar-border/40 pl-2",
-    collapsed && "ml-0 max-w-full items-center border-l-0 pl-0",
-  );
+  const group = "flex w-full flex-col gap-0.5";
   const navBtn = (active: boolean) =>
     cn(
-      "flex w-full items-center gap-1.5 rounded-lg px-2 py-0.5 text-[10px] font-thin uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
-      active && "border",
-      collapsed && "justify-center px-1.5",
+      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors whitespace-nowrap",
+      active
+        ? "bg-white/[0.08] text-white"
+        : "text-sidebar-foreground/65 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+      collapsed && "justify-center px-0",
     );
-  const sectionLabel = cn(
-    "mt-1 px-2 pb-0 pt-0 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50",
-    collapsed && "sr-only",
-  );
+  const iconCls = "h-[18px] w-[18px] shrink-0";
   const showCompanySection = activeContextKind === "workspace";
   const showProfileSection = activeContextKind === "personal";
 
@@ -231,14 +220,9 @@ export function AppSidebar({
       type="button"
       aria-label="Pulse — market intelligence feed"
       onClick={() => goView("market-intelligence")}
-      className={cn(
-        "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground border border-transparent",
-        pulseRouteActive && "border",
-        collapsed && "justify-center px-1.5 py-1",
-      )}
-      style={pulseRouteActive ? activeNavStyle : undefined}
+      className={navBtn(pulseRouteActive)}
     >
-      <TrendingUp className="h-4 w-4 shrink-0" />
+      <TrendingUp className={iconCls} />
       {!collapsed && "Pulse"}
     </button>
   );
@@ -248,7 +232,7 @@ export function AppSidebar({
       <aside
         className={cn(
           "flex h-full min-h-0 shrink-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-out",
-          collapsed ? "w-14" : "w-44",
+          collapsed ? "w-14" : "w-52",
         )}
         data-sidebar-collapsed={collapsed ? "true" : "false"}
       >
@@ -307,15 +291,11 @@ export function AppSidebar({
         <nav
           className={cn(
             "flex min-h-0 flex-1 flex-col gap-0 overflow-hidden",
-            collapsed ? "px-1.5" : "px-3",
+            collapsed ? "px-2" : "px-2.5",
           )}
         >
-          <div
-            className={cn(
-              "flex min-h-0 flex-1 flex-col gap-0 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            )}
-          >
-          <div className={rail}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className={group}>
             {collapsed ? (
               <SidebarHint collapsed={collapsed} label="Pulse — market intelligence feed">
                 {pulseButton}
@@ -331,98 +311,78 @@ export function AppSidebar({
             )}
           </div>
 
-          <div className={sectionLabel}>{NETWORK_SURFACE_SECTION_HEADING}</div>
-          <div className={rail}>
+          <NavDivider />
+
+          <div className={group}>
             <SidebarHint collapsed={collapsed} label="Connections">
               <button
                 type="button"
                 onClick={() => goView("connections")}
                 className={navBtn(activeView === "connections")}
-                style={activeView === "connections" ? activeNavStyle : undefined}
               >
-                <Link2 className="h-4 w-4 shrink-0" />
+                <Link2 className={iconCls} />
                 {!collapsed && "Connection"}
+              </button>
+            </SidebarHint>
+            <SidebarHint collapsed={collapsed} label="Directory">
+              <button
+                type="button"
+                onClick={() => goView("directory")}
+                className={navBtn(activeView === "directory")}
+              >
+                <BookOpen className={iconCls} />
+                {!collapsed && "Directory"}
               </button>
             </SidebarHint>
           </div>
 
-          <div className={sectionLabel}>Community</div>
-          <div className={rail}>
-            {communityItems.map((item) => {
-              const Icon = item.icon;
-              const active = activeView === item.id;
-              const row = (
-                <button
-                  type="button"
-                  onClick={() => goView(item.id)}
-                  className={navBtn(active)}
-                  style={active ? activeNavStyle : undefined}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && item.label}
-                </button>
-              );
-              return collapsed ? (
-                <SidebarHint key={item.id} collapsed={collapsed} label={item.label}>
-                  {row}
-                </SidebarHint>
-              ) : (
-                <Fragment key={item.id}>{row}</Fragment>
-              );
-            })}
-          </div>
+          <NavDivider />
 
-          <div className={sectionLabel}>Execution</div>
-          <div className={rail}>
+          <div className={group}>
             <SidebarHint collapsed={collapsed} label="Network workspace">
               <button
                 type="button"
                 onClick={() => goView("network-workspace")}
                 className={navBtn(activeView === "network-workspace")}
-                style={activeView === "network-workspace" ? activeNavStyle : undefined}
               >
-                <Share2 className="h-4 w-4 shrink-0" />
+                <Share2 className={iconCls} />
                 {!collapsed && "Network"}
               </button>
             </SidebarHint>
-            <div className="flex w-full flex-col gap-0.5">
-              <SidebarHint collapsed={collapsed} label="Investor targeting">
+            <SidebarHint collapsed={collapsed} label="Investor targeting">
+              <button
+                type="button"
+                onClick={() => goView("targeting")}
+                className={navBtn(activeView === "targeting")}
+              >
+                <Target className={iconCls} />
+                {!collapsed && "Targeting"}
+              </button>
+            </SidebarHint>
+            <div className={cn(group, !collapsed && "pl-6")}>
+              <SidebarHint collapsed={collapsed} label="Circles">
                 <button
                   type="button"
-                  onClick={() => goView("targeting")}
-                  className={navBtn(activeView === "targeting")}
-                  style={activeView === "targeting" ? activeNavStyle : undefined}
+                  onClick={() => goView("circles")}
+                  className={navBtn(activeView === "circles")}
                 >
-                  <Target className="h-4 w-4 shrink-0" />
-                  {!collapsed && "Targeting"}
+                  <Orbit className={iconCls} />
+                  {!collapsed && "Circles"}
                 </button>
               </SidebarHint>
-              <div className={cn(!collapsed && "ml-1 border-l border-sidebar-border/35 pl-2")}>
-                <SidebarHint collapsed={collapsed} label="Circles">
-                  <button
-                    type="button"
-                    onClick={() => goView("circles")}
-                    className={navBtn(activeView === "circles")}
-                    style={activeView === "circles" ? activeNavStyle : undefined}
-                  >
-                    <Orbit className="h-4 w-4 shrink-0" />
-                    {!collapsed && "Circles"}
-                  </button>
-                </SidebarHint>
-              </div>
             </div>
           </div>
 
-          <div className={sectionLabel}>Research</div>
-          <div className={rail}>
+          <NavDivider />
+
+          <div className={group}>
             <SidebarHint collapsed={collapsed} label="Investor directory">
               <button
                 type="button"
                 onClick={() => goView("investor-search")}
                 className={navBtn(activeView === "investor-search")}
-                style={activeView === "investor-search" ? activeNavStyle : undefined}
               >
-                <UserSearch className="h-4 w-4 shrink-0" />
+                <UserSearch className={iconCls} />
                 {!collapsed && "Investors"}
               </button>
             </SidebarHint>
@@ -431,24 +391,23 @@ export function AppSidebar({
                 type="button"
                 onClick={() => goView("network")}
                 className={navBtn(activeView === "network")}
-                style={activeView === "network" ? activeNavStyle : undefined}
               >
-                <Handshake className="h-4 w-4 shrink-0" />
+                <Handshake className={iconCls} />
                 {!collapsed && "Market"}
               </button>
             </SidebarHint>
           </div>
 
-          <div className={sectionLabel}>Workspace</div>
-          <div className={rail}>
+          <NavDivider />
+
+          <div className={group}>
             <SidebarHint collapsed={collapsed} label="Mission Control">
               <button
                 type="button"
                 onClick={() => goView("dashboard")}
                 className={navBtn(missionControlActive)}
-                style={missionControlActive ? activeNavStyle : undefined}
               >
-                <Gauge className="h-4 w-4 shrink-0" />
+                <Gauge className={iconCls} />
                 {!collapsed && "Mission Control"}
               </button>
             </SidebarHint>
@@ -457,58 +416,59 @@ export function AppSidebar({
                 type="button"
                 onClick={() => goView("investors")}
                 className={navBtn(activeView === "investors")}
-                style={activeView === "investors" ? activeNavStyle : undefined}
               >
-                <Zap className="h-4 w-4 shrink-0" />
+                <Zap className={iconCls} />
                 {!collapsed && "Matches"}
               </button>
             </SidebarHint>
           </div>
 
-          <div className={sectionLabel}>Data Room</div>
-          <div className={rail}>
+          <NavDivider />
+
+          <div className={group}>
             <SidebarHint collapsed={collapsed} label="Data Room">
               <button
                 type="button"
                 onClick={() => goView("data-hub")}
                 className={navBtn(activeView === "data-hub")}
-                style={activeView === "data-hub" ? activeNavStyle : undefined}
               >
-                <Database className="h-4 w-4 shrink-0" />
+                <Database className={iconCls} />
                 {!collapsed && "Data Room"}
               </button>
             </SidebarHint>
           </div>
 
           {isAppAdmin && (
-            <SidebarHint collapsed={collapsed} label="Admin Console">
-              <button
-                type="button"
-                onClick={() => navigate("/admin/intelligence")}
-                className={cn(
-                  "mt-1 flex w-full items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-500/20",
-                  collapsed && "justify-center px-1.5",
-                )}
-              >
-                <UserCog className="h-4 w-4 shrink-0" />
-                {!collapsed && "Admin Console"}
-              </button>
-            </SidebarHint>
+            <>
+              <NavDivider />
+              <SidebarHint collapsed={collapsed} label="Admin Console">
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin/intelligence")}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[13px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20",
+                    collapsed && "justify-center px-0",
+                  )}
+                >
+                  <UserCog className={iconCls} />
+                  {!collapsed && "Admin Console"}
+                </button>
+              </SidebarHint>
+            </>
           )}
           </div>
 
           {showCompanySection && (
-            <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
-              <div className={sectionLabel}>My Company</div>
-              <div className={rail}>
+            <div className="shrink-0 pt-1">
+              <NavDivider />
+              <div className={group}>
                 <SidebarHint collapsed={collapsed} label="Data Room">
                   <button
                     type="button"
                     onClick={() => goView("data-room")}
                     className={navBtn(activeView === "data-room")}
-                    style={activeView === "data-room" ? activeNavStyle : undefined}
                   >
-                    <FileText className="h-4 w-4 shrink-0" />
+                    <FileText className={iconCls} />
                     {!collapsed && "Data Room"}
                   </button>
                 </SidebarHint>
@@ -517,9 +477,8 @@ export function AppSidebar({
                     type="button"
                     onClick={() => goView("integrations")}
                     className={navBtn(activeView === "integrations")}
-                    style={activeView === "integrations" ? activeNavStyle : undefined}
                   >
-                    <Plug className="h-4 w-4 shrink-0" />
+                    <Plug className={iconCls} />
                     {!collapsed && "Integrations"}
                   </button>
                 </SidebarHint>
@@ -527,17 +486,16 @@ export function AppSidebar({
             </div>
           )}
           {showProfileSection && (
-            <div className="shrink-0 border-t border-sidebar-border/40 pt-1.5 pb-0">
-              <div className={sectionLabel}>My Profile</div>
-              <div className={rail}>
+            <div className="shrink-0 pt-1">
+              <NavDivider />
+              <div className={group}>
                 <SidebarHint collapsed={collapsed} label="Profile & Workspace">
                   <button
                     type="button"
                     onClick={() => goView("profile-workspace")}
                     className={navBtn(activeView === "profile-workspace")}
-                    style={activeView === "profile-workspace" ? activeNavStyle : undefined}
                   >
-                    <UserCircle className="h-4 w-4 shrink-0" />
+                    <UserCircle className={iconCls} />
                     {!collapsed && "Profile & Workspace"}
                   </button>
                 </SidebarHint>
@@ -546,9 +504,8 @@ export function AppSidebar({
                     type="button"
                     onClick={goSettingsNetwork}
                     className={navBtn(activeView === "settings")}
-                    style={activeView === "settings" ? activeNavStyle : undefined}
                   >
-                    <Plug className="h-4 w-4 shrink-0" />
+                    <Plug className={iconCls} />
                     {!collapsed && "Integrations"}
                   </button>
                 </SidebarHint>
@@ -557,10 +514,7 @@ export function AppSidebar({
           )}
         </nav>
 
-        <div className={cn("shrink-0 space-y-2 border-t border-sidebar-border/30 px-3 py-3", collapsed && "px-2")}>
-          <SidebarHint collapsed={collapsed} label="Workspace or personal context">
-            <ContextSwitcher collapsed={collapsed} />
-          </SidebarHint>
+        <div className={cn("shrink-0 border-t border-sidebar-border/30 px-2.5 py-2.5", collapsed && "px-2")}>
           <Popover
             open={agentPopoverOpen}
             onOpenChange={(next) => {
@@ -582,16 +536,12 @@ export function AppSidebar({
                 onPointerLeave={scheduleAgentPopoverClose}
                 onClick={onAgentClick}
                 className={cn(
-                  "group flex w-full flex-row items-center justify-center gap-1.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-[0_0_15px_-5px_rgba(91,92,255,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple",
-                  collapsed && "px-1.5",
+                  "group flex w-full items-center gap-2.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-[13px] font-medium text-violet-100/90 shadow-[0_0_15px_-5px_rgba(91,92,255,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple",
+                  collapsed && "justify-center px-0",
                 )}
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none" />
-                {!collapsed && (
-                  <span className="block text-[10px] font-thin uppercase tracking-[0.2em] text-violet-100/90 leading-none">
-                    VEX
-                  </span>
-                )}
+                <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none" />
+                {!collapsed && <span className="leading-none">Vex</span>}
               </button>
             </PopoverTrigger>
             <PopoverContent
@@ -625,6 +575,12 @@ export function AppSidebar({
               </div>
             </PopoverContent>
           </Popover>
+
+          <div className="my-2 h-px shrink-0 bg-sidebar-border/40" aria-hidden />
+
+          <SidebarHint collapsed={collapsed} label="Workspace or personal context">
+            <ContextSwitcher collapsed={collapsed} />
+          </SidebarHint>
         </div>
       </aside>
     </TooltipProvider>
