@@ -50,6 +50,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 type AuthMode = "sign-in" | "sign-up";
 
+const RESEND_CODE_COOLDOWN_SECONDS = 30;
+
 const inputClassName =
   "h-12 w-full border border-zinc-700 bg-[#121212] pl-10 pr-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400";
 
@@ -83,6 +85,8 @@ export default function Auth() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
   const [verifyingCode, setVerifyingCode] = useState(false);
+  const [resendingCode, setResendingCode] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -113,7 +117,15 @@ export default function Auth() {
     setOtpCode("");
     setUseEmailCode(false);
     setAcceptedTerms(false);
+    setResendCooldown(0);
   };
+
+  // Tick down the resend-code cooldown once a second while it is active.
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setTimeout(() => setResendCooldown((seconds) => seconds - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
 
   const switchMode = (next: AuthMode) => {
     setMode(next);
@@ -451,6 +463,7 @@ export default function Auth() {
         ) : (
           <>
             <form
+              id="signin-form"
               className="mt-6 space-y-4"
               onSubmit={async (event) => {
                 event.preventDefault();
@@ -464,6 +477,7 @@ export default function Auth() {
                     await signIn(email);
                     setOtpSent(true);
                     setOtpCode("");
+                    setResendCooldown(RESEND_CODE_COOLDOWN_SECONDS);
                   } else {
                     await signInWithPassword(email, password);
                   }
@@ -494,106 +508,11 @@ export default function Auth() {
                   />
                 </div>
               </div>
-
-              {!useEmailCode && (
-                <div className="space-y-2 text-left">
-                  <label htmlFor="password" className={labelClassName}>
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      id="password"
-                      type="password"
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Password"
-                      className={inputClassName}
-                      required
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setUseEmailCode(true);
-                        setOtpSent(false);
-                        setOtpCode("");
-                        setLocalError(null);
-                        setInfoMessage(null);
-                      }}
-                      className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300"
-                    >
-                      Use email code instead
-                    </button>
-                    <button
-                      type="button"
-                      disabled={resettingPassword || submitting}
-                      onClick={async () => {
-                        clearLoginErrorParam();
-                        setLocalError(null);
-                        setInfoMessage(null);
-                        setResettingPassword(true);
-                        try {
-                          await resetPassword(email);
-                          setInfoMessage(`Password reset email sent to ${email.trim().toLowerCase()}.`);
-                        } catch (error) {
-                          const message =
-                            error instanceof Error
-                              ? error.message
-                              : "Could not send a password reset email.";
-                          setLocalError(message);
-                        } finally {
-                          setResettingPassword(false);
-                        }
-                      }}
-                      className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {resettingPassword ? "Sending..." : "Forgot password?"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {useEmailCode && (
-                <div className="text-left">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUseEmailCode(false);
-                      setOtpSent(false);
-                      setOtpCode("");
-                      setLocalError(null);
-                      setInfoMessage(null);
-                    }}
-                    className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300"
-                  >
-                    Use password instead
-                  </button>
-                </div>
-              )}
-
-              <button type="submit" className={primaryButtonClassName} disabled={submitting}>
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {useEmailCode ? "Sending code..." : "Signing in..."}
-                  </>
-                ) : (
-                  <>
-                    <Shield className="h-3.5 w-3.5" aria-hidden />
-                    {useEmailCode ? "Send sign-in code" : "Sign in"}
-                  </>
-                )}
-              </button>
             </form>
-
-            {oauthButtons}
 
             {otpSent && useEmailCode && (
               <form
-                className="mt-5 space-y-4 border-t border-zinc-800 pt-5"
+                className="mt-4 space-y-4"
                 onSubmit={async (event) => {
                   event.preventDefault();
                   clearLoginErrorParam();
@@ -638,9 +557,142 @@ export default function Auth() {
                     "Verify code"
                   )}
                 </button>
+                <div className="text-left">
+                  {resendCooldown > 0 ? (
+                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-600">
+                      Resend code in {resendCooldown}s
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={resendingCode}
+                      onClick={async () => {
+                        clearLoginErrorParam();
+                        setLocalError(null);
+                        setInfoMessage(null);
+                        setResendingCode(true);
+                        try {
+                          await signIn(email);
+                          setOtpCode("");
+                          setResendCooldown(RESEND_CODE_COOLDOWN_SECONDS);
+                        } catch (error) {
+                          const message =
+                            error instanceof Error ? error.message : "Could not resend the code. Please try again.";
+                          setLocalError(message);
+                        } finally {
+                          setResendingCode(false);
+                        }
+                      }}
+                      className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {resendingCode ? "Resending..." : "Resend code"}
+                    </button>
+                  )}
+                </div>
               </form>
             )}
 
+            <div className="mt-4 space-y-4">
+              {!useEmailCode && (
+                <div className="space-y-2 text-left">
+                  <label htmlFor="password" className={labelClassName}>
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      form="signin-form"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Password"
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseEmailCode(true);
+                        setOtpSent(false);
+                        setOtpCode("");
+                        setResendCooldown(0);
+                        setLocalError(null);
+                        setInfoMessage(null);
+                      }}
+                      className="whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300"
+                    >
+                      Send email code
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resettingPassword || submitting}
+                      onClick={async () => {
+                        clearLoginErrorParam();
+                        setLocalError(null);
+                        setInfoMessage(null);
+                        setResettingPassword(true);
+                        try {
+                          await resetPassword(email);
+                          setInfoMessage(`Password reset email sent to ${email.trim().toLowerCase()}.`);
+                        } catch (error) {
+                          const message =
+                            error instanceof Error
+                              ? error.message
+                              : "Could not send a password reset email.";
+                          setLocalError(message);
+                        } finally {
+                          setResettingPassword(false);
+                        }
+                      }}
+                      className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {resettingPassword ? "Sending..." : "Forgot password?"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {useEmailCode && (
+                <div className="text-left">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseEmailCode(false);
+                      setOtpSent(false);
+                      setOtpCode("");
+                      setResendCooldown(0);
+                      setLocalError(null);
+                      setInfoMessage(null);
+                    }}
+                    className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300"
+                  >
+                    Use password instead
+                  </button>
+                </div>
+              )}
+
+              {!(otpSent && useEmailCode) && (
+                <button type="submit" form="signin-form" className={primaryButtonClassName} disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {useEmailCode ? "Sending code..." : "Signing in..."}
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-3.5 w-3.5" aria-hidden />
+                      {useEmailCode ? "Send sign-in code" : "Sign in"}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {oauthButtons}
           </>
         )}
       </>
@@ -660,7 +712,7 @@ export default function Auth() {
           />
         </div>
 
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center overflow-y-auto py-2">
+        <div className="scrollbar-hide mx-auto flex w-full max-w-sm flex-1 flex-col justify-center overflow-y-auto py-2">
           {formPanel}
         </div>
 
