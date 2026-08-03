@@ -8,12 +8,16 @@ import PublicApp from "./PublicApp.tsx";
 import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
+import { captureLandingAttribution } from "@/lib/signupAttribution";
 
 initMixpanel();
 
 if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
 }
+
+// Record first-touch referrer / UTM before any client-side navigation.
+captureLandingAttribution();
 
 // ---------------------------------------------------------------------------
 // www → apex redirect (safe, uses native replace)

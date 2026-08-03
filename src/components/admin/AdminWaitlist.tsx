@@ -18,6 +18,8 @@ interface WaitlistApplicant {
   company_name: string | null;
   linkedin_url: string | null;
   source: string | null;
+  campaign: string | null;
+  metadata: Record<string, unknown> | null;
   status: string;
   priority_access: boolean;
   referral_count: number;
@@ -26,6 +28,7 @@ interface WaitlistApplicant {
   reviewed_at: string | null;
   reviewed_by: string | null;
   reviewed_by_email: string | null;
+  admin_notes: string | null;
 }
 
 interface WaitlistListResponse {
@@ -68,12 +71,77 @@ function statusStyle(status: string) {
   };
 }
 
+function formatAppliedDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { date: "—", time: "" };
+  return {
+    date: date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+    time: date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+  };
+}
+
+const SOURCE_PATHS: Record<string, string> = {
+  register: "/register",
+  access_page: "/access",
+  landing_page: "/",
+};
+
+function prettifySource(source: string | null): string {
+  if (!source) return "Direct";
+  return source
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function metaString(metadata: Record<string, unknown> | null, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function formatSource(applicant: WaitlistApplicant) {
+  const md = applicant.metadata ?? null;
+  const referrerDomain = metaString(md, "referrer_domain");
+  const utmSource = metaString(md, "utm_source");
+  const utmMedium = metaString(md, "utm_medium");
+  const utmCampaign = metaString(md, "utm_campaign");
+
+  // Real external referrer wins — this is the true "where they came from".
+  if (referrerDomain) {
+    return {
+      label: referrerDomain,
+      detail: utmCampaign || utmSource || prettifySource(applicant.source),
+      title: metaString(md, "referrer_url") || referrerDomain,
+    };
+  }
+
+  // Tagged campaign traffic (UTM) without a referrer header.
+  if (utmSource) {
+    return {
+      label: utmSource,
+      detail: [utmMedium, utmCampaign].filter(Boolean).join(" · ") || prettifySource(applicant.source),
+      title: [utmSource, utmMedium, utmCampaign].filter(Boolean).join(" / "),
+    };
+  }
+
+  // Direct / internal: show the on-site page they registered from.
+  const rawPath = metaString(md, "pathname") ?? SOURCE_PATHS[applicant.source ?? ""] ?? null;
+  const path = rawPath && rawPath !== "/" ? rawPath : "";
+  return {
+    label: prettifySource(applicant.source),
+    detail: `vekta.so${path}`,
+    title: `Direct · vekta.so${path}`,
+  };
+}
+
 export function AdminWaitlist() {
   const [applicants, setApplicants] = useState<WaitlistApplicant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchApplicants = async () => {
     setLoading(true);
@@ -144,6 +212,55 @@ export function AdminWaitlist() {
       });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const saveNote = async (applicant: WaitlistApplicant) => {
+    const draft = (noteDrafts[applicant.id] ?? applicant.admin_notes ?? "").trim();
+    if (draft === (applicant.admin_notes ?? "").trim()) return;
+    setSavingNoteId(applicant.id);
+    try {
+      const { data, error } = await invokeAdminWaitlist({
+        action: "update_notes",
+        id: applicant.id,
+        notes: draft,
+      });
+      if (error) throw error;
+      const updated = (data as WaitlistUpdateResponse | null)?.applicant;
+      if (!updated) throw new Error("The note update returned no applicant");
+      setApplicants((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setNoteDrafts((current) => {
+        const next = { ...current };
+        delete next[applicant.id];
+        return next;
+      });
+      toast.success("Note saved");
+    } catch (error) {
+      toast.error("Failed to save note", {
+        description: await formatEdgeFunctionInvokeError(error),
+      });
+    } finally {
+      setSavingNoteId(null);
+    }
+  };
+
+  const deleteApplicant = async (applicant: WaitlistApplicant) => {
+    const label = applicant.email || applicant.name || "this applicant";
+    if (!window.confirm(`Permanently delete ${label} from the waitlist? This frees the email for reuse and cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(applicant.id);
+    try {
+      const { error } = await invokeAdminWaitlist({ action: "delete", id: applicant.id });
+      if (error) throw error;
+      setApplicants((current) => current.filter((item) => item.id !== applicant.id));
+      toast.success("Applicant deleted");
+    } catch (error) {
+      toast.error("Failed to delete applicant", {
+        description: await formatEdgeFunctionInvokeError(error),
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -223,39 +340,89 @@ export function AdminWaitlist() {
           <div className="flex min-h-64 items-center justify-center text-sm text-white/35">No matching applicants.</div>
         ) : (
           <div className="divide-y divide-white/[0.06]">
+            <div className="hidden bg-white/[0.02] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 lg:grid lg:grid-cols-[minmax(0,1.5fr)_100px_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1fr)_150px] lg:items-center lg:gap-4">
+              <span>Applicant</span>
+              <span>Status</span>
+              <span>Applied</span>
+              <span>Notes</span>
+              <span>Source</span>
+              <span className="text-right">Actions</span>
+            </div>
             {filtered.map((applicant) => {
               const isUpdating = updatingId === applicant.id;
               const badgeStyle = statusStyle(applicant.status);
+              const applied = formatAppliedDate(applicant.created_at);
+              const source = formatSource(applicant);
+              const noteValue = noteDrafts[applicant.id] ?? applicant.admin_notes ?? "";
               return (
-                <div key={applicant.id} className="grid gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] lg:items-center">
+                <div key={applicant.id} className="grid gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025] lg:grid-cols-[minmax(0,1.5fr)_100px_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1fr)_150px] lg:items-start">
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-white/85">{applicant.name || "Unnamed applicant"}</p>
-                      <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={badgeStyle}>
-                        {applicant.status}
-                      </span>
-                    </div>
+                    <p className="truncate text-sm font-semibold text-white/85">{applicant.name || "Unnamed applicant"}</p>
                     <a href={`mailto:${applicant.email}`} className="mt-1 block truncate text-xs text-white/45 hover:text-emerald-400">
                       {applicant.email}
                     </a>
                     <p className="mt-1 truncate text-xs text-white/30">
-                      {[applicant.company_name, applicant.role, applicant.source].filter(Boolean).join(" · ") || "Submitted from registration"}
+                      {[applicant.company_name, applicant.role].filter(Boolean).join(" · ") || "Submitted from registration"}
                     </p>
-                  </div>
-
-                  <div className="space-y-1 font-mono text-[10px] text-white/30">
-                    <p className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> Applied {new Date(applicant.created_at).toLocaleString()}</p>
-                    {applicant.reviewed_at && (
-                      <p>Reviewed {new Date(applicant.reviewed_at).toLocaleString()} by {applicant.reviewed_by_email || applicant.reviewed_by}</p>
-                    )}
                     {applicant.linkedin_url && (
-                      <a href={applicant.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-white/45 hover:text-emerald-400">
+                      <a href={applicant.linkedin_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-white/45 hover:text-emerald-400">
                         LinkedIn <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <div className="min-w-0">
+                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Status</p>
+                    <span className="inline-flex rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={badgeStyle}>
+                      {applicant.status}
+                    </span>
+                    {applicant.reviewed_at && (
+                      <p className="mt-1.5 font-mono text-[9px] leading-tight text-white/25">
+                        {new Date(applicant.reviewed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        {applicant.reviewed_by_email ? ` · ${applicant.reviewed_by_email}` : ""}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Applied</p>
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-white/70">
+                      <Clock className="h-3 w-3 shrink-0 text-white/35" /> {applied.date}
+                    </p>
+                    {applied.time && (
+                      <p className="mt-0.5 pl-[18px] font-mono text-[10px] text-white/35">{applied.time}</p>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Notes</p>
+                    <div className="relative">
+                      <textarea
+                        value={noteValue}
+                        onChange={(event) => setNoteDrafts((current) => ({ ...current, [applicant.id]: event.target.value }))}
+                        onBlur={() => void saveNote(applicant)}
+                        maxLength={500}
+                        rows={2}
+                        placeholder="Add a note…"
+                        className="w-full resize-none rounded border border-white/10 bg-white/[0.03] px-2 py-1.5 pr-6 text-xs leading-snug text-white/75 outline-none transition placeholder:text-white/25 hover:border-white/20 focus:border-emerald-400/40 focus:bg-white/[0.05]"
+                      />
+                      {savingNoteId === applicant.id && (
+                        <Loader2 className="absolute right-2 top-2 h-3 w-3 animate-spin text-emerald-400" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0" title={source.title}>
+                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Source</p>
+                    <p className="truncate text-xs font-medium text-white/70">{source.label}</p>
+                    {source.detail && (
+                      <p className="mt-0.5 truncate font-mono text-[10px] text-white/35">{source.detail}</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col items-start gap-2 lg:items-end">
+                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Actions</p>
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
                     {applicant.status !== "approved" && (
                       <button
                         type="button"
@@ -286,6 +453,16 @@ export function AdminWaitlist() {
                         Reset
                       </button>
                     )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void deleteApplicant(applicant)}
+                      disabled={deletingId === applicant.id}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-white/35 underline-offset-2 transition hover:text-red-400 hover:underline disabled:opacity-50"
+                    >
+                      {deletingId === applicant.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                      Delete
+                    </button>
                   </div>
                 </div>
               );

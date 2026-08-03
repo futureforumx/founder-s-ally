@@ -111,6 +111,23 @@ Deno.serve(async (req) => {
       .from("banned_identities")
       .select("kind, value, banned_user_id");
 
+    // Registration names (first/last captured on /register) — fallback identity
+    // so users show a name in the admin list even before onboarding completes.
+    const { data: waitlistRows } = await adminClient
+      .from("waitlist_users")
+      .select("email, name, metadata");
+    const waitlistNameByEmail = new Map<string, string>();
+    for (const row of waitlistRows || []) {
+      const wlEmail = String(row.email ?? "").trim().toLowerCase();
+      if (!wlEmail) continue;
+      const md = (row.metadata ?? {}) as Record<string, unknown>;
+      const first = typeof md.first_name === "string" ? md.first_name.trim() : "";
+      const last = typeof md.last_name === "string" ? md.last_name.trim() : "";
+      const derived = [first, last].filter(Boolean).join(" ") ||
+        (typeof row.name === "string" ? row.name.trim() : "");
+      if (derived) waitlistNameByEmail.set(wlEmail, derived);
+    }
+
     const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
     const appUserMap = new Map((appUsers || []).map((u) => [u.id, u]));
     const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
@@ -195,7 +212,7 @@ Deno.serve(async (req) => {
         email,
         last_sign_in_at: u?.last_sign_in_at ?? null,
         created_at: u?.created_at ?? profile?.created_at ?? appUser?.created_at ?? new Date(0).toISOString(),
-        full_name: profile?.full_name || meta?.full_name || appUser?.display_name || "",
+        full_name: profile?.full_name || meta?.full_name || appUser?.display_name || (emailLower ? waitlistNameByEmail.get(emailLower) : "") || "",
         avatar_url: profile?.avatar_url ?? u?.image_url ?? appUser?.avatar_url ?? null,
         user_type: profile?.user_type ?? "founder",
         title: profile?.title ?? null,

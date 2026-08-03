@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { getSignupAttribution } from "@/lib/signupAttribution";
 
 function publishableKey(): string {
   const k = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -319,7 +320,13 @@ function mergeSignupResponseWithStatus(
 export async function waitlistSignup(
   payload: WaitlistSignupPayload,
 ): Promise<WaitlistSignupResponse> {
-  const data = await invokeWaitlistFunction<WaitlistSignupResponse>("waitlist-signup", payload);
+  // Merge first-touch referrer/UTM attribution; caller-provided metadata wins on key conflicts.
+  const attribution = getSignupAttribution();
+  const enrichedPayload: WaitlistSignupPayload = {
+    ...payload,
+    metadata: { ...attribution, ...(payload.metadata ?? {}) },
+  };
+  const data = await invokeWaitlistFunction<WaitlistSignupResponse>("waitlist-signup", enrichedPayload);
   const email = payload.email.trim().toLowerCase();
   try {
     const st = await invokeWaitlistFunction<WaitlistStatusResponse>("waitlist-status", { email });

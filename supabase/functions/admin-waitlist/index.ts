@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
       const { data, error } = await adminClient
         .from("waitlist_users")
         .select(
-          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email",
+          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
         )
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -281,6 +281,40 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ applicant, notification }), { headers: jsonHeaders });
+    }
+
+    if (action === "update_notes") {
+      const id = String(body.id ?? "").trim();
+      if (!id) throw new Error("Invalid payload: id is required");
+      const rawNotes = typeof body.notes === "string" ? body.notes : "";
+      const trimmed = rawNotes.trim().slice(0, 500);
+      const notes = trimmed.length ? trimmed : null;
+
+      const { data, error } = await adminClient
+        .from("waitlist_users")
+        .update({ admin_notes: notes, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select(
+          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
+        )
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Waitlist applicant not found");
+
+      return new Response(JSON.stringify({ applicant: data }), { headers: jsonHeaders });
+    }
+
+    if (action === "delete") {
+      const id = String(body.id ?? "").trim();
+      if (!id) throw new Error("Invalid payload: id is required");
+
+      const { error } = await adminClient
+        .from("waitlist_users")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ deleted: true, id }), { headers: jsonHeaders });
     }
 
     throw new Error("Unsupported action");

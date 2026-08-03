@@ -203,8 +203,8 @@ export function AdminUserManagement() {
             className="grid items-center gap-2 px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest"
             style={{ background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.3)", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr" }}
           >
-            <span>User</span>
-            <span>Contact</span>
+            <span>Name</span>
+            <span>Email</span>
             <span>Last Sign In</span>
             <span>Type</span>
             <span>Time on App</span>
