@@ -23,6 +23,20 @@ function setCors(res: VercelResponse): VercelResponse {
   return res;
 }
 
+/** Best-effort public IP of the caller from proxy headers (Vercel sets x-forwarded-for). */
+function extractClientIp(req: VercelRequest): string | null {
+  const fwd = req.headers["x-forwarded-for"];
+  const raw = Array.isArray(fwd) ? fwd[0] : fwd;
+  if (typeof raw === "string" && raw.trim()) {
+    const first = raw.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = req.headers["x-real-ip"];
+  const real = Array.isArray(realIp) ? realIp[0] : realIp;
+  if (typeof real === "string" && real.trim()) return real.trim();
+  return null;
+}
+
 function extractUserIdFromToken(token: string): string | null {
   try {
     const parts = token.split(".");
@@ -84,6 +98,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const clientIp = extractClientIp(req);
+  const userAgent = typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null;
+
+  // Block banned emails / IPs before provisioning any app rows.
+  try {
+    const { data: banned } = await admin.rpc("is_identity_banned", {
+      _email: email,
+      _ip: clientIp,
+    });
+    if (banned === true) {
+      return setCors(res).status(403).json({ error: "This account has been banned." });
+    }
+  } catch (e) {
+    console.error("[ensure-user] ban check failed:", (e as Error).message);
+  }
+
   const result = await ensureAppUserRows(admin, {
     userId,
     email,
@@ -93,6 +123,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (result.ok === false) {
     return setCors(res).status(result.status).json({ error: result.error });
+  }
+
+  // Record the caller IP so it can later be reviewed / banned by admins.
+  if (clientIp) {
+    try {
+      const nowIso = new Date().toISOString();
+      const { error: ipError } = await admin.from("user_ip_log").upsert(
+        {
+          user_id: userId,
+          ip_address: clientIp,
+          user_agent: userAgent,
+          last_seen_at: nowIso,
+        },
+        { onConflict: "user_id,ip_address", ignoreDuplicates: false },
+      );
+      if (ipError) console.error("[ensure-user] ip log upsert failed:", ipError.message);
+    } catch (e) {
+      console.error("[ensure-user] ip log upsert threw:", (e as Error).message);
+    }
   }
 
   return setCors(res).status(200).json({ ok: true, profile: result.profile });

@@ -96,9 +96,35 @@ Deno.serve(async (req) => {
       .from("user_activity")
       .select("user_id, total_time_seconds, api_calls_count, last_active_at");
 
+    const { data: ipRows } = await adminClient
+      .from("user_ip_log")
+      .select("user_id, ip_address, last_seen_at")
+      .order("last_seen_at", { ascending: false });
+
+    const { data: bannedRows } = await adminClient
+      .from("banned_identities")
+      .select("kind, value, banned_user_id");
+
     const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
     const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
     const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
+
+    // Newest-first IPs per user (query is already ordered by last_seen_at desc).
+    const ipMap = new Map<string, string[]>();
+    for (const row of ipRows || []) {
+      const list = ipMap.get(row.user_id) ?? [];
+      if (row.ip_address && !list.includes(row.ip_address)) list.push(row.ip_address);
+      ipMap.set(row.user_id, list);
+    }
+
+    const bannedUserIds = new Set<string>();
+    const bannedEmails = new Set<string>();
+    const bannedIps = new Set<string>();
+    for (const row of bannedRows || []) {
+      if (row.banned_user_id) bannedUserIds.add(row.banned_user_id);
+      if (row.kind === "email" && row.value) bannedEmails.add(String(row.value).toLowerCase());
+      if (row.kind === "ip" && row.value) bannedIps.add(String(row.value));
+    }
 
     const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
 
@@ -150,6 +176,12 @@ Deno.serve(async (req) => {
       const u = authById.get(id);
       const act = activityMap.get(id);
       const meta = u?.user_metadata as { full_name?: string } | undefined;
+      const ipAddresses = ipMap.get(id) ?? [];
+      const emailLower = (u?.email ?? "").toLowerCase();
+      const banned =
+        bannedUserIds.has(id) ||
+        (!!emailLower && bannedEmails.has(emailLower)) ||
+        ipAddresses.some((ip) => bannedIps.has(ip));
       return {
         id,
         email: u?.email ?? "",
@@ -173,6 +205,9 @@ Deno.serve(async (req) => {
         total_time_seconds: act?.total_time_seconds ?? 0,
         api_calls_count: act?.api_calls_count ?? 0,
         last_active_at: act?.last_active_at ?? null,
+        ip_addresses: ipAddresses,
+        last_ip: ipAddresses[0] ?? null,
+        banned,
       };
     });
 

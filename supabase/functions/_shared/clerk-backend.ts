@@ -74,6 +74,44 @@ export async function clerkListAllUsers(secretKey: string): Promise<ClerkApiUser
   return out;
 }
 
+/** Ban a Clerk user so the account/email can no longer sign in. Best-effort. */
+export async function clerkBanUser(secretKey: string, userId: string): Promise<boolean> {
+  const res = await fetch(`${CLERK_API_V1}/users/${encodeURIComponent(userId)}/ban`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Clerk ban user failed (${res.status}): ${t.slice(0, 500)}`);
+  }
+  return true;
+}
+
+/** Best-effort list of IP addresses Clerk has seen for a user's sessions. */
+export async function clerkGetUserSessionIps(secretKey: string, userId: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `${CLERK_API_V1}/sessions?user_id=${encodeURIComponent(userId)}&limit=50`,
+      { headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" } },
+    );
+    if (!res.ok) return [];
+    const json = (await res.json()) as unknown;
+    const rows = Array.isArray(json) ? json : ((json as { data?: unknown[] }).data ?? []);
+    const ips = new Set<string>();
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const la = row.latest_activity as Record<string, unknown> | undefined;
+      const ip = la?.ip_address;
+      if (typeof ip === "string" && ip.trim()) ips.add(ip.trim());
+    }
+    return [...ips];
+  } catch {
+    return [];
+  }
+}
+
 export async function clerkGetUser(secretKey: string, userId: string): Promise<ClerkApiUser | null> {
   const res = await fetch(`${CLERK_API_V1}/users/${encodeURIComponent(userId)}`, {
     headers: {
