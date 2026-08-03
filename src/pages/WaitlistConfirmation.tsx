@@ -96,8 +96,8 @@ export default function WaitlistConfirmation() {
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-400">
               Request received
             </p>
-            <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              You’re on the Vekta waitlist.
+            <h1 className="whitespace-nowrap text-[clamp(1.25rem,6.5vw,3rem)] font-semibold tracking-tight text-white">
+              You're on the waitlist!
             </h1>
             <p className="mt-5 max-w-xl text-base leading-7 text-zinc-400">
               Our team will review your request. If approved, we’ll send access instructions
