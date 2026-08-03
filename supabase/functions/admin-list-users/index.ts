@@ -88,6 +88,12 @@ Deno.serve(async (req) => {
       .from("profiles")
       .select("user_id, full_name, title, avatar_url, user_type, linkedin_url, twitter_url, location, created_at");
 
+    // App users table (email / display name) — used to enrich + as a fallback identity source
+    // so the list is never empty even when the Clerk directory can't be read.
+    const { data: appUsers } = await adminClient
+      .from("users")
+      .select("id, email, display_name, avatar_url, created_at");
+
     const { data: roles } = await adminClient
       .from("user_roles")
       .select("user_id, permission");
@@ -106,6 +112,7 @@ Deno.serve(async (req) => {
       .select("kind, value, banned_user_id");
 
     const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+    const appUserMap = new Map((appUsers || []).map((u) => [u.id, u]));
     const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
     const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
 
@@ -163,32 +170,33 @@ Deno.serve(async (req) => {
 
     const authById = new Map(authUsers.map((u) => [u.id, u]));
 
+    // Always union every identity source so the list is resilient: Clerk directory,
+    // the app `users` table, and `profiles`. If Clerk can't be read, DB users still show.
     const idSet = new Set<string>();
-    if (clerkSecret) {
-      for (const u of authUsers) idSet.add(u.id);
-    } else {
-      for (const p of profiles || []) idSet.add(p.user_id);
-      for (const u of authUsers) idSet.add(u.id);
-    }
+    for (const u of authUsers) idSet.add(u.id);
+    for (const u of appUsers || []) idSet.add(u.id);
+    for (const p of profiles || []) idSet.add(p.user_id);
 
     const enrichedUsers = [...idSet].map((id) => {
       const profile = profileMap.get(id);
       const u = authById.get(id);
+      const appUser = appUserMap.get(id);
       const act = activityMap.get(id);
       const meta = u?.user_metadata as { full_name?: string } | undefined;
       const ipAddresses = ipMap.get(id) ?? [];
-      const emailLower = (u?.email ?? "").toLowerCase();
+      const email = u?.email || appUser?.email || "";
+      const emailLower = email.toLowerCase();
       const banned =
         bannedUserIds.has(id) ||
         (!!emailLower && bannedEmails.has(emailLower)) ||
         ipAddresses.some((ip) => bannedIps.has(ip));
       return {
         id,
-        email: u?.email ?? "",
+        email,
         last_sign_in_at: u?.last_sign_in_at ?? null,
-        created_at: u?.created_at ?? profile?.created_at ?? new Date(0).toISOString(),
-        full_name: profile?.full_name || meta?.full_name || "",
-        avatar_url: profile?.avatar_url ?? u?.image_url ?? null,
+        created_at: u?.created_at ?? profile?.created_at ?? appUser?.created_at ?? new Date(0).toISOString(),
+        full_name: profile?.full_name || meta?.full_name || appUser?.display_name || "",
+        avatar_url: profile?.avatar_url ?? u?.image_url ?? appUser?.avatar_url ?? null,
         user_type: profile?.user_type ?? "founder",
         title: profile?.title ?? null,
         linkedin_url: profile?.linkedin_url ?? null,
@@ -198,9 +206,9 @@ Deno.serve(async (req) => {
           highestPermission(
             asPermission(roleMap.get(id)),
             asPermission(u?.user_metadata?.role),
-            autoPermissionForEmail(u?.email),
+            autoPermissionForEmail(email),
           ),
-          u?.email,
+          email,
         ),
         total_time_seconds: act?.total_time_seconds ?? 0,
         api_calls_count: act?.api_calls_count ?? 0,
