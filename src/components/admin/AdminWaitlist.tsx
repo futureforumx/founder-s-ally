@@ -168,15 +168,26 @@ export function AdminWaitlist() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {([
-          ["All requests", counts.all, "#e5e7eb"],
-          ["Pending", counts.pending, "#f59e0b"],
-          ["Approved", counts.approved, "#2EE6A6"],
-          ["Rejected", counts.rejected, "#f87171"],
-        ] as const).map(([label, value, color]) => (
-          <div key={label} className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4">
+          ["all", "All requests", counts.all, "#e5e7eb"],
+          ["pending", "Pending", counts.pending, "#f59e0b"],
+          ["approved", "Approved", counts.approved, "#2EE6A6"],
+          ["rejected", "Rejected", counts.rejected, "#f87171"],
+        ] as const).map(([filter, label, value, color]) => (
+          <button
+            key={filter}
+            type="button"
+            aria-pressed={statusFilter === filter}
+            aria-label={`Show ${label.toLowerCase()}`}
+            onClick={() => setStatusFilter(filter)}
+            className={`rounded-lg border p-4 text-left outline-none transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.045] focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
+              statusFilter === filter
+                ? "border-white/25 bg-white/[0.065] shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+                : "border-white/[0.07] bg-white/[0.025]"
+            }`}
+          >
             <p className="font-mono text-[10px] uppercase tracking-wider text-white/30">{label}</p>
             <p className="mt-1 text-2xl font-semibold" style={{ color }}>{value}</p>
-          </div>
+          </button>
         ))}
       </div>
 
