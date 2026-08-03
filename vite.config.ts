@@ -18,6 +18,16 @@ import { runGoogleResync } from "./api/connectors/_googleResyncLogic";
 import { runLinkedinCsvDisconnect } from "./api/connectors/_linkedinDisconnectLogic";
 import { createClient } from "@supabase/supabase-js";
 import { ensureAppUserRows } from "./api/_ensureAppUser";
+import { getClerkUserIdFromAuthHeader } from "./api/_clerkFromRequest";
+import {
+  deleteR2UserAsset,
+  parseMultipartAsset,
+  parseR2StoredValue,
+  r2ConfiguredFor,
+  signedR2PitchDeckUrl,
+  uploadR2UserAsset,
+} from "./api/_r2UserAssets";
+import { readJsonBody } from "./api/_readJsonBody";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -955,6 +965,104 @@ function personWebsiteProfileDevPlugin() {
   };
 }
 
+/**
+ * Vite dev-server plugin: intercepts POST /api/r2-user-assets/* so `pnpm dev`
+ * can upload/sign/delete pitch decks against Cloudflare R2 the same way the
+ * deployed Vercel serverless functions do. Requires CF_R2_* vars in .env.local.
+ */
+function r2UserAssetsDevPlugin() {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+
+  return {
+    name: "r2-user-assets-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/r2-user-assets/upload", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+        if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+        try {
+          const parsed = await parseMultipartAsset(req);
+          if (!parsed.ok) { res.writeHead(400, cors); res.end(JSON.stringify({ error: parsed.error })); return; }
+
+          const userId = await getClerkUserIdFromAuthHeader(req.headers.authorization);
+          if (!userId) { res.writeHead(401, cors); res.end(JSON.stringify({ error: "Missing or invalid Authorization bearer token" })); return; }
+
+          const configured = r2ConfiguredFor(parsed.assetType);
+          if (!configured.ok) { res.writeHead(500, cors); res.end(JSON.stringify({ error: "R2 upload is not configured", missing: configured.missing })); return; }
+
+          const out = await uploadR2UserAsset({
+            userId,
+            assetType: parsed.assetType,
+            fileName: parsed.fileName,
+            mimeType: parsed.mimeType,
+            fileData: parsed.fileData,
+          });
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ ok: true, key: out.key, url: out.url, bucket: out.bucket }));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "R2 upload failed" }));
+        }
+      });
+
+      server.middlewares.use("/api/r2-user-assets/signed-url", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+        if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+        try {
+          const userId = await getClerkUserIdFromAuthHeader(req.headers.authorization);
+          if (!userId) { res.writeHead(401, cors); res.end(JSON.stringify({ error: "Missing or invalid Authorization bearer token" })); return; }
+
+          const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
+          const fileUrl = typeof body.file_url === "string" ? body.file_url : "";
+          const key = parseR2StoredValue(fileUrl);
+          if (!key || !key.startsWith(`pitch-decks/${userId}/`)) { res.writeHead(400, cors); res.end(JSON.stringify({ error: "Invalid pitch deck key" })); return; }
+
+          const configured = r2ConfiguredFor("pitch-deck");
+          if (!configured.ok) { res.writeHead(500, cors); res.end(JSON.stringify({ error: "R2 pitch decks are not configured", missing: configured.missing })); return; }
+
+          const signedUrl = await signedR2PitchDeckUrl(key);
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ ok: true, signedUrl }));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to sign R2 URL" }));
+        }
+      });
+
+      server.middlewares.use("/api/r2-user-assets/delete", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+        if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+        try {
+          const userId = await getClerkUserIdFromAuthHeader(req.headers.authorization);
+          if (!userId) { res.writeHead(401, cors); res.end(JSON.stringify({ error: "Missing or invalid Authorization bearer token" })); return; }
+
+          const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
+          const fileUrl = typeof body.file_url === "string" ? body.file_url : "";
+          const key = parseR2StoredValue(fileUrl);
+          if (!key || !key.startsWith(`pitch-decks/${userId}/`)) { res.writeHead(400, cors); res.end(JSON.stringify({ error: "Invalid pitch deck key" })); return; }
+
+          const configured = r2ConfiguredFor("pitch-deck");
+          if (!configured.ok) { res.writeHead(500, cors); res.end(JSON.stringify({ error: "R2 pitch decks are not configured", missing: configured.missing })); return; }
+
+          await deleteR2UserAsset(key, "pitch-deck");
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ ok: true }));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to delete R2 object" }));
+        }
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
@@ -982,6 +1090,7 @@ export default defineConfig(async ({ mode }) => {
     mode === "development" && mirrorFirmInvestorHeadshotsDevPlugin(),
     mode === "development" && ensureFirmElevatorPitchDevPlugin(),
     mode === "development" && personWebsiteProfileDevPlugin(),
+    mode === "development" && r2UserAssetsDevPlugin(),
   ].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
   const devHost = process.env.DEV_HOST || "127.0.0.1";
@@ -1056,6 +1165,12 @@ export default defineConfig(async ({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
       dedupe: ["react", "react-dom", "react/jsx-runtime", "@radix-ui/react-progress"],
+    },
+    optimizeDeps: {
+      // wasm-bindgen "web" target packages resolve their .wasm binary via
+      // `new URL('*_bg.wasm', import.meta.url)`; esbuild's dep pre-bundling doesn't
+      // preserve that relative asset, so exclude it and let Vite serve it untouched.
+      exclude: ["@firecrawl/pdf-inspector-wasm"],
     },
   };
 });

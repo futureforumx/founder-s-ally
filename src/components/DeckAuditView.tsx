@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { DeckUploader } from "./DeckUploader";
-import { AnalysisTerminal } from "./AnalysisTerminal";
+import { BobbingDots } from "@/components/loading-ui/bobbing-dots";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
@@ -17,6 +17,11 @@ import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
 const MAX_AUDIT_DECK_TEXT_CHARS = 30000;
+
+interface DeckAuditViewProps {
+  /** Which Data Room tab this view is being rendered inside of. */
+  activeSection: "files" | "assessment";
+}
 
 /** Convert legacy edge-function response to the full AuditResult schema */
 function normalizeAuditResponse(raw: any): AuditResult {
@@ -64,7 +69,7 @@ function normalizeAuditResponse(raw: any): AuditResult {
   };
 }
 
-export function DeckAuditView() {
+export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   const [state, setState] = useState<AuditState>(() => {
     try {
       const cached = sessionStorage.getItem("deck-audit-result");
@@ -84,7 +89,6 @@ export function DeckAuditView() {
   const { decks, activeDeck, loading, uploadDeck, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [pendingDeckText, setPendingDeckText] = useState<string | null>(null);
   const [activeDeckSignedUrl, setActiveDeckSignedUrl] = useState<string | null>(null);
 
   // Get signed URL for active deck to render slide previews
@@ -145,18 +149,10 @@ export function DeckAuditView() {
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
-  /** Called from the import modal — starts the terminal animation, then runs the audit */
+  /** Called from the import modal — kicks off the audit for the newly imported deck */
   const handleNewDeckImport = useCallback((deckText: string) => {
-    setPendingDeckText(deckText);
-    setState("processing");
-  }, []);
-
-  const handleTerminalComplete = useCallback(() => {
-    if (pendingDeckText) {
-      handleUpload(pendingDeckText);
-      setPendingDeckText(null);
-    }
-  }, [pendingDeckText, handleUpload]);
+    handleUpload(deckText);
+  }, [handleUpload]);
 
   const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
     setIsRerunning(true);
@@ -189,15 +185,48 @@ export function DeckAuditView() {
   };
 
 
-  // ── Upload State ──
-  if (state === "upload") {
+  // ── Processing State (shown regardless of active tab) ──
+  if (state === "processing") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 min-h-[40vh]">
+        <BobbingDots className="w-16 text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">Loading</p>
+      </div>
+    );
+  }
+
+  // ── Files Tab: upload + manage deck versions ──
+  if (activeSection === "files") {
     return (
       <div className="space-y-8">
-        <div className="flex flex-col items-center justify-center min-h-[40vh]">
-          <div className="w-full max-w-xl">
-            <DeckUploader onUpload={handleUpload} />
+        {state === "upload" ? (
+          <div className="flex flex-col items-center justify-center min-h-[40vh]">
+            <div className="w-full max-w-xl">
+              <DeckUploader onUpload={handleUpload} />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/70 p-5">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Active deck</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {result ? `Analyzed ${format(new Date(result.metadata.analyzed_at), "MMM d, yyyy · h:mm a")}` : "No deck analyzed yet."}
+              </p>
+            </div>
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted active:scale-[0.97]"
+            >
+              Upload New Version
+            </button>
+          </div>
+        )}
+
+        <NewDeckImportModal
+          open={importModalOpen}
+          onOpenChange={setImportModalOpen}
+          onImport={handleNewDeckImport}
+        />
 
         <VersionHistoryAccordion
           decks={decks}
@@ -211,18 +240,17 @@ export function DeckAuditView() {
     );
   }
 
-  // ── Processing State (Analysis Terminal overlay) ──
-  if (state === "processing") {
+  // ── Assessment Tab: audit report ──
+  if (!result) {
     return (
-      <AnalysisTerminal
-        companyName="DECK"
-        onComplete={pendingDeckText ? handleTerminalComplete : () => {}}
-      />
+      <div className="flex flex-col items-center justify-center gap-2 min-h-[40vh] text-center">
+        <p className="text-sm font-medium text-foreground">No assessment yet</p>
+        <p className="max-w-sm text-xs text-muted-foreground">
+          Upload a pitch deck in the Files tab to generate an investor-readiness assessment.
+        </p>
+      </div>
     );
   }
-
-  // ── Report State (Full Dashboard) ──
-  if (!result) return null;
 
   return (
     <div className="flex flex-col min-h-0">
@@ -234,27 +262,12 @@ export function DeckAuditView() {
       />
 
       <div className="space-y-8 px-6 py-6">
-        {/* Action Row */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Deck Audit Report</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Analyzed {format(new Date(result.metadata.analyzed_at), "MMM d, yyyy · h:mm a")}
-            </p>
-          </div>
-          <button
-            onClick={() => setImportModalOpen(true)}
-            className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted active:scale-[0.97]"
-          >
-            Audit Another Deck
-          </button>
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Deck Audit Report</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Analyzed {format(new Date(result.metadata.analyzed_at), "MMM d, yyyy · h:mm a")}
+          </p>
         </div>
-
-        <NewDeckImportModal
-          open={importModalOpen}
-          onOpenChange={setImportModalOpen}
-          onImport={handleNewDeckImport}
-        />
 
         {/* KPI Ribbon with Expanding Tray */}
         <KPIRibbon scores={result.multi_axis_scores} benchmark={result.benchmark_insights} />
@@ -272,15 +285,6 @@ export function DeckAuditView() {
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Version Comparison</h3>
           <VersionComparison compareMode={compareMode} onToggleCompare={setCompareMode} delta={result.version_delta} />
         </div>
-
-        <VersionHistoryAccordion
-          decks={decks}
-          loading={loading}
-          actionLoading={actionLoading}
-          onDownload={handleDownload}
-          onMakeActive={handleMakeActive}
-          onDelete={handleDelete}
-        />
       </div>
     </div>
   );
