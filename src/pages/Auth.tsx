@@ -253,20 +253,6 @@ export default function Auth() {
           )}
           {isSignUp ? "Request with LinkedIn" : "Continue with LinkedIn"}
         </button>
-        {isSignUp && (
-          <p className="px-4 pt-1 text-center text-[11px] leading-relaxed text-zinc-600">
-            By continuing with a connected account, you agree to the{" "}
-            <a
-              href="https://tryvekta.com/terms-of-service"
-              target="_blank"
-              rel="noreferrer"
-              className="text-zinc-400 underline decoration-zinc-700 underline-offset-2 transition hover:text-zinc-200"
-            >
-              Terms &amp; Conditions
-            </a>
-            .
-          </p>
-        )}
         <p className="pt-2 text-center text-sm text-zinc-500">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
           <button
