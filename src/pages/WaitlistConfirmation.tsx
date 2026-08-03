@@ -155,12 +155,12 @@ export default function WaitlistConfirmation() {
             )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/"
+              <a
+                href="https://tryvekta.com"
                 className="inline-flex h-12 items-center justify-center bg-white px-6 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-zinc-100"
               >
-                Return home
-              </Link>
+                Back
+              </a>
               <Link
                 to="/login"
                 className="inline-flex h-12 items-center justify-center border border-zinc-700 px-6 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-200 transition hover:border-zinc-500 hover:text-white"

@@ -54,26 +54,20 @@ const ProfileStatusContext = createContext<ProfileStatusValue>({
   refresh: () => {},
 });
 
-function readCachedOnboardingState() {
-  try {
-    const saved = localStorage.getItem("company-profile");
-    if (!saved) return { isKnown: false, needsOnboarding: false };
-    const parsed = JSON.parse(saved);
-    return parsed?.name
-      ? { isKnown: true, needsOnboarding: false }
-      : { isKnown: false, needsOnboarding: false };
-  } catch {
-    return { isKnown: false, needsOnboarding: false };
-  }
-}
-
 function BackgroundProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, getAccessToken } = useAuth();
   const [refreshToken, setRefreshToken] = useState(0);
-  const [state, setState] = useState(() => ({
-    ...readCachedOnboardingState(),
+  const [state, setState] = useState({
+    isKnown: false,
     loading: false,
-  }));
+    needsOnboarding: false,
+  });
+
+  useEffect(() => {
+    const refreshAfterCompletion = () => setRefreshToken((prev) => prev + 1);
+    window.addEventListener("vekta:onboarding-complete", refreshAfterCompletion);
+    return () => window.removeEventListener("vekta:onboarding-complete", refreshAfterCompletion);
+  }, []);
 
   useEffect(() => {
     if (DEMO_MODE) {
@@ -87,13 +81,47 @@ function BackgroundProfileProvider({ children }: { children: React.ReactNode }) 
     }
 
     let cancelled = false;
-    setState((prev) => ({ ...prev, loading: true }));
+    setState({ isKnown: false, loading: true, needsOnboarding: false });
 
     const uid = user.id;
     const loadProfile = async () => {
       const token = await getAccessToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
+
+      // Provision the profile before making the routing decision. On a user's
+      // first authenticated session this creates has_completed_onboarding=false;
+      // on subsequent sessions the existing completion value is preserved.
+      const metadata = user.user_metadata ?? {};
+      const firstName = typeof metadata.first_name === "string" ? metadata.first_name.trim() : "";
+      const lastName = typeof metadata.last_name === "string" ? metadata.last_name.trim() : "";
+      const metadataName =
+        typeof metadata.full_name === "string" ? metadata.full_name.trim() :
+        typeof metadata.name === "string" ? metadata.name.trim() :
+        "";
+      const displayName = metadataName || [firstName, lastName].filter(Boolean).join(" ");
+      const avatarUrl =
+        typeof metadata.avatar_url === "string" ? metadata.avatar_url.trim() :
+        typeof metadata.picture === "string" ? metadata.picture.trim() :
+        "";
+
+      const ensureResp = await fetch("/api/ensure-user", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          _uid: uid,
+          email: user.email,
+          display_name: displayName || undefined,
+          avatar_url: avatarUrl || undefined,
+        }),
+      });
+      if (ensureResp.ok) {
+        const ensured = await ensureResp.json() as {
+          ok?: boolean;
+          profile?: { has_completed_onboarding?: boolean } | null;
+        };
+        if (ensured.profile) return ensured;
+      }
 
       const resp = await fetch("/api/get-profile", {
         method: "POST",
@@ -198,9 +226,13 @@ function BackgroundProfileNotice() {
 }
 
 function AppIndexRoute() {
-  const { isKnown, needsOnboarding } = useProfileStatus();
+  const { isKnown, loading, needsOnboarding } = useProfileStatus();
 
-  if (isKnown && needsOnboarding) {
+  if (!isKnown || loading) {
+    return <RouteLoader fullscreen={false} label="Preparing your workspace…" />;
+  }
+
+  if (needsOnboarding) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -215,9 +247,13 @@ function AppIndexRoute() {
 }
 
 function AppOnboardingRoute() {
-  const { isKnown, needsOnboarding } = useProfileStatus();
+  const { isKnown, loading, needsOnboarding } = useProfileStatus();
 
-  if (isKnown && !needsOnboarding) {
+  if (!isKnown || loading) {
+    return <RouteLoader fullscreen={false} label="Preparing onboarding…" />;
+  }
+
+  if (!needsOnboarding) {
     return <Navigate to="/" replace />;
   }
 
