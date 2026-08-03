@@ -246,6 +246,8 @@ export interface WaitlistSignupResponse {
   total_score: number;
   waitlist_position: number | null;
   referral_link: string;
+  confirmation_email_sent?: boolean;
+  confirmation_email_status?: "sent" | "already_sent" | "not_configured" | "failed";
 }
 
 export interface WaitlistMilestone {

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
 import { getAuthPageBackgroundVideoUrl } from "@/lib/authPageVideoUrl";
+import { waitlistSignup } from "@/lib/waitlist";
 
 function GoogleGlyph({ className }: { className?: string }) {
   return (
@@ -47,13 +48,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 type AuthMode = "sign-in" | "sign-up";
 
-const PENDING_SIGNUP_EMAIL_KEY = "vekta.pending-signup-email";
-
-function pendingSignupEmail(): string {
-  if (typeof window === "undefined") return "";
-  return window.sessionStorage.getItem(PENDING_SIGNUP_EMAIL_KEY) ?? "";
-}
-
 const inputClassName =
   "h-12 w-full border border-zinc-700 bg-[#121212] pl-10 pr-4 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-zinc-400";
 
@@ -74,9 +68,6 @@ export default function Auth() {
     signInWithPassword,
     signInWithOAuth,
     resetPassword,
-    signUp,
-    resendSignupConfirmation,
-    verifySignupConfirmation,
     verifyOtp,
   } = useAuth();
   const navigate = useNavigate();
@@ -92,14 +83,11 @@ export default function Auth() {
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState(pendingSignupEmail);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [signupConfirmationPending, setSignupConfirmationPending] = useState(
-    () => pendingSignupEmail().length > 0,
-  );
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -121,8 +109,6 @@ export default function Auth() {
     setInfoMessage(null);
     setOtpSent(false);
     setOtpCode("");
-    setSignupConfirmationPending(false);
-    window.sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY);
     setUseEmailCode(false);
     setAcceptedTerms(false);
   };
@@ -274,8 +260,11 @@ export default function Auth() {
       <>
         <div className="space-y-2 text-left">
           <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            {signupConfirmationPending ? "Check your email." : isSignUp ? "Create account." : "Welcome back."}
+            {isSignUp ? "Request access." : "Welcome back."}
           </h1>
+          {isSignUp && (
+            <p className="text-sm text-zinc-500">Submit your details and the Vekta team will review your request.</p>
+          )}
         </div>
 
         {activeErrorMessage && (
@@ -299,7 +288,6 @@ export default function Auth() {
         )}
 
         {isSignUp ? (
-          signupConfirmationPending ? (
             <form
               className="mt-6 space-y-4"
               onSubmit={async (event) => {
@@ -307,129 +295,49 @@ export default function Auth() {
                 clearLoginErrorParam();
                 setLocalError(null);
                 setInfoMessage(null);
-                setVerifyingCode(true);
+                setSubmitting(true);
                 try {
-                  const signedIn = await verifySignupConfirmation(email, otpCode);
-                  window.sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY);
-                  if (!signedIn) {
-                    setSignupConfirmationPending(false);
-                    setMode("sign-in");
-                    setOtpCode("");
-                    setInfoMessage("Account confirmed. Sign in with your password.");
+                  const inboundReferralCode =
+                    searchParams.get("ref")?.trim() ||
+                    searchParams.get("referral_code")?.trim() ||
+                    undefined;
+                  const signupResult = await waitlistSignup({
+                    email,
+                    name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+                    source: "register",
+                    referral_code: inboundReferralCode,
+                    metadata: { first_name: firstName.trim(), last_name: lastName.trim(), terms_accepted: true },
+                  });
+                  const referralCode = signupResult.referral_code?.trim() || "";
+                  const confirmationState = {
+                    email: email.trim().toLowerCase(),
+                    confirmationEmailSent: signupResult.confirmation_email_sent === true,
+                    referralCode,
+                    referralLink: referralCode
+                      ? `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}`
+                      : "",
+                  };
+                  try {
+                    window.sessionStorage.setItem(
+                      "vekta.waitlistConfirmation",
+                      JSON.stringify(confirmationState),
+                    );
+                  } catch {
+                    // Route state still carries the confirmation details when storage is unavailable.
                   }
+                  navigate("/register/confirmation", {
+                    replace: true,
+                    state: confirmationState,
+                  });
                 } catch (error) {
-                  const rawMessage = error instanceof Error ? error.message : "";
-                  const message = /expired|invalid/i.test(rawMessage)
-                    ? "That code has expired or was replaced. Enter the newest code from your email."
-                    : rawMessage || "That code could not be verified.";
+                  const message =
+                    error instanceof Error ? error.message : "Could not submit your request. Please try again.";
                   setLocalError(message);
                 } finally {
-                  setVerifyingCode(false);
+                  setSubmitting(false);
                 }
               }}
             >
-              <div className="space-y-2 text-left">
-                <label htmlFor="signup-confirmation-code" className={labelClassName}>
-                  Confirmation code
-                </label>
-                <input
-                  id="signup-confirmation-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otpCode}
-                  onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="6-digit code"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  className="h-14 w-full border border-zinc-700 bg-[#121212] px-4 text-center text-lg tracking-[0.36em] text-zinc-100 outline-none transition placeholder:text-sm placeholder:tracking-normal placeholder:text-zinc-600 focus:border-zinc-400"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="submit"
-                className={primaryButtonClassName}
-                disabled={verifyingCode || otpCode.length !== 6}
-              >
-                {verifyingCode ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Confirming account...
-                  </>
-                ) : (
-                  "Confirm account"
-                )}
-              </button>
-
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-left">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setLocalError(null);
-                    setInfoMessage(null);
-                    setSubmitting(true);
-                    try {
-                      await resendSignupConfirmation(email);
-                      setOtpCode("");
-                      setInfoMessage(
-                        `A new confirmation code was sent to ${email.trim().toLowerCase()}. Only the newest code will work.`,
-                      );
-                    } catch (error) {
-                      const message =
-                        error instanceof Error ? error.message : "Could not resend the confirmation code.";
-                      setLocalError(message);
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                  disabled={submitting}
-                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Sending..." : "Resend code"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSignupConfirmationPending(false);
-                    setOtpCode("");
-                    window.sessionStorage.removeItem(PENDING_SIGNUP_EMAIL_KEY);
-                    setLocalError(null);
-                    setInfoMessage(null);
-                  }}
-                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300"
-                >
-                  Use a different email
-                </button>
-              </div>
-            </form>
-          ) : (
-          <form
-            className="mt-6 space-y-4"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              clearLoginErrorParam();
-              setLocalError(null);
-              setInfoMessage(null);
-              setSubmitting(true);
-              try {
-                const result = await signUp({ email, password, firstName, lastName });
-                if (result.needsEmailConfirmation) {
-                  setSignupConfirmationPending(true);
-                  setOtpCode("");
-                  window.sessionStorage.setItem(PENDING_SIGNUP_EMAIL_KEY, email.trim().toLowerCase());
-                  setInfoMessage(`We sent a six-digit confirmation code to ${email.trim().toLowerCase()}.`);
-                  setPassword("");
-                }
-              } catch (error) {
-                const message =
-                  error instanceof Error ? error.message : "Could not create your account. Please try again.";
-                setLocalError(message);
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-          >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2 text-left">
                 <label htmlFor="first-name" className={labelClassName}>
@@ -485,26 +393,6 @@ export default function Auth() {
               </div>
             </div>
 
-            <div className="space-y-2 text-left">
-              <label htmlFor="signup-password" className={labelClassName}>
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                <input
-                  id="signup-password"
-                  type="password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="At least 8 characters"
-                  minLength={8}
-                  className={inputClassName}
-                  required
-                />
-              </div>
-            </div>
-
             <div className="flex items-center gap-3 text-left">
               <input
                 id="accept-terms"
@@ -535,18 +423,22 @@ export default function Auth() {
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating account...
+                  Submitting request...
                 </>
               ) : (
                 <>
                   <Shield className="h-3.5 w-3.5" aria-hidden />
-                  Create account
+                  Request access
                 </>
               )}
             </button>
-            {oauthButtons}
-          </form>
-          )
+            <p className="pt-2 text-center text-sm text-zinc-500">
+              Already approved?{" "}
+              <button type="button" onClick={() => switchMode("sign-in")} className="font-medium text-zinc-200 transition hover:text-white">
+                Sign in.
+              </button>
+            </p>
+              </form>
         ) : (
           <>
             <form

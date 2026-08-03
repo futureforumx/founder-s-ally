@@ -15,6 +15,7 @@ import TryVektaMarketing from "./pages/TryVektaMarketing";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
+const WaitlistConfirmation = lazy(() => import("./pages/WaitlistConfirmation.tsx"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
@@ -317,6 +318,7 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
               <Route path="/register" element={<Suspense fallback={<RouteLoader />}><Auth /></Suspense>} />
+              <Route path="/register/confirmation" element={<Suspense fallback={<RouteLoader />}><WaitlistConfirmation /></Suspense>} />
               <Route path="/auth/*" element={<Suspense fallback={<RouteLoader />}><AuthCallback /></Suspense>} />
               <Route
                 path="/access"
