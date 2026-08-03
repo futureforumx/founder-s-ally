@@ -100,31 +100,41 @@ function metaString(metadata: Record<string, unknown> | null, key: string): stri
 
 function formatSource(applicant: WaitlistApplicant) {
   const md = applicant.metadata ?? null;
-  const referrerDomain = metaString(md, "referrer_domain");
   const utmSource = metaString(md, "utm_source");
   const utmMedium = metaString(md, "utm_medium");
   const utmCampaign = metaString(md, "utm_campaign");
+  const utmTerm = metaString(md, "utm_term");
+  const utmContent = metaString(md, "utm_content");
+  const referrerDomain = metaString(md, "referrer_domain");
 
-  // Real external referrer wins — this is the true "where they came from".
+  const utmValues = [utmSource, utmMedium, utmCampaign, utmTerm, utmContent]
+    .filter((value): value is string => Boolean(value));
+
+  // 1. UTM-tagged traffic wins — surface everything carried after the UTM tags.
+  if (utmValues.length > 0) {
+    const label = utmSource ?? utmValues[0];
+    const detail = utmValues.filter((value) => value !== label).join(" · ");
+    return {
+      label,
+      detail: detail || "UTM tagged",
+      title: `UTM · ${utmValues.join(" / ")}`,
+    };
+  }
+
+  // 2. Otherwise fall back to the external referring domain.
   if (referrerDomain) {
     return {
       label: referrerDomain,
-      detail: utmCampaign || utmSource || prettifySource(applicant.source),
+      detail: "Referring domain",
       title: metaString(md, "referrer_url") || referrerDomain,
     };
   }
 
-  // Tagged campaign traffic (UTM) without a referrer header.
-  if (utmSource) {
-    return {
-      label: utmSource,
-      detail: [utmMedium, utmCampaign].filter(Boolean).join(" · ") || prettifySource(applicant.source),
-      title: [utmSource, utmMedium, utmCampaign].filter(Boolean).join(" / "),
-    };
-  }
-
-  // Direct / internal: show the on-site page they registered from.
-  const rawPath = metaString(md, "pathname") ?? SOURCE_PATHS[applicant.source ?? ""] ?? null;
+  // 3. Direct / internal: show the on-site page they registered from.
+  const rawPath = metaString(md, "pathname")
+    ?? metaString(md, "landing_path")
+    ?? SOURCE_PATHS[applicant.source ?? ""]
+    ?? null;
   const path = rawPath && rawPath !== "/" ? rawPath : "";
   return {
     label: prettifySource(applicant.source),
