@@ -40,7 +40,7 @@ export default function WaitlistConfirmation() {
       ? state.referralLink.trim()
       : referralCode
         ? `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}`
-        : "";
+        : `${window.location.origin}/register`;
   const { copied, copyFailed, copyReferralLink } = useReferralShareActions(referralLink);
   const [shared, setShared] = useState(false);
 
@@ -125,34 +125,38 @@ export default function WaitlistConfirmation() {
               </div>
             </div>
 
-            {referralLink && (
-              <div className="mt-6 border border-zinc-800 bg-[#111112] p-5">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                      Your unique referral code
-                    </p>
+            <div className="mt-6 border border-zinc-800 bg-[#111112] p-5">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                    {referralCode ? "Your unique referral code" : "Share Vekta"}
+                  </p>
+                  {referralCode ? (
                     <p className="mt-2 font-mono text-lg tracking-[0.14em] text-white">
                       {referralCode}
                     </p>
-                    <p className="mt-2 break-all text-xs leading-5 text-zinc-600">{referralLink}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={shareWithNetwork}
-                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-white px-5 text-xs font-semibold uppercase tracking-[0.12em] text-black transition hover:bg-zinc-100"
-                  >
-                    {copied || shared ? <Check className="h-4 w-4" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
-                    {copied ? "Link copied" : shared ? "Shared" : "Share with your network"}
-                  </button>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      Invite your network to join the Vekta waitlist.
+                    </p>
+                  )}
+                  <p className="mt-2 break-all text-xs leading-5 text-zinc-600">{referralLink}</p>
                 </div>
-                {copyFailed && (
-                  <p className="mt-3 text-xs text-red-400" role="alert">
-                    We couldn’t copy the link. Select the referral URL above and copy it manually.
-                  </p>
-                )}
+                <button
+                  type="button"
+                  onClick={shareWithNetwork}
+                  className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-white px-5 text-xs font-semibold uppercase tracking-[0.12em] text-black transition hover:bg-zinc-100"
+                >
+                  {copied || shared ? <Check className="h-4 w-4" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
+                  {copied ? "Link copied" : shared ? "Shared" : "Share Vekta with your network"}
+                </button>
               </div>
-            )}
+              {copyFailed && (
+                <p className="mt-3 text-xs text-red-400" role="alert">
+                  We couldn’t copy the link. Select the referral URL above and copy it manually.
+                </p>
+              )}
+            </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
