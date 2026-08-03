@@ -21,6 +21,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: 3.1023.0
         version: 3.1023.0
+      '@firecrawl/pdf-inspector-wasm':
+        specifier: ^0.1.3
+        version: 0.1.3
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.72.0(react@18.3.1))
@@ -1060,6 +1063,9 @@ packages:
   '@fastify/busboy@2.1.1':
     resolution: {integrity: sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA==}
     engines: {node: '>=14'}
+
+  '@firecrawl/pdf-inspector-wasm@0.1.3':
+    resolution: {integrity: sha512-8gz3s3H/WABomls64YCZ8W6zd+eIxFgNAfCXI9+a7axDekZQHX21rsng1uxImoBZD3mXpN7XqLH/LS68WnGWhw==}
 
   '@floating-ui/core@1.7.5':
     resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
@@ -6475,6 +6481,8 @@ snapshots:
   '@exodus/bytes@1.15.0': {}
 
   '@fastify/busboy@2.1.1': {}
+
+  '@firecrawl/pdf-inspector-wasm@0.1.3': {}
 
   '@floating-ui/core@1.7.5':
     dependencies:

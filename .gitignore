@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# pnpm is the project's package manager (pnpm-lock.yaml is committed) —
+# don't let a stray `npm install` reintroduce a drifting npm lockfile.
+package-lock.json
+
 # Environment / secrets — never commit real credentials
 .env
 .env.*

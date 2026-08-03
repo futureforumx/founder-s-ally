@@ -15,22 +15,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Install Playwright (SPA careers / ATS detection in job ingest)
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Prisma migrate (idempotent)
-        run: npx prisma migrate deploy
+        run: pnpm exec prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Ingest company jobs
-        run: npm run company-jobs:ingest
+        run: pnpm run company-jobs:ingest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
