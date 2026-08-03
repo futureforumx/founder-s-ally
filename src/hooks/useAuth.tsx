@@ -181,24 +181,52 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !session?.access_token) return;
 
-    const displayName = displayNameForUser(user);
-    fetch("/api/ensure-user", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        _uid: user.id,
-        email: user.email,
-        display_name: displayName,
-        avatar_url: avatarForUser(user),
-      }),
-    }).catch((error) => {
-      if (import.meta.env.DEV) {
-        console.warn("[auth] ensure-user failed:", error);
-      }
+    const token = session.access_token;
+    const body = JSON.stringify({
+      _uid: user.id,
+      email: user.email,
+      display_name: displayNameForUser(user),
+      avatar_url: avatarForUser(user),
     });
+
+    // `/api/ensure-user` records the caller's IP into `user_ip_log` and re-checks
+    // the ban list. Ping it on login/refresh and on a heartbeat so we keep capturing
+    // the current IP mid-session (e.g. after a network / VPN change), throttled so
+    // rapid focus events don't spam the endpoint.
+    const HEARTBEAT_MS = 5 * 60 * 1000;
+    const MIN_GAP_MS = 2 * 60 * 1000;
+    let lastPing = 0;
+
+    const ping = (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastPing < MIN_GAP_MS) return;
+      lastPing = now;
+      fetch("/api/ensure-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body,
+        keepalive: true,
+      }).catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn("[auth] ensure-user failed:", error);
+        }
+      });
+    };
+
+    ping(true);
+
+    const interval = window.setInterval(() => ping(), HEARTBEAT_MS);
+    const onReturn = () => {
+      if (document.visibilityState === "visible") ping();
+    };
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
   }, [session?.access_token, user]);
 
   const signIn = useCallback(async (email: string) => {
