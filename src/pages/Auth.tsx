@@ -4,6 +4,7 @@ import { Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
 import { getAuthPageBackgroundVideoUrl } from "@/lib/authPageVideoUrl";
 import { waitlistSignup } from "@/lib/waitlist";
+import { saveRegistrationPrefill } from "@/lib/registrationPrefill";
 
 function GoogleGlyph({ className }: { className?: string }) {
   return (
@@ -41,6 +42,7 @@ function LinkedInGlyph({ className }: { className?: string }) {
 
 const ERROR_MESSAGES: Record<string, string> = {
   callback_failed: "Sign-in couldn't be completed. Please try again.",
+  request_failed: "Your connected account was verified, but the access request could not be submitted. Please try again.",
   otp_failed: "That code could not be verified. Please request a new one and try again.",
   access_denied: "Access was denied. Please try again or contact support.",
   timeout: "Authentication took too long. Please try signing in again.",
@@ -200,7 +202,11 @@ export default function Auth() {
             setInfoMessage(null);
             setOauthLoading("google");
             try {
-              await signInWithOAuth("google");
+              await signInWithOAuth("google", {
+                intent: isSignUp ? "request-access" : "sign-in",
+                referralCode:
+                  searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim() || undefined,
+              });
             } catch (error) {
               const message =
                 error instanceof Error ? error.message : "Could not start Google sign-in.";
@@ -215,7 +221,7 @@ export default function Auth() {
           ) : (
             <GoogleGlyph className="h-4 w-4 shrink-0" />
           )}
-          Continue with Google
+          {isSignUp ? "Request with Google" : "Continue with Google"}
         </button>
         <button
           type="button"
@@ -226,7 +232,11 @@ export default function Auth() {
             setInfoMessage(null);
             setOauthLoading("linkedin_oidc");
             try {
-              await signInWithOAuth("linkedin_oidc");
+              await signInWithOAuth("linkedin_oidc", {
+                intent: isSignUp ? "request-access" : "sign-in",
+                referralCode:
+                  searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim() || undefined,
+              });
             } catch (error) {
               const message =
                 error instanceof Error ? error.message : "Could not start LinkedIn sign-in.";
@@ -241,8 +251,22 @@ export default function Auth() {
           ) : (
             <LinkedInGlyph className="h-4 w-4 shrink-0 text-[#0A66C2]" />
           )}
-          Continue with LinkedIn
+          {isSignUp ? "Request with LinkedIn" : "Continue with LinkedIn"}
         </button>
+        {isSignUp && (
+          <p className="px-4 pt-1 text-center text-[11px] leading-relaxed text-zinc-600">
+            By continuing with a connected account, you agree to the{" "}
+            <a
+              href="https://tryvekta.com/terms-of-service"
+              target="_blank"
+              rel="noreferrer"
+              className="text-zinc-400 underline decoration-zinc-700 underline-offset-2 transition hover:text-zinc-200"
+            >
+              Terms &amp; Conditions
+            </a>
+            .
+          </p>
+        )}
         <p className="pt-2 text-center text-sm text-zinc-500">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
           <button
@@ -288,6 +312,7 @@ export default function Auth() {
         )}
 
         {isSignUp ? (
+          <>
             <form
               className="mt-6 space-y-4"
               onSubmit={async (event) => {
@@ -297,6 +322,8 @@ export default function Auth() {
                 setInfoMessage(null);
                 setSubmitting(true);
                 try {
+                  // Persist what the user typed so onboarding can prefill name + email later.
+                  saveRegistrationPrefill({ firstName, lastName, email });
                   const inboundReferralCode =
                     searchParams.get("ref")?.trim() ||
                     searchParams.get("referral_code")?.trim() ||
@@ -432,13 +459,9 @@ export default function Auth() {
                 </>
               )}
             </button>
-            <p className="pt-2 text-center text-sm text-zinc-500">
-              Already approved?{" "}
-              <button type="button" onClick={() => switchMode("sign-in")} className="font-medium text-zinc-200 transition hover:text-white">
-                Sign in.
-              </button>
-            </p>
               </form>
+            {oauthButtons}
+          </>
         ) : (
           <>
             <form

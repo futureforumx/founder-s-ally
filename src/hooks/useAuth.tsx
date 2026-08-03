@@ -20,6 +20,11 @@ export type SignUpResult = {
 
 export type OAuthProvider = "google" | "linkedin_oidc";
 
+export type OAuthOptions = {
+  intent?: "sign-in" | "request-access";
+  referralCode?: string;
+};
+
 interface AuthCtx {
   user: User | null;
   session: Session | null;
@@ -27,7 +32,9 @@ interface AuthCtx {
   isConfigured: boolean;
   signIn: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider, options?: OAuthOptions) => Promise<void>;
+  /** Link an OAuth provider (Google/LinkedIn) to the signed-in account so it can log in and its profile data is imported. */
+  linkOAuthIdentity: (provider: OAuthProvider) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<SignUpResult>;
   resendSignupConfirmation: (email: string) => Promise<void>;
@@ -45,6 +52,7 @@ const AuthContext = createContext<AuthCtx>({
   signIn: async () => {},
   signInWithPassword: async () => {},
   signInWithOAuth: async () => {},
+  linkOAuthIdentity: async () => {},
   resetPassword: async () => {},
   signUp: async () => ({ needsEmailConfirmation: false }),
   resendSignupConfirmation: async () => {},
@@ -273,9 +281,19 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
+  const signInWithOAuth = useCallback(async (provider: OAuthProvider, options?: OAuthOptions) => {
     try {
-      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      let redirectTo: string | undefined;
+      if (typeof window !== "undefined") {
+        const callbackUrl = new URL("/auth", window.location.origin);
+        if (options?.intent === "request-access") {
+          callbackUrl.searchParams.set("intent", "request-access");
+          if (options.referralCode?.trim()) {
+            callbackUrl.searchParams.set("ref", options.referralCode.trim());
+          }
+        }
+        redirectTo = callbackUrl.toString();
+      }
       const { data, error } = await supabaseAuth.auth.signInWithOAuth({
         provider,
         options: {
@@ -297,6 +315,36 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           ? "Could not start Google sign-in. Please try again."
           : "Could not start LinkedIn sign-in. Please try again.",
       );
+    }
+  }, []);
+
+  const linkOAuthIdentity = useCallback(async (provider: OAuthProvider) => {
+    const providerLabel = provider === "google" ? "Google" : "LinkedIn";
+    try {
+      // Return through the allowlisted /auth callback, which restores the session and
+      // sends the user back to the app (onboarding resumes from its autosaved step).
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const { error } = await supabaseAuth.auth.linkIdentity({
+        provider,
+        options: { redirectTo },
+      });
+      if (error) throw error;
+    } catch (error) {
+      if (isGenericFetchFailure(error)) {
+        throw new Error("Supabase Auth is not responding. Please try again in a few minutes.");
+      }
+      if (error instanceof Error) {
+        if (/manual linking.*disabled|identity linking/i.test(error.message)) {
+          throw new Error(
+            `${providerLabel} linking is disabled for this project. Enable "Manual linking" in Supabase Auth settings.`,
+          );
+        }
+        if (/already.*linked|identity.*exists/i.test(error.message)) {
+          throw new Error(`${providerLabel} is already connected to another account.`);
+        }
+        throw error;
+      }
+      throw new Error(`Could not connect ${providerLabel}. Please try again.`);
     }
   }, []);
 
@@ -437,6 +485,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signInWithPassword,
       signInWithOAuth,
+      linkOAuthIdentity,
       resetPassword,
       signUp,
       resendSignupConfirmation,
@@ -452,6 +501,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signInWithPassword,
       signInWithOAuth,
+      linkOAuthIdentity,
       resetPassword,
       signUp,
       resendSignupConfirmation,
@@ -486,6 +536,7 @@ function PublicAuthProvider({ children }: { children: ReactNode }) {
       signIn: async () => {},
       signInWithPassword: async () => {},
       signInWithOAuth: async () => {},
+      linkOAuthIdentity: async () => {},
       resetPassword: async () => {},
       signUp: async () => ({ needsEmailConfirmation: false }),
       resendSignupConfirmation: async () => {},

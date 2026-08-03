@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ArrowRight, AtSign, Linkedin, LockKeyhole, Music2, Newspaper } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { formatSocialUrl, type SocialPlatform } from "@/lib/socialFormat";
+import {
+  deriveNamesFromUser,
+  emailsMatch,
+  readRegistrationPrefill,
+  splitFullName,
+} from "@/lib/registrationPrefill";
+import { waitlistGetStatus } from "@/lib/waitlist";
 import type { OnboardingState } from "./types";
 
 interface StepMeta {
@@ -54,23 +61,68 @@ function SocialField({ icon: Icon, label, placeholder, value, platform, onChange
 export function StepPersonalDetails({ state, update, onNext, meta }: StepPersonalDetailsProps) {
   const { user } = useAuth();
 
+  // Prefill name + email from the registration flow: auth metadata first, then the
+  // values typed on /register (persisted locally), keeping whatever the user already edited.
   useEffect(() => {
     if (!user) return;
 
-    const metadata = user.user_metadata || {};
-    const firstName = state.firstName || metadata.first_name || "";
-    const lastName = state.lastName || metadata.last_name || "";
-    const updates: Partial<OnboardingState> = {};
+    const fromMeta = deriveNamesFromUser(user);
+    const reg = readRegistrationPrefill();
+    const regUsable = Boolean(reg && (!user.email || emailsMatch(reg.email, user.email)));
 
+    const firstName = fromMeta.firstName || (regUsable ? reg!.firstName : "");
+    const lastName = fromMeta.lastName || (regUsable ? reg!.lastName : "");
+    const email = user.email || reg?.email || "";
+
+    const updates: Partial<OnboardingState> = {};
     if (!state.firstName && firstName) updates.firstName = firstName;
     if (!state.lastName && lastName) updates.lastName = lastName;
-    if (!state.email && user.email) updates.email = user.email;
-    if (!state.fullName && (firstName || lastName)) {
-      updates.fullName = [firstName, lastName].filter(Boolean).join(" ");
+    if (!state.email && email) updates.email = email;
+
+    const nextFirst = state.firstName || firstName;
+    const nextLast = state.lastName || lastName;
+    if (!state.fullName && (nextFirst || nextLast)) {
+      updates.fullName = [nextFirst, nextLast].filter(Boolean).join(" ");
     }
 
     if (Object.keys(updates).length > 0) update(updates);
   }, [state.email, state.firstName, state.fullName, state.lastName, update, user]);
+
+  // Cross-device fallback: if we still have no name, pull it from the waitlist record
+  // created at registration (keyed by the signed-in email).
+  const waitlistLookupTried = useRef(false);
+  useEffect(() => {
+    if (waitlistLookupTried.current) return;
+    if (state.firstName && state.lastName) return;
+
+    const email = state.email || user?.email || readRegistrationPrefill()?.email || "";
+    if (!email) return;
+
+    waitlistLookupTried.current = true;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await waitlistGetStatus({ email });
+        if (cancelled || !status?.name) return;
+        const { firstName, lastName } = splitFullName(status.name);
+        const updates: Partial<OnboardingState> = {};
+        if (!state.firstName && firstName) updates.firstName = firstName;
+        if (!state.lastName && lastName) updates.lastName = lastName;
+        if (!state.fullName && (firstName || lastName)) {
+          updates.fullName = [state.firstName || firstName, state.lastName || lastName]
+            .filter(Boolean)
+            .join(" ");
+        }
+        if (Object.keys(updates).length > 0) update(updates);
+      } catch {
+        // No waitlist record (e.g. a pure OAuth signup) — metadata / local prefill still apply.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [state.email, state.firstName, state.lastName, state.fullName, update, user]);
 
   const updateName = (firstName: string, lastName: string) => {
     update({
