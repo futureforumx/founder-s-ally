@@ -423,7 +423,7 @@ export default function Auth() {
                   rel="noreferrer"
                   className="text-zinc-200 underline decoration-zinc-500 underline-offset-2 transition hover:text-white"
                 >
-                  Terms &amp; Conditions.
+                  Terms of Service.
                 </a>
               </label>
             </div>
