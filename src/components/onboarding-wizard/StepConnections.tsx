@@ -31,6 +31,7 @@ interface StepConnectionsProps {
   update: (partial: Partial<OnboardingState>) => void;
   onBack: () => void;
   onNext: (connectedIntegrations: string[]) => void;
+  meta?: { eyebrow?: string; title?: string; subtitle?: string };
 }
 
 const liveConnectors: Array<{
@@ -65,7 +66,7 @@ const liveConnectors: Array<{
 
 const crmConnectors = ["HubSpot", "Salesforce", "Attio"];
 
-export function StepConnections({ state, update, onBack, onNext }: StepConnectionsProps) {
+export function StepConnections({ state, update, onBack, onNext, meta }: StepConnectionsProps) {
   const { getAccessToken } = useAuth();
   const { activeContextId, availableContexts, isReady } = useActiveContext();
   const personalContextId =
@@ -129,12 +130,12 @@ export function StepConnections({ state, update, onBack, onNext }: StepConnectio
       className="min-w-0 w-full"
     >
       <div className="mb-7">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Connections</p>
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">{meta?.eyebrow ?? "Connections"}</p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Bring your network into focus
+          {meta?.title ?? "Bring your network into focus"}
         </h1>
         <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-          Connect the tools you already use so Vekta can uncover stronger relationships, conversations, and opportunities.
+          {meta?.subtitle ?? "Connect the tools you already use so Vekta can uncover stronger relationships, conversations, and opportunities."}
         </p>
       </div>
 

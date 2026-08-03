@@ -26,6 +26,7 @@ interface StepCompanyDNAProps {
   update: (p: Partial<OnboardingState>) => void;
   onNext: (companyName?: string, existingCompanyId?: string) => void;
   onBack: () => void;
+  meta?: { eyebrow?: string; title?: string; subtitle?: string };
 }
 
 interface CompanyResult {
@@ -44,7 +45,7 @@ function extractDomain(url: string): string | null {
   return normalizeDomain(url) || null;
 }
 
-export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNAProps) {
+export function StepCompanyDNA({ state, update, onNext, onBack, meta }: StepCompanyDNAProps) {
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -269,8 +270,11 @@ export function StepCompanyDNA({ state, update, onNext, onBack }: StepCompanyDNA
       className="w-full max-w-lg mx-auto space-y-5"
     >
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Your Company</h1>
-        <p className="text-sm text-muted-foreground">We'll use these to build your company profile.</p>
+        {meta?.eyebrow && (
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">{meta.eyebrow}</p>
+        )}
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{meta?.title ?? "Your Company"}</h1>
+        <p className="text-sm text-muted-foreground">{meta?.subtitle ?? "We'll use these to build your company profile."}</p>
       </div>
 
       <div className="space-y-4">

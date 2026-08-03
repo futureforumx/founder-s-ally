@@ -1,19 +1,19 @@
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const steps = [
-  { num: 1, label: "Your profile" },
-  { num: 2, label: "Your path" },
-  { num: 3, label: "Company" },
-  { num: 4, label: "Connections" },
-  { num: 5, label: "Materials" },
-];
+const DEFAULT_LABELS = ["Your profile", "Your path", "Company", "Connections", "Materials"];
 
 interface ProgressBarProps {
   currentStep: number;
+  /** Step labels (from the editable workflow config). Falls back to defaults. */
+  labels?: string[];
 }
 
-export function ProgressBar({ currentStep }: ProgressBarProps) {
+export function ProgressBar({ currentStep, labels }: ProgressBarProps) {
+  const steps = (labels && labels.length > 0 ? labels : DEFAULT_LABELS).map((label, i) => ({
+    num: i + 1,
+    label,
+  }));
   return (
     <div className="w-full">
       <div className="flex items-start justify-between">

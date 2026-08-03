@@ -12,6 +12,7 @@ interface StepWelcomeProps {
   update: (partial: Partial<OnboardingState>) => void;
   onNext: () => void;
   onBack?: () => void;
+  meta?: { eyebrow?: string; title?: string; subtitle?: string };
 }
 
 const paths = [
@@ -36,7 +37,7 @@ function titleOptionsFor(userType: string): ComboboxOption[] {
   });
 }
 
-export function StepWelcome({ state, update, onNext, onBack }: StepWelcomeProps) {
+export function StepWelcome({ state, update, onNext, onBack, meta }: StepWelcomeProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -47,11 +48,11 @@ export function StepWelcome({ state, update, onNext, onBack }: StepWelcomeProps)
     >
       <div className="mb-7">
         <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
-          <Sparkles className="h-3 w-3" /> Personalized setup
+          <Sparkles className="h-3 w-3" /> {meta?.eyebrow ?? "Personalized setup"}
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Welcome to Vekta</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{meta?.title ?? "Welcome to Vekta"}</h1>
         <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-          Tell us how you work so your intelligence feed, network, and recommendations start relevant.
+          {meta?.subtitle ?? "Tell us how you work so your intelligence feed, network, and recommendations start relevant."}
         </p>
       </div>
 

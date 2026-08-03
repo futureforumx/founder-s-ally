@@ -8,10 +8,17 @@ import { toast } from "@/hooks/use-toast";
 import { formatSocialUrl, type SocialPlatform } from "@/lib/socialFormat";
 import type { OnboardingState } from "./types";
 
+interface StepMeta {
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+}
+
 interface StepPersonalDetailsProps {
   state: OnboardingState;
   update: (partial: Partial<OnboardingState>) => void;
   onNext: () => void;
+  meta?: StepMeta;
 }
 
 interface SocialFieldProps {
@@ -44,7 +51,7 @@ function SocialField({ icon: Icon, label, placeholder, value, platform, onChange
   );
 }
 
-export function StepPersonalDetails({ state, update, onNext }: StepPersonalDetailsProps) {
+export function StepPersonalDetails({ state, update, onNext, meta }: StepPersonalDetailsProps) {
   const { user } = useAuth();
 
   useEffect(() => {
@@ -108,10 +115,10 @@ export function StepPersonalDetails({ state, update, onNext }: StepPersonalDetai
       className="w-full"
     >
       <div className="mb-7">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Your profile</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Let’s confirm your details</h1>
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">{meta?.eyebrow ?? "Your profile"}</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{meta?.title ?? "Let’s confirm your details"}</h1>
         <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
-          Make sure your name is right, then add any profiles you want Vekta to connect to your account.
+          {meta?.subtitle ?? "Make sure your name is right, then add any profiles you want Vekta to connect to your account."}
         </p>
       </div>
 

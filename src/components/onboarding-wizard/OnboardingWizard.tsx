@@ -17,6 +17,9 @@ import { StepPersonalDetails } from "./StepPersonalDetails";
 import { StepCompanyDNA } from "./StepCompanyDNA";
 import { StepConnections } from "./StepConnections";
 import { StepInvestorMaterials } from "./StepInvestorMaterials";
+import { GenericFormStep } from "./GenericFormStep";
+import { useOnboardingWorkflow } from "@/hooks/useOnboardingWorkflow";
+import { activeSteps, type StepDef } from "@/config/onboardingWorkflow";
 import { CheckCircle2, LockKeyhole, Network, Radar, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
@@ -97,7 +100,12 @@ export function OnboardingWizard() {
   const { user } = useAuth();
   const { upsertProfile } = useProfile();
   const { onboardingData, loading: preferencesLoading, upsertPrefs } = useUserPreferences();
+  const { definition } = useOnboardingWorkflow();
   const navigate = useNavigate();
+
+  // Ordered, enabled steps drive the wizard; falls back to the code defaults.
+  const stepDefs = activeSteps(definition);
+  const totalSteps = stepDefs.length || 1;
   const [saving, setSaving] = useState(false);
   const [resumeReady, setResumeReady] = useState(false);
   const onboardingDataRef = useRef(onboardingData);
@@ -112,12 +120,12 @@ export function OnboardingWizard() {
 
     const remoteState = onboardingData?.wizardState;
     if (!hasStoredState && remoteState) {
-      const step = Math.min(5, Math.max(1, Number(remoteState.step) || 1));
+      const step = Math.min(totalSteps, Math.max(1, Number(remoteState.step) || 1));
       update({ ...remoteState, step });
       lastRemoteCheckpointRef.current = JSON.stringify({ ...defaultOnboardingState, ...remoteState, step });
     }
     setResumeReady(true);
-  }, [hasStoredState, onboardingData, preferencesLoading, resumeReady, update]);
+  }, [hasStoredState, onboardingData, preferencesLoading, resumeReady, update, totalSteps]);
 
   useEffect(() => {
     if (!resumeReady || !user || saving) return;
@@ -139,6 +147,8 @@ export function OnboardingWizard() {
   }, [resumeReady, saving, state, upsertPrefs, user]);
 
   const goTo = useCallback((step: number) => update({ step }), [update]);
+
+  const metaOf = (def: StepDef) => ({ eyebrow: def.eyebrow, title: def.title, subtitle: def.subtitle });
 
   const handleFinish = async (
     overrideCompanyName?: string,
@@ -471,6 +481,99 @@ export function OnboardingWizard() {
     );
   }
 
+  // Config-driven navigation over the ordered, enabled steps.
+  const position = Math.min(Math.max(1, state.step || 1), totalSteps);
+  const currentDef = stepDefs[position - 1] ?? stepDefs[0];
+  const isLast = position >= totalSteps;
+  const goNext = () => (isLast ? void handleFinish() : goTo(position + 1));
+  const goBack = () => goTo(Math.max(1, position - 1));
+  const progressLabels = stepDefs.map((s) => s.progressLabel);
+  const wide = currentDef ? ["connections", "materials", "form"].includes(currentDef.componentKey) : false;
+
+  const renderStep = () => {
+    if (!currentDef) return null;
+    const meta = metaOf(currentDef);
+    switch (currentDef.componentKey) {
+      case "personal-details":
+        return <StepPersonalDetails key={currentDef.id} state={state} update={update} onNext={goNext} meta={meta} />;
+      case "path":
+        return (
+          <StepWelcome
+            key={currentDef.id}
+            state={state}
+            update={update}
+            onNext={goNext}
+            onBack={position > 1 ? goBack : undefined}
+            meta={meta}
+          />
+        );
+      case "company":
+        return (
+          <StepCompanyDNA
+            key={currentDef.id}
+            state={state}
+            update={update}
+            meta={meta}
+            onBack={goBack}
+            onNext={(companyName, existingCompanyId) => {
+              const patch = {
+                companyName: companyName ?? state.companyName,
+                existingCompanyId: existingCompanyId ?? state.existingCompanyId,
+              };
+              if (isLast) {
+                update(patch);
+                void handleFinish(patch.companyName, patch.existingCompanyId);
+              } else {
+                update({ ...patch, step: position + 1 });
+              }
+            }}
+          />
+        );
+      case "connections":
+        return (
+          <StepConnections
+            key={currentDef.id}
+            state={state}
+            update={update}
+            meta={meta}
+            onBack={goBack}
+            onNext={(connectedIntegrations) => {
+              if (isLast) {
+                update({ connectedIntegrations });
+                void handleFinish(undefined, undefined, connectedIntegrations);
+              } else {
+                update({ connectedIntegrations, step: position + 1 });
+              }
+            }}
+          />
+        );
+      case "materials":
+        return (
+          <StepInvestorMaterials
+            key={currentDef.id}
+            state={state}
+            update={update}
+            meta={meta}
+            onBack={goBack}
+            onFinish={() => { void handleFinish(); }}
+            saving={saving}
+          />
+        );
+      default:
+        return (
+          <GenericFormStep
+            key={currentDef.id}
+            step={currentDef}
+            state={state}
+            update={update}
+            onNext={goNext}
+            onBack={position > 1 ? goBack : undefined}
+            isLast={isLast}
+          />
+        );
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_16%,hsl(var(--primary)/0.12),transparent_30%),radial-gradient(circle_at_88%_82%,hsl(var(--success)/0.06),transparent_28%)]" />
@@ -487,30 +590,29 @@ export function OnboardingWizard() {
       <main className="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
         <aside className="hidden border-r border-border/60 px-10 py-14 lg:flex lg:flex-col lg:justify-between">
           <div>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Start with signal</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">{definition.leftRail.eyebrow}</p>
             <h2 className="mt-4 max-w-sm text-3xl font-semibold leading-tight tracking-tight text-foreground">
-              Make every introduction and insight more relevant.
+              {definition.leftRail.heading}
             </h2>
             <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-              A few details give Vekta the context to prioritize the people, companies, and opportunities that matter to you.
+              {definition.leftRail.subheading}
             </p>
 
             <div className="mt-10 space-y-5">
-              {[
-                { icon: Radar, title: "Sharper recommendations", copy: "Ranked against your stage, role, and goals." },
-                { icon: Network, title: "Useful network paths", copy: "See the strongest route to the right person." },
-                { icon: Sparkles, title: "Less setup later", copy: "Start with a workspace that already knows your context." },
-              ].map(({ icon: Icon, title, copy }) => (
-                <div key={title} className="flex gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">{title}</p>
-                    <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{copy}</p>
+              {definition.leftRail.valueProps.map(({ title, copy }, i) => {
+                const Icon = [Radar, Network, Sparkles][i % 3];
+                return (
+                  <div key={`${title}-${i}`} className="flex gap-3">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-primary">
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">{title}</p>
+                      <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{copy}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -520,9 +622,9 @@ export function OnboardingWizard() {
         </aside>
 
         <section className="flex min-w-0 items-start justify-center px-4 py-7 sm:px-8 sm:py-10 lg:px-14 lg:py-14">
-          <div className={cn("min-w-0 w-full", state.step >= 4 ? "max-w-2xl" : "max-w-xl")}>
+          <div className={cn("min-w-0 w-full", wide ? "max-w-2xl" : "max-w-xl")}>
             <div className="mb-7 rounded-xl border border-border/70 bg-card/70 px-5 py-4 shadow-sm backdrop-blur-xl">
-              <ProgressBar currentStep={state.step} />
+              <ProgressBar currentStep={position} labels={progressLabels} />
             </div>
 
             <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-5 shadow-lg backdrop-blur-xl sm:p-8">
@@ -534,50 +636,7 @@ export function OnboardingWizard() {
               </div>
 
               <div className="relative z-10">
-                <AnimatePresence mode="wait">
-                  {state.step === 1 && (
-                    <StepPersonalDetails key="s1" state={state} update={update} onNext={() => goTo(2)} />
-                  )}
-                  {state.step === 2 && (
-                    <StepWelcome key="s2" state={state} update={update} onNext={() => goTo(3)} onBack={() => goTo(1)} />
-                  )}
-                  {state.step === 3 && (
-                    <StepCompanyDNA
-                      key="s3"
-                      state={state}
-                      update={update}
-                      onNext={(companyName, existingCompanyId) => {
-                        update({
-                          companyName: companyName ?? state.companyName,
-                          existingCompanyId: existingCompanyId ?? state.existingCompanyId,
-                          step: 4,
-                        });
-                      }}
-                      onBack={() => goTo(2)}
-                    />
-                  )}
-                  {state.step === 4 && (
-                    <StepConnections
-                      key="s4"
-                      state={state}
-                      update={update}
-                      onBack={() => goTo(3)}
-                      onNext={(connectedIntegrations) => {
-                        update({ connectedIntegrations, step: 5 });
-                      }}
-                    />
-                  )}
-                  {state.step === 5 && (
-                    <StepInvestorMaterials
-                      key="s5"
-                      state={state}
-                      update={update}
-                      onBack={() => goTo(4)}
-                      onFinish={() => { void handleFinish(); }}
-                      saving={saving}
-                    />
-                  )}
-                </AnimatePresence>
+                <AnimatePresence mode="wait">{renderStep()}</AnimatePresence>
               </div>
             </div>
           </div>

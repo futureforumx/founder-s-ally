@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
-  Building2, X, BarChart2, Flag, Bot, ClipboardCheck,
+  Building2, X, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminApiHealth }          from "@/components/admin/AdminApiHealth";
@@ -17,6 +17,7 @@ import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntellige
 import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
 import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
+import { AdminOnboarding }         from "@/components/admin/AdminOnboarding";
 
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { key: "api-health",     label: "API Health",      icon: Wifi       },
   { key: "sync-logs",      label: "Sync Logs",       icon: ScrollText },
   { key: "ai-debugger",    label: "AI Debugger",     icon: Brain      },
+  { key: "onboarding",     label: "Onboarding",      icon: PanelsTopLeft },
 ] as const;
 
 type AdminView = (typeof NAV_ITEMS)[number]["key"];
@@ -137,6 +139,7 @@ export default function AdminIntelligence() {
         {activeView === "api-health"     && <AdminApiHealth />}
         {activeView === "sync-logs"      && <AdminSyncLogs />}
         {activeView === "ai-debugger"    && <AdminAiDebugger />}
+        {activeView === "onboarding"     && <AdminOnboarding />}
       </main>
     </div>
   );

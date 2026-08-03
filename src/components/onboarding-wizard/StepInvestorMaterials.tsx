@@ -14,6 +14,7 @@ interface StepInvestorMaterialsProps {
   onBack: () => void;
   onFinish: () => void;
   saving: boolean;
+  meta?: { eyebrow?: string; title?: string; subtitle?: string };
 }
 
 const DOCUMENT_EXTENSIONS = ["pdf", "ppt", "pptx", "doc", "docx", "txt", "md"];
@@ -49,7 +50,7 @@ function MetricField({ id, label, value, placeholder, prefix = "$", onChange }: 
   );
 }
 
-export function StepInvestorMaterials({ state, update, onBack, onFinish, saving }: StepInvestorMaterialsProps) {
+export function StepInvestorMaterials({ state, update, onBack, onFinish, saving, meta }: StepInvestorMaterialsProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -89,9 +90,9 @@ export function StepInvestorMaterials({ state, update, onBack, onFinish, saving 
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.3 }} className="min-w-0 w-full">
       <div className="mb-7">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Investor materials</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Add the numbers investors ask for</h1>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">Upload your latest material and add a few headline metrics. Everything on this step is optional.</p>
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">{meta?.eyebrow ?? "Investor materials"}</p>
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{meta?.title ?? "Add the numbers investors ask for"}</h1>
+        <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{meta?.subtitle ?? "Upload your latest material and add a few headline metrics. Everything on this step is optional."}</p>
       </div>
 
       <div className="space-y-6">
