@@ -245,78 +245,103 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.warn("audit-deck: LOVABLE_API_KEY missing, returning heuristic fallback audit");
+    // Try each configured provider in order, falling through to the next on
+    // failure (quota exhausted, outage, bad response, etc.) instead of giving
+    // up immediately. Only return the heuristic audit if every provider fails.
+    const providers: { key: string; baseUrl: string; model: string; name: string }[] = [
+      { key: Deno.env.get("GROQ_API_KEY") ?? "", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", name: "Groq" },
+      { key: Deno.env.get("NVIDIA_BUILD_API_KEY") ?? "", baseUrl: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.1-70b-instruct", name: "NVIDIA Build" },
+      { key: Deno.env.get("GEMINI_API_KEY") ?? "", baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.0-flash", name: "Gemini" },
+      { key: Deno.env.get("OPENAI_API_KEY") ?? "", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", name: "OpenAI" },
+    ].filter((p) => p.key);
+
+    if (providers.length === 0) {
+      console.warn("audit-deck: no AI key configured (LOVABLE_API_KEY / GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY), returning heuristic fallback audit");
       return new Response(JSON.stringify(buildHeuristicAudit(deckText)), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Here is the pitch deck content to analyze:\n\n${deckText.slice(0, 30000)}`,
+    for (const provider of providers) {
+      console.log(`audit-deck: analyzing with ${provider.name} (${provider.model})`);
+
+      try {
+        const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${provider.key}`,
+            "Content-Type": "application/json",
           },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "submit_audit_report",
-              description: "Submit the completed due diligence audit report",
-              parameters: {
-                type: "object",
-                properties: {
-                  companyName: { type: "string" },
-                  overallScore: { type: "number", minimum: 0, maximum: 100 },
-                  flags: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        severity: { type: "string", enum: ["high", "medium", "low"] },
-                        title: { type: "string" },
-                        body: { type: "string" },
-                        requiredFix: { type: "string" },
-                        slideRef: { type: "string" },
+          body: JSON.stringify({
+            model: provider.model,
+            max_tokens: 4096,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              {
+                role: "user",
+                content: `Here is the pitch deck content to analyze:\n\n${deckText.slice(0, 30000)}`,
+              },
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "submit_audit_report",
+                  description: "Submit the completed due diligence audit report",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      companyName: { type: "string" },
+                      overallScore: { type: "number", minimum: 0, maximum: 100 },
+                      flags: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            severity: { type: "string", enum: ["high", "medium", "low"] },
+                            title: { type: "string" },
+                            body: { type: "string" },
+                            requiredFix: { type: "string" },
+                            slideRef: { type: "string" },
+                          },
+                          required: ["severity", "title", "body", "requiredFix", "slideRef"],
+                          additionalProperties: false,
+                        },
                       },
-                      required: ["severity", "title", "body", "requiredFix", "slideRef"],
-                      additionalProperties: false,
                     },
+                    required: ["companyName", "overallScore", "flags"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["companyName", "overallScore", "flags"],
-                additionalProperties: false,
               },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "submit_audit_report" } },
-      }),
-    });
+            ],
+            tool_choice: { type: "function", function: { name: "submit_audit_report" } },
+          }),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify(buildHeuristicAudit(deckText)), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`audit-deck: ${provider.name} error`, response.status, errorText);
+          continue;
+        }
+
+        const data = await response.json();
+        const auditResult = extractAuditResult(data);
+        if (!auditResult) {
+          console.error(`audit-deck: ${provider.name} returned an unparsable response`);
+          continue;
+        }
+
+        return new Response(JSON.stringify(auditResult), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (providerError) {
+        console.error(`audit-deck: ${provider.name} request threw`, providerError);
+      }
     }
 
-    const data = await response.json();
-    const auditResult = extractAuditResult(data) ?? buildHeuristicAudit(deckText);
-
-    return new Response(JSON.stringify(auditResult), {
+    console.warn("audit-deck: all configured providers failed, returning heuristic fallback audit");
+    return new Response(JSON.stringify(buildHeuristicAudit(deckText)), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
