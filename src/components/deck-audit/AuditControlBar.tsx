@@ -1,55 +1,77 @@
 import { useState, useRef, useEffect } from "react";
-import { RefreshCw, ChevronDown, Search, Check } from "lucide-react";
+import { ChevronDown, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SECTOR_OPTIONS, GEO_OPTIONS } from "@/constants/taxonomy";
 
 interface AuditControlBarProps {
-  onRerun: (params: { profile: string; sector: string; stage: string; geo: string }) => void;
-  isRunning: boolean;
   initialProfile?: string;
   initialBenchmark?: string;
+  initialGeo?: string;
 }
 
-const investorProfiles = ["Accelerator", "Pre-Seed", "Seed Funds", "Series A", "Growth Equity"];
-const sectors = ["B2B SaaS", "Consumer", "Fintech", "Health Tech", "Climate Tech", "Deep Tech"];
-const stages = ["Pre-Seed", "Seed", "Series A", "Series B+"];
-const geos = ["US", "Europe", "LATAM", "SEA", "Global"];
+const investorProfiles = ["Accelerator", "Pre-Seed", "Seed", "Series A", "Growth Equity"];
+const businessModels = ["B2B (SMB)", "B2B (Enterprise)", "Marketplace", "Consumer", "E-Commerce"];
+// Same taxonomy used to store a company's sector everywhere else in the app, alphabetized for this dropdown.
+const sectorOptions = SECTOR_OPTIONS.map((o) => o.label).sort((a, b) => a.localeCompare(b));
+// Same canonical regions the backfill pipeline uses to populate investor geo_focus in the database.
+const geoOptions = GEO_OPTIONS.map((o) => o.label);
 
-function parseBenchmark(cohort: string) {
-  const parts = cohort.split(" / ").map((s) => s.trim());
-  return {
-    sector: sectors.includes(parts[0]) ? parts[0] : sectors[0],
-    stage: stages.includes(parts[1]) ? parts[1] : stages[1],
-    geo: geos.includes(parts[2]) ? parts[2] : geos[0],
-  };
+function sectorLabel(sectors: string[]): string {
+  if (sectors.length === 0) return "Select sector";
+  if (sectors.length === 1) return sectors[0];
+  return `${sectors[0]} +${sectors.length - 1}`;
 }
 
-export function AuditControlBar({ onRerun, isRunning, initialProfile, initialBenchmark }: AuditControlBarProps) {
-  const parsed = initialBenchmark ? parseBenchmark(initialBenchmark) : null;
-  const [profile, setProfile] = useState(initialProfile && investorProfiles.includes(initialProfile) ? initialProfile : "Seed Funds");
-  const [sector, setSector] = useState(parsed?.sector ?? sectors[0]);
-  const [stage, setStage] = useState(parsed?.stage ?? stages[1]);
-  const [geo, setGeo] = useState(parsed?.geo ?? geos[0]);
+export function AuditControlBar({ initialProfile, initialBenchmark, initialGeo }: AuditControlBarProps) {
+  const [profile, setProfile] = useState(initialProfile && investorProfiles.includes(initialProfile) ? initialProfile : "Seed");
+  const [businessModel, setBusinessModel] = useState(businessModels[0]);
+  const [sectors, setSectors] = useState<string[]>(
+    initialBenchmark && sectorOptions.includes(initialBenchmark) ? [initialBenchmark] : [sectorOptions[0]]
+  );
+  const [geo, setGeo] = useState(initialGeo && geoOptions.includes(initialGeo) ? initialGeo : geoOptions[0]);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [benchmarkOpen, setBenchmarkOpen] = useState(false);
+  const [businessModelOpen, setBusinessModelOpen] = useState(false);
+  const [sectorOpen, setSectorOpen] = useState(false);
+  const [geoOpen, setGeoOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const benchmarkRef = useRef<HTMLDivElement>(null);
+  const businessModelRef = useRef<HTMLDivElement>(null);
+  const sectorRef = useRef<HTMLDivElement>(null);
+  const geoRef = useRef<HTMLDivElement>(null);
 
-  const benchmarkLabel = `${sector} / ${stage} / ${geo}`;
+  const toggleSector = (s: string) => {
+    setSectors((prev) => {
+      if (prev.includes(s)) {
+        // Keep at least one sector selected.
+        if (prev.length === 1) return prev;
+        return prev.filter((x) => x !== s);
+      }
+      return [...prev, s];
+    });
+  };
 
-  const fireRerun = () => onRerun({ profile, sector, stage, geo });
+  const closeAllExcept = (keep: "profile" | "businessModel" | "sector" | "geo") => {
+    if (keep !== "profile") setProfileOpen(false);
+    if (keep !== "businessModel") setBusinessModelOpen(false);
+    if (keep !== "sector") setSectorOpen(false);
+    if (keep !== "geo") setGeoOpen(false);
+  };
 
   useEffect(() => {
-    if (!profileOpen && !benchmarkOpen) return;
+    if (!profileOpen && !businessModelOpen && !sectorOpen && !geoOpen) return;
 
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (profileRef.current && !profileRef.current.contains(target)) setProfileOpen(false);
-      if (benchmarkRef.current && !benchmarkRef.current.contains(target)) setBenchmarkOpen(false);
+      if (businessModelRef.current && !businessModelRef.current.contains(target)) setBusinessModelOpen(false);
+      if (sectorRef.current && !sectorRef.current.contains(target)) setSectorOpen(false);
+      if (geoRef.current && !geoRef.current.contains(target)) setGeoOpen(false);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setProfileOpen(false);
-        setBenchmarkOpen(false);
+        setBusinessModelOpen(false);
+        setSectorOpen(false);
+        setGeoOpen(false);
       }
     };
 
@@ -59,18 +81,21 @@ export function AuditControlBar({ onRerun, isRunning, initialProfile, initialBen
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [profileOpen, benchmarkOpen]);
+  }, [profileOpen, businessModelOpen, sectorOpen, geoOpen]);
+
+  const controlButtonClass =
+    "flex min-w-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-accent/40 transition-colors";
 
   return (
-    <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border px-6 py-3">
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Target Investor Profile */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Target</span>
-          <div className="relative" ref={profileRef}>
+    <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border py-3">
+      <div className="flex w-full min-w-0 items-center gap-2 flex-nowrap">
+        {/* Stage */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Stage</span>
+          <div className="relative shrink-0" ref={profileRef}>
             <button
-              onClick={() => { setProfileOpen(!profileOpen); setBenchmarkOpen(false); }}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent/40 transition-colors"
+              onClick={() => { setProfileOpen(!profileOpen); closeAllExcept("profile"); }}
+              className={cn(controlButtonClass, "whitespace-nowrap")}
             >
               {profile}
               <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", profileOpen && "rotate-180")} />
@@ -96,63 +121,121 @@ export function AuditControlBar({ onRerun, isRunning, initialProfile, initialBen
           </div>
         </div>
 
-        <div className="h-4 w-px bg-border" />
+        <div className="h-4 w-px shrink-0 bg-border" />
 
-        {/* Benchmark Against */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Benchmark</span>
-          <div className="relative" ref={benchmarkRef}>
+        {/* Business Model */}
+        <div className="flex min-w-0 shrink items-center gap-1.5">
+          <span className="hidden shrink-0 text-[10px] font-mono uppercase tracking-wider text-muted-foreground sm:inline">Model</span>
+          <div className="relative min-w-0" ref={businessModelRef}>
             <button
-              onClick={() => { setBenchmarkOpen(!benchmarkOpen); setProfileOpen(false); }}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-accent/40 transition-colors"
+              onClick={() => { setBusinessModelOpen(!businessModelOpen); closeAllExcept("businessModel"); }}
+              className={cn(controlButtonClass, "max-w-[9.5rem]")}
+              title={businessModel}
             >
-              <Search className="h-3 w-3 text-muted-foreground" />
-              {benchmarkLabel}
-              <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", benchmarkOpen && "rotate-180")} />
+              <span className="truncate">{businessModel}</span>
+              <ChevronDown className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", businessModelOpen && "rotate-180")} />
             </button>
 
-            {benchmarkOpen && (
-              <div className="absolute top-full left-0 mt-1 w-64 rounded-xl border border-border bg-card shadow-lg p-3 space-y-3 z-40">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Sector</label>
-                  <select value={sector} onChange={(e) => setSector(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground">
-                    {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Stage</label>
-                  <select value={stage} onChange={(e) => setStage(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground">
-                    {stages.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Geo</label>
-                  <select value={geo} onChange={(e) => setGeo(e.target.value)} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground">
-                    {geos.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <button
-                  onClick={() => { setBenchmarkOpen(false); fireRerun(); }}
-                  className="w-full rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground transition-colors hover:bg-accent/90"
-                >
-                  Apply
-                </button>
+            {businessModelOpen && (
+              <div className="absolute top-full left-0 mt-1 w-40 rounded-xl border border-border bg-card shadow-lg p-1 z-40">
+                {businessModels.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setBusinessModel(m); setBusinessModelOpen(false); }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      m === businessModel ? "bg-accent/10 text-accent" : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {m}
+                    {m === businessModel && <Check className="h-3 w-3" />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex-1" />
+        <div className="h-4 w-px shrink-0 bg-border" />
 
-        {/* Re-run */}
-        <button
-          onClick={fireRerun}
-          disabled={isRunning}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-accent/40 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={cn("h-3 w-3", isRunning && "animate-spin")} />
-          Re-run Audit
-        </button>
+        {/* Sector (multi-select) */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Sector</span>
+          <div className="relative min-w-0 flex-1" ref={sectorRef}>
+            <button
+              onClick={() => { setSectorOpen(!sectorOpen); closeAllExcept("sector"); }}
+              className={cn(controlButtonClass, "w-full")}
+              title={sectors.join(", ")}
+            >
+              <Search className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate">{sectorLabel(sectors)}</span>
+              <ChevronDown className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", sectorOpen && "rotate-180")} />
+            </button>
+
+            {sectorOpen && (
+              <div className="absolute top-full left-0 mt-1 max-h-80 w-72 overflow-y-auto rounded-xl border border-border bg-card shadow-lg p-1 z-40">
+                {sectorOptions.map((s) => {
+                  const selected = sectors.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => toggleSector(s)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                        selected ? "bg-accent/10 text-accent" : "text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[4px] border",
+                          selected ? "border-accent bg-accent" : "border-border"
+                        )}
+                      >
+                        {selected && <Check className="h-2.5 w-2.5 text-accent-foreground" />}
+                      </span>
+                      <span className="truncate">{s}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="h-4 w-px shrink-0 bg-border" />
+
+        {/* Geo */}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Geo</span>
+          <div className="relative shrink-0" ref={geoRef}>
+            <button
+              onClick={() => { setGeoOpen(!geoOpen); closeAllExcept("geo"); }}
+              className={cn(controlButtonClass, "max-w-[7.5rem]")}
+              title={geo}
+            >
+              <span className="truncate">{geo}</span>
+              <ChevronDown className={cn("h-3 w-3 shrink-0 text-muted-foreground transition-transform", geoOpen && "rotate-180")} />
+            </button>
+
+            {geoOpen && (
+              <div className="absolute top-full left-0 mt-1 w-44 rounded-xl border border-border bg-card shadow-lg p-1 z-40">
+                {geoOptions.map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => { setGeo(g); setGeoOpen(false); }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      g === geo ? "bg-accent/10 text-accent" : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    {g}
+                    {g === geo && <Check className="h-3 w-3" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

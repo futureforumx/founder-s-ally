@@ -1,15 +1,39 @@
 import { useState } from "react";
-import { Share2 } from "lucide-react";
+import { Share2, TrendingUp, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeckAuditView } from "./DeckAuditView";
+import { MetricsPanel } from "./data-room/MetricsPanel";
 
 const DATA_ROOM_TABS = [
   { id: "files" as const, label: "Files" },
+  { id: "metrics" as const, label: "Metrics" },
   { id: "assessment" as const, label: "Assessment" },
+  { id: "market" as const, label: "Market" },
   { id: "share" as const, label: "Share" },
+  { id: "analytics" as const, label: "Analytics" },
 ];
 
 type DataRoomTabId = (typeof DATA_ROOM_TABS)[number]["id"];
+
+function ComingSoonPanel({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof Share2;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 min-h-[40vh] text-center">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-card/70">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
 export function DataHubPage() {
   const [activeTab, setActiveTab] = useState<DataRoomTabId>("files");
@@ -38,16 +62,26 @@ export function DataHubPage() {
       </div>
 
       <div className="mt-8">
-        {activeTab === "share" ? (
-          <div className="flex flex-col items-center justify-center gap-2 min-h-[40vh] text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-card/70">
-              <Share2 className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-medium text-foreground">Sharing is coming soon</p>
-            <p className="max-w-sm text-xs text-muted-foreground">
-              You'll be able to share your pitch deck and assessment with investors directly from here.
-            </p>
-          </div>
+        {activeTab === "metrics" ? (
+          <MetricsPanel />
+        ) : activeTab === "market" ? (
+          <ComingSoonPanel
+            icon={TrendingUp}
+            title="Market intelligence is coming soon"
+            description="You'll be able to see market sizing, comps, and benchmark data tied to your deck right here."
+          />
+        ) : activeTab === "share" ? (
+          <ComingSoonPanel
+            icon={Share2}
+            title="Sharing is coming soon"
+            description="You'll be able to share your pitch deck and assessment with investors directly from here."
+          />
+        ) : activeTab === "analytics" ? (
+          <ComingSoonPanel
+            icon={BarChart3}
+            title="Analytics is coming soon"
+            description="You'll be able to track views, engagement, and investor activity on your shared materials here."
+          />
         ) : (
           <DeckAuditView activeSection={activeTab} />
         )}

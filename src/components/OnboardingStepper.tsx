@@ -11,6 +11,12 @@ import type { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 
 import { SECTOR_TAXONOMY } from "@/components/company-profile/types";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { inspectPdf } from "@/lib/pdfInspector";
+import { withTimeout } from "@/lib/withTimeout";
+
+// pdf.js's worker handshake can hang forever with no error in some environments; never wait past this.
+const PDF_TEXT_FALLBACK_TIMEOUT_MS = 12000;
 
 const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"];
 const sectors = Object.keys(SECTOR_TAXONOMY);
@@ -453,17 +459,34 @@ Rules:
       if (name.endsWith(".txt")) {
         setDeckText(await file.text());
       } else {
-        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const pages: string[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          pages.push(content.items.map((item: any) => ("str" in item ? item.str : "")).join(" "));
+        // Assess + parse with Firecrawl's pdf-inspector (runs locally in-browser, no worker
+        // needed — reliable where raw pdf.js's worker handshake can silently hang forever).
+        let extractedText = "";
+        try {
+          extractedText = (await inspectPdf(file)).markdown;
+        } catch (err) {
+          console.warn("pdf-inspector failed, falling back to pdf.js text extraction:", err);
         }
-        setDeckText(pages.join("\n\n"));
+
+        if (!extractedText) {
+          const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await withTimeout(
+            pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+            PDF_TEXT_FALLBACK_TIMEOUT_MS,
+            "Timed out reading this PDF."
+          );
+          const pages: string[] = [];
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            pages.push(content.items.map((item: any) => ("str" in item ? item.str : "")).join(" "));
+          }
+          extractedText = pages.join("\n\n");
+        }
+
+        setDeckText(extractedText);
       }
     } catch {
       setError("Failed to read file.");

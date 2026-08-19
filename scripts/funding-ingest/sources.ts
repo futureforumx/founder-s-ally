@@ -129,6 +129,129 @@ export async function fetchAlleywatchFunding(since: Date | null, maxItems: numbe
   );
 }
 
+/**
+ * TechCrunch venture category **archive** (paginated `/page/N/`, WordPress "loop-card" markup).
+ * The RSS feed (`fetchTechcrunchVenture`) only exposes the most recent ~20 posts, so when a gap
+ * is older than that (e.g. a CI outage), use this to walk back through history until `since`.
+ */
+export async function fetchTechcrunchVentureArchive(
+  since: Date | null,
+  maxItems: number,
+  log: (s: string) => void,
+  maxPages = 20,
+): Promise<ListingItem[]> {
+  const hub = LISTING_PAGE_URLS.TECHCRUNCH_VENTURE;
+  const out: ListingItem[] = [];
+  const seen = new Set<string>();
+  for (let page = 1; page <= maxPages; page++) {
+    if (out.length >= maxItems) break;
+    const pageUrl = page === 1 ? hub : `${hub}page/${page}/`;
+    let html: string;
+    try {
+      html = await fetchText(pageUrl, log);
+    } catch (e) {
+      log(`[techcrunch-archive] page ${page} failed: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+    const $ = cheerio.load(html);
+    const cards = $("div.loop-card, article.loop-card");
+    if (cards.length === 0) {
+      log(`[techcrunch-archive] page ${page} had no loop-card entries — stopping`);
+      break;
+    }
+    let oldestOnPage: Date | null = null;
+    cards.each((_, el) => {
+      const card = $(el);
+      const a = card.find("h3.loop-card__title a[href]").first();
+      const href = a.attr("href")?.trim();
+      const title = a.text().trim();
+      const dt = card.find("time.loop-card__time[datetime]").first().attr("datetime");
+      if (!href || !title || !dt) return;
+      const publishedAt = new Date(dt);
+      if (Number.isNaN(publishedAt.getTime())) return;
+      if (!oldestOnPage || publishedAt < oldestOnPage) oldestOnPage = publishedAt;
+      const url = canonicalizeArticleUrl(href);
+      if (seen.has(url)) return;
+      if (since && publishedAt <= since) return;
+      seen.add(url);
+      out.push({
+        sourceKey: "TECHCRUNCH_VENTURE",
+        listingPageUrl: hub,
+        articleUrl: url,
+        title,
+        publishedAt,
+        summary: null,
+      });
+    });
+    if (since && oldestOnPage && (oldestOnPage as Date) <= since) {
+      log(`[techcrunch-archive] page ${page} reached cutoff (${since.toISOString()}) — stopping`);
+      break;
+    }
+  }
+  return out.slice(0, maxItems);
+}
+
+/**
+ * AlleyWatch funding category **archive** (paginated `/page/N/`, Jannah/JNews theme markup).
+ * Same rationale as `fetchTechcrunchVentureArchive` — RSS only covers recent posts.
+ */
+export async function fetchAlleywatchFundingArchive(
+  since: Date | null,
+  maxItems: number,
+  log: (s: string) => void,
+  maxPages = 20,
+): Promise<ListingItem[]> {
+  const hub = LISTING_PAGE_URLS.ALLEYWATCH_FUNDING;
+  const out: ListingItem[] = [];
+  const seen = new Set<string>();
+  for (let page = 1; page <= maxPages; page++) {
+    if (out.length >= maxItems) break;
+    const pageUrl = page === 1 ? hub : `${hub}page/${page}/`;
+    let html: string;
+    try {
+      html = await fetchText(pageUrl, log);
+    } catch (e) {
+      log(`[alleywatch-archive] page ${page} failed: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+    const $ = cheerio.load(html);
+    const cards = $("article.jeg_post");
+    if (cards.length === 0) {
+      log(`[alleywatch-archive] page ${page} had no jeg_post entries — stopping`);
+      break;
+    }
+    let oldestOnPage: Date | null = null;
+    cards.each((_, el) => {
+      const card = $(el);
+      const a = card.find("h3.jeg_post_title a[href]").first();
+      const href = a.attr("href")?.trim();
+      const title = a.text().trim();
+      const dateText = card.find(".jeg_meta_date a").first().text().trim();
+      if (!href || !title || !dateText) return;
+      const publishedAt = new Date(dateText);
+      if (Number.isNaN(publishedAt.getTime())) return;
+      if (!oldestOnPage || publishedAt < oldestOnPage) oldestOnPage = publishedAt;
+      const url = canonicalizeArticleUrl(href);
+      if (seen.has(url)) return;
+      if (since && publishedAt <= since) return;
+      seen.add(url);
+      out.push({
+        sourceKey: "ALLEYWATCH_FUNDING",
+        listingPageUrl: hub,
+        articleUrl: url,
+        title,
+        publishedAt,
+        summary: null,
+      });
+    });
+    if (since && oldestOnPage && (oldestOnPage as Date) <= since) {
+      log(`[alleywatch-archive] page ${page} reached cutoff (${since.toISOString()}) — stopping`);
+      break;
+    }
+  }
+  return out.slice(0, maxItems);
+}
+
 const GEEKWIRE_FEED_CANDIDATES = [
   "https://www.geekwire.com/tag/funding/feed/",
   "https://www.geekwire.com/category/fundings/feed/",
@@ -175,6 +298,87 @@ export async function fetchGeekwireFundings(since: Date | null, maxItems: number
   return out;
 }
 
+/** Splits startups.gallery's combined "$1B · Series D" cell into separate amount / round fields. */
+function splitAmountAndRound(text: string): { amount: string | null; round: string | null } {
+  const cleaned = text.trim();
+  if (!cleaned) return { amount: null, round: null };
+  const parts = cleaned.split(/\s*[·•]\s*/).map((p) => p.trim()).filter(Boolean);
+  const amount = parts.find((p) => /[\d]/.test(p) && /[$€£]|\d/.test(p)) ?? null;
+  const round = parts.find((p) => p !== amount) ?? null;
+  return { amount, round };
+}
+
+function resolveStartupsGalleryUrl(href: string): string {
+  if (href.startsWith("http")) return href;
+  if (href.startsWith("/")) return `https://startups.gallery${href}`;
+  return `https://startups.gallery/${href.replace(/^\.\//, "")}`;
+}
+
+/**
+ * startups.gallery /news renders a structured table (Company · Round/Amount · Date · Lead
+ * Investor · Press source link) that is present in the server-rendered HTML (Framer SSR), so we
+ * can read the deal fields directly instead of guessing from surrounding text. Falls back to the
+ * link-only parser (`parseStartupsGalleryNewsLinks`) if the markup ever changes shape.
+ */
+function parseStartupsGalleryNewsRows(html: string, since: Date | null, maxItems: number): ListingItem[] {
+  const $ = cheerio.load(html);
+  const out: ListingItem[] = [];
+  const seen = new Set<string>();
+  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
+
+  $('div[data-framer-name="Post"]').each((_, el) => {
+    if (out.length >= maxItems) return false;
+    const row = $(el);
+    const nameLinks = row.find('a[data-framer-name="Company Name"][href]');
+    const companyLink = nameLinks.filter((_i, a) => /\/companies\//i.test($(a).attr("href") ?? "")).first();
+    const investorLink = nameLinks.filter((_i, a) => /\/investors\//i.test($(a).attr("href") ?? "")).first();
+    const companyHref = companyLink.attr("href")?.trim();
+    if (!companyHref) return undefined;
+
+    const companyPageUrl = canonicalizeArticleUrl(resolveStartupsGalleryUrl(companyHref));
+    const companyName = companyLink.find("p").first().text().trim() || companyLink.text().trim();
+
+    const amountText = row.find('div[data-framer-name="Amount"]').first().text().trim();
+    const { amount, round } = splitAmountAndRound(amountText);
+
+    const dateIso = row.find('div[data-framer-name="Date"] time[datetime]').first().attr("datetime");
+    const publishedAt = dateIso ? new Date(dateIso) : null;
+    const validPublishedAt = publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null;
+    if (since && validPublishedAt && validPublishedAt <= since) return undefined;
+
+    const investorName = investorLink.find("p").first().text().trim() || investorLink.text().trim() || null;
+
+    const sourceHref = row.find('a[data-framer-name="Source"][href]').first().attr("href")?.trim();
+    const articleUrl = sourceHref ? canonicalizeArticleUrl(sourceHref) : companyPageUrl;
+    if (seen.has(articleUrl)) return undefined;
+    seen.add(articleUrl);
+
+    const titleParts = [companyName, "raises", amount, round].filter(Boolean);
+    const title = titleParts.length > 1 ? titleParts.join(" ") : companyName || articleUrl;
+
+    out.push({
+      sourceKey: "STARTUPS_GALLERY_NEWS",
+      listingPageUrl: hub,
+      articleUrl,
+      title,
+      publishedAt: validPublishedAt,
+      summary: null,
+      presetDeal: companyName
+        ? {
+            company_name: companyName,
+            amount_raw: amount,
+            round_type_raw: round,
+            announced_date: validPublishedAt,
+            lead_investor: investorName,
+          }
+        : null,
+    });
+    return undefined;
+  });
+  return out;
+}
+
+/** Legacy fallback: company-page links only (no amount/round/investor/source), used if row parsing finds nothing. */
 function parseStartupsGalleryNewsLinks(html: string, since: Date | null, maxItems: number): ListingItem[] {
   const $ = cheerio.load(html);
   const out: ListingItem[] = [];
@@ -185,11 +389,7 @@ function parseStartupsGalleryNewsLinks(html: string, since: Date | null, maxItem
     if (out.length >= maxItems) return false;
     const href = $(el).attr("href")?.trim();
     if (!href) return;
-    const resolved = href.startsWith("http")
-      ? href
-      : href.startsWith("/")
-        ? `https://startups.gallery${href}`
-        : `https://startups.gallery/${href.replace(/^\.\//, "")}`;
+    const resolved = resolveStartupsGalleryUrl(href);
     if (!/\/companies\//i.test(resolved)) return;
     const url = canonicalizeArticleUrl(resolved);
     if (seen.has(url)) return;
@@ -238,27 +438,38 @@ export async function fetchStartupsGalleryNewsPlaywright(
       await sleep(400);
     }
     const html = await page.content();
-    return parseStartupsGalleryNewsLinks(html, since, maxItems);
+    const rows = parseStartupsGalleryNewsRows(html, since, maxItems);
+    return rows.length > 0 ? rows : parseStartupsGalleryNewsLinks(html, since, maxItems);
   } finally {
     await browser.close();
   }
 }
 
-/** startups.gallery /news — parse company links; fetch detail for text in pipeline. */
+/**
+ * startups.gallery /news — reads the full Company/Amount/Round/Date/Lead Investor/Source table
+ * (`parseStartupsGalleryNewsRows`) so deals carry the same structured data the site shows, not
+ * just a company link. Falls back to link-only parsing, then Playwright, so a markup change
+ * degrades gracefully instead of losing the source entirely.
+ */
 export async function fetchStartupsGalleryNews(since: Date | null, maxItems: number, log: (s: string) => void): Promise<ListingItem[]> {
   const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
   const html = await fetchText(hub, log);
-  let out = parseStartupsGalleryNewsLinks(html, since, maxItems);
+  let out = parseStartupsGalleryNewsRows(html, since, maxItems);
+
+  if (out.length === 0) {
+    log("[startups.gallery] row parser found nothing — falling back to link-only parsing");
+    out = parseStartupsGalleryNewsLinks(html, since, maxItems);
+  }
 
   if (out.length === 0 && process.env.INGEST_STARTUPS_GALLERY_PLAYWRIGHT !== "0") {
-    log("[startups.gallery] static HTML had no /companies/ links — using Playwright (Framer)");
+    log("[startups.gallery] static HTML had no deal rows/links — using Playwright (Framer)");
     try {
       out = await fetchStartupsGalleryNewsPlaywright(since, maxItems, log);
     } catch (e) {
       log(`[startups.gallery] Playwright failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   } else if (out.length === 0) {
-    log("[startups.gallery] no /companies/ links (Playwright disabled via INGEST_STARTUPS_GALLERY_PLAYWRIGHT=0)");
+    log("[startups.gallery] no deal rows/links found (Playwright disabled via INGEST_STARTUPS_GALLERY_PLAYWRIGHT=0)");
   }
   return out;
 }

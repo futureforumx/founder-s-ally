@@ -10,6 +10,20 @@ export type ListingItem = {
   title: string;
   publishedAt: Date | null;
   summary?: string | null;
+  /**
+   * Structured deal fields the listing page itself already provides (e.g. startups.gallery's
+   * Company/Amount/Round/Date/Lead Investor table). When present, these take priority over
+   * regex/AI extraction from the article body — and are used even if fetching `articleUrl`
+   * fails (e.g. a LinkedIn/X source post that blocks scraping), so the deal is never dropped
+   * for lack of a scrapeable article page.
+   */
+  presetDeal?: {
+    company_name: string | null;
+    amount_raw: string | null;
+    round_type_raw: string | null;
+    announced_date: Date | null;
+    lead_investor: string | null;
+  } | null;
 };
 
 export type ExtractedDeal = {

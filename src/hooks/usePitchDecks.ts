@@ -18,6 +18,7 @@ export interface PitchDeck {
 
 interface UploadDeckOptions {
   silent?: boolean;
+  slideCount?: number | null;
 }
 
 function parseJwtSub(token: string | null): string | null {
@@ -86,6 +87,7 @@ export function usePitchDecks() {
           file_url: uploaded.url,
           is_active: true,
           file_size_bytes: file.size,
+          slide_count: options?.slideCount ?? null,
         } as any)
         .select()
         .single();
@@ -119,6 +121,24 @@ export function usePitchDecks() {
     } catch (err) {
       console.error("Failed to set active:", err);
       toast({ title: "Failed to update", variant: "destructive" });
+    }
+  }, [fetchDecks]);
+
+  const renameDeck = useCallback(async (deckId: string, newFileName: string) => {
+    const trimmed = newFileName.trim();
+    if (!trimmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("company_pitch_decks" as any)
+        .update({ file_name: trimmed } as any)
+        .eq("id", deckId);
+
+      if (error) throw error;
+      await fetchDecks();
+    } catch (err) {
+      console.error("Failed to rename deck:", err);
+      toast({ title: "Rename failed", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
     }
   }, [fetchDecks]);
 
@@ -161,5 +181,5 @@ export function usePitchDecks() {
     }
   }, []);
 
-  return { decks, activeDeck, loading, uploadDeck, makeActive, deleteDeck, getDownloadUrl, refetch: fetchDecks };
+  return { decks, activeDeck, loading, uploadDeck, makeActive, renameDeck, deleteDeck, getDownloadUrl, refetch: fetchDecks };
 }

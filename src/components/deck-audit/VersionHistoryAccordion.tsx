@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2, ChevronDown } from "lucide-react";
+import { FileText, MoreHorizontal, Download, CheckCircle2, Archive, Trash2, Loader2, ChevronDown, Pencil, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import type { PitchDeck } from "@/hooks/usePitchDecks";
+import { useCompanyBranding } from "@/hooks/useCompanyBranding";
+import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
+
+const ROW_GRID_COLS = "grid-cols-[40px_minmax(0,1fr)_64px_88px_168px_92px_32px]";
 
 interface VersionHistoryAccordionProps {
   decks: PitchDeck[];
   loading: boolean;
   actionLoading: string | null;
   onDownload: (deck: PitchDeck) => void;
+  onRename: (deck: PitchDeck, newFileName: string) => void;
   onMakeActive: (deck: PitchDeck) => void;
   onDelete: (deck: PitchDeck) => void;
 }
@@ -21,50 +26,184 @@ function formatFileSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function EditableDeckName({
+  fileName,
+  onRename,
+  disabled,
+}: {
+  fileName: string;
+  onRename: (newFileName: string) => void;
+  disabled?: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(fileName);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) setValue(fileName);
+  }, [fileName, isEditing]);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [isEditing]);
+
+  const commit = () => {
+    setIsEditing(false);
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== fileName) onRename(trimmed);
+    else setValue(fileName);
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { e.preventDefault(); setValue(fileName); setIsEditing(false); }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="min-w-0 rounded-md border border-primary/40 bg-background px-1.5 py-0.5 text-sm font-semibold text-foreground outline-none ring-2 ring-primary/20"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => setIsEditing(true)}
+      className="group/name flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 -mx-1.5 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed"
+    >
+      <span className="text-sm font-semibold text-foreground truncate min-w-0">{fileName}</span>
+      <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/0 group-hover/name:text-muted-foreground/70 transition-colors" />
+    </button>
+  );
+}
+
+function StatusBadge({
+  deck,
+  disabled,
+  onMakeActive,
+}: {
+  deck: PitchDeck;
+  disabled?: boolean;
+  onMakeActive: (deck: PitchDeck) => void;
+}) {
+  if (deck.is_active) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success shrink-0 justify-self-start">
+        <CheckCircle2 className="h-3 w-3" /> Active
+      </span>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shrink-0 justify-self-start transition-colors hover:bg-muted/70 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Archive className="h-3 w-3" /> Archived
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-36">
+        <DropdownMenuItem onClick={() => onMakeActive(deck)}>
+          <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Active
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled className="text-muted-foreground/70">
+          <Archive className="h-3.5 w-3.5 mr-2" /> Archived
+          <Check className="h-3.5 w-3.5 ml-auto" />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function DeckRow({
   deck,
   actionLoading,
   onDownload,
+  onRename,
   onMakeActive,
   onDelete,
   muted = false,
+  companyName,
+  logoUrl,
+  websiteUrl,
+  hasProfile,
 }: {
   deck: PitchDeck;
   actionLoading: string | null;
   onDownload: (d: PitchDeck) => void;
+  onRename: (d: PitchDeck, newFileName: string) => void;
   onMakeActive: (d: PitchDeck) => void;
   onDelete: (d: PitchDeck) => void;
   muted?: boolean;
+  companyName: string | null;
+  logoUrl: string | null;
+  websiteUrl: string | null;
+  hasProfile: boolean;
 }) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-4 rounded-xl border px-4 py-3 transition-all duration-200",
+        "group grid items-center gap-4 rounded-xl border px-4 py-3 transition-all duration-200",
+        ROW_GRID_COLS,
         deck.is_active
           ? "border-success/30 bg-success/5 shadow-sm"
           : "border-border bg-card hover:border-border/80 hover:shadow-sm",
         muted && "opacity-70 hover:opacity-100"
       )}
     >
-      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", deck.is_active ? "bg-success/10" : "bg-muted")}>
-        <FileText className={cn("h-5 w-5", deck.is_active ? "text-success" : "text-muted-foreground")} />
+      <div
+        className={cn(
+          "h-10 w-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border",
+          deck.is_active ? "bg-success/10 border-success/20" : "bg-muted border-border/60"
+        )}
+      >
+        <CompanySettingsLogo
+          companyName={companyName}
+          logoUrl={logoUrl}
+          websiteUrl={websiteUrl}
+          hasProfile={hasProfile}
+          size={40}
+          alt={companyName ? `${companyName} logo` : "Company logo"}
+          imgClassName="h-full w-full object-contain p-1.5"
+          initialClassName={cn("text-sm font-semibold", deck.is_active ? "text-success" : "text-muted-foreground")}
+          iconClassName={cn("h-5 w-5", deck.is_active ? "text-success" : "text-muted-foreground")}
+        />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{deck.file_name}</p>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-xs text-muted-foreground">{format(new Date(deck.uploaded_at), "MMM d, yyyy · h:mm a")}</span>
-          {deck.file_size_bytes && <span className="text-xs text-muted-foreground/60">{formatFileSize(deck.file_size_bytes)}</span>}
-        </div>
-      </div>
-      {deck.is_active ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success shrink-0">
-          <CheckCircle2 className="h-3 w-3" /> Active
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground shrink-0">
-          <Archive className="h-3 w-3" /> Archived
-        </span>
-      )}
+
+      <EditableDeckName
+        fileName={deck.file_name}
+        onRename={(newFileName) => onRename(deck, newFileName)}
+        disabled={actionLoading === deck.id}
+      />
+
+      <span className="text-xs text-muted-foreground/80 font-mono tabular-nums whitespace-nowrap">
+        {deck.slide_count ? `${deck.slide_count}` : "—"}
+      </span>
+
+      <span className="text-xs text-muted-foreground/80 font-mono tabular-nums whitespace-nowrap">
+        {deck.file_size_bytes ? formatFileSize(deck.file_size_bytes) : "—"}
+      </span>
+
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {format(new Date(deck.uploaded_at), "MMM d, yyyy · h:mm a")}
+      </span>
+
+      <StatusBadge deck={deck} disabled={actionLoading === deck.id} onMakeActive={onMakeActive} />
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
@@ -75,11 +214,6 @@ function DeckRow({
           <DropdownMenuItem onClick={() => onDownload(deck)}>
             <Download className="h-3.5 w-3.5 mr-2" /> Download
           </DropdownMenuItem>
-          {!deck.is_active && (
-            <DropdownMenuItem onClick={() => onMakeActive(deck)}>
-              <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Make Active
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem onClick={() => onDelete(deck)} className="text-destructive focus:text-destructive">
             <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
           </DropdownMenuItem>
@@ -89,12 +223,15 @@ function DeckRow({
   );
 }
 
-export function VersionHistoryAccordion({ decks, loading, actionLoading, onDownload, onMakeActive, onDelete }: VersionHistoryAccordionProps) {
+export function VersionHistoryAccordion({ decks, loading, actionLoading, onDownload, onRename, onMakeActive, onDelete }: VersionHistoryAccordionProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { companyName, logoUrl, websiteUrl, hasProfile } = useCompanyBranding();
 
   const activeDeck = decks.find((d) => d.is_active);
   const archivedDecks = decks.filter((d) => !d.is_active);
   const archivedCount = archivedDecks.length;
+
+  const brandingProps = { companyName, logoUrl, websiteUrl, hasProfile };
 
   return (
     <div className="space-y-4">
@@ -120,9 +257,20 @@ export function VersionHistoryAccordion({ decks, loading, actionLoading, onDownl
         </div>
       ) : (
         <div className="flex flex-col">
+          {/* Column headers */}
+          <div className={cn("grid items-center gap-4 px-4 pb-2", ROW_GRID_COLS)}>
+            <span />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Name</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Slides</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Size</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Uploaded</span>
+            <span />
+            <span />
+          </div>
+
           {/* Active deck row */}
           {activeDeck && (
-            <DeckRow deck={activeDeck} actionLoading={actionLoading} onDownload={onDownload} onMakeActive={onMakeActive} onDelete={onDelete} />
+            <DeckRow deck={activeDeck} actionLoading={actionLoading} onDownload={onDownload} onRename={onRename} onMakeActive={onMakeActive} onDelete={onDelete} {...brandingProps} />
           )}
 
           {/* Toggle button */}
@@ -145,7 +293,7 @@ export function VersionHistoryAccordion({ decks, loading, actionLoading, onDownl
               >
                 <div className="flex flex-col gap-2 pt-1">
                   {archivedDecks.map((deck) => (
-                    <DeckRow key={deck.id} deck={deck} actionLoading={actionLoading} onDownload={onDownload} onMakeActive={onMakeActive} onDelete={onDelete} muted />
+                    <DeckRow key={deck.id} deck={deck} actionLoading={actionLoading} onDownload={onDownload} onRename={onRename} onMakeActive={onMakeActive} onDelete={onDelete} muted {...brandingProps} />
                   ))}
                 </div>
               </div>

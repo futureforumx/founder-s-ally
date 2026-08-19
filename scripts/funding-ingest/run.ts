@@ -180,13 +180,28 @@ async function main() {
       for (const item of items) {
         const canonical = canonicalizeArticleUrl(item.articleUrl);
         try {
-          const html = await fetchArticleHtml(canonical, log);
-          const plain = stripHtml(html);
-          const hash = createHash("sha256").update(plain).digest("hex");
+          let html = "";
+          let plain = "";
+          try {
+            html = await fetchArticleHtml(canonical, log);
+            plain = stripHtml(html);
+          } catch (fetchErr) {
+            // Some listings (e.g. startups.gallery) already hand us structured deal fields —
+            // don't drop the deal just because the linked press page (often LinkedIn/X, which
+            // blocks scraping) couldn't be fetched.
+            if (!item.presetDeal) throw fetchErr;
+            log(
+              `[${key}] article fetch failed for ${canonical} — using listing-provided deal data: ` +
+                `${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
+            );
+          }
+          const hash = createHash("sha256")
+            .update(plain || canonical)
+            .digest("hex");
 
           let ex = extractDeterministic(item.title, html);
           if (item.publishedAt && !ex.announced_date) ex.announced_date = item.publishedAt;
-          if (USE_OPENAI) {
+          if (USE_OPENAI && plain) {
             try {
               const ai = await extractWithOpenAI(item.title, plain);
               if (ai) {
@@ -226,6 +241,25 @@ async function main() {
                 payload_json: { error: e instanceof Error ? e.message : String(e) },
               });
             }
+          }
+
+          if (item.presetDeal) {
+            const preset = item.presetDeal;
+            const presetMoney = parseMoneyToUsdMinorUnits(preset.amount_raw);
+            ex = {
+              ...ex,
+              company_name: preset.company_name ?? ex.company_name,
+              round_type_raw: preset.round_type_raw ?? ex.round_type_raw,
+              amount_raw: preset.amount_raw ?? ex.amount_raw,
+              amount_minor_units: presetMoney.amount_minor_units ?? ex.amount_minor_units,
+              currency: presetMoney.amount_minor_units ? presetMoney.currency : ex.currency,
+              announced_date: preset.announced_date ?? ex.announced_date ?? item.publishedAt,
+              lead_investors: preset.lead_investor
+                ? sanitizeInvestorList([preset.lead_investor, ...ex.lead_investors])
+                : ex.lead_investors,
+              extraction_confidence: Math.max(ex.extraction_confidence, 0.85),
+              extraction_method: ex.extraction_method === "regex" ? "hybrid" : ex.extraction_method,
+            };
           }
 
           ex.round_type_normalized = normalizeRound(ex.round_type_raw);

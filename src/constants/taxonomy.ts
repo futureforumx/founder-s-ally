@@ -118,6 +118,20 @@ export const SECTOR_OPTIONS: SectorOption[] = [
   },
 ];
 
+// ── Geography Options (canonical regions — mirrors the region tags produced by
+// src/backfill/parsers/geo-parser.ts, which is what populates geo_focus /
+// geography_focus columns for investor firms in the database) ──
+
+export const GEO_OPTIONS: TaxonomyOption[] = [
+  { label: "North America", description: "United States, Canada, Mexico", search_tags: ["us", "usa", "united states", "canada", "mexico", "north america"] },
+  { label: "Europe", description: "UK, EU, and broader Europe", search_tags: ["europe", "eu", "emea", "uk", "germany", "france"] },
+  { label: "Asia-Pacific", description: "Asia, Southeast Asia, and Oceania", search_tags: ["asia", "apac", "asia pacific", "southeast asia", "india", "china", "japan", "singapore", "australia"] },
+  { label: "LatAm", description: "Latin America", search_tags: ["latam", "latin america", "brazil", "argentina", "colombia"] },
+  { label: "MENA", description: "Middle East & North Africa", search_tags: ["mena", "middle east", "israel", "uae", "saudi arabia"] },
+  { label: "Africa", description: "Sub-Saharan Africa", search_tags: ["africa", "sub-saharan", "nigeria", "south africa", "kenya"] },
+  { label: "Global", description: "No specific regional focus", search_tags: ["global", "worldwide", "international"] },
+];
+
 // ── Business Model Options ──
 
 export const BUSINESS_MODEL_OPTIONS: TaxonomyOption[] = [

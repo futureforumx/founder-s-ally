@@ -141,14 +141,14 @@ export function FreshCapitalHero({ onScrollToFeed }: Props) {
               className="h-[30px] rounded-full border-white/25 bg-white/10 px-4 text-xs font-medium leading-none text-white hover:bg-white/15 hover:text-white"
               asChild
             >
-              <Link
-                to="/access"
+              <a
+                href="https://vekta.so/register?utm_source=funding_board"
                 onClick={() => {
                   trackFreshCapitalGetFullAccess();
                 }}
               >
                 Get full access
-              </Link>
+              </a>
             </Button>
           </div>
         </div>

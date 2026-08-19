@@ -34,8 +34,8 @@ function normalizeAuditResponse(raw: any): AuditResult {
     deck_version_id: "current",
     metadata: {
       analyzed_at: new Date().toISOString(),
-      target_investor: "Seed Funds",
-      benchmark_cohort: "B2B SaaS / Seed / US",
+      target_investor: "Seed",
+      benchmark_cohort: "Enterprise Software & SaaS",
     },
     multi_axis_scores: {
       readiness_score: raw.overallScore ?? 50,
@@ -85,8 +85,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     return null;
   });
   const [compareMode, setCompareMode] = useState(false);
-  const [isRerunning, setIsRerunning] = useState(false);
-  const { decks, activeDeck, loading, uploadDeck, makeActive, deleteDeck, getDownloadUrl } = usePitchDecks();
+  const { decks, activeDeck, loading, uploadDeck, makeActive, renameDeck, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [activeDeckSignedUrl, setActiveDeckSignedUrl] = useState<string | null>(null);
@@ -100,11 +99,11 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     })();
   }, [activeDeck, getDownloadUrl]);
 
-  const handleUpload = useCallback(async (deckText: string, file?: File) => {
+  const handleUpload = useCallback(async (deckText: string, file?: File, pageCount?: number) => {
     setState("processing");
     try {
       if (file) {
-        const savedDeck = await uploadDeck(file, { silent: true });
+        const savedDeck = await uploadDeck(file, { silent: true, slideCount: pageCount ?? null });
         if (!savedDeck) {
           toast({
             title: "Continuing without version save",
@@ -150,15 +149,9 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
   /** Called from the import modal — kicks off the audit for the newly imported deck */
-  const handleNewDeckImport = useCallback((deckText: string) => {
-    handleUpload(deckText);
+  const handleNewDeckImport = useCallback((deckText: string, file?: File, pageCount?: number) => {
+    handleUpload(deckText, file, pageCount);
   }, [handleUpload]);
-
-  const handleRerun = useCallback((_params: { profile: string; sector: string; stage: string; geo: string }) => {
-    setIsRerunning(true);
-    setTimeout(() => setIsRerunning(false), 2000);
-    toast({ title: "Audit refreshed", description: "Scores updated with new benchmark parameters." });
-  }, []);
 
   const handleDownload = async (deck: PitchDeck) => {
     setActionLoading(deck.id);
@@ -169,6 +162,13 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
       a.download = deck.file_name;
       a.click();
     }
+    setActionLoading(null);
+  };
+
+  const handleRename = async (deck: PitchDeck, newFileName: string) => {
+    if (newFileName.trim() === deck.file_name) return;
+    setActionLoading(deck.id);
+    await renameDeck(deck.id, newFileName);
     setActionLoading(null);
   };
 
@@ -199,6 +199,11 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   if (activeSection === "files") {
     return (
       <div className="space-y-8">
+        <AuditControlBar
+          initialProfile={result?.metadata.target_investor}
+          initialBenchmark={result?.metadata.benchmark_cohort}
+        />
+
         {state === "upload" ? (
           <div className="flex flex-col items-center justify-center min-h-[40vh]">
             <div className="w-full max-w-xl">
@@ -233,6 +238,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
           loading={loading}
           actionLoading={actionLoading}
           onDownload={handleDownload}
+          onRename={handleRename}
           onMakeActive={handleMakeActive}
           onDelete={handleDelete}
         />
@@ -254,13 +260,6 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
 
   return (
     <div className="flex flex-col min-h-0">
-      <AuditControlBar
-        onRerun={handleRerun}
-        isRunning={isRerunning}
-        initialProfile={result.metadata.target_investor}
-        initialBenchmark={result.metadata.benchmark_cohort}
-      />
-
       <div className="space-y-8 px-6 py-6">
         <div>
           <h2 className="text-lg font-bold text-foreground">Deck Audit Report</h2>

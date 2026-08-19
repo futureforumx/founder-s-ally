@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Lightbulb, MessageSquareWarning, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import type { SlideAnalysis } from "./types";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { withTimeout } from "@/lib/withTimeout";
+
+// pdf.js's worker handshake can hang forever with no error in some environments; never wait past this.
+const PDF_RENDER_TIMEOUT_MS = 12000;
 
 interface SlideCoachingViewProps {
   slides: SlideAnalysis[];
@@ -23,11 +28,15 @@ export function SlideCoachingView({ slides, deckUrl }: SlideCoachingViewProps) {
 
     try {
       const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await withTimeout(
+        pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+        PDF_RENDER_TIMEOUT_MS,
+        "Timed out rendering PDF slides."
+      );
 
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");

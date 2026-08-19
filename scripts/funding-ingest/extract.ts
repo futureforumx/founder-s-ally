@@ -1,13 +1,40 @@
 import { normalizeCompanyName, normalizeInvestorName, normalizeRound, parseMoneyToUsdMinorUnits } from "./normalize.js";
 import type { ExtractedDeal } from "./types.js";
 
+const NAMED_HTML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  hellip: "…",
+  mdash: "—",
+  ndash: "–",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201c",
+  rdquo: "\u201d",
+};
+
+/** WordPress/CMS output leaves entities (`&#8212;`, `&amp;`, `&#8217;`) in text nodes — decode them
+ * so downstream regexes (which key off literal `&`, em-dash, etc.) see the real characters. */
+export function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&([a-z]+);/gi, (m, name: string) => NAMED_HTML_ENTITIES[name.toLowerCase()] ?? m);
+}
+
 export function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return decodeHtmlEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 }
 
 function extractUrls(text: string): string[] {
@@ -37,12 +64,12 @@ export function isLikelyVcFundVehicleHeadline(title: string, bodyPlain: string):
   const blob = `${t}\n${b}`;
   // GP raising to deploy (classic TechCrunch VC fund close headline)
   if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,160}\bto back\b/.test(t)) return true;
-  // "… raises $XM fund …" / new fund (not "seed round" alone — require word "fund")
-  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\s+fund\b/.test(t)) return true;
-  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\b(new|latest|inaugural)\s+fund\b/.test(t)) return true;
-  if (/\bcloses\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,160}\bfund\b/.test(blob)) return true;
-  if (/\bfinal\s+close\b[^.]{0,120}\bfund\b/.test(blob)) return true;
-  if (/\blp\s+commitments?\b/.test(blob) && /\bfund\b/.test(blob) && /\$\s*[\d,.]+[kmb]?\b/.test(blob)) return true;
+  // "… raises $XM fund(s) …" / new fund (not "seed round" alone — require word "fund"/"funds")
+  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\s+funds?\b/.test(t)) return true;
+  if (/\braises\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,120}\b(new|latest|inaugural)\s+funds?\b/.test(t)) return true;
+  if (/\bcloses\s+\$[\d,.]+\s*[kmb]?\b[^.]{0,160}\bfunds?\b/.test(blob)) return true;
+  if (/\bfinal\s+close\b[^.]{0,120}\bfunds?\b/.test(blob)) return true;
+  if (/\blp\s+commitments?\b/.test(blob) && /\bfunds?\b/.test(blob) && /\$\s*[\d,.]+[kmb]?\b/.test(blob)) return true;
   return false;
 }
 
@@ -150,9 +177,18 @@ export function extractDeterministic(title: string, bodyHtml: string): Extracted
   const round_type_raw = roundMatch ? roundMatch[0]!.trim() : null;
   const round_type_normalized = normalizeRound(round_type_raw);
 
+  // Bounded by sentence/clause breaks — `stripHtml` collapses newlines to spaces, so an unbounded
+  // `[^|\n]+` here used to swallow the rest of the article; em-dashes/semicolons/colons also start
+  // a new descriptive clause in TechCrunch-style headlines ("Foo — the latest sign of...").
   const led =
-    body.match(/\bled\s+by\s+([^|\n]+)/i) ||
-    body.match(/\bled\s+([^|\n]+)/i);
+    body.match(/\bled\s+by\s+([^.\n—–;:]+)/i) ||
+    body.match(/\bled\s+([^.\n—–;:]+)/i);
+  if (led) {
+    // "Acme, with (continued) participation from Beta, Gamma" — cut before the participation
+    // clause so it isn't folded into the lead-investor list (it's captured separately below).
+    led[1] = led[1]!.replace(/,?\s*(?:with|and)\s+(?:continued\s+)?participation\s+from\s+[\s\S]*$/i, "");
+    led[1] = led[1]!.replace(/,?\s*(?:with|and|alongside)\s+(?:new\s+|existing\s+)?investors?\s+[\s\S]*$/i, "");
+  }
   const participation =
     body.match(/participation\s+from\s+([^.\n]+)/i) ||
     body.match(/(?:also\s+)?participating(?:\s+investors?)?[:\s]+([^.\n]+)/i) ||

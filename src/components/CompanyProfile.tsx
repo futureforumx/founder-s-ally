@@ -18,6 +18,12 @@ import {
 } from "@/integrations/supabase/client";
 import { uploadR2UserAsset } from "@/lib/r2UserAssets";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { inspectPdf } from "@/lib/pdfInspector";
+import { withTimeout } from "@/lib/withTimeout";
+
+// pdf.js's worker handshake can hang forever with no error in some environments; never wait past this.
+const PDF_TEXT_FALLBACK_TIMEOUT_MS = 12000;
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
@@ -876,16 +882,32 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try {
       if (name.endsWith(".txt")) { const txt = await file.text(); setDeckText(txt); try { sessionStorage.setItem("pending-deck-audit", txt); } catch {} }
       else {
-        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-        const pages: string[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ")}`);
+        // Assess + parse with Firecrawl's pdf-inspector (runs locally in-browser, no worker
+        // needed — reliable where raw pdf.js's worker handshake can silently hang forever).
+        let extractedText = "";
+        try {
+          extractedText = (await inspectPdf(file)).markdown;
+        } catch (err) {
+          console.warn("pdf-inspector failed, falling back to pdf.js text extraction:", err);
         }
-        const extractedText = pages.join("\n\n");
+
+        if (!extractedText) {
+          const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+          const pdf = await withTimeout(
+            pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise,
+            PDF_TEXT_FALLBACK_TIMEOUT_MS,
+            "Timed out reading this PDF."
+          );
+          const pages: string[] = [];
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ")}`);
+          }
+          extractedText = pages.join("\n\n");
+        }
+
         setDeckText(extractedText);
         try { sessionStorage.setItem("pending-deck-audit", extractedText); } catch {}
       }

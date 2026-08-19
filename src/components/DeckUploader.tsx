@@ -2,9 +2,19 @@ import { AlertCircle } from "lucide-react";
 import { useState, useCallback, useRef } from "react";
 import { inspectPdf } from "@/lib/pdfInspector";
 import { Ripple } from "@/components/loading-ui/ripple";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { withTimeout } from "@/lib/withTimeout";
+
+// pdf.js's worker handshake can hang forever with no error in some environments; never wait past this.
+const PDF_TEXT_FALLBACK_TIMEOUT_MS = 12000;
 
 interface DeckUploaderProps {
-  onUpload: (text: string, file?: File) => void;
+  onUpload: (text: string, file?: File, pageCount?: number) => void;
+}
+
+interface ParsedDeck {
+  text: string;
+  pageCount?: number;
 }
 
 export function DeckUploader({ onUpload }: DeckUploaderProps) {
@@ -13,29 +23,35 @@ export function DeckUploader({ onUpload }: DeckUploaderProps) {
   const [isExtracting, setIsExtracting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseDeckFromFile = useCallback(async (file: File): Promise<string> => {
+  const parseDeckFromFile = useCallback(async (file: File): Promise<ParsedDeck> => {
     const name = file.name.toLowerCase();
 
     if (name.endsWith(".txt") || name.endsWith(".md")) {
-      return await file.text();
+      return { text: await file.text() };
     }
 
     if (name.endsWith(".pdf")) {
       // Assess + parse with Firecrawl's pdf-inspector (runs locally in-browser, no upload).
       let text = "";
+      let pageCount: number | undefined;
       try {
         const inspected = await inspectPdf(file);
         text = inspected.markdown;
+        pageCount = inspected.pageCount;
       } catch (err) {
         console.warn("pdf-inspector failed, falling back to pdf.js text extraction:", err);
       }
-      if (text) return text;
+      if (text) return { text, pageCount };
 
       // Fallback: pdf.js text extraction if the WASM parser can't load, errors, or comes back empty.
       const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await withTimeout(
+        pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+        PDF_TEXT_FALLBACK_TIMEOUT_MS,
+        "Timed out reading this PDF."
+      );
       const fallbackPages: string[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -47,7 +63,7 @@ export function DeckUploader({ onUpload }: DeckUploaderProps) {
         fallbackPages.push(`[Slide ${String(i).padStart(2, "0")}]\n${pageText}`);
       }
 
-      return fallbackPages.join("\n\n");
+      return { text: fallbackPages.join("\n\n"), pageCount: pdf.numPages };
     }
 
     throw new Error("Unsupported file type. Please upload a PDF or TXT file.");
@@ -63,12 +79,12 @@ export function DeckUploader({ onUpload }: DeckUploaderProps) {
 
     setIsExtracting(true);
     try {
-      const text = await parseDeckFromFile(file);
+      const { text, pageCount } = await parseDeckFromFile(file);
       if (text.trim().length < 50) {
         setError("Could not extract enough text from this file. Try a different format.");
         return;
       }
-      onUpload(text, file);
+      onUpload(text, file, pageCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to read file.");
     } finally {

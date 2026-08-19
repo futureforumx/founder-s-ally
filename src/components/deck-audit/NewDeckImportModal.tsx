@@ -2,16 +2,53 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, Link2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { BobbingDots } from "@/components/loading-ui/bobbing-dots";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { inspectPdf } from "@/lib/pdfInspector";
+import { withTimeout } from "@/lib/withTimeout";
+
+// pdf.js's worker handshake can hang forever with no error in some environments; never wait past these.
+const PDF_PREVIEW_TIMEOUT_MS = 6000;
+const PDF_TEXT_FALLBACK_TIMEOUT_MS = 12000;
 
 interface NewDeckImportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (text: string) => void;
+  onImport: (text: string, file?: File, pageCount?: number) => void;
 }
 
 interface ParsedDeck {
   text: string;
   pageImages: string[];
+  pageCount?: number;
+}
+
+/** Best-effort page-image thumbnails via pdf.js; hard-timeboxed and never throws. */
+async function renderPagePreviews(file: File): Promise<string[]> {
+  const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await withTimeout(
+    pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+    PDF_PREVIEW_TIMEOUT_MS,
+    "Timed out rendering previews."
+  );
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [];
+
+  const previews: string[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 0.75 });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    previews.push(canvas.toDataURL("image/jpeg", 0.82));
+  }
+  return previews;
 }
 
 export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImportModalProps) {
@@ -20,6 +57,8 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
   const [error, setError] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [pendingImportText, setPendingImportText] = useState<string | null>(null);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [pendingPageCount, setPendingPageCount] = useState<number | undefined>(undefined);
   const [pagePreviews, setPagePreviews] = useState<string[]>([]);
   const [activePreviewPage, setActivePreviewPage] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +69,8 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
     setError(null);
     setIsExtracting(false);
     setPendingImportText(null);
+    setPendingImportFile(null);
+    setPendingPageCount(undefined);
     setPagePreviews([]);
     setActivePreviewPage(0);
   }, []);
@@ -50,37 +91,46 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
     }
 
     if (name.endsWith(".pdf")) {
-      const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Assess + parse with Firecrawl's pdf-inspector (runs locally in-browser, no worker
+      // needed — reliable where raw pdf.js's worker handshake can silently hang forever).
+      // Page image previews are best-effort only via pdf.js and run in parallel, hard-timeboxed
+      // so a stuck renderer can never block the import.
+      const [textResult, previews] = await Promise.all([
+        inspectPdf(file)
+          .then((inspected) => ({ text: inspected.markdown, pageCount: inspected.pageCount }))
+          .catch((err) => {
+            console.warn("pdf-inspector failed, falling back to pdf.js text extraction:", err);
+            return { text: "", pageCount: undefined as number | undefined };
+          }),
+        renderPagePreviews(file).catch(() => [] as string[]),
+      ]);
 
-      const pages: string[] = [];
-      const previews: string[] = [];
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
+      let { text, pageCount } = textResult;
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
+      if (!text) {
+        // Fallback: pdf.js text extraction, hard-timeboxed so it can never hang the modal
+        // if the worker never responds.
+        const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await withTimeout(
+          pdfjsLib.getDocument({ data: arrayBuffer }).promise,
+          PDF_TEXT_FALLBACK_TIMEOUT_MS,
+          "Timed out reading this PDF."
+        );
 
-        const content = await page.getTextContent();
-        const text = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
-        pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${text}`);
-
-        if (ctx) {
-          const viewport = page.getViewport({ scale: 0.75 });
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          previews.push(canvas.toDataURL("image/jpeg", 0.82));
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ");
+          pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${pageText}`);
         }
+        text = pages.join("\n\n");
+        pageCount = pdf.numPages;
       }
 
-      return {
-        text: pages.join("\n\n"),
-        pageImages: previews,
-      };
+      return { text, pageImages: previews, pageCount };
     }
 
     throw new Error("Unsupported file type. Please upload a PDF or TXT file.");
@@ -103,6 +153,8 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
       }
 
       setPendingImportText(parsed.text);
+      setPendingImportFile(file);
+      setPendingPageCount(parsed.pageCount);
       setPagePreviews(parsed.pageImages);
       setActivePreviewPage(0);
     } catch (err) {
@@ -152,6 +204,8 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
       }
 
       setPendingImportText(`[Link Import]\nImported deck from: ${linkUrl}\n\n${markdown}`);
+      setPendingImportFile(null);
+      setPendingPageCount(undefined);
       setPagePreviews([]);
       setActivePreviewPage(0);
     } catch {
@@ -163,9 +217,9 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
 
   const handleConfirmImport = useCallback(() => {
     if (!pendingImportText) return;
-    onImport(pendingImportText);
+    onImport(pendingImportText, pendingImportFile ?? undefined, pendingPageCount);
     handleModalOpenChange(false);
-  }, [handleModalOpenChange, onImport, pendingImportText]);
+  }, [handleModalOpenChange, onImport, pendingImportText, pendingImportFile, pendingPageCount]);
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={handleModalOpenChange}>
@@ -232,15 +286,15 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
                     : "border-border bg-muted/30 hover:border-primary/40 hover:bg-muted/50"
                 }`}
               >
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center transition-colors ${
-                  isDragging ? "bg-primary/10" : "bg-muted"
-                }`}>
-                  {isExtracting ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  ) : (
+                {isExtracting ? (
+                  <BobbingDots className="w-16 text-primary" />
+                ) : (
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center transition-colors ${
+                    isDragging ? "bg-primary/10" : "bg-muted"
+                  }`}>
                     <Upload className={`h-5 w-5 ${isDragging ? "text-primary" : "text-muted-foreground"}`} />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="text-center">
                   <p className="text-sm font-medium text-foreground">
                     {isExtracting ? "Reading your deck..." : "Drag and drop PDF or PPTX, or click to browse"}

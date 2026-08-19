@@ -625,9 +625,6 @@ export function FreshCapitalLiveFeed({
                   </span>
                   <span className="text-xs text-zinc-500">{lastUpdatedLabel}</span>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-                  Recent raises, sorted for signal—updated as new funds hit the wire.
-                </p>
               </div>
             </div>
 
