@@ -2626,7 +2626,7 @@ function SubscriptionTab() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {POLAR_PLANS.map((plan) => {
             const isCurrent = currentProductId === plan.productId;
             const price = billingCycle === "annually" ? plan.priceAnnually : plan.priceMonthly;

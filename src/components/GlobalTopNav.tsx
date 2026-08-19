@@ -300,7 +300,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
 
 // ── Filter chips config ──
 const FILTER_CHIPS = [
-  { id: "all", label: "INVESTORS", icon: ListFilter },
+  { id: "all", label: "Investors", icon: ListFilter },
   { id: "matches", label: "Matches", icon: Zap },
   { id: "sector", label: "Sector", icon: Building2 },
   { id: "stage", label: "Stage", icon: TrendingUp },
@@ -1083,7 +1083,7 @@ export function GlobalTopNav({
           "left 320ms cubic-bezier(0.16, 1, 0.3, 1), background-color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, backdrop-filter 300ms ease",
       }}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className={cn("flex min-w-0 flex-1 items-center gap-3", searchOpen && "overflow-visible")}>
         {/* ── Left: Pulse ── */}
         <div className="flex min-w-0 shrink-0 items-center gap-2.5">
           {(isInvestorArea || isCommunityArea) ? (
@@ -1118,7 +1118,13 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Search ── */}
-        <div ref={searchRef} className={cn("relative transition-all duration-300", searchOpen ? "min-w-[220px] flex-1 max-w-4xl" : "")}>
+        <div
+          ref={searchRef}
+          className={cn(
+            "relative transition-all duration-300",
+            searchOpen ? "z-[60] min-w-[min(100%,28rem)] flex-1 max-w-4xl overflow-visible" : "",
+          )}
+        >
           {searchOpen ? (
             <div className="group flex h-9 w-full items-center gap-2.5 rounded-xl border border-accent/40 bg-muted/50 pl-3.5 pr-3 shadow-sm transition-all">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/70" />
@@ -1144,8 +1150,8 @@ export function GlobalTopNav({
           )}
 
           {searchOpen && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 animate-scale-in overflow-hidden rounded-2xl border border-border/50 bg-popover shadow-2xl backdrop-blur-xl">
-              <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-border/40 px-4 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="absolute left-0 right-0 top-full z-50 mt-1.5 w-full min-w-0 animate-scale-in overflow-hidden rounded-2xl border border-border/50 bg-popover shadow-2xl backdrop-blur-xl">
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-border/40 px-4 py-2.5">
                 <span className="mr-0.5 shrink-0 text-[10px] font-medium text-muted-foreground/60">I'm looking for</span>
                 {FILTER_CHIPS.map(chip => {
                   const Icon = chip.icon;
@@ -1332,7 +1338,7 @@ export function GlobalTopNav({
                     onClick={() => routeView("investor-search")}
                     className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
                   >
-                    INVESTORS
+                    Investors
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => routeView("investor-funding")}

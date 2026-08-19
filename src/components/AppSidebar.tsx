@@ -94,9 +94,18 @@ function SidebarHint({ collapsed, label, children }: { collapsed: boolean; label
   );
 }
 
-/** Thin full-width rule used to separate logical groups (replaces uppercase section labels). */
+/** Thin full-width rule used to separate logical groups. */
 function NavDivider() {
   return <div className="my-2 h-px shrink-0 bg-sidebar-border/50" aria-hidden />;
+}
+
+function NavSectionLabel({ collapsed, children }: { collapsed: boolean; children: string }) {
+  if (collapsed) return null;
+  return (
+    <p className="px-2.5 pb-1 pt-1 text-[10px] font-light uppercase tracking-[0.22em] text-sidebar-foreground/45">
+      {children}
+    </p>
+  );
 }
 
 export function AppSidebar({
@@ -317,6 +326,7 @@ export function AppSidebar({
 
           <NavDivider />
 
+          <NavSectionLabel collapsed={collapsed}>Network</NavSectionLabel>
           <div className={group}>
             <SidebarHint collapsed={collapsed} label="Network workspace">
               <button
@@ -354,6 +364,7 @@ export function AppSidebar({
 
           <NavDivider />
 
+          <NavSectionLabel collapsed={collapsed}>Research</NavSectionLabel>
           <div className={group}>
             <SidebarHint collapsed={collapsed} label="Investor directory">
               <button
@@ -379,6 +390,7 @@ export function AppSidebar({
 
           <NavDivider />
 
+          <NavSectionLabel collapsed={collapsed}>Potential Matches</NavSectionLabel>
           <div className={group}>
             <SidebarHint collapsed={collapsed} label="Mission Control">
               <button
