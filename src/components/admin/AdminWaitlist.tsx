@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Clock, ExternalLink, Loader2, RefreshCcw, Search, X } from "lucide-react";
+import { Check, Clock, ExternalLink, Loader2, RefreshCcw, Search, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
@@ -41,9 +41,18 @@ interface DecisionNotification {
   detail?: string;
 }
 
+interface ApprovedListSync {
+  synced: boolean;
+  status: "synced" | "not_configured" | "list_not_found" | "failed";
+  listName: string;
+  subscribed: boolean;
+  detail?: string;
+}
+
 interface WaitlistUpdateResponse {
   applicant?: WaitlistApplicant;
   notification?: DecisionNotification;
+  listSync?: ApprovedListSync;
 }
 
 type AdminWaitlistInvokeOptions = NonNullable<Parameters<typeof invokeEdgeFunction>[1]> & {
@@ -149,6 +158,7 @@ export function AdminWaitlist() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -207,13 +217,28 @@ export function AdminWaitlist() {
       const updated = payload?.applicant;
       if (!updated) throw new Error("The waitlist update returned no applicant");
       setApplicants((current) => current.map((item) => item.id === updated.id ? updated : item));
+      const listSynced = payload?.listSync?.synced === true;
       if (status === "pending") {
-        toast.success("Applicant returned to pending");
-      } else if (payload?.notification?.sent) {
-        toast.success(status === "approved" ? "Applicant approved and emailed" : "Applicant rejected and emailed");
+        if (listSynced) {
+          toast.success("Applicant returned to pending and removed from Approved Users");
+        } else {
+          toast.warning("Applicant returned to pending, but Loops was not updated", {
+            description: payload?.listSync?.detail || "Check the Approved Users list configuration.",
+          });
+        }
+      } else if (payload?.notification?.sent && listSynced) {
+        toast.success(status === "approved"
+          ? "Applicant approved, emailed, and added to Approved Users"
+          : "Applicant rejected, emailed, and removed from Approved Users");
       } else {
-        toast.warning(status === "approved" ? "Applicant approved, but email was not sent" : "Applicant rejected, but email was not sent", {
-          description: payload?.notification?.detail || "Check the decision-email configuration and audit log.",
+        const issues = [
+          !payload?.notification?.sent ? payload?.notification?.detail || "Decision email was not sent." : null,
+          !listSynced ? payload?.listSync?.detail || "Approved Users list was not updated." : null,
+        ].filter(Boolean).join(" ");
+        toast.warning(status === "approved"
+          ? "Applicant approved with follow-up required"
+          : "Applicant rejected with follow-up required", {
+          description: issues || "Check the decision-email and Approved Users audit events.",
         });
       }
     } catch (error) {
@@ -222,6 +247,31 @@ export function AdminWaitlist() {
       });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const syncApprovedApplicant = async (applicant: WaitlistApplicant) => {
+    setSyncingId(applicant.id);
+    try {
+      const { data, error } = await invokeAdminWaitlist({
+        action: "sync_approved_list",
+        id: applicant.id,
+      });
+      if (error) throw error;
+      const payload = data as WaitlistUpdateResponse | null;
+      if (payload?.listSync?.synced) {
+        toast.success("Synced with Approved Users");
+      } else {
+        toast.warning("Approved Users list was not updated", {
+          description: payload?.listSync?.detail || "Check the Loops configuration and audit log.",
+        });
+      }
+    } catch (error) {
+      toast.error("Failed to sync Approved Users", {
+        description: await formatEdgeFunctionInvokeError(error),
+      });
+    } finally {
+      setSyncingId(null);
     }
   };
 
@@ -441,6 +491,19 @@ export function AdminWaitlist() {
                         className="inline-flex h-8 items-center gap-1.5 rounded border border-emerald-400/25 bg-emerald-400/10 px-3 text-[11px] font-semibold text-emerald-400 transition hover:bg-emerald-400/15 disabled:opacity-50"
                       >
                         {isUpdating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+                      </button>
+                    )}
+                    {applicant.status === "approved" && (
+                      <button
+                        type="button"
+                        onClick={() => void syncApprovedApplicant(applicant)}
+                        disabled={isUpdating || syncingId === applicant.id}
+                        className="inline-flex h-8 items-center gap-1.5 rounded border border-sky-400/25 bg-sky-400/10 px-3 text-[11px] font-semibold text-sky-300 transition hover:bg-sky-400/15 disabled:opacity-50"
+                      >
+                        {syncingId === applicant.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Send className="h-3.5 w-3.5" />}
+                        Sync onboarding
                       </button>
                     )}
                     {applicant.status !== "rejected" && (

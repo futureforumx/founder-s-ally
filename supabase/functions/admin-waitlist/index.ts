@@ -6,6 +6,10 @@ import {
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
 import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
+import {
+  syncLoopsMailingList,
+  type LoopsMailingListSyncResult,
+} from "../_shared/loops-mailing-list.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,16 +38,37 @@ type DecisionEmailResult = {
 
 const DEFAULT_APPROVAL_TRANSACTIONAL_ID = "cmscl69gf4s540j1bb0kbgikb";
 const DEFAULT_REJECTION_TRANSACTIONAL_ID = "cmsclviu10xw80jzs6f4vg7l3";
+const DEFAULT_APPROVED_LIST_NAME = "Approved Users";
+
+function loopsApiKey() {
+  return (Deno.env.get("LOOPS_API_KEY_WAITLIST") ?? Deno.env.get("LOOPS_API_KEY"))?.trim();
+}
+
+function approvedListName() {
+  return Deno.env.get("LOOPS_APPROVED_LIST_NAME")?.trim() || DEFAULT_APPROVED_LIST_NAME;
+}
+
+async function syncApprovedList(
+  applicant: WaitlistApplicant,
+  subscribed: boolean,
+): Promise<LoopsMailingListSyncResult> {
+  return syncLoopsMailingList({
+    apiKey: loopsApiKey(),
+    listName: approvedListName(),
+    contact: applicant,
+    subscribed,
+  });
+}
 
 async function sendDecisionEmail(
   applicant: WaitlistApplicant,
   status: DecisionStatus,
 ): Promise<DecisionEmailResult> {
-  const loopsApiKey = (Deno.env.get("LOOPS_API_KEY_WAITLIST") ?? Deno.env.get("LOOPS_API_KEY"))?.trim();
+  const apiKey = loopsApiKey();
   const transactionalId = status === "approved"
     ? Deno.env.get("LOOPS_WAITLIST_APPROVAL_TRANSACTIONAL_ID")?.trim() || DEFAULT_APPROVAL_TRANSACTIONAL_ID
     : Deno.env.get("LOOPS_WAITLIST_REJECTION_TRANSACTIONAL_ID")?.trim() || DEFAULT_REJECTION_TRANSACTIONAL_ID;
-  if (!loopsApiKey || !transactionalId) {
+  if (!apiKey || !transactionalId) {
     return { sent: false, status: "not_configured", detail: "Loops decision email is not configured" };
   }
 
@@ -66,7 +91,7 @@ async function sendDecisionEmail(
     try {
       const templatesResponse = await fetch(
         "https://app.loops.so/api/v1/transactional?perPage=50",
-        { headers: { Authorization: `Bearer ${loopsApiKey}` } },
+        { headers: { Authorization: `Bearer ${apiKey}` } },
       );
       if (templatesResponse.ok) {
         const templatesBody = await templatesResponse.json() as {
@@ -86,7 +111,7 @@ async function sendDecisionEmail(
     const response = await fetch("https://app.loops.so/api/v1/transactional", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${loopsApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "Idempotency-Key": `waitlist-decision/${applicant.id}/${status}/${reviewedAt}`,
       },
@@ -152,6 +177,29 @@ async function recordDecisionEmailResult(
     },
   });
   if (error) console.warn("[admin-waitlist] decision email audit failed:", error.message);
+}
+
+async function recordApprovedListSyncResult(
+  adminClient: ReturnType<typeof createClient>,
+  applicant: WaitlistApplicant,
+  reviewer: { id: string; email: string | null },
+  result: LoopsMailingListSyncResult,
+) {
+  const { error } = await adminClient.from("waitlist_events").insert({
+    user_id: applicant.id,
+    event_type: result.synced ? "approved_list_synced" : "approved_list_not_synced",
+    payload: {
+      provider: "loops",
+      list_name: result.listName,
+      ...(result.listId ? { list_id: result.listId } : {}),
+      subscribed: result.subscribed,
+      sync_status: result.status,
+      reviewed_by: reviewer.id,
+      reviewed_by_email: reviewer.email,
+      ...(result.detail ? { detail: result.detail } : {}),
+    },
+  });
+  if (error) console.warn("[admin-waitlist] approved-list audit failed:", error.message);
 }
 
 function asPermission(value: unknown): AppPermission | null {
@@ -279,8 +327,41 @@ Deno.serve(async (req) => {
           notification,
         );
       }
+      const listSync = await syncApprovedList(applicant, status === "approved");
+      await recordApprovedListSyncResult(
+        adminClient,
+        applicant,
+        { id: resolved.id, email: resolved.email },
+        listSync,
+      );
 
-      return new Response(JSON.stringify({ applicant, notification }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ applicant, notification, listSync }), { headers: jsonHeaders });
+    }
+
+    if (action === "sync_approved_list") {
+      const id = String(body.id ?? "").trim();
+      if (!id) throw new Error("Invalid payload: id is required");
+
+      const { data: applicant, error } = await adminClient
+        .from("waitlist_users")
+        .select("id, email, name, status, reviewed_at")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!applicant) throw new Error("Waitlist applicant not found");
+      if (applicant.status !== "approved") {
+        throw new Error("Only approved applicants can be added to the Approved Users list");
+      }
+
+      const listSync = await syncApprovedList(applicant as WaitlistApplicant, true);
+      await recordApprovedListSyncResult(
+        adminClient,
+        applicant as WaitlistApplicant,
+        { id: resolved.id, email: resolved.email },
+        listSync,
+      );
+
+      return new Response(JSON.stringify({ applicant, listSync }), { headers: jsonHeaders });
     }
 
     if (action === "update_notes") {
