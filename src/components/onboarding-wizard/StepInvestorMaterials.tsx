@@ -55,6 +55,12 @@ export function StepInvestorMaterials({ state, update, onBack, onFinish, saving,
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [fileSize, setFileSize] = useState<number | null>(null);
+  const [showSkipHint, setShowSkipHint] = useState(false);
+
+  const handleSkip = () => {
+    setShowSkipHint(true);
+    onFinish();
+  };
 
   const handleFile = async (file: File) => {
     const extension = file.name.split(".").pop()?.toLowerCase() || "";
@@ -150,10 +156,19 @@ export function StepInvestorMaterials({ state, update, onBack, onFinish, saving,
         </fieldset>
       </div>
 
+      {showSkipHint && (
+        <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-2.5">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="text-[11px] leading-relaxed text-foreground">
+            The more metrics, the better the matches.
+          </p>
+        </div>
+      )}
+
       <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button type="button" variant="ghost" onClick={onBack} disabled={saving || isUploading} className="gap-2"><ArrowLeft className="h-4 w-4" /> Back</Button>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          <Button type="button" variant="ghost" onClick={onFinish} disabled={saving || isUploading}>Skip for now</Button>
+          <Button type="button" variant="ghost" onClick={handleSkip} disabled={saving || isUploading}>Skip for now</Button>
           <Button type="button" onClick={onFinish} disabled={saving || isUploading} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Finish setup {!saving && <ArrowRight className="h-4 w-4" />}
           </Button>

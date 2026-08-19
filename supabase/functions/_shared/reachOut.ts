@@ -23,6 +23,7 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import type { ContextEntityNote, PathRow, Recommendation } from "./connector-types.ts";
+import { enrichShortlistCandidate } from "./ninjapearPersistence.ts";
 
 const MAX_RECS_PER_ORG = 2;
 const STALE_DAYS       = 45;
@@ -115,11 +116,20 @@ export async function generateReachOutRecs(
 
     dedupKeys.push(dedupKey);
 
+    // Work email is only requested at the direct-outreach stage. The
+    // persistence layer caches hits and misses so refreshes do not rebill it.
+    const enrichment = await enrichShortlistCandidate(supabase, {
+      personId: path.target_person_id,
+      organizationId: orgId,
+      includeWorkEmail: true,
+    });
+
     const rationale: Record<string, unknown> = {
       path_score:          path.path_score,
       last_interaction_at: path.last_interaction_at,
       days_since_contact:  daysSince(path.last_interaction_at),
       recency_decay:       recencyDecay(path.last_interaction_at),
+      ninjapear: enrichment,
     };
 
     if (existing) {

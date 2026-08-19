@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
+import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -502,12 +502,103 @@ function Pill({ text, color = "#2EE6A6" }: { text: string; color?: string }) {
   );
 }
 
+function hasValue(v: unknown): boolean {
+  if (v == null) return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
+function parseIsoMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function MetricsTiles({
+  totalLabel,
+  liveLabel,
+  totalValue,
+  liveValue,
+  avgCompleteness,
+  lastUpdateAt,
+  loading,
+}: {
+  totalLabel: string;
+  liveLabel: string;
+  totalValue: number | null;
+  liveValue: number | null;
+  avgCompleteness: number | null;
+  lastUpdateAt: string | null;
+  loading: boolean;
+}) {
+  const cards = [
+    {
+      label: totalLabel,
+      value: totalValue == null ? "—" : totalValue.toLocaleString(),
+      accent: "rgba(46,230,166,0.32)",
+    },
+    {
+      label: liveLabel,
+      value: liveValue == null ? "—" : liveValue.toLocaleString(),
+      accent: "rgba(46,230,166,0.32)",
+    },
+    {
+      label: "Avg. profile completeness",
+      value: avgCompleteness == null ? "—" : `${Math.round(avgCompleteness)}%`,
+      accent: "rgba(91,92,255,0.32)",
+    },
+    {
+      label: "Last update",
+      value: lastUpdateAt
+        ? new Date(lastUpdateAt).toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          })
+        : "—",
+      accent: "rgba(46,230,166,0.2)",
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <div
+          key={card.label}
+          className="rounded-lg border px-4 py-3"
+          style={{
+            borderColor: "rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.02)",
+            boxShadow: `inset 0 0 0 1px ${card.accent}`,
+          }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.38)" }}>
+            {card.label}
+          </p>
+          <div className="mt-1.5 flex items-center gap-2">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: "#2EE6A6" }} /> : null}
+            <p className="text-lg font-semibold text-white/90">{card.value}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Companies Tab ──────────────────────────────────────────────────────────────
 
 function CompaniesTab() {
   const COL = "2fr 1fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<CompanyRow[]>([]);
   const [total, setTotal]       = useState(0);
+  const [totalCompanies, setTotalCompanies] = useState<number | null>(null);
+  const [liveCompanies, setLiveCompanies] = useState<number | null>(null);
+  const [avgCompleteness, setAvgCompleteness] = useState<number | null>(null);
+  const [lastUpdateAt, setLastUpdateAt] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
   const [stage, setStage]       = useState("all");
@@ -525,12 +616,105 @@ function CompaniesTab() {
     setRows(r); setTotal(t);
   }, [page, search, stage]);
 
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const [{ count: totalCount, error: totalErr }, { count: liveCount, error: liveErr }] = await Promise.all([
+        supabase
+          .from("startups")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null),
+        supabase
+          .from("startups")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .eq("status", "active"),
+      ]);
+      if (totalErr) throw totalErr;
+      if (liveErr) throw liveErr;
+
+      setTotalCompanies(totalCount ?? 0);
+      setLiveCompanies(liveCount ?? 0);
+
+      const pageSize = 1000;
+      let offset = 0;
+      let completenessSum = 0;
+      let rowCount = 0;
+      let maxUpdatedAt: string | null = null;
+      let maxUpdatedMs = -Infinity;
+
+      while (true) {
+        const { data, error: scanErr } = await supabase
+          .from("startups")
+          .select("id,company_url,description_short,description_long,sector,stage,status,location,hq_city,hq_state,hq_country,total_raised_usd,headcount,yc_batch,linkedin_url,x_url,founded_year,updated_at")
+          .is("deleted_at", null)
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (scanErr) throw scanErr;
+        const chunk = data ?? [];
+
+        for (const row of chunk) {
+          const hasHq = hasValue(row.location) || hasValue(row.hq_city) || hasValue(row.hq_state) || hasValue(row.hq_country);
+          const scoreFields = [
+            hasValue(row.company_url),
+            hasValue(row.description_short),
+            hasValue(row.description_long),
+            hasValue(row.sector),
+            hasValue(row.stage),
+            hasValue(row.status),
+            hasHq,
+            row.total_raised_usd != null,
+            row.headcount != null,
+            hasValue(row.yc_batch),
+            hasValue(row.linkedin_url),
+            hasValue(row.x_url),
+            row.founded_year != null,
+          ];
+          const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+          completenessSum += score;
+          rowCount += 1;
+
+          const updatedMs = parseIsoMs(row.updated_at);
+          if (updatedMs != null && updatedMs > maxUpdatedMs) {
+            maxUpdatedMs = updatedMs;
+            maxUpdatedAt = row.updated_at;
+          }
+        }
+
+        if (chunk.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      setAvgCompleteness(rowCount ? completenessSum / rowCount : 0);
+      setLastUpdateAt(maxUpdatedAt);
+    } catch (metricsErr) {
+      console.warn("[AdminMarketIntelligence] Companies metrics load failed:", metricsErr);
+      setTotalCompanies(null);
+      setLiveCompanies(null);
+      setAvgCompleteness(null);
+      setLastUpdateAt(null);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadMetrics(); }, [loadMetrics]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      <MetricsTiles
+        totalLabel="Total companies"
+        liveLabel="Live companies"
+        totalValue={totalCompanies}
+        liveValue={liveCompanies}
+        avgCompleteness={avgCompleteness}
+        lastUpdateAt={lastUpdateAt}
+        loading={metricsLoading}
+      />
+
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -548,7 +732,7 @@ function CompaniesTab() {
             {COMPANY_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        <button onClick={() => void load()} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
+        <button onClick={() => { void load(); void loadMetrics(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
@@ -612,7 +796,7 @@ function CompaniesTab() {
         <CompanyEditPanel
           row={selected}
           onClose={() => setSelected(null)}
-          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); }}
+          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); void loadMetrics(); }}
         />
       )}
     </div>
@@ -625,6 +809,11 @@ function FoundersTab() {
   const COL = "2fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<FounderRow[]>([]);
   const [total, setTotal]       = useState(0);
+  const [totalFounders, setTotalFounders] = useState<number | null>(null);
+  const [liveFounders, setLiveFounders] = useState<number | null>(null);
+  const [avgCompleteness, setAvgCompleteness] = useState<number | null>(null);
+  const [lastUpdateAt, setLastUpdateAt] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(false);
@@ -639,12 +828,91 @@ function FoundersTab() {
     setRows(r); setTotal(t);
   }, [page, search]);
 
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const { count: totalCount, error: totalErr } = await supabase
+        .from("startup_founders")
+        .select("id", { count: "exact", head: true });
+      if (totalErr) throw totalErr;
+      setTotalFounders(totalCount ?? 0);
+
+      const pageSize = 1000;
+      let offset = 0;
+      let liveCount = 0;
+      let completenessSum = 0;
+      let rowCount = 0;
+      let maxUpdatedAt: string | null = null;
+      let maxUpdatedMs = -Infinity;
+
+      while (true) {
+        const { data, error: scanErr } = await supabase
+          .from("startup_founders")
+          .select("id,role,location,linkedin_url,email,founder_archetype,domain_expertise,prior_companies,updated_at")
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (scanErr) throw scanErr;
+        const chunk = data ?? [];
+
+        for (const row of chunk) {
+          const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+          if (live) liveCount += 1;
+
+          const scoreFields = [
+            hasValue(row.role),
+            hasValue(row.location),
+            hasValue(row.linkedin_url),
+            hasValue(row.email),
+            hasValue(row.founder_archetype),
+            hasValue(row.domain_expertise),
+            hasValue(row.prior_companies),
+          ];
+          const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+          completenessSum += score;
+          rowCount += 1;
+
+          const updatedMs = parseIsoMs(row.updated_at);
+          if (updatedMs != null && updatedMs > maxUpdatedMs) {
+            maxUpdatedMs = updatedMs;
+            maxUpdatedAt = row.updated_at;
+          }
+        }
+
+        if (chunk.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      setLiveFounders(liveCount);
+      setAvgCompleteness(rowCount ? completenessSum / rowCount : 0);
+      setLastUpdateAt(maxUpdatedAt);
+    } catch (metricsErr) {
+      console.warn("[AdminMarketIntelligence] Founders metrics load failed:", metricsErr);
+      setTotalFounders(null);
+      setLiveFounders(null);
+      setAvgCompleteness(null);
+      setLastUpdateAt(null);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadMetrics(); }, [loadMetrics]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      <MetricsTiles
+        totalLabel="Total founders"
+        liveLabel="Live founders"
+        totalValue={totalFounders}
+        liveValue={liveFounders}
+        avgCompleteness={avgCompleteness}
+        lastUpdateAt={lastUpdateAt}
+        loading={metricsLoading}
+      />
+
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -653,7 +921,7 @@ function FoundersTab() {
             className="pl-9 text-[12px] h-8"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} />
         </div>
-        <button onClick={() => void load()} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
+        <button onClick={() => { void load(); void loadMetrics(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
@@ -724,7 +992,7 @@ function FoundersTab() {
         <FounderEditPanel
           row={selected}
           onClose={() => setSelected(null)}
-          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); }}
+          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); void loadMetrics(); }}
         />
       )}
     </div>
@@ -737,6 +1005,11 @@ function OperatorsTab() {
   const COL = "2fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<OperatorRow[]>([]);
   const [total, setTotal]       = useState(0);
+  const [totalOperators, setTotalOperators] = useState<number | null>(null);
+  const [liveOperators, setLiveOperators] = useState<number | null>(null);
+  const [avgCompleteness, setAvgCompleteness] = useState<number | null>(null);
+  const [lastUpdateAt, setLastUpdateAt] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(false);
@@ -751,12 +1024,90 @@ function OperatorsTab() {
     setRows(r); setTotal(t);
   }, [page, search]);
 
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const [{ count: totalCount, error: totalErr }, { count: liveCount, error: liveErr }] = await Promise.all([
+        supabase
+          .from("operator_profiles")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null),
+        supabase
+          .from("operator_profiles")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .eq("ready_for_live", true),
+      ]);
+      if (totalErr) throw totalErr;
+      if (liveErr) throw liveErr;
+
+      setTotalOperators(totalCount ?? 0);
+      setLiveOperators(liveCount ?? 0);
+
+      const pageSize = 1000;
+      let offset = 0;
+      let scoreSum = 0;
+      let scoreCount = 0;
+      let maxUpdatedAt: string | null = null;
+      let maxUpdatedMs = -Infinity;
+
+      while (true) {
+        const { data, error: scanErr } = await supabase
+          .from("operator_profiles")
+          .select("id,completeness_score,updated_at")
+          .is("deleted_at", null)
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (scanErr) throw scanErr;
+        const chunk = data ?? [];
+
+        for (const row of chunk) {
+          const score = Number(row.completeness_score ?? 0);
+          if (Number.isFinite(score)) {
+            scoreSum += score;
+            scoreCount += 1;
+          }
+          const updatedMs = parseIsoMs(row.updated_at);
+          if (updatedMs != null && updatedMs > maxUpdatedMs) {
+            maxUpdatedMs = updatedMs;
+            maxUpdatedAt = row.updated_at;
+          }
+        }
+
+        if (chunk.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      setAvgCompleteness(scoreCount ? scoreSum / scoreCount : 0);
+      setLastUpdateAt(maxUpdatedAt);
+    } catch (metricsErr) {
+      console.warn("[AdminMarketIntelligence] Operators metrics load failed:", metricsErr);
+      setTotalOperators(null);
+      setLiveOperators(null);
+      setAvgCompleteness(null);
+      setLastUpdateAt(null);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadMetrics(); }, [loadMetrics]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      <MetricsTiles
+        totalLabel="Total operators"
+        liveLabel="Live operators"
+        totalValue={totalOperators}
+        liveValue={liveOperators}
+        avgCompleteness={avgCompleteness}
+        lastUpdateAt={lastUpdateAt}
+        loading={metricsLoading}
+      />
+
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -765,7 +1116,7 @@ function OperatorsTab() {
             className="pl-9 text-[12px] h-8"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} />
         </div>
-        <button onClick={() => void load()} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
+        <button onClick={() => { void load(); void loadMetrics(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
@@ -842,7 +1193,7 @@ function OperatorsTab() {
         <OperatorEditPanel
           row={selected}
           onClose={() => setSelected(null)}
-          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); }}
+          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); void loadMetrics(); }}
         />
       )}
     </div>

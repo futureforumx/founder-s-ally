@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,8 +23,11 @@ interface GenericFormStepProps {
  * back into the onboarding state by field key so they persist with autosave.
  */
 export function GenericFormStep({ step, state, update, onNext, onBack, isLast }: GenericFormStepProps) {
+  const [showSkipHint, setShowSkipHint] = useState(false);
   const read = (key: string): unknown => (state as unknown as Record<string, unknown>)[key];
   const write = (key: string, value: unknown) => update({ [key]: value } as unknown as Partial<OnboardingState>);
+
+  const canSkip = isLast && step.fields.every((f) => !f.required);
 
   const missingRequired = step.fields
     .filter((f) => f.required)
@@ -56,15 +60,41 @@ export function GenericFormStep({ step, state, update, onNext, onBack, isLast }:
         ))}
       </div>
 
-      <div className="mt-8 flex gap-3">
-        {onBack && (
-          <Button variant="outline" onClick={onBack} className="h-11 gap-2 px-4 text-sm">
+      {showSkipHint && (
+        <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-primary/25 bg-primary/5 px-3.5 py-2.5">
+          <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="text-[11px] leading-relaxed text-foreground">
+            The more metrics, the better the matches.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {onBack ? (
+          <Button variant="ghost" onClick={onBack} className="h-11 gap-2 px-4 text-sm">
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
+        ) : (
+          <span />
         )}
-        <Button onClick={onNext} disabled={missingRequired} className="h-11 flex-1 gap-2 text-sm">
-          {isLast ? "Finish" : "Continue"} <ArrowRight className="h-4 w-4" />
-        </Button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          {canSkip && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 text-sm"
+              onClick={() => {
+                setShowSkipHint(true);
+                onNext();
+              }}
+            >
+              Skip for now
+            </Button>
+          )}
+          <Button onClick={onNext} disabled={missingRequired} className="h-11 gap-2 px-5 text-sm">
+            {isLast ? "Finish setup" : "Continue"} <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </motion.div>
   );

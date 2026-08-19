@@ -7,7 +7,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
+import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase/client";
 import { Constants } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
@@ -1365,6 +1365,11 @@ function AddFirmModal({
 export function AdminFirmRecords() {
   const [rows, setRows]           = useState<FirmRow[]>([]);
   const [total, setTotal]         = useState(0);
+  const [totalFirms, setTotalFirms] = useState<number | null>(null);
+  const [liveFirms, setLiveFirms] = useState<number | null>(null);
+  const [avgCompleteness, setAvgCompleteness] = useState<number | null>(null);
+  const [lastUpdateAt, setLastUpdateAt] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
   const [search, setSearch]       = useState("");
@@ -1380,6 +1385,77 @@ export function AdminFirmRecords() {
     return () => clearTimeout(t);
   }, [search]);
 
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const [
+        { count: totalCount, error: totalErr },
+        { count: liveCount, error: liveErr },
+        { data: latestData, error: latestErr },
+      ] = await Promise.all([
+        supabase
+          .from("firm_records")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null),
+        supabase
+          .from("firm_records")
+          .select("id", { count: "exact", head: true })
+          .is("deleted_at", null)
+          .eq("ready_for_live", true),
+        supabase
+          .from("firm_records")
+          .select("updated_at")
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(1),
+      ]);
+
+      if (totalErr) throw totalErr;
+      if (liveErr) throw liveErr;
+      if (latestErr) throw latestErr;
+
+      setTotalFirms(totalCount ?? 0);
+      setLiveFirms(liveCount ?? 0);
+      setLastUpdateAt(latestData?.[0]?.updated_at ?? null);
+
+      const pageSize = 1000;
+      let offset = 0;
+      let scoreSum = 0;
+      let scoreCount = 0;
+
+      while (true) {
+        const { data, error: scoreErr } = await supabase
+          .from("firm_records")
+          .select("completeness_score")
+          .is("deleted_at", null)
+          .order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (scoreErr) throw scoreErr;
+
+        const chunk = data ?? [];
+        for (const row of chunk) {
+          const score = Number(row.completeness_score ?? 0);
+          if (Number.isFinite(score)) {
+            scoreSum += score;
+            scoreCount += 1;
+          }
+        }
+        if (chunk.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      setAvgCompleteness(scoreCount > 0 ? scoreSum / scoreCount : 0);
+    } catch (metricsErr) {
+      console.warn("[AdminFirmRecords] Failed to load metrics:", metricsErr);
+      setTotalFirms(null);
+      setLiveFirms(null);
+      setAvgCompleteness(null);
+      setLastUpdateAt(null);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
   const loadRows = useCallback(async () => {
     setLoading(true); setError(null);
     const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
@@ -1394,18 +1470,21 @@ export function AdminFirmRecords() {
   }, [dSearch, filterEnrich, filterStatus, page]);
 
   useEffect(() => { loadRows(); }, [loadRows]);
+  useEffect(() => { void loadMetrics(); }, [loadMetrics]);
 
   const handleSaved = (updated: FirmRow) => {
     setRows(prev => prev.map(r => r.id === updated.id ? updated : r));
     setSelected(updated);
+    void loadMetrics();
   };
 
   const handleFirmCreated = useCallback(
     async (row: FirmRow) => {
       await loadRows();
+      await loadMetrics();
       setSelected(row);
     },
-    [loadRows],
+    [loadMetrics, loadRows],
   );
 
   const pages = Math.ceil(total / PAGE_SIZE);
@@ -1432,6 +1511,59 @@ export function AdminFirmRecords() {
       </div>
 
       {/* toolbar */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "Total firms",
+            value: totalFirms == null ? "—" : totalFirms.toLocaleString(),
+            accent: "rgba(46,230,166,0.32)",
+          },
+          {
+            label: "Live firms",
+            value: liveFirms == null ? "—" : liveFirms.toLocaleString(),
+            accent: "rgba(46,230,166,0.32)",
+          },
+          {
+            label: "Avg. profile completeness",
+            value: avgCompleteness == null ? "—" : `${Math.round(avgCompleteness)}%`,
+            accent: "rgba(91,92,255,0.32)",
+          },
+          {
+            label: "Last update",
+            value: lastUpdateAt
+              ? new Date(lastUpdateAt).toLocaleString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : "—",
+            accent: "rgba(46,230,166,0.2)",
+          },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="rounded-lg border px-4 py-3"
+            style={{
+              borderColor: "rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.02)",
+              boxShadow: `inset 0 0 0 1px ${card.accent}`,
+            }}
+          >
+            <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.38)" }}>
+              {card.label}
+            </p>
+            <div className="mt-1.5 flex items-center gap-2">
+              {metricsLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: "#2EE6A6" }} />
+              ) : null}
+              <p className="text-lg font-semibold text-white/90">{card.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
@@ -1457,7 +1589,7 @@ export function AdminFirmRecords() {
             <SelectItem value="archive">ARCHIVE</SelectItem>
           </SelectContent>
         </Select>
-        <button onClick={loadRows} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
+        <button onClick={() => { void loadRows(); void loadMetrics(); }} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
         <span className="ml-auto font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} firms</span>

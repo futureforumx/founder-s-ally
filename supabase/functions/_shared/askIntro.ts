@@ -18,6 +18,7 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import type { ContextEntityNote, PathRow, Recommendation } from "./connector-types.ts";
+import { enrichShortlistCandidate } from "./ninjapearPersistence.ts";
 
 const MAX_RECS_PER_ORG = 3;
 
@@ -108,10 +109,18 @@ export async function generateAskIntroRecs(
 
     dedupKeys.push(dedupKey);
 
+    // Enrichment is best-effort and internally cached for one day. Missing
+    // data or provider failures never suppress the warm-path recommendation.
+    const enrichment = await enrichShortlistCandidate(supabase, {
+      personId: path.target_person_id,
+      organizationId: orgId,
+    });
+
     const rationale: Record<string, unknown> = {
       path_score:          path.path_score,
       freshness_multiplier: freshnessMultiplier(path.last_interaction_at),
       last_interaction_at:  path.last_interaction_at,
+      ninjapear: enrichment,
     };
 
     if (existing) {
