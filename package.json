@@ -122,6 +122,8 @@
     "headshots:repair:all": "REPAIR_MODE=all tsx scripts/repair-firm-investor-avatars.ts",
     "headshots:repair:third-party": "REPAIR_MODE=third_party tsx scripts/repair-firm-investor-avatars.ts",
     "headshots:review": "REPAIR_MODE=review tsx scripts/repair-firm-investor-avatars.ts",
+    "headshots:contacts:playwright": "DRY_RUN=false tsx scripts/backfill-founder-operator-headshots-playwright.ts",
+    "headshots:contacts:playwright:dry": "DRY_RUN=true tsx scripts/backfill-founder-operator-headshots-playwright.ts",
     "db:migrate:deploy": "prisma migrate deploy",
     "operators:enrich": "tsx scripts/enrich-operators-apollo.ts",
     "operators:enrich:dry": "DRY_RUN=true tsx scripts/enrich-operators-apollo.ts",

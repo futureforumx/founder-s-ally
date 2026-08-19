@@ -42,7 +42,11 @@ or fabricated.
 - Application records and `ninjapear_enrichment_cache` are checked before every
   vendor call. Successful and no-result lookups remain fresh for one day.
 - In-flight and same-isolate requests are deduplicated in memory.
-- Cache-capable NinjaPear endpoints default to `use_cache=if-present`.
+- Core cache-capable NinjaPear endpoints default to `use_cache=if-present`.
+- Variable-cost Funding, Customer Listing, and Competitor Listing calls default
+  to `if-present-only`. They go live only with `includeExtendedLive: true` or a
+  forced refresh, preventing one shortlist view from unexpectedly consuming a
+  large relationship-data budget.
 - Only an explicit `forceRefresh: true` passes `use_cache=never`.
 - Work Email has no documented `use_cache` parameter, so Vekta relies on its own
   one-day database cache for that endpoint.

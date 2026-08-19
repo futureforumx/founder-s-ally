@@ -9,13 +9,20 @@ import {
 
 type QueryResult<T> = PromiseLike<{ data: T | null; error: { message: string } | null }>;
 
+interface SupabaseQueryBuilder extends QueryResult<unknown> {
+  select(columns?: string): SupabaseQueryBuilder;
+  insert(values: unknown): SupabaseQueryBuilder;
+  update(values: unknown): SupabaseQueryBuilder;
+  upsert(values: unknown, options?: unknown): SupabaseQueryBuilder;
+  eq(column: string, value: unknown): SupabaseQueryBuilder;
+  gt(column: string, value: unknown): SupabaseQueryBuilder;
+  order(column: string, options?: unknown): SupabaseQueryBuilder;
+  limit(count: number): SupabaseQueryBuilder;
+  maybeSingle(): QueryResult<unknown>;
+}
+
 export interface SupabaseLike {
-  from(table: string): {
-    select(columns?: string): any;
-    insert(values: unknown): QueryResult<unknown>;
-    update(values: unknown): any;
-    upsert(values: unknown, options?: unknown): QueryResult<unknown>;
-  };
+  from(table: string): SupabaseQueryBuilder;
 }
 
 export interface ShortlistCandidate {
@@ -82,7 +89,7 @@ function cachedResult<T>(record: CacheRecord, endpoint: string): NinjaPearResult
 async function readCache(
   supabase: SupabaseLike,
   cacheKey: string,
-): Promise<CacheRecord | null> {
+): Promise<{ record: CacheRecord | null; available: boolean }> {
   const { data, error } = await supabase
     .from("ninjapear_enrichment_cache")
     .select("cache_key,status,payload,fresh_until,credit_cost,vendor_cache_age_days")
@@ -91,9 +98,9 @@ async function readCache(
     .maybeSingle();
   if (error) {
     console.error("ninjapear_cache_error", { cacheKey, message: error.message });
-    return null;
+    return { record: null, available: false };
   }
-  return data as CacheRecord | null;
+  return { record: data as CacheRecord | null, available: true };
 }
 
 async function persistResult<T>(
@@ -149,9 +156,27 @@ async function runCached<T>(
   call: (useCache: NinjaPearCacheMode) => Promise<NinjaPearResult<T>>,
 ): Promise<{ result: NinjaPearResult<T>; cached: boolean }> {
   if (!forceRefresh) {
-    const existing = await readCache(supabase, cacheKey);
-    if (existing && isFreshNinjaPearCache(existing)) {
-      return { result: cachedResult<T>(existing, endpoint), cached: true };
+    const cache = await readCache(supabase, cacheKey);
+    // Fail closed when the billing cache is unavailable. This avoids turning
+    // a migration/schema outage into an unbounded sequence of paid calls.
+    if (!cache.available) {
+      return {
+        result: {
+          status: "error",
+          data: null,
+          meta: { endpoint, creditCost: null, cacheAgeDays: null, enrichmentStatus: null, attempts: 0 },
+          error: {
+            code: "cache_unavailable",
+            message: "NinjaPear billing cache is unavailable",
+            httpStatus: null,
+            retryable: true,
+          },
+        },
+        cached: true,
+      };
+    }
+    if (cache.record && isFreshNinjaPearCache(cache.record)) {
+      return { result: cachedResult<T>(cache.record, endpoint), cached: true };
     }
   }
   const result = await call(forceRefresh ? "never" : "if-present");
@@ -184,20 +209,22 @@ async function persistWorkEmail(
   supabase: SupabaseLike,
   ids: ShortlistCandidate,
   result: NinjaPearResult<WorkEmailResult>,
+  cacheKey: string,
 ) {
+  if (result.status === "error" || (!ids.personId && !ids.firmInvestorId)) return;
   const checkedAt = new Date().toISOString();
-  const values = {
-    ninjapear_work_email: result.status === "ok" ? result.data.work_email : null,
-    ninjapear_work_email_checked_at: checkedAt,
-  };
-  if (ids.personId) {
-    const { error } = await supabase.from("people").update(values).eq("id", ids.personId);
-    if (error) console.error("ninjapear_persist_error", { table: "people", message: error.message });
-  }
-  if (ids.firmInvestorId) {
-    const { error } = await supabase.from("firm_investors").update(values).eq("id", ids.firmInvestorId);
-    if (error) console.error("ninjapear_persist_error", { table: "firm_investors", message: error.message });
-  }
+  const { error } = await supabase.from("ninjapear_contact_details").upsert({
+    cache_key: cacheKey,
+    person_id: ids.personId ?? null,
+    firm_investor_id: ids.firmInvestorId ?? null,
+    work_email: result.status === "ok" ? result.data.work_email : null,
+    lookup_status: result.status,
+    checked_at: checkedAt,
+  }, { onConflict: "cache_key" });
+  if (error) console.error("ninjapear_persist_error", {
+    table: "ninjapear_contact_details",
+    message: error.message,
+  });
 }
 
 async function persistCompany(
@@ -220,18 +247,22 @@ async function persistCompany(
       ? query.eq("organization_id", ids.organizationId)
       : query.eq("firm_id", ids.firmId);
     const { data: previous, error: previousError } = await query.maybeSingle();
+    const previousSnapshot = previous as {
+      employee_count: number;
+      observed_at: string;
+    } | null;
     if (previousError) {
       console.error("ninjapear_headcount_error", { message: previousError.message });
-    } else if (previous && typeof previous.employee_count === "number") {
-      const absolute = employeeCount - previous.employee_count;
+    } else if (previousSnapshot && typeof previousSnapshot.employee_count === "number") {
+      const absolute = employeeCount - previousSnapshot.employee_count;
       growth = {
-        previous_count: previous.employee_count,
+        previous_count: previousSnapshot.employee_count,
         current_count: employeeCount,
         absolute_change: absolute,
-        percent_change: previous.employee_count > 0
-          ? Math.round((absolute / previous.employee_count) * 10_000) / 100
+        percent_change: previousSnapshot.employee_count > 0
+          ? Math.round((absolute / previousSnapshot.employee_count) * 10_000) / 100
           : null,
-        previous_observed_at: previous.observed_at,
+        previous_observed_at: previousSnapshot.observed_at,
         current_observed_at: now,
       };
     }
@@ -268,9 +299,10 @@ async function persistCompany(
  * keeps working when NinjaPear is unavailable or has no result.
  */
 export async function enrichShortlistCandidate(
-  supabase: SupabaseLike,
+  supabaseClient: unknown,
   candidate: ShortlistCandidate,
 ): Promise<ShortlistEnrichmentSummary> {
+  const supabase = supabaseClient as SupabaseLike;
   const summary: ShortlistEnrichmentSummary = {
     person: "skipped",
     company: "skipped",
@@ -326,27 +358,30 @@ export async function enrichShortlistCandidate(
     if (personRun) {
       summary.person = personRun.result.status;
       summary.cached = summary.cached && personRun.cached;
-      await persistPerson(supabase, candidate, personRun.result);
+      if (!personRun.cached) await persistPerson(supabase, candidate, personRun.result);
     }
     if (companyRun) {
       summary.company = companyRun.result.status;
       summary.cached = summary.cached && companyRun.cached;
-      await persistCompany(supabase, candidate, companyRun.result);
+      if (!companyRun.cached) await persistCompany(supabase, candidate, companyRun.result);
     }
 
     if (candidate.includeWorkEmail && personName && company) {
+      const emailCacheKey = ninjaPearCacheKey("find_work_email", personName, company);
       const emailRun = await runCached(
         supabase,
         "find_work_email",
-        ninjaPearCacheKey("find_work_email", personName, company),
+        emailCacheKey,
         "/api/v1/employee/work-email",
         forceRefresh,
         candidate,
-        () => service.find_work_email(personName, company),
+        (useCache) => service.find_work_email(personName, company, { useCache }),
       );
       summary.workEmail = emailRun.result.status;
       summary.cached = summary.cached && emailRun.cached;
-      await persistWorkEmail(supabase, candidate, emailRun.result);
+      if (!emailRun.cached) {
+        await persistWorkEmail(supabase, candidate, emailRun.result, emailCacheKey);
+      }
     }
   } catch (error) {
     console.error("ninjapear_pipeline_error", {

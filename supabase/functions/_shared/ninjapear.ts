@@ -142,6 +142,8 @@ export interface NinjaPearServiceOptions {
 
 export interface EnrichmentOptions {
   useCache?: NinjaPearCacheMode;
+  /** Allow variable-cost funding/customer/competitor calls to enrich on a cache miss. */
+  includeExtendedLive?: boolean;
 }
 
 const defaultLogger: NinjaPearLogger = {
@@ -390,26 +392,54 @@ export function createNinjaPearService(options: NinjaPearServiceOptions) {
     const input = normalize(nameOrDomain);
     if (!input) return invalidInput<CompanyEnrichment>("nameOrDomain is required", "/api/v1/company/details");
     const useCache = enrichmentOptions.useCache ?? "if-present";
-    const [details, funding, relationships, competitors] = await Promise.all([
+    // Relationship endpoints have variable and sometimes high costs. The
+    // shortlist path reads vendor cache only unless a caller explicitly opts
+    // into live extended data or requests a forced refresh.
+    const extendedUseCache: NinjaPearCacheMode = useCache === "never"
+      ? "never"
+      : enrichmentOptions.includeExtendedLive
+      ? useCache
+      : "if-present-only";
+    const [requestedDetails, funding, relationships, competitors] = await Promise.all([
       request<CompanyDetails>("/api/v1/company/details", { website: input, include_employee_count: true }, useCache),
-      request<Record<string, unknown>>("/api/v1/company/funding", { website: input }, useCache),
-      request<Record<string, unknown>>("/api/v1/customer/listing", { website: input, page_size: 10 }, useCache),
-      request<Record<string, unknown>>("/api/v1/competitor/listing", { website: input }, useCache),
+      request<Record<string, unknown>>("/api/v1/company/funding", { website: input }, extendedUseCache),
+      request<Record<string, unknown>>("/api/v1/customer/listing", { website: input, page_size: 10 }, extendedUseCache),
+      request<Record<string, unknown>>("/api/v1/competitor/listing", { website: input }, extendedUseCache),
     ]);
 
+    // NinjaPear requires a minimum credit balance for employee counts even
+    // when the base company profile is already in its cache. Preserve the
+    // headcount failure as a partial error, then degrade to the base profile
+    // instead of discarding otherwise useful firmographics.
+    const headcountError = requestedDetails.status === "error" &&
+        requestedDetails.error.httpStatus === 403 &&
+        /insufficient credits|minimum balance/i.test(requestedDetails.error.message)
+      ? {
+          endpoint: requestedDetails.meta.endpoint,
+          code: requestedDetails.error.code,
+          message: requestedDetails.error.message,
+        }
+      : null;
+    const details = headcountError
+      ? await request<CompanyDetails>("/api/v1/company/details", { website: input }, useCache)
+      : requestedDetails;
+
     const calls = [details, funding, relationships, competitors];
-    const partialErrors = calls.flatMap((result) =>
+    const partialErrors = [
+      ...(headcountError ? [headcountError] : []),
+      ...calls.flatMap((result) =>
       result.status === "error"
         ? [{ endpoint: result.meta.endpoint, code: result.error.code, message: result.error.message }]
         : []
-    );
+      ),
+    ];
+    // Auxiliary funding/relationship cache hits must never mask a failure of
+    // the primary company-details request.
+    if (details.status === "error") {
+      return { ...details, data: null } as NinjaPearResult<CompanyEnrichment>;
+    }
     if (calls.every((result) => result.status === "not_found")) {
       return { status: "not_found", data: null, meta: details.meta };
-    }
-    if (calls.every((result) => result.status === "error")) {
-      return details.status === "error"
-        ? { ...details, data: null } as NinjaPearResult<CompanyEnrichment>
-        : invalidInput<CompanyEnrichment>("All NinjaPear company calls failed", "/api/v1/company/details");
     }
 
     const relationshipData = relationships.status === "ok" ? relationships.data : null;
@@ -466,6 +496,7 @@ export function createNinjaPearService(options: NinjaPearServiceOptions) {
   async function find_work_email(
     name: string,
     company: string,
+    enrichmentOptions: EnrichmentOptions = {},
   ): Promise<NinjaPearResult<WorkEmailResult>> {
     const { firstName, lastName } = splitName(name);
     if (!firstName || !normalize(company)) {
@@ -474,7 +505,7 @@ export function createNinjaPearService(options: NinjaPearServiceOptions) {
     const result = await request<{ work_email: string | null }>(
       "/api/v1/employee/work-email",
       { first_name: firstName, last_name: lastName, domain: domainFromCompany(company) },
-      "if-present",
+      enrichmentOptions.useCache ?? "if-present",
       false,
     );
     if (result.status !== "ok") return result as NinjaPearResult<WorkEmailResult>;

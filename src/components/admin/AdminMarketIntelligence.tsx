@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase/client";
+import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -74,6 +74,8 @@ type FounderRow = {
   role: string | null;
   location: string | null;
   linkedin_url: string | null;
+  x_url: string | null;
+  avatar_url: string | null;
   email: string | null;
   founder_archetype: string | null;
   is_repeat_founder: boolean;
@@ -93,13 +95,18 @@ type OperatorRow = {
   state: string | null;
   country: string | null;
   linkedin_url: string | null;
+  x_url: string | null;
+  website_url: string | null;
+  avatar_url: string | null;
   email: string | null;
   stage_focus: string[] | null;
   is_available: boolean;
   enrichment_status: string;
+  completeness_score: number | null;
   expertise: string[] | null;
   sector_focus: string[] | null;
   prior_companies: string[] | null;
+  ready_for_live: boolean;
   updated_at: string | null;
   created_at: string;
 };
@@ -119,13 +126,14 @@ async function adminHeaders(): Promise<Record<string, string>> {
 
 async function fetchRows<T>(
   entity: string,
-  opts: { page: number; search: string; filter?: Record<string, string> },
+  opts: { page: number; search: string; filter?: Record<string, string>; limit?: number },
 ): Promise<{ rows: T[]; total: number; error?: string }> {
   if (!SUPABASE_URL) return { rows: [], total: 0, error: "SUPABASE_URL not set" };
+  const limit = Math.max(1, Math.min(100, opts.limit ?? PAGE_SIZE));
   const params = new URLSearchParams({
     entity,
     page:  String(opts.page),
-    limit: String(PAGE_SIZE),
+    limit: String(limit),
   });
   if (opts.search) params.set("search", opts.search);
   if (opts.filter) {
@@ -144,6 +152,31 @@ async function fetchRows<T>(
   } catch (e: unknown) {
     return { rows: [], total: 0, error: String(e) };
   }
+}
+
+async function fetchAllRows<T>(
+  entity: string,
+  filter?: Record<string, string>,
+): Promise<{ rows: T[]; total: number; error?: string }> {
+  const metricsPageSize = 100;
+  const first = await fetchRows<T>(entity, { page: 0, search: "", filter, limit: metricsPageSize });
+  if (first.error) return first;
+  const total = first.total ?? 0;
+  if (total <= first.rows.length) return first;
+
+  const pages = Math.ceil(total / metricsPageSize);
+  const allRows = [...first.rows];
+
+  const remainingPages = Array.from({ length: pages - 1 }, (_, i) => i + 1);
+  const remainingResults = await Promise.all(
+    remainingPages.map((page) => fetchRows<T>(entity, { page, search: "", filter, limit: metricsPageSize })),
+  );
+
+  for (const result of remainingResults) {
+    if (result.error) return { rows: allRows, total, error: result.error };
+    allRows.push(...result.rows);
+  }
+  return { rows: allRows, total };
 }
 
 async function patchRow<T>(entity: string, id: string, patch: Record<string, unknown>): Promise<{ row?: T; error?: string }> {
@@ -422,7 +455,9 @@ function FounderEditPanel({ row, onClose, onSaved }: {
 
       <Sect title="Contact" />
       <TF label="LinkedIn URL" value={d.linkedin_url} onChange={v => set("linkedin_url", v)} />
+      <TF label="X URL"        value={d.x_url}        onChange={v => set("x_url", v)} />
       <TF label="Email"        value={d.email}        onChange={v => set("email", v)} type="email" />
+      <TF label="Headshot URL" value={d.avatar_url}   onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
 
       <Sect title="Founder Profile" />
       <SFld label="Archetype"          value={d.founder_archetype}  onChange={v => set("founder_archetype", v)}  options={FOUNDER_ARCHETYPES} />
@@ -470,7 +505,10 @@ function OperatorEditPanel({ row, onClose, onSaved }: {
 
       <Sect title="Contact" />
       <TF label="LinkedIn URL" value={d.linkedin_url} onChange={v => set("linkedin_url", v)} />
+      <TF label="X URL"        value={d.x_url}        onChange={v => set("x_url", v)} />
+      <TF label="Website URL"  value={d.website_url}  onChange={v => set("website_url", v)} placeholder="https://…" />
       <TF label="Email"        value={d.email}        onChange={v => set("email", v)} type="email" />
+      <TF label="Headshot URL" value={d.avatar_url}   onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
 
       <Sect title="Operator Profile" />
       <TagF label="Stage Focus"     value={d.stage_focus}    onChange={v => set("stage_focus", v)} />
@@ -619,70 +657,45 @@ function CompaniesTab() {
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
     try {
-      const [{ count: totalCount, error: totalErr }, { count: liveCount, error: liveErr }] = await Promise.all([
-        supabase
-          .from("startups")
-          .select("id", { count: "exact", head: true })
-          .is("deleted_at", null),
-        supabase
-          .from("startups")
-          .select("id", { count: "exact", head: true })
-          .is("deleted_at", null)
-          .eq("status", "active"),
-      ]);
-      if (totalErr) throw totalErr;
-      if (liveErr) throw liveErr;
+      const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<CompanyRow>("companies", {
+        stage: "all",
+      });
+      if (metricsErr) throw new Error(metricsErr);
 
       setTotalCompanies(totalCount ?? 0);
-      setLiveCompanies(liveCount ?? 0);
+      setLiveCompanies(allRows.filter((row) => row.status === "active").length);
 
-      const pageSize = 1000;
-      let offset = 0;
       let completenessSum = 0;
       let rowCount = 0;
       let maxUpdatedAt: string | null = null;
       let maxUpdatedMs = -Infinity;
 
-      while (true) {
-        const { data, error: scanErr } = await supabase
-          .from("startups")
-          .select("id,company_url,description_short,description_long,sector,stage,status,location,hq_city,hq_state,hq_country,total_raised_usd,headcount,yc_batch,linkedin_url,x_url,founded_year,updated_at")
-          .is("deleted_at", null)
-          .order("id", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (scanErr) throw scanErr;
-        const chunk = data ?? [];
+      for (const row of allRows) {
+        const hasHq = hasValue(row.location) || hasValue(row.hq_city) || hasValue(row.hq_state) || hasValue(row.hq_country);
+        const scoreFields = [
+          hasValue(row.company_url),
+          hasValue(row.description_short),
+          hasValue(row.description_long),
+          hasValue(row.sector),
+          hasValue(row.stage),
+          hasValue(row.status),
+          hasHq,
+          row.total_raised_usd != null,
+          row.headcount != null,
+          hasValue(row.yc_batch),
+          hasValue(row.linkedin_url),
+          hasValue(row.x_url),
+          row.founded_year != null,
+        ];
+        const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+        completenessSum += score;
+        rowCount += 1;
 
-        for (const row of chunk) {
-          const hasHq = hasValue(row.location) || hasValue(row.hq_city) || hasValue(row.hq_state) || hasValue(row.hq_country);
-          const scoreFields = [
-            hasValue(row.company_url),
-            hasValue(row.description_short),
-            hasValue(row.description_long),
-            hasValue(row.sector),
-            hasValue(row.stage),
-            hasValue(row.status),
-            hasHq,
-            row.total_raised_usd != null,
-            row.headcount != null,
-            hasValue(row.yc_batch),
-            hasValue(row.linkedin_url),
-            hasValue(row.x_url),
-            row.founded_year != null,
-          ];
-          const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
-          completenessSum += score;
-          rowCount += 1;
-
-          const updatedMs = parseIsoMs(row.updated_at);
-          if (updatedMs != null && updatedMs > maxUpdatedMs) {
-            maxUpdatedMs = updatedMs;
-            maxUpdatedAt = row.updated_at;
-          }
+        const updatedMs = parseIsoMs(row.updated_at);
+        if (updatedMs != null && updatedMs > maxUpdatedMs) {
+          maxUpdatedMs = updatedMs;
+          maxUpdatedAt = row.updated_at;
         }
-
-        if (chunk.length < pageSize) break;
-        offset += pageSize;
       }
 
       setAvgCompleteness(rowCount ? completenessSum / rowCount : 0);
@@ -831,55 +844,38 @@ function FoundersTab() {
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
     try {
-      const { count: totalCount, error: totalErr } = await supabase
-        .from("startup_founders")
-        .select("id", { count: "exact", head: true });
-      if (totalErr) throw totalErr;
+      const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<FounderRow>("founders");
+      if (metricsErr) throw new Error(metricsErr);
       setTotalFounders(totalCount ?? 0);
 
-      const pageSize = 1000;
-      let offset = 0;
       let liveCount = 0;
       let completenessSum = 0;
       let rowCount = 0;
       let maxUpdatedAt: string | null = null;
       let maxUpdatedMs = -Infinity;
 
-      while (true) {
-        const { data, error: scanErr } = await supabase
-          .from("startup_founders")
-          .select("id,role,location,linkedin_url,email,founder_archetype,domain_expertise,prior_companies,updated_at")
-          .order("id", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (scanErr) throw scanErr;
-        const chunk = data ?? [];
+      for (const row of allRows) {
+        const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+        if (live) liveCount += 1;
 
-        for (const row of chunk) {
-          const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
-          if (live) liveCount += 1;
+        const scoreFields = [
+          hasValue(row.role),
+          hasValue(row.location),
+          hasValue(row.linkedin_url),
+          hasValue(row.email),
+          hasValue(row.founder_archetype),
+          hasValue(row.domain_expertise),
+          hasValue(row.prior_companies),
+        ];
+        const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+        completenessSum += score;
+        rowCount += 1;
 
-          const scoreFields = [
-            hasValue(row.role),
-            hasValue(row.location),
-            hasValue(row.linkedin_url),
-            hasValue(row.email),
-            hasValue(row.founder_archetype),
-            hasValue(row.domain_expertise),
-            hasValue(row.prior_companies),
-          ];
-          const score = (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
-          completenessSum += score;
-          rowCount += 1;
-
-          const updatedMs = parseIsoMs(row.updated_at);
-          if (updatedMs != null && updatedMs > maxUpdatedMs) {
-            maxUpdatedMs = updatedMs;
-            maxUpdatedAt = row.updated_at;
-          }
+        const updatedMs = parseIsoMs(row.updated_at);
+        if (updatedMs != null && updatedMs > maxUpdatedMs) {
+          maxUpdatedMs = updatedMs;
+          maxUpdatedAt = row.updated_at;
         }
-
-        if (chunk.length < pageSize) break;
-        offset += pageSize;
       }
 
       setLiveFounders(liveCount);
@@ -1027,55 +1023,28 @@ function OperatorsTab() {
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
     try {
-      const [{ count: totalCount, error: totalErr }, { count: liveCount, error: liveErr }] = await Promise.all([
-        supabase
-          .from("operator_profiles")
-          .select("id", { count: "exact", head: true })
-          .is("deleted_at", null),
-        supabase
-          .from("operator_profiles")
-          .select("id", { count: "exact", head: true })
-          .is("deleted_at", null)
-          .eq("ready_for_live", true),
-      ]);
-      if (totalErr) throw totalErr;
-      if (liveErr) throw liveErr;
+      const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<OperatorRow>("operators");
+      if (metricsErr) throw new Error(metricsErr);
 
       setTotalOperators(totalCount ?? 0);
-      setLiveOperators(liveCount ?? 0);
+      setLiveOperators(allRows.filter((row) => row.ready_for_live === true).length);
 
-      const pageSize = 1000;
-      let offset = 0;
       let scoreSum = 0;
       let scoreCount = 0;
       let maxUpdatedAt: string | null = null;
       let maxUpdatedMs = -Infinity;
 
-      while (true) {
-        const { data, error: scanErr } = await supabase
-          .from("operator_profiles")
-          .select("id,completeness_score,updated_at")
-          .is("deleted_at", null)
-          .order("id", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (scanErr) throw scanErr;
-        const chunk = data ?? [];
-
-        for (const row of chunk) {
-          const score = Number(row.completeness_score ?? 0);
-          if (Number.isFinite(score)) {
-            scoreSum += score;
-            scoreCount += 1;
-          }
-          const updatedMs = parseIsoMs(row.updated_at);
-          if (updatedMs != null && updatedMs > maxUpdatedMs) {
-            maxUpdatedMs = updatedMs;
-            maxUpdatedAt = row.updated_at;
-          }
+      for (const row of allRows) {
+        const score = Number(row.completeness_score ?? 0);
+        if (Number.isFinite(score)) {
+          scoreSum += score;
+          scoreCount += 1;
         }
-
-        if (chunk.length < pageSize) break;
-        offset += pageSize;
+        const updatedMs = parseIsoMs(row.updated_at);
+        if (updatedMs != null && updatedMs > maxUpdatedMs) {
+          maxUpdatedMs = updatedMs;
+          maxUpdatedAt = row.updated_at;
+        }
       }
 
       setAvgCompleteness(scoreCount ? scoreSum / scoreCount : 0);

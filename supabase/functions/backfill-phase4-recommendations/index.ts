@@ -39,7 +39,8 @@ import { generateRecommendations } from "../_shared/generateRecommendations.ts";
 //   Path 2 — Supabase Bearer JWT (frontend → Authorization: Bearer <jwt>)
 //             Validated by checking RLS on owner_contexts: if the user has
 //             SELECT access to the requested context, the call is allowed.
-// If WEBHOOK_SECRET is not set, all callers are accepted (dev / CI mode).
+// Missing WEBHOOK_SECRET never opens the endpoint. User JWT authorization
+// remains available through the RLS-scoped path below.
 
 async function isAuthorized(
   req: Request,
@@ -47,16 +48,17 @@ async function isAuthorized(
 ): Promise<boolean> {
   const webhookSecret = Deno.env.get("WEBHOOK_SECRET") ?? "";
 
-  // No secret configured → open (dev / CI)
-  if (!webhookSecret) return true;
-
   // Path 1: webhook secret
   const incomingSecret = req.headers.get("x-webhook-secret") ?? "";
-  if (incomingSecret === webhookSecret) return true;
+  if (webhookSecret && incomingSecret === webhookSecret) return true;
 
   // Path 2: Bearer JWT
   const authHeader = req.headers.get("authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return false;
+
+  // User-scoped callers must name a context. Global backfills are reserved
+  // for the configured webhook-secret path above.
+  if (!ownerContextId) return false;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -69,21 +71,11 @@ async function isAuthorized(
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    if (ownerContextId) {
-      // Validate the user has access to the specific context they're requesting
-      const { data } = await userClient
-        .from("owner_contexts")
-        .select("id")
-        .eq("id", ownerContextId)
-        .limit(1)
-        .maybeSingle();
-      return data !== null;
-    }
-
-    // No specific context → just confirm the JWT resolves to at least one context
+    // Validate the user has access to the specific context they're requesting.
     const { data } = await userClient
       .from("owner_contexts")
       .select("id")
+      .eq("id", ownerContextId)
       .limit(1)
       .maybeSingle();
     return data !== null;

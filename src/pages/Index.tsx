@@ -77,7 +77,8 @@ type ViewType =
   | "targeting"
   | "circles"
   | "integrations"
-  | "data-hub";
+  | "data-hub"
+  | "market-data-room";
 
 function getStoredCompanyLogoUrl(): string | null {
   try {
@@ -627,7 +628,7 @@ const Index = () => {
             <DeferredSection label="Loading integrations…">
               <IntegrationsPage />
             </DeferredSection>
-          ) : activeView === "data-hub" ? (
+          ) : activeView === "data-hub" || activeView === "market-data-room" ? (
             <DeferredSection label="Loading data hub…">
               <DataHubPage />
             </DeferredSection>

@@ -120,15 +120,20 @@ function KPICard({ children, className, delay = 0, ...props }: React.HTMLAttribu
 interface KPIRibbonProps {
   scores: MultiAxisScores;
   benchmark: BenchmarkInsights;
+  sector?: string;
+  stage?: string;
+  geo?: string;
 }
 
-export function KPIRibbon({ scores, benchmark }: KPIRibbonProps) {
+export function KPIRibbon({ scores, benchmark, sector, stage, geo }: KPIRibbonProps) {
   const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
   const readiness = scores.readiness_score;
   const percentile = benchmark.percentile;
 
   const sectorRank = Math.max(10, percentile - 20);
   const communityRank = Math.min(95, percentile + 15);
+  const sectorCohortLabel = [sector, stage].filter(Boolean).join(" · ") || "peer";
+  const geoSuffix = geo && geo !== "Global" ? ` in ${geo}` : "";
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -196,7 +201,9 @@ export function KPIRibbon({ scores, benchmark }: KPIRibbonProps) {
               </span>
               <TrendingDown className="h-4 w-4 text-destructive" />
             </div>
-            <p className="text-xs text-muted-foreground font-medium mt-1.5 relative z-10">vs. 452 B2B SaaS decks</p>
+            <p className="text-xs text-muted-foreground font-medium mt-1.5 relative z-10">
+              vs. {sectorCohortLabel} decks{geoSuffix}
+            </p>
           </KPICard>
 
           {/* Card 4: Community Rank */}

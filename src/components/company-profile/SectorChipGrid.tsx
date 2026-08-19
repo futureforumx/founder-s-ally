@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Sparkles, Pencil } from "lucide-react";
 import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
 
@@ -32,6 +32,7 @@ function Chip({
   aiSuggested,
   aiApproved,
   onClick,
+  onDoubleClick,
   disabled,
 }: {
   label: string;
@@ -40,6 +41,7 @@ function Chip({
   aiSuggested?: boolean;
   aiApproved?: boolean;
   onClick: () => void;
+  onDoubleClick?: () => void;
   disabled?: boolean;
 }) {
   const base = "inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all duration-300 cursor-pointer select-none border whitespace-nowrap";
@@ -73,6 +75,7 @@ function Chip({
     <button
       type="button"
       onClick={disabled ? undefined : onClick}
+      onDoubleClick={disabled ? undefined : onDoubleClick}
       className={`${base} ${resolvedCls}`}
     >
       {label}
@@ -206,26 +209,52 @@ export function SectorChipGrid({
   className,
 }: SectorChipGridProps) {
   const { primary_sector, secondary_sectors } = value;
+  const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSectorClick = useCallback(
     (sector: string) => {
-      // Deselect primary → promote first secondary
-      if (sector === primary_sector) {
-        const [promoted, ...rest] = secondary_sectors;
-        onChange({ primary_sector: promoted ?? null, secondary_sectors: rest });
-        return;
+      if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
+      singleClickTimerRef.current = setTimeout(() => {
+        singleClickTimerRef.current = null;
+
+        // Deselect primary → promote first secondary
+        if (sector === primary_sector) {
+          const [promoted, ...rest] = secondary_sectors;
+          onChange({ primary_sector: promoted ?? null, secondary_sectors: rest });
+          return;
+        }
+        // Deselect secondary
+        if (secondary_sectors.includes(sector)) {
+          onChange({ primary_sector, secondary_sectors: secondary_sectors.filter((s) => s !== sector) });
+          return;
+        }
+        // Single click adds secondary only (primary is set via double-click)
+        const totalSelected = (primary_sector ? 1 : 0) + secondary_sectors.length;
+        if (totalSelected < 3) {
+          onChange({ primary_sector, secondary_sectors: [...secondary_sectors, sector] });
+        }
+      }, 200);
+    },
+    [primary_sector, secondary_sectors, onChange]
+  );
+
+  const handleSectorDoubleClick = useCallback(
+    (sector: string) => {
+      if (singleClickTimerRef.current) {
+        clearTimeout(singleClickTimerRef.current);
+        singleClickTimerRef.current = null;
       }
-      // Deselect secondary
-      if (secondary_sectors.includes(sector)) {
-        onChange({ primary_sector, secondary_sectors: secondary_sectors.filter((s) => s !== sector) });
-        return;
+      if (sector === primary_sector) return;
+
+      let nextSecondary = secondary_sectors.filter((s) => s !== sector);
+      if (primary_sector) {
+        if (!nextSecondary.includes(primary_sector)) {
+          nextSecondary = [primary_sector, ...nextSecondary];
+        }
+        nextSecondary = nextSecondary.slice(0, 2);
       }
-      // Select: assign as primary if empty, else as secondary (max 2)
-      if (!primary_sector) {
-        onChange({ primary_sector: sector, secondary_sectors });
-      } else if (secondary_sectors.length < 2) {
-        onChange({ primary_sector, secondary_sectors: [...secondary_sectors, sector] });
-      }
+
+      onChange({ primary_sector: sector, secondary_sectors: nextSecondary });
     },
     [primary_sector, secondary_sectors, onChange]
   );
@@ -261,6 +290,7 @@ export function SectorChipGrid({
                 aiSuggested={isAi && isSelected}
                 aiApproved={isSelected ? approved : undefined}
                 onClick={() => handleSectorClick(opt.label)}
+                onDoubleClick={() => handleSectorDoubleClick(opt.label)}
                 disabled={isDisabled}
               />
             );

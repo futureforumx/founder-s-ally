@@ -31,7 +31,7 @@ function loggerSpies(): NinjaPearLogger {
 
 describe("NinjaPear service", () => {
   it("uses the live v2 person contract, cached mode, and in-session dedupe", async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse(person, 200, {
+    const fetchImpl = vi.fn(async (_input: string | URL | Request) => jsonResponse(person, 200, {
       "X-NinjaPear-Credit-Cost": "3",
       "X-NinjaPear-Cache-Age-Days": "4",
     }));
@@ -54,7 +54,7 @@ describe("NinjaPear service", () => {
   });
 
   it("resolves a role to a canonical NinjaPear profile URL", async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse(person));
+    const fetchImpl = vi.fn(async (_input: string | URL | Request) => jsonResponse(person));
     const result = await createNinjaPearService({ apiKey: "test-key", fetchImpl })
       .find_role_url("Partner", "example.vc");
 
@@ -87,7 +87,9 @@ describe("NinjaPear service", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4);
     const urls = fetchImpl.mock.calls.map(([input]) => new URL(String(input)));
     expect(urls.find((url) => url.pathname.includes("customer"))?.searchParams.get("page_size")).toBe("10");
-    expect(urls.every((url) => url.searchParams.get("use_cache") === "if-present")).toBe(true);
+    expect(urls.find((url) => url.pathname.endsWith("/details"))?.searchParams.get("use_cache")).toBe("if-present");
+    expect(urls.filter((url) => !url.pathname.endsWith("/details"))
+      .every((url) => url.searchParams.get("use_cache") === "if-present-only")).toBe(true);
     if (result.status === "ok") {
       expect(result.data.details?.employee_count).toBe(20);
       expect(result.data.relationships?.customers).toHaveLength(1);
@@ -95,8 +97,73 @@ describe("NinjaPear service", () => {
     }
   });
 
+  it("uses never for every company endpoint only on an explicit forced refresh", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith("/details")) return jsonResponse({ name: "Example", websites: [] });
+      if (path.includes("customer")) return jsonResponse({ customers: [], investors: [], partner_platforms: [] });
+      if (path.includes("competitor")) return jsonResponse({ competitors: [] });
+      return jsonResponse({ funding_rounds: [] });
+    });
+    await createNinjaPearService({ apiKey: "test-key", fetchImpl })
+      .enrich_company("example.vc", { useCache: "never" });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl.mock.calls.every(([input]) =>
+      new URL(String(input)).searchParams.get("use_cache") === "never"
+    )).toBe(true);
+  });
+
+  it("falls back to the base company profile when only paid headcount is unavailable", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/details") && url.searchParams.has("include_employee_count")) {
+        return jsonResponse({ error: "Insufficient credits. Minimum balance of 5 credits required." }, 403);
+      }
+      if (url.pathname.endsWith("/details")) {
+        return jsonResponse({ name: "Example", websites: ["https://example.vc"] }, 200, {
+          "X-NinjaPear-Credit-Cost": "0",
+          "X-NinjaPear-Cache-Age-Days": "0",
+        });
+      }
+      return new Response(null, { status: 204 });
+    });
+
+    const result = await createNinjaPearService({ apiKey: "limited-key", fetchImpl })
+      .enrich_company("example.vc");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(result.status).toBe("ok");
+    if (result.status === "ok") {
+      expect(result.data.details?.name).toBe("Example");
+      expect(result.data.details?.employee_count).toBeUndefined();
+      expect(result.data.partialErrors).toEqual([
+        expect.objectContaining({ code: "http_403" }),
+      ]);
+      expect(result.meta.creditCost).toBe(0);
+    }
+  });
+
+  it("does not let auxiliary company data mask a primary details failure", async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/details")) {
+        return jsonResponse({ message: "provider unavailable" }, 500);
+      }
+      return jsonResponse({ cached: true });
+    });
+
+    const result = await createNinjaPearService({ apiKey: "test-key", fetchImpl })
+      .enrich_company("example.vc");
+
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.error.httpStatus).toBe(500);
+    }
+  });
+
   it("does not send unsupported use_cache to work-email and caches the session result", async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse({ work_email: "ada@example.vc" }));
+    const fetchImpl = vi.fn(async (_input: string | URL | Request) => jsonResponse({ work_email: "ada@example.vc" }));
     const service = createNinjaPearService({ apiKey: "test-key", fetchImpl });
 
     const first = await service.find_work_email("Ada Lovelace", "https://www.example.vc/team");

@@ -8,6 +8,8 @@ import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
 import { format } from "date-fns";
 
 import { AuditControlBar } from "./deck-audit/AuditControlBar";
+import { resolveCompanyGeo } from "@/lib/resolveCompanyGeo";
+import { storedCompanyProfileOrEmpty } from "@/hooks/useStoredCompanyProfile";
 import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
@@ -184,6 +186,8 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     setActionLoading(null);
   };
 
+  const companyProfile = storedCompanyProfileOrEmpty();
+  const profileGeo = resolveCompanyGeo(companyProfile.hqLocation);
 
   // ── Processing State (shown regardless of active tab) ──
   if (state === "processing") {
@@ -200,8 +204,9 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     return (
       <div className="space-y-8">
         <AuditControlBar
-          initialProfile={result?.metadata.target_investor}
-          initialBenchmark={result?.metadata.benchmark_cohort}
+          initialProfile={companyProfile.stage || result?.metadata.target_investor}
+          initialBenchmark={companyProfile.sector || result?.metadata.benchmark_cohort}
+          initialGeo={profileGeo}
         />
 
         {state === "upload" ? (
@@ -258,6 +263,10 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     );
   }
 
+  const benchmarkSector = companyProfile.sector || result.metadata.benchmark_cohort;
+  const benchmarkStage = companyProfile.stage || result.metadata.target_investor;
+  const benchmarkGeo = profileGeo;
+
   return (
     <div className="flex flex-col min-h-0">
       <div className="space-y-8 px-6 py-6">
@@ -269,7 +278,13 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
         </div>
 
         {/* KPI Ribbon with Expanding Tray */}
-        <KPIRibbon scores={result.multi_axis_scores} benchmark={result.benchmark_insights} />
+        <KPIRibbon
+          scores={result.multi_axis_scores}
+          benchmark={result.benchmark_insights}
+          sector={benchmarkSector}
+          stage={benchmarkStage}
+          geo={benchmarkGeo}
+        />
 
         {/* Slide-Level Coaching */}
         {result.slide_analysis.length > 0 && (

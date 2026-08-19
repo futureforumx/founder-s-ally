@@ -186,14 +186,14 @@ const FOUNDER_COLS = [
   "id","full_name","role","startup_id",
   "is_repeat_founder","has_prior_exit","operator_to_founder",
   "track_record_score","location","domain_expertise",
-  "prior_companies","founder_archetype","linkedin_url","email",
+  "prior_companies","founder_archetype","linkedin_url","x_url","email","avatar_url",
   "created_at","updated_at",
 ].join(", ");
 
 const OPERATOR_COLS = [
   "id","full_name","title","sector_focus","expertise","prior_companies",
   "completeness_score","enrichment_status","is_available","ready_for_live",
-  "city","state","country","linkedin_url","email","stage_focus","source","updated_at","created_at",
+  "city","state","country","linkedin_url","x_url","website_url","avatar_url","email","stage_focus","source","updated_at","created_at",
 ].join(", ");
 
 const FIRM_COLS = [

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, startTransition, type ReactElement } from "react";
+import { useRef, useCallback, useEffect, startTransition, type ReactElement } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FileText,
@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ContextSwitcher } from "@/components/ContextSwitcher";
@@ -66,7 +65,6 @@ type ViewType =
 interface AppSidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
-  onAgentClick?: () => void;
   /** When true, sidebar shows icon rail only (labels in tooltips). */
   collapsed?: boolean;
   /** Toggle rail / expanded sidebar (persist preference in parent). */
@@ -104,7 +102,6 @@ function NavDivider() {
 export function AppSidebar({
   activeView,
   onViewChange,
-  onAgentClick,
   collapsed = false,
   onToggleCollapsed,
 }: AppSidebarProps) {
@@ -164,24 +161,6 @@ export function AppSidebar({
     activeView === "market-market" ||
     activeView === "market-tech" ||
     activeView === "market-network";
-
-  const [agentPopoverOpen, setAgentPopoverOpen] = useState(false);
-  const agentPopoverCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearAgentPopoverCloseTimer = useCallback(() => {
-    if (agentPopoverCloseTimerRef.current != null) {
-      clearTimeout(agentPopoverCloseTimerRef.current);
-      agentPopoverCloseTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleAgentPopoverClose = useCallback(() => {
-    clearAgentPopoverCloseTimer();
-    agentPopoverCloseTimerRef.current = setTimeout(() => {
-      setAgentPopoverOpen(false);
-      agentPopoverCloseTimerRef.current = null;
-    }, 150);
-  }, [clearAgentPopoverCloseTimer]);
 
   const group = "flex w-full flex-col gap-0.5";
   const navBtn = (active: boolean) =>
@@ -515,69 +494,6 @@ export function AppSidebar({
         </nav>
 
         <div className={cn("shrink-0 border-t border-sidebar-border/30 px-2.5 py-2.5", collapsed && "px-2")}>
-          <Popover
-            open={agentPopoverOpen}
-            onOpenChange={(next) => {
-              clearAgentPopoverCloseTimer();
-              setAgentPopoverOpen(next);
-            }}
-          >
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                title={collapsed ? "VEKTA Vex — coming soon" : undefined}
-                aria-label="VEKTA Vex — coming soon"
-                aria-haspopup="dialog"
-                aria-expanded={agentPopoverOpen}
-                onPointerEnter={() => {
-                  clearAgentPopoverCloseTimer();
-                  setAgentPopoverOpen(true);
-                }}
-                onPointerLeave={scheduleAgentPopoverClose}
-                onClick={onAgentClick}
-                className={cn(
-                  "group flex w-full items-center gap-2.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-2.5 py-2 text-[13px] font-medium text-violet-100/90 shadow-[0_0_15px_-5px_rgba(91,92,255,0.3)] transition-all hover:bg-violet-500/10 hover:border-violet-500/40 animate-pulse-glow-purple",
-                  collapsed && "justify-center px-0",
-                )}
-              >
-                <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md bg-violet-500/20 text-violet-400 group-hover:scale-110 transition-transform duration-500 leading-none" />
-                {!collapsed && <span className="leading-none">Vex</span>}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              side="right"
-              align="center"
-              sideOffset={8}
-              className="w-[min(260px,calc(100vw-2rem))] border-border/80 bg-popover p-4 text-popover-foreground shadow-lg"
-              onPointerEnter={clearAgentPopoverCloseTimer}
-              onPointerLeave={scheduleAgentPopoverClose}
-            >
-              <div className="flex flex-col items-center gap-3 text-center">
-                <img
-                  src="/brand/vekta-aurora-logo.png"
-                  alt=""
-                  width={56}
-                  height={56}
-                  className="h-14 w-auto object-contain"
-                />
-                <p className="text-xs leading-relaxed text-popover-foreground">
-                  VEKTA Vex is coming soon.{" "}
-                  <a
-                    href="https://tryvekta.com/aurora"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-violet-300 underline underline-offset-2 hover:text-violet-200"
-                  >
-                    Learn more
-                  </a>
-                  .
-                </p>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <div className="my-2 h-px shrink-0 bg-sidebar-border/40" aria-hidden />
-
           <SidebarHint collapsed={collapsed} label="Workspace or personal context">
             <ContextSwitcher collapsed={collapsed} />
           </SidebarHint>

@@ -3,6 +3,9 @@ import { Share2, TrendingUp, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeckAuditView } from "./DeckAuditView";
 import { MetricsPanel } from "./data-room/MetricsPanel";
+import { AssessmentBenchmarkBar } from "./data-room/AssessmentBenchmarkBar";
+import { useStoredCompanyProfile } from "@/hooks/useStoredCompanyProfile";
+import type { AuditResult } from "./deck-audit/types";
 
 const DATA_ROOM_TABS = [
   { id: "files" as const, label: "Files" },
@@ -14,6 +17,15 @@ const DATA_ROOM_TABS = [
 ];
 
 type DataRoomTabId = (typeof DATA_ROOM_TABS)[number]["id"];
+
+function readDeckAuditResult(): AuditResult | null {
+  try {
+    const cached = sessionStorage.getItem("deck-audit-result");
+    return cached ? (JSON.parse(cached) as AuditResult) : null;
+  } catch {
+    return null;
+  }
+}
 
 function ComingSoonPanel({
   icon: Icon,
@@ -37,6 +49,8 @@ function ComingSoonPanel({
 
 export function DataHubPage() {
   const [activeTab, setActiveTab] = useState<DataRoomTabId>("files");
+  const companyProfile = useStoredCompanyProfile();
+  const auditResult = activeTab === "assessment" ? readDeckAuditResult() : null;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -61,7 +75,15 @@ export function DataHubPage() {
         })}
       </div>
 
-      <div className="mt-8">
+      {activeTab === "assessment" && (
+        <AssessmentBenchmarkBar
+          className="mt-5"
+          profile={companyProfile}
+          auditResult={auditResult}
+        />
+      )}
+
+      <div className={cn(activeTab === "assessment" ? "mt-5" : "mt-8")}>
         {activeTab === "metrics" ? (
           <MetricsPanel />
         ) : activeTab === "market" ? (

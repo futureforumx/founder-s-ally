@@ -5,9 +5,7 @@
 ALTER TABLE public.people
   ADD COLUMN IF NOT EXISTS ninjapear_profile jsonb,
   ADD COLUMN IF NOT EXISTS ninjapear_profile_id text,
-  ADD COLUMN IF NOT EXISTS ninjapear_enriched_at timestamptz,
-  ADD COLUMN IF NOT EXISTS ninjapear_work_email text,
-  ADD COLUMN IF NOT EXISTS ninjapear_work_email_checked_at timestamptz;
+  ADD COLUMN IF NOT EXISTS ninjapear_enriched_at timestamptz;
 
 ALTER TABLE public.organizations
   ADD COLUMN IF NOT EXISTS ninjapear_company_profile jsonb,
@@ -19,9 +17,7 @@ ALTER TABLE public.organizations
 ALTER TABLE public.firm_investors
   ADD COLUMN IF NOT EXISTS ninjapear_profile jsonb,
   ADD COLUMN IF NOT EXISTS ninjapear_profile_id text,
-  ADD COLUMN IF NOT EXISTS ninjapear_enriched_at timestamptz,
-  ADD COLUMN IF NOT EXISTS ninjapear_work_email text,
-  ADD COLUMN IF NOT EXISTS ninjapear_work_email_checked_at timestamptz;
+  ADD COLUMN IF NOT EXISTS ninjapear_enriched_at timestamptz;
 
 ALTER TABLE public.firm_records
   ADD COLUMN IF NOT EXISTS ninjapear_company_profile jsonb,
@@ -85,6 +81,26 @@ CREATE TABLE IF NOT EXISTS public.ninjapear_enrichment_attempts (
 CREATE INDEX IF NOT EXISTS idx_ninjapear_attempts_key_time
   ON public.ninjapear_enrichment_attempts (cache_key, attempted_at DESC);
 
+CREATE TABLE IF NOT EXISTS public.ninjapear_contact_details (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  cache_key text NOT NULL UNIQUE,
+  person_id uuid REFERENCES public.people(id) ON DELETE CASCADE,
+  firm_investor_id uuid REFERENCES public.firm_investors(id) ON DELETE CASCADE,
+  work_email text,
+  lookup_status text NOT NULL CHECK (lookup_status IN ('ok', 'not_found')),
+  checked_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ninjapear_contact_owner_check CHECK (
+    person_id IS NOT NULL OR firm_investor_id IS NOT NULL
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_ninjapear_contact_person
+  ON public.ninjapear_contact_details (person_id)
+  WHERE person_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ninjapear_contact_firm_investor
+  ON public.ninjapear_contact_details (firm_investor_id)
+  WHERE firm_investor_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS public.ninjapear_headcount_snapshots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -106,14 +122,17 @@ CREATE INDEX IF NOT EXISTS idx_ninjapear_headcount_firm_time
 
 ALTER TABLE public.ninjapear_enrichment_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ninjapear_enrichment_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ninjapear_contact_details ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ninjapear_headcount_snapshots ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.ninjapear_enrichment_cache FROM anon, authenticated;
 REVOKE ALL ON public.ninjapear_enrichment_attempts FROM anon, authenticated;
+REVOKE ALL ON public.ninjapear_contact_details FROM anon, authenticated;
 REVOKE ALL ON public.ninjapear_headcount_snapshots FROM anon, authenticated;
 
 GRANT ALL ON public.ninjapear_enrichment_cache TO service_role;
 GRANT ALL ON public.ninjapear_enrichment_attempts TO service_role;
+GRANT ALL ON public.ninjapear_contact_details TO service_role;
 GRANT ALL ON public.ninjapear_headcount_snapshots TO service_role;
 
 CREATE POLICY "ninjapear_cache_service_role"
@@ -121,6 +140,9 @@ CREATE POLICY "ninjapear_cache_service_role"
   USING (true) WITH CHECK (true);
 CREATE POLICY "ninjapear_attempts_service_role"
   ON public.ninjapear_enrichment_attempts FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+CREATE POLICY "ninjapear_contact_service_role"
+  ON public.ninjapear_contact_details FOR ALL TO service_role
   USING (true) WITH CHECK (true);
 CREATE POLICY "ninjapear_headcount_service_role"
   ON public.ninjapear_headcount_snapshots FOR ALL TO service_role
@@ -130,5 +152,7 @@ COMMENT ON TABLE public.ninjapear_enrichment_cache IS
   'One-day application cache for credit-bearing NinjaPear calls; includes negative lookups.';
 COMMENT ON TABLE public.ninjapear_enrichment_attempts IS
   'Operational log distinguishing successful calls, no-result responses, and API failures.';
+COMMENT ON TABLE public.ninjapear_contact_details IS
+  'Service-role-only work emails linked to internal contact records; never exposed by public record RLS.';
 COMMENT ON COLUMN public.organizations.ninjapear_headcount_growth IS
   'Growth derived from Vekta-stored NinjaPear headcount observations; NinjaPear does not return a growth field.';
