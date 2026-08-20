@@ -1,17 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-/** Mirrors `prisma.vCFirm.findUnique({ include: { ... } })` via PostgREST (same Postgres as Prisma). */
-const FIRM_DETAIL_SELECT = `
-  *,
-  vc_funds (*),
-  vc_people (*),
-  vc_investments (*),
-  vc_signals (*),
-  vc_source_links (*),
-  vc_score_snapshots (*)
-`.trim();
-
 export type VcFundRow = Record<string, unknown> & { id: string; deleted_at?: string | null };
 export type VcPersonRow = Record<string, unknown> & { id: string; deleted_at?: string | null };
 export type VcInvestmentRow = Record<string, unknown> & { id: string; deleted_at?: string | null };
@@ -49,29 +38,63 @@ export function filterFirmDetailActive(firm: VCFirmDetail): VCFirmDetail {
 
 const sb = (client: SupabaseClient<Database>) => client as unknown as { from: (t: string) => any };
 
-async function fetchFirmDetailRow(
+const RELATED_TABLES = [
+  ["vc_funds", "vc_funds"],
+  ["vc_people", "vc_people"],
+  ["vc_investments", "vc_investments"],
+  ["vc_signals", "vc_signals"],
+  ["vc_source_links", "vc_source_links"],
+  ["vc_score_snapshots", "vc_score_snapshots"],
+] as const;
+
+/**
+ * Load related `vc_*` rows with explicit `firm_id` filters.
+ * Nested PostgREST embeds (`vc_firms(vc_funds(*))`) fail when the schema cache
+ * has no FK hint — common in this project — so we never embed.
+ */
+async function attachRelatedRows(
+  client: SupabaseClient<Database>,
+  firm: VCFirmDetail,
+): Promise<VCFirmDetail> {
+  const extras: Partial<VCFirmDetail> = {};
+  await Promise.all(
+    RELATED_TABLES.map(async ([table, key]) => {
+      try {
+        const { data, error } = await sb(client)
+          .from(table)
+          .select("*")
+          .eq("firm_id", firm.id)
+          .is("deleted_at", null);
+        extras[key] = error ? [] : ((data ?? []) as never);
+      } catch {
+        extras[key] = [];
+      }
+    }),
+  );
+  return filterFirmDetailActive({ ...firm, ...extras });
+}
+
+async function fetchFirmCore(
   client: SupabaseClient<Database>,
   column: string,
   value: string,
 ): Promise<VCFirmDetail | null> {
   const { data, error } = await sb(client)
     .from("vc_firms")
-    .select(FIRM_DETAIL_SELECT)
+    .select("*")
     .is("deleted_at", null)
     .eq(column, value)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) return null;
-  return filterFirmDetailActive(data as VCFirmDetail);
+  return attachRelatedRows(client, data as VCFirmDetail);
 }
 
 /**
- * Fetches one firm and nested relations. `vc_*` tables are not in generated `Database` types yet;
- * `as any` keeps the query localized until types are regenerated from Supabase.
- *
- * Resolves `id` in order: primary key, `slug`, `vc_firm_aliases.alias_value` (domain keys from static JSON),
- * then a loose `website_url` match when `id` looks like a hostname (e.g. `a16z.com` from bundled VC JSON).
+ * Fetches one firm and related `vc_*` rows. Resolves `id` in order: primary key, `slug`,
+ * `vc_firm_aliases.alias_value` (domain keys from static JSON), then a loose `website_url`
+ * match when `id` looks like a hostname (e.g. `a16z.com` from bundled VC JSON).
  */
 export async function fetchVCFirmDetail(
   client: SupabaseClient<Database>,
@@ -80,10 +103,10 @@ export async function fetchVCFirmDetail(
   const raw = id.trim();
   if (!raw) return null;
 
-  let firm = await fetchFirmDetailRow(client, "id", raw);
+  let firm = await fetchFirmCore(client, "id", raw);
   if (firm) return firm;
 
-  firm = await fetchFirmDetailRow(client, "slug", raw);
+  firm = await fetchFirmCore(client, "slug", raw);
   if (firm) return firm;
 
   const host = raw.replace(/^www\./i, "").toLowerCase();
@@ -97,7 +120,7 @@ export async function fetchVCFirmDetail(
       .limit(1)
       .maybeSingle();
     if (!aliasErr && aliasRow?.firm_id && typeof aliasRow.firm_id === "string") {
-      firm = await fetchFirmDetailRow(client, "id", aliasRow.firm_id);
+      firm = await fetchFirmCore(client, "id", aliasRow.firm_id);
       if (firm) return firm;
     }
   } catch {
@@ -106,7 +129,7 @@ export async function fetchVCFirmDetail(
 
   const { data: rows, error: siteErr } = await sb(client)
     .from("vc_firms")
-    .select(FIRM_DETAIL_SELECT)
+    .select("*")
     .is("deleted_at", null)
     .ilike("website_url", `%${host}%`)
     .limit(1);
@@ -114,5 +137,5 @@ export async function fetchVCFirmDetail(
   if (siteErr) throw new Error(siteErr.message);
   const row = rows?.[0];
   if (!row) return null;
-  return filterFirmDetailActive(row as VCFirmDetail);
+  return attachRelatedRows(client, row as VCFirmDetail);
 }

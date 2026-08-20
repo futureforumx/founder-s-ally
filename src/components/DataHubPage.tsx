@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Share2, TrendingUp, BarChart3 } from "lucide-react";
+import { Share2, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeckAuditView } from "./DeckAuditView";
 import { MetricsPanel } from "./data-room/MetricsPanel";
 import { AssessmentBenchmarkBar } from "./data-room/AssessmentBenchmarkBar";
+import { MarketPanel } from "./data-room/MarketPanel";
 import { useStoredCompanyProfile } from "@/hooks/useStoredCompanyProfile";
 import type { AuditResult } from "./deck-audit/types";
 
@@ -53,7 +54,7 @@ export function DataHubPage() {
   const auditResult = activeTab === "assessment" ? readDeckAuditResult() : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className={cn("mx-auto w-full px-4 py-8 sm:px-6 lg:px-8", activeTab === "market" ? "max-w-6xl" : "max-w-5xl")}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
         {DATA_ROOM_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -83,15 +84,11 @@ export function DataHubPage() {
         />
       )}
 
-      <div className={cn(activeTab === "assessment" ? "mt-5" : "mt-8")}>
+      <div className={cn(activeTab === "assessment" || activeTab === "market" ? "mt-5" : "mt-8")}>
         {activeTab === "metrics" ? (
           <MetricsPanel />
         ) : activeTab === "market" ? (
-          <ComingSoonPanel
-            icon={TrendingUp}
-            title="Market intelligence is coming soon"
-            description="You'll be able to see market sizing, comps, and benchmark data tied to your deck right here."
-          />
+          <MarketPanel profile={companyProfile} />
         ) : activeTab === "share" ? (
           <ComingSoonPanel
             icon={Share2}
