@@ -7,7 +7,7 @@ import { cn, safeLower, safeTrim } from "@/lib/utils";
 import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BookmarkPlus, CheckCircle2, Star, MapPin, DollarSign, Users, Briefcase } from "lucide-react";
+import { X, BookmarkPlus, CheckCircle2, Star, MapPin, Users, Briefcase } from "lucide-react";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -43,8 +43,6 @@ import {
   investorHeadshotNeedsOffloadedMirror,
   isBlockedExternalAvatarUrl,
 } from "@/lib/investorAvatarUrl";
-import { resolveElevatorPitchForDisplay } from "@/lib/firmElevatorPitch";
-import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
 import { curatedFirmHqLineForDirectoryName, firmAumDisplayForInvestorPanel } from "@/lib/freshCapitalPublic";
 import {
   isFirmStrategyClassification,
@@ -1294,6 +1292,13 @@ export function InvestorDetailPanel({
     if (all.length === 1) return all[0];
     return connectLocation ?? undefined;
   }, [locationsForTooltip, connectLocation]);
+  const compactConnectLocation = useMemo(() => {
+    const parts = safeTrim(connectLocation)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.length > 1 ? `${parts[0]}, ${parts[1]}` : parts[0] || null;
+  }, [connectLocation]);
 
   const heroFirmNameForAum = firstNonEmpty(liveProfile?.firm_name, vcFirm?.name, effectiveInvestor?.name);
   const heroAumDisplay = useMemo(
@@ -1378,45 +1383,6 @@ export function InvestorDetailPanel({
       effectiveInvestor?.stage,
     ],
   );
-
-  const heroElevatorPitch = useMemo(() => {
-    if (liveProfile?.source === "live") {
-      const fromDb = resolveElevatorPitchForDisplay({
-        elevator_pitch: liveProfile.elevator_pitch,
-        description: liveProfile.description,
-        sentiment_detail: liveProfile.sentiment_detail,
-        firm_name: liveProfile.firm_name,
-        thesis_verticals: liveProfile.thesis_verticals,
-        stage_focus: liveProfile.stage_focus,
-        preferred_stage: liveProfile.preferred_stage,
-        hq_city: liveProfile.hq_city,
-        hq_state: liveProfile.hq_state,
-        hq_country: liveProfile.hq_country,
-        entity_type: null,
-        min_check_size: liveProfile.min_check_size,
-        max_check_size: liveProfile.max_check_size,
-      });
-      if (fromDb) return fromDb;
-    }
-    const fallback = safeTrim(effectiveInvestor?.description);
-    return fallback ? clampElevatorPitch(fallback) : null;
-  }, [
-    liveProfile?.source,
-    liveProfile?.elevator_pitch,
-    liveProfile?.description,
-    liveProfile?.sentiment_detail,
-    liveProfile?.firm_name,
-    liveProfile?.thesis_verticals,
-    liveProfile?.stage_focus,
-    liveProfile?.preferred_stage,
-    liveProfile?.hq_city,
-    liveProfile?.hq_state,
-    liveProfile?.hq_country,
-    liveProfile?.firm_type,
-    liveProfile?.min_check_size,
-    liveProfile?.max_check_size,
-    effectiveInvestor?.description,
-  ]);
 
   const metaFacts = [
     { label: "AUM", value: heroAumDisplay ?? "—" },
@@ -1504,34 +1470,21 @@ export function InvestorDetailPanel({
                             <CheckCircle2 className="h-[15px] w-[15px] shrink-0 text-accent fill-accent/15 mb-0.5" />
                           </div>
 
-                          {/* Elevator pitch (≤200 chars; persisted on `firm_records.elevator_pitch` when generated) */}
-                          {heroElevatorPitch && (
-                            <p
-                              className="text-[12px] text-muted-foreground/60 leading-snug mb-2.5 max-w-xl line-clamp-3"
-                              title={heroElevatorPitch}
-                            >
-                              {heroElevatorPitch}
-                            </p>
-                          )}
-
                           {/* Meta — one row; hairline dividers + padding read cleaner than middots */}
                           <div
-                            className={cn(
-                              "flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]",
-                              !heroElevatorPitch && "mt-2",
-                            )}
+                            className="mt-2 flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]"
                           >
                             <div
                               role="group"
-                              className="flex min-w-0 min-h-[1.125rem] max-w-[48%] items-center gap-1.5 overflow-hidden pr-2"
+                              className="flex min-h-[1.125rem] max-w-[11rem] shrink-0 items-center gap-1.5 pr-2"
                               aria-label={`Location: ${connectLocation ?? "unknown"}`}
                             >
                               <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span
-                                className="min-w-0 truncate font-medium text-foreground/85"
+                                className="whitespace-nowrap font-medium text-foreground/85"
                                 title={locationDetailTitle}
                               >
-                                {connectLocation ?? "—"}
+                                {compactConnectLocation ?? "—"}
                               </span>
                             </div>
                             <span
@@ -1539,7 +1492,6 @@ export function InvestorDetailPanel({
                               title="Assets under management"
                               aria-label={`AUM: ${heroAumDisplay ?? "unknown"}`}
                             >
-                              <DollarSign className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                               <span className="font-medium text-foreground/80">{heroAumDisplay ?? "—"}</span>
                             </span>
                             <span

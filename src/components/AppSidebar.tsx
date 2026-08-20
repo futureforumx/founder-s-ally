@@ -1,7 +1,6 @@
 import { useRef, useCallback, useEffect, startTransition, type ReactElement } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  FileText,
   Gauge,
   BookOpen,
   Link2,
@@ -23,9 +22,7 @@ import { cn } from "@/lib/utils";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLogo } from "@/components/BrandLogo";
-import { ContextSwitcher } from "@/components/ContextSwitcher";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
-import { useActiveContext } from "@/context/ActiveContext";
 
 type ViewType =
   | "home"
@@ -117,7 +114,6 @@ export function AppSidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const { isAppAdmin } = useAppAdmin();
-  const { activeContextKind } = useActiveContext();
   const pendingNavFrameRef = useRef<number | null>(null);
 
   const goView = useCallback((view: ViewType) => {
@@ -161,15 +157,13 @@ export function AppSidebar({
     activeView === "dashboard" ||
     activeView === "industry" ||
     activeView === "competitive" ||
-    activeView === "competitors" ||
-    activeView === "sector";
+    activeView === "competitors";
 
   const pulseRouteActive =
     activeView === "market-intelligence" ||
     activeView === "market-investors" ||
     activeView === "market-market" ||
-    activeView === "market-tech" ||
-    activeView === "market-network";
+    activeView === "market-tech";
 
   const group = "flex w-full flex-col gap-0.5";
   const navBtn = (active: boolean) =>
@@ -181,10 +175,8 @@ export function AppSidebar({
       collapsed && "justify-center px-0",
     );
   const iconCls = "h-[18px] w-[18px] shrink-0";
-  const showCompanySection = activeContextKind === "workspace";
-  const showProfileSection = activeContextKind === "personal";
 
-  const goSettingsNetwork = useCallback(() => {
+  const goSettingsTab = useCallback((tab: "account" | "network") => {
     if (typeof window === "undefined") {
       onViewChange("settings");
       return;
@@ -197,11 +189,12 @@ export function AppSidebar({
     pendingNavFrameRef.current = window.requestAnimationFrame(() => {
       pendingNavFrameRef.current = null;
       startTransition(() => {
-        navigate({ pathname: "/", search: "?view=settings&tab=network" });
+        navigate({ pathname: "/", search: `?view=settings&tab=${tab}` });
         onViewChange("settings");
       });
     });
   }, [navigate, onViewChange]);
+  const activeSettingsTab = new URLSearchParams(location.search).get("tab");
 
   const pulseButton = (
     <button
@@ -301,25 +294,36 @@ export function AppSidebar({
 
           <NavDivider />
 
+          <NavSectionLabel collapsed={collapsed}>Radar</NavSectionLabel>
           <div className={group}>
-            <SidebarHint collapsed={collapsed} label="Connections">
+            <SidebarHint collapsed={collapsed} label="Sector radar">
               <button
                 type="button"
-                onClick={() => goView("connections")}
-                className={navBtn(activeView === "connections")}
+                onClick={() => goView("sector")}
+                className={navBtn(activeView === "sector")}
               >
-                <Link2 className={iconCls} />
-                {!collapsed && "Connection"}
+                <Target className={iconCls} />
+                {!collapsed && "Sector"}
               </button>
             </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Directory">
+            <SidebarHint collapsed={collapsed} label="Network radar">
               <button
                 type="button"
-                onClick={() => goView("directory")}
-                className={navBtn(activeView === "directory")}
+                onClick={() => goView("market-network")}
+                className={navBtn(activeView === "market-network")}
               >
-                <BookOpen className={iconCls} />
-                {!collapsed && "Directory"}
+                <Share2 className={iconCls} />
+                {!collapsed && "Network"}
+              </button>
+            </SidebarHint>
+            <SidebarHint collapsed={collapsed} label="Capital radar">
+              <button
+                type="button"
+                onClick={() => goView("investor-funding")}
+                className={navBtn(activeView === "investor-funding")}
+              >
+                <TrendingUp className={iconCls} />
+                {!collapsed && "Capital"}
               </button>
             </SidebarHint>
           </div>
@@ -357,6 +361,26 @@ export function AppSidebar({
                 >
                   <Orbit className={iconCls} />
                   {!collapsed && "Circles"}
+                </button>
+              </SidebarHint>
+              <SidebarHint collapsed={collapsed} label="Connections">
+                <button
+                  type="button"
+                  onClick={() => goView("connections")}
+                  className={navBtn(activeView === "connections")}
+                >
+                  <Link2 className={iconCls} />
+                  {!collapsed && "Connection"}
+                </button>
+              </SidebarHint>
+              <SidebarHint collapsed={collapsed} label="Directory">
+                <button
+                  type="button"
+                  onClick={() => goView("directory")}
+                  className={navBtn(activeView === "directory")}
+                >
+                  <BookOpen className={iconCls} />
+                  {!collapsed && "Directory"}
                 </button>
               </SidebarHint>
             </div>
@@ -416,6 +440,7 @@ export function AppSidebar({
 
           <NavDivider />
 
+          <NavSectionLabel collapsed={collapsed}>AutoRaise</NavSectionLabel>
           <div className={group}>
             <SidebarHint collapsed={collapsed} label="Data Room">
               <button
@@ -428,6 +453,10 @@ export function AppSidebar({
               </button>
             </SidebarHint>
           </div>
+
+          <NavDivider />
+
+          <NavSectionLabel collapsed={collapsed}>Pipeline</NavSectionLabel>
 
           {isAppAdmin && (
             <>
@@ -449,67 +478,32 @@ export function AppSidebar({
           )}
           </div>
 
-          {showCompanySection && (
-            <div className="shrink-0 pt-1">
-              <NavDivider />
-              <div className={group}>
-                <SidebarHint collapsed={collapsed} label="Data Room">
-                  <button
-                    type="button"
-                    onClick={() => goView("data-room")}
-                    className={navBtn(activeView === "data-room")}
-                  >
-                    <FileText className={iconCls} />
-                    {!collapsed && "Data Room"}
-                  </button>
-                </SidebarHint>
-                <SidebarHint collapsed={collapsed} label="Data integrations">
-                  <button
-                    type="button"
-                    onClick={() => goView("integrations")}
-                    className={navBtn(activeView === "integrations")}
-                  >
-                    <Plug className={iconCls} />
-                    {!collapsed && "Integrations"}
-                  </button>
-                </SidebarHint>
-              </div>
+          <div className="shrink-0 pt-1">
+            <NavDivider />
+            <div className={group}>
+              <SidebarHint collapsed={collapsed} label="Profile & Workspace">
+                <button
+                  type="button"
+                  onClick={() => goSettingsTab("account")}
+                  className={navBtn(activeView === "settings" && activeSettingsTab === "account")}
+                >
+                  <UserCircle className={iconCls} />
+                  {!collapsed && "Profile & Workspace"}
+                </button>
+              </SidebarHint>
+              <SidebarHint collapsed={collapsed} label="Integrations">
+                <button
+                  type="button"
+                  onClick={() => goSettingsTab("network")}
+                  className={navBtn(activeView === "settings" && activeSettingsTab === "network")}
+                >
+                  <Plug className={iconCls} />
+                  {!collapsed && "Integrations"}
+                </button>
+              </SidebarHint>
             </div>
-          )}
-          {showProfileSection && (
-            <div className="shrink-0 pt-1">
-              <NavDivider />
-              <div className={group}>
-                <SidebarHint collapsed={collapsed} label="Profile & Workspace">
-                  <button
-                    type="button"
-                    onClick={() => goView("profile-workspace")}
-                    className={navBtn(activeView === "profile-workspace")}
-                  >
-                    <UserCircle className={iconCls} />
-                    {!collapsed && "Profile & Workspace"}
-                  </button>
-                </SidebarHint>
-                <SidebarHint collapsed={collapsed} label="Integrations">
-                  <button
-                    type="button"
-                    onClick={goSettingsNetwork}
-                    className={navBtn(activeView === "settings")}
-                  >
-                    <Plug className={iconCls} />
-                    {!collapsed && "Integrations"}
-                  </button>
-                </SidebarHint>
-              </div>
-            </div>
-          )}
+          </div>
         </nav>
-
-        <div className={cn("shrink-0 border-t border-sidebar-border/30 px-2.5 py-2.5", collapsed && "px-2")}>
-          <SidebarHint collapsed={collapsed} label="Workspace or personal context">
-            <ContextSwitcher collapsed={collapsed} />
-          </SidebarHint>
-        </div>
       </aside>
     </TooltipProvider>
   );

@@ -32,9 +32,6 @@ const MarketIntelligenceInvestors = lazy(() => import("@/components/market-intel
 const NetworkWorkspacePage = lazy(() =>
   import("@/components/network-workspace/NetworkWorkspacePage").then((m) => ({ default: m.NetworkWorkspacePage })),
 );
-const ProfileWorkspacePage = lazy(() =>
-  import("@/components/ProfileWorkspacePage").then((m) => ({ default: m.ProfileWorkspacePage })),
-);
 const TargetingPage = lazy(() =>
   import("@/components/targeting/TargetingPage").then((m) => ({ default: m.TargetingPage })),
 );
@@ -150,7 +147,7 @@ const Index = () => {
       const params = new URLSearchParams(window.location.search);
       const view = params.get("view");
       if (view === "settings") return "settings";
-      if (view === "profile-workspace") return "profile-workspace";
+      if (view === "profile-workspace") return "settings";
       if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
       if (view === "investor-funding") return "investor-funding";
       if (view === "resources") return "resources";
@@ -203,7 +200,7 @@ const Index = () => {
       setActiveView("settings");
     }
     if (v === "profile-workspace") {
-      setActiveView("profile-workspace");
+      setActiveView("settings");
     }
     if (v === "investor-funding") {
       setActiveView("investor-funding");
@@ -612,10 +609,6 @@ const Index = () => {
             </DeferredSection>
           ) : activeView === "workspace" ? (
             <div className="flex h-full items-center justify-center text-muted-foreground text-sm">Workspace coming soon</div>
-          ) : activeView === "profile-workspace" ? (
-            <DeferredSection label="Loading profile…">
-              <ProfileWorkspacePage />
-            </DeferredSection>
           ) : activeView === "targeting" ? (
             <DeferredSection label="Loading targeting…">
               <TargetingPage />

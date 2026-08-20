@@ -47,6 +47,9 @@ echo "Deploying to project ref: $REF"
 npx supabase@latest functions deploy create-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy claim-company-workspace --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy complete-founder-onboarding --project-ref "$REF" --no-verify-jwt --use-api
+# Stripe Checkout/Portal authenticates app users; Stripe authenticates webhook deliveries by signature.
+npx supabase@latest functions deploy stripe-billing --project-ref "$REF" --use-api
+npx supabase@latest functions deploy stripe-webhook --project-ref "$REF" --no-verify-jwt --use-api
 # Public waitlist + snapshot: browser uses sb_publishable_… (not a JWT); gateway must not require JWT verification.
 npx supabase@latest functions deploy waitlist-signup --project-ref "$REF" --no-verify-jwt --use-api
 npx supabase@latest functions deploy waitlist-status --project-ref "$REF" --no-verify-jwt --use-api

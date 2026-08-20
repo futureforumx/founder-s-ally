@@ -126,7 +126,16 @@ export function useProfile() {
               // API route not yet deployed — fall through to next path
             } else if (!resp.ok) {
               const text = await resp.text().catch(() => `HTTP ${resp.status}`);
-              return { ok: false, error: `Save failed (${resp.status}): ${text.slice(0, 200)}` };
+              const serverIsMissingSupabaseConfig =
+                resp.status === 500 &&
+                text.includes("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+
+              // Local development can intentionally omit the service-role key.
+              // Continue to the authenticated Supabase/RPC paths instead of
+              // preventing them from handling the save.
+              if (!serverIsMissingSupabaseConfig) {
+                return { ok: false, error: `Save failed (${resp.status}): ${text.slice(0, 200)}` };
+              }
             } else {
               const contentType = resp.headers.get("content-type") ?? "";
               if (contentType.includes("application/json")) {

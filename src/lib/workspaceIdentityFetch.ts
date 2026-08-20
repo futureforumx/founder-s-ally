@@ -47,7 +47,7 @@ type UntypedFrom = {
 };
 
 /**
- * Loads workspace + owner_context data for the active-context switcher.
+ * Loads workspace + owner_context data for workspace-scoped services.
  * Uses a loosely typed client because generated `Database` types may lag new migrations.
  */
 export async function fetchWorkspaceIdentityBundle(userId: string): Promise<WorkspaceIdentityBundle> {

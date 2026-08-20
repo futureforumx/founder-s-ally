@@ -1777,7 +1777,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-6">
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start xl:grid-cols-3">
                       <div className="min-w-0 space-y-1" data-field="company-name">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
                         <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
@@ -1917,20 +1917,20 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           <FileText className="h-3 w-3" /> Pitch Deck (PDF)
                         </label>
                         {activeDeck && !showReplaceDeck ? (
-                          <div className="flex items-center justify-between p-3 border border-border bg-card rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:border-accent/40 transition-all group w-full flex-1 min-h-[100px]">
-                            <div className="flex items-center gap-3.5 overflow-hidden w-full min-w-0">
+                          <div className="flex min-h-[100px] w-full flex-1 flex-wrap items-center gap-3 border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all hover:border-accent/40 rounded-xl group">
+                            <div className="flex min-w-[9rem] flex-1 items-center gap-3 overflow-hidden">
                               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
                                 <FileText className="h-5 w-5" />
                               </div>
                               <div className="flex flex-col min-w-0">
                                 <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
-                                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mt-0.5">
+                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
                                   <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
                                   <span>Active</span>
                                   {activeDeck.file_size_bytes && (
                                     <>
                                       <span className="text-border">•</span>
-                                      <span>{activeDeck.file_size_bytes >= 1024 * 1024
+                                      <span className="whitespace-nowrap">{activeDeck.file_size_bytes >= 1024 * 1024
                                         ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
                                         : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
                                       }</span>
@@ -1942,7 +1942,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                             <button
                               type="button"
                               onClick={() => setShowReplaceDeck(true)}
-                              className="flex-shrink-0 ml-4 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground bg-muted/50 hover:bg-accent/10 hover:text-accent transition-colors flex items-center gap-1.5"
+                              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
                             >
                               <RefreshCw className="h-3.5 w-3.5" /> Replace
                             </button>

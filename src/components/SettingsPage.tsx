@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from "react";
+import { createElement, useState, useEffect, useCallback, useMemo, useRef, useReducer } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatSocialUrl } from "@/lib/socialFormat";
@@ -21,7 +21,7 @@ import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/useProfile";
-import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase, supabaseAuth, supabaseVcDirectory } from "@/integrations/supabase/client";
 import { getEdgeFunctionAuthToken } from "@/lib/edgeFunctionAuth";
 import { parseOverallTenFromStarRatings, parseWorkWithThemFromStarRatings } from "@/lib/reviewRateButtonDisplay";
 import { VEKTA_OPEN_VC_REVIEW_EVENT } from "@/lib/vcReviewNavigation";
@@ -48,6 +48,7 @@ import { getCompletionPercent, EMPTY_FORM, type CompanyData } from "@/components
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { useLinkedInVerify } from "@/hooks/useLinkedInVerify";
 import { useConnectedAccounts } from "@/hooks/useConnectedAccounts";
+import { useStoredCompanyProfile } from "@/hooks/useStoredCompanyProfile";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { uploadR2UserAsset } from "@/lib/r2UserAssets";
@@ -419,6 +420,7 @@ function SaveProfileButton({ onSave }: { onSave: () => Promise<boolean> }) {
 function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: { displayName: string; displayEmail: string; initials: string; userId?: string; onSignOut: () => Promise<void> }) {
   const { verify: verifyLinkedIn } = useLinkedInVerify();
   const { profile, upsertProfile } = useProfile();
+  const companyProfile = useStoredCompanyProfile();
   const nameSeed = useMemo(() => splitFullName(displayName), [displayName]);
   const [firstName, setFirstName] = useState(nameSeed.first);
   const [lastName, setLastName] = useState(nameSeed.last);
@@ -542,7 +544,14 @@ function AccountTab({ displayName, displayEmail, initials, userId, onSignOut }: 
   }, [profile, displayName]);
 
   const USER_TYPES = [
-    { id: "founder", label: "Founder", icon: Users, desc: "building a startup." },
+    {
+      id: "founder",
+      label: "Founder",
+      icon: Users,
+      desc: companyProfile?.stage?.trim()
+        ? `building a ${companyProfile.stage.trim()} startup.`
+        : "building a startup.",
+    },
     { id: "operator", label: "Operator", icon: UserCog, desc: "working at a startup." },
     { id: "investor", label: "Investor", icon: Briefcase, desc: "finding and backing startups." },
   ];
@@ -2378,7 +2387,50 @@ function SecurityTabDemo() {
 }
 
 function SecurityTabSupabase() {
-  const { user } = useAuth();
+  const { user, linkOAuthIdentity } = useAuth();
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [linkingProvider, setLinkingProvider] = useState<"google" | "linkedin_oidc" | null>(null);
+
+  useEffect(() => {
+    if (!editingEmail) setEmail(user?.email ?? "");
+  }, [editingEmail, user?.email]);
+
+  const connectedProviders = useMemo(
+    () => new Set((user?.identities ?? []).map((identity) => identity.provider)),
+    [user?.identities],
+  );
+
+  const handleEmailChange = async () => {
+    const nextEmail = email.trim().toLowerCase();
+    if (!nextEmail || nextEmail === user?.email?.toLowerCase()) {
+      setEditingEmail(false);
+      return;
+    }
+
+    setSavingEmail(true);
+    try {
+      const { error } = await supabaseAuth.auth.updateUser({ email: nextEmail });
+      if (error) throw error;
+      toast.success("Check your inbox to confirm your new email address.");
+      setEditingEmail(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update your email.");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleLinkProvider = async (provider: "google" | "linkedin_oidc") => {
+    setLinkingProvider(provider);
+    try {
+      await linkOAuthIdentity(provider);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to add this sign-in method.");
+      setLinkingProvider(null);
+    }
+  };
 
   return (
     <motion.div
@@ -2390,7 +2442,7 @@ function SecurityTabSupabase() {
     >
       <div>
         <h3 className="text-sm font-semibold text-foreground">Security</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Email sign-in is managed by Supabase Auth.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Manage your account email and sign-in methods.</p>
       </div>
 
       <div className="space-y-3">
@@ -2403,20 +2455,60 @@ function SecurityTabSupabase() {
               <p className="text-sm font-medium text-foreground">Account email</p>
               <p className="text-[10px] text-muted-foreground truncate">{user?.email || "No email set"}</p>
             </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => setEditingEmail((value) => !value)}>
+              {editingEmail ? "Cancel" : "Change"}
+            </Button>
           </div>
+          {editingEmail && (
+            <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row">
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="New email address"
+                autoComplete="email"
+                className="h-9"
+              />
+              <Button type="button" size="sm" onClick={handleEmailChange} disabled={savingEmail}>
+                {savingEmail && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                Send confirmation
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-border p-4">
+        <div className="rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
               <Shield className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-medium text-foreground">Sign-in method</p>
               <p className="text-[10px] text-muted-foreground">Email code and magic link</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[9px] uppercase font-bold">Supabase</Badge>
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={connectedProviders.has("google") || linkingProvider !== null}
+              onClick={() => handleLinkProvider("google")}
+            >
+              {linkingProvider === "google" && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {connectedProviders.has("google") ? "Google connected" : "Add Google"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={connectedProviders.has("linkedin_oidc") || linkingProvider !== null}
+              onClick={() => handleLinkProvider("linkedin_oidc")}
+            >
+              {linkingProvider === "linkedin_oidc" && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {connectedProviders.has("linkedin_oidc") ? "LinkedIn connected" : "Add LinkedIn"}
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -2429,139 +2521,117 @@ function SecurityTab() {
 }
 
 // ── Subscription Tab ──
+function StripePricingTableEmbed({ userId, email }: { userId: string; email?: string }) {
+  const isUnsupportedLocalIp =
+    typeof window !== "undefined" &&
+    import.meta.env.DEV &&
+    (window.location.hostname === "127.0.0.1" || window.location.hostname === "0.0.0.0");
+
+  if (isUnsupportedLocalIp) {
+    const localhostUrl = new URL(window.location.href);
+    localhostUrl.hostname = "localhost";
+
+    return (
+      <div className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-2xl border border-border/60 bg-card px-6 text-center shadow-sm">
+        <AlertTriangle className="mb-3 h-5 w-5 text-amber-500" />
+        <h3 className="text-sm font-semibold text-foreground">Stripe pricing needs a local domain</h3>
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
+          Stripe does not render its pricing table on an IP-address origin. Open this page on localhost to preview it,
+          or use the deployed Vekta domain.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={() => window.location.assign(localhostUrl.toString())}
+        >
+          Open pricing on localhost
+          <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[520px] w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-sm">
+      {createElement("stripe-pricing-table", {
+        "pricing-table-id": "prctbl_1U6HBN0bjIxcsMKWAmUyDOKL",
+        "publishable-key":
+          "pk_live_51TExQA0bjIxcsMKWRCaZxka6PmAt6s9Cb4lHXJcfEHYOnyiQISaN6Cx0PfTJOh8DnJLsr98HEK0PYCmnMcXemUow00hx57rbDP",
+        "client-reference-id": userId,
+        "customer-email": email,
+      })}
+    </div>
+  );
+}
+
 function SubscriptionTab() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
-  const [currentProductId, setCurrentProductId] = useState<string | null>(null);
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [hasStripeCustomer, setHasStripeCustomer] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
-
-  const POLAR_PLANS = [
-    {
-      name: "Basic",
-      productId: "4c9f357d-b420-486f-827d-2901b96afd4b",
-      annualProductId: "4c9f357d-b420-486f-827d-2901b96afd4b",
-      tier: "FREE",
-      description: "Get started with core tools for your fundraising journey.",
-      icon: Zap,
-      priceMonthly: 0,
-      priceAnnually: 0,
-      features: [
-        "Basic company profile",
-        "Limited investor directory access",
-        "Community dashboard view",
-        "Single pitch deck upload",
-        "Basic sector tagging",
-      ],
-      highlighted: false,
-    },
-    {
-      name: "Pro",
-      productId: "2e689769-7782-456a-88b3-687e0e825df7",
-      annualProductId: "2e689769-7782-456a-88b3-687e0e825df7",
-      tier: "PRO",
-      description: "The complete toolkit for founders actively raising capital.",
-      icon: Sparkles,
-      priceMonthly: 29,
-      priceAnnually: 23,
-      features: [
-        "Full investor matching engine",
-        "Unlimited pitch deck audits",
-        "Competitive benchmarking",
-        "Contact reveals (unlimited)",
-        "Priority community features",
-      ],
-      highlighted: true,
-    },
-    {
-      name: "Premiere",
-      productId: "ca6f76eb-8c2d-4593-847f-2f66c59838a5",
-      annualProductId: "ca6f76eb-8c2d-4593-847f-2f66c59838a5",
-      tier: "PREMIERE",
-      description: "Every edge for high-volume fundraisers and power users.",
-      icon: Crown,
-      priceMonthly: 99,
-      priceAnnually: 79,
-      features: [
-        "Everything in Pro",
-        "AI-powered investor intelligence",
-        "Warm intro pathfinder",
-        "Dedicated account support",
-        "Full API access and exports",
-      ],
-      highlighted: false,
-    },
-  ];
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const checkoutId = params.get("checkout_id");
-    if (checkoutId && user) {
+    const checkoutState = params.get("checkout");
+    const sessionId = params.get("session_id");
+    if (checkoutState === "success" && sessionId && user) {
       (async () => {
         try {
-          const { data } = await supabase.functions.invoke("polar-checkout", {
-            body: { action: "verify_checkout", checkout_id: checkoutId },
+          const { data, error } = await supabase.functions.invoke("stripe-billing", {
+            body: { action: "sync_checkout", session_id: sessionId },
           });
-          if (data?.status === "succeeded") {
-            setCheckoutSuccess(true);
-            const url = new URL(window.location.href);
-            url.searchParams.delete("checkout_id");
-            window.history.replaceState({}, "", url.toString());
-          }
-        } catch {}
+          if (error) throw error;
+          if (data?.status !== "complete") return;
+
+          setCheckoutSuccess(true);
+          setBillingRefreshKey((key) => key + 1);
+          queryClient.invalidateQueries({ queryKey: ["user-credits"] });
+          const url = new URL(window.location.href);
+          url.searchParams.delete("checkout");
+          url.searchParams.delete("session_id");
+          window.history.replaceState({}, "", url.toString());
+        } catch (error) {
+          console.error("Stripe checkout verification failed:", error);
+          toast.error("We could not verify your subscription. Please refresh and try again.");
+        }
       })();
     }
-  }, [user]);
+  }, [user, queryClient]);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
       try {
-        const { data } = await supabase.functions.invoke("polar-checkout", {
-          body: { action: "get_subscription", user_id: user.id },
+        const { data, error } = await supabase.functions.invoke("stripe-billing", {
+          body: { action: "get_subscription" },
         });
-        if (data?.subscription?.product_id) {
-          setCurrentProductId(data.subscription.product_id);
-        }
-        if (data?.customer_id) {
-          setCustomerId(data.customer_id);
-        }
-      } catch {}
-    })();
-  }, [user, checkoutSuccess]);
+        if (error) throw error;
 
-  const handleCheckout = async (productId: string) => {
-    if (!user) return;
+        setHasStripeCustomer(Boolean(data?.has_customer));
+      } catch (error) {
+        console.error("Stripe subscription lookup failed:", error);
+      }
+    })();
+  }, [user, billingRefreshKey]);
+
+  const handleManage = async () => {
+    if (!hasStripeCustomer) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("polar-checkout", {
-        body: { action: "create_checkout", product_id: productId, user_id: user.id },
+      const { data, error } = await supabase.functions.invoke("stripe-billing", {
+        body: { action: "customer_portal" },
       });
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;
       }
     } catch (err) {
-      console.error("Checkout error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleManage = async () => {
-    if (!customerId) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("polar-checkout", {
-        body: { action: "customer_portal", customer_id: customerId },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    } catch (err) {
       console.error("Portal error:", err);
+      toast.error("Unable to open the Stripe billing portal. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -2577,7 +2647,7 @@ function SubscriptionTab() {
               Keep track of your subscription details, update your billing information, and control your account's payment
             </p>
           </div>
-          {customerId && (
+          {hasStripeCustomer && (
             <Button variant="outline" size="sm" onClick={handleManage} disabled={loading} className="text-xs">
               <ExternalLink className="h-3 w-3 mr-1.5" />
               Manage Billing
@@ -2592,146 +2662,15 @@ function SubscriptionTab() {
           </div>
         )}
 
-        {/* ── Billing Cycle Toggle ── */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-card/80 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_30px_-24px_rgba(15,23,42,0.3)] backdrop-blur">
-            <button
-              onClick={() => setBillingCycle("monthly")}
-              className={cn(
-                "rounded-full px-4 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition-all",
-                billingCycle === "monthly"
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => setBillingCycle("annually")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[10px] font-medium uppercase tracking-[0.18em] transition-all",
-                billingCycle === "annually"
-                  ? "bg-foreground text-background shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Year
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-semibold tracking-[0.12em] text-emerald-600">
-                SAVE 20%
-              </span>
-            </button>
+        {user ? (
+          <StripePricingTableEmbed userId={user.id} email={user.email} />
+        ) : (
+          <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-border/60 bg-card text-sm text-muted-foreground">
+            Sign in to view subscription options.
           </div>
-          {billingCycle === "annually" && (
-            <p className="text-[11px] text-muted-foreground">Billed as one annual payment · cancel anytime</p>
-          )}
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {POLAR_PLANS.map((plan) => {
-            const isCurrent = currentProductId === plan.productId;
-            const price = billingCycle === "annually" ? plan.priceAnnually : plan.priceMonthly;
-            const activeProductId = billingCycle === "annually" ? plan.annualProductId : plan.productId;
-            const PlanIcon = plan.icon;
-            return (
-              <div
-                key={plan.name}
-                className={cn(
-                  "relative flex min-h-[25.5rem] flex-col overflow-hidden rounded-[20px] border transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-[0_20px_45px_-30px_rgba(15,23,42,0.28)]",
-                  plan.highlighted
-                    ? "border-foreground/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,250,252,0.98)_100%)] shadow-[0_18px_50px_-34px_rgba(15,23,42,0.38)]"
-                    : "border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(250,250,252,0.92)_100%)] shadow-[0_12px_36px_-30px_rgba(15,23,42,0.24)]"
-                )}
-              >
-                <div className={cn("absolute inset-x-0 top-0 h-px", plan.highlighted ? "bg-foreground/20" : "bg-border/80")} />
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2">
-                    <span className="inline-flex whitespace-nowrap rounded-full border border-foreground/10 bg-foreground px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-background shadow-[0_10px_24px_-10px_rgba(15,23,42,0.42)]">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex flex-1 flex-col gap-4 p-5">
-                  {/* Header */}
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-xl border",
-                      plan.highlighted
-                        ? "border-foreground/10 bg-foreground/[0.04] text-foreground"
-                        : "border-border/70 bg-muted/30 text-muted-foreground"
-                    )}>
-                      <PlanIcon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-[15px] font-semibold tracking-[-0.02em] text-foreground">{plan.name}</p>
-                      <p className={cn(
-                        "mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em]",
-                        plan.tier === "PREMIERE" ? "text-emerald-600" : plan.tier === "PRO" ? "text-foreground" : "text-muted-foreground"
-                      )}>
-                        {plan.tier}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="max-w-[22ch] text-[13px] leading-6 text-muted-foreground">{plan.description}</p>
-
-                  {/* Price */}
-                  <div className="space-y-1">
-                    <div className="flex items-end gap-1.5">
-                      <span className="text-[3rem] font-semibold leading-none tracking-[-0.04em] text-foreground">${price}</span>
-                      <span className="pb-1 text-[15px] font-normal text-muted-foreground">/mo</span>
-                    </div>
-                    {billingCycle === "annually" && price > 0 && (
-                      <p className="text-[11px] text-muted-foreground">
-                        ${price * 12} billed annually · <span className="line-through opacity-50">${plan.priceMonthly * 12}</span>
-                      </p>
-                    )}
-                    {price === 0 && (
-                      <p className="text-[11px] leading-5 text-muted-foreground">Free forever · no credit card needed</p>
-                    )}
-                  </div>
-
-                  {/* CTA */}
-                  <Button
-                    variant={plan.highlighted ? "default" : "outline"}
-                    className={cn(
-                      "mt-auto h-11 w-full rounded-xl text-sm font-medium transition-all",
-                      plan.highlighted
-                        ? "bg-foreground text-background hover:bg-foreground/92"
-                        : "border-border/70 bg-background/70 text-foreground hover:bg-background",
-                      isCurrent && "opacity-60 cursor-default"
-                    )}
-                    disabled={loading || isCurrent || price === 0}
-                    onClick={() => handleCheckout(activeProductId)}
-                  >
-                    {isCurrent ? "Current Plan" : price === 0 ? "Free Forever" : "Get Started"}
-                  </Button>
-                </div>
-
-                <Separator className="bg-border/70" />
-
-                {/* Features */}
-                <div className="flex flex-col gap-2 bg-black/[0.015] p-5">
-                  {plan.features.map((f) => (
-                    <div key={f} className="flex items-start gap-2.5">
-                      <div className={cn(
-                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-1",
-                        plan.highlighted
-                          ? "bg-foreground/[0.05] text-foreground ring-foreground/10"
-                          : "bg-background text-muted-foreground ring-border/70"
-                      )}>
-                        <Check className="h-2.5 w-2.5" />
-                      </div>
-                      <span className="text-[12px] leading-5 text-muted-foreground">{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {customerId && (
+        {hasStripeCustomer && (
           <>
             <Separator />
             <div className="space-y-3">
@@ -2742,7 +2681,7 @@ function SubscriptionTab() {
                     <CreditCard className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Manage via Polar</p>
+                    <p className="text-sm font-medium text-foreground">Manage via Stripe</p>
                     <p className="text-[10px] text-muted-foreground">View invoices, update payment methods, and cancel</p>
                   </div>
                 </div>

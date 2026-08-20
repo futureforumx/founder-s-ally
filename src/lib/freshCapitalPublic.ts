@@ -749,10 +749,35 @@ export function freshCapitalFirmAumUsd(row: Pick<FreshCapitalFundRow, "firm_name
 function coerceFirmAumUsdNumber(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
   if (typeof raw === "string" && raw.trim()) {
-    const n = Number(raw.trim().replace(/[^0-9.\-eE]/g, ""));
+    const normalized = raw.trim().replace(/,/g, "");
+    const compactAmount = normalized.match(
+      /^\$?\s*(\d+(?:\.\d+)?)\s*(thousand|million|billion|trillion|[kmbt])?/i,
+    );
+    if (compactAmount) {
+      const amount = Number(compactAmount[1]);
+      const suffix = (compactAmount[2] ?? "").toLowerCase();
+      const multiplier =
+        suffix === "k" || suffix === "thousand" ? 1e3
+        : suffix === "m" || suffix === "million" ? 1e6
+        : suffix === "b" || suffix === "billion" ? 1e9
+        : suffix === "t" || suffix === "trillion" ? 1e12
+        : 1;
+      const expanded = amount * multiplier;
+      if (Number.isFinite(expanded) && expanded > 0) return expanded;
+    }
+
+    const n = Number(normalized.replace(/[^0-9.\-eE]/g, ""));
     if (Number.isFinite(n) && n > 0) return n;
   }
   return null;
+}
+
+function formatFirmAumUsd(value: number): string {
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(1)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(1)}`;
 }
 
 /**
@@ -764,7 +789,7 @@ export function firmAumDisplayForInvestorPanel(firmName: string | null | undefin
     firm_name: firmName ?? "",
     firm_aum_usd: coerceFirmAumUsdNumber(aumRaw),
   });
-  if (usd != null) return formatFundSizeUsd(usd);
+  if (usd != null) return formatFirmAumUsd(usd);
   if (typeof aumRaw === "string" && aumRaw.trim()) return aumRaw.trim();
   return null;
 }

@@ -250,7 +250,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
         </div>
 
         <h1
-          className="text-center font-['Clash_Grotesk','Inter',ui-sans-serif,system-ui,sans-serif] text-3xl font-medium leading-[1.02] tracking-[-0.04em] text-[#ffffff] sm:text-4xl lg:text-5xl"
+          className="text-center font-['Clash_Grotesk','Inter',ui-sans-serif,system-ui,sans-serif] text-[1.75rem] font-medium leading-[1.02] tracking-[-0.04em] text-[#ffffff] sm:text-[2.125rem] lg:text-[2.75rem]"
         >
           {greeting}
         </h1>

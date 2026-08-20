@@ -235,6 +235,11 @@ describe("Hummingbird Ventures display corrections", () => {
     expect(firmAumDisplayForInvestorPanel("Hummingbird Ventures", null)).toBe("$1.0B");
   });
 
+  it("expands abbreviated investor AUM strings before formatting", () => {
+    expect(firmAumDisplayForInvestorPanel("Example Ventures", "$1.4B")).toBe("$1.4B");
+    expect(firmAumDisplayForInvestorPanel("Example Ventures", "850M")).toBe("$850.0M");
+  });
+
   it("duplicates Growth Fund I as Fund VI with the requested fields", () => {
     const baseRow = {
       ...rowBase,

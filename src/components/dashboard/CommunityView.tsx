@@ -1651,7 +1651,7 @@ function RotatingCohortTrendText({
   }
 
   return (
-    <span className={cn("relative inline-flex min-h-[12px] min-w-[12.5rem] justify-end align-baseline", className)}>
+    <span className={cn("relative inline-flex min-h-[12px] min-w-0 flex-1 justify-end overflow-hidden align-baseline", className)}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           key={`${index}:${current.trend}`}
@@ -1659,8 +1659,9 @@ function RotatingCohortTrendText({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -5 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          title={current.trend}
           className={cn(
-            "absolute right-0 top-0 whitespace-nowrap text-right text-[10px] font-bold tabular-nums leading-none tracking-tight",
+            "absolute inset-x-0 top-0 truncate whitespace-nowrap text-right text-[10px] font-bold tabular-nums leading-none tracking-tight",
             current.trendUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
           )}
         >
@@ -1717,6 +1718,7 @@ const INVESTOR_SORT_OPTIONS = [
 ] as const;
 
 type InvestorSortValue = (typeof INVESTOR_SORT_OPTIONS)[number]["value"];
+type InvestorEntityFilter = "all" | "firms" | "investors";
 
 function investorMatchPriority(e: DirectoryEntry): number {
   const r = safeTextTrim(e.matchReason).toLowerCase();
@@ -2018,6 +2020,7 @@ export function CommunityView({
   const [investorSort, setInvestorSort] = useState<InvestorSortValue>(() =>
     variant === "investor-search" ? "name_az" : "recommended",
   );
+  const [investorEntityFilter, setInvestorEntityFilter] = useState<InvestorEntityFilter>("all");
   const [networkDirectorySort, setNetworkDirectorySort] = useState<NetworkDirectorySortValue>("default");
   const [networkDirectorySector, setNetworkDirectorySector] = useState<string>(NETWORK_DIRECTORY_SECTOR_ALL);
   const [networkDirectoryStage, setNetworkDirectoryStage] = useState<string>(NETWORK_DIRECTORY_STAGE_ALL);
@@ -2811,7 +2814,7 @@ export function CommunityView({
   // Reset pagination on filter/scope/sort change (not on text search — large indices must stay reachable for scroll-to-pick)
   useEffect(() => {
     setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab, investorSort, isInvestorSearch]);
+  }, [activeFilter, activeScope, activeInvestorTab, investorSort, investorEntityFilter, isInvestorSearch]);
 
   /** Run before paint so directory filters never carry across All / Companies / Founders / Operators. */
   useLayoutEffect(() => {
@@ -3025,10 +3028,18 @@ export function CommunityView({
     });
   }, [displayEntriesWithRpcFirms, investorListSearchQuery, isInvestorSearch]);
 
+  const investorEntityFilteredEntries = useMemo(() => {
+    if (!isInvestorSearch || investorEntityFilter === "all") return textFilteredEntries;
+    return textFilteredEntries.filter((entry) => {
+      const isPerson = entry._investorEntityType === "person";
+      return investorEntityFilter === "investors" ? isPerson : !isPerson;
+    });
+  }, [investorEntityFilter, isInvestorSearch, textFilteredEntries]);
+
   const networkDirectoryFilterSource = useMemo(() => {
     if (isInvestorSearch) return [];
-    return textFilteredEntries;
-  }, [isInvestorSearch, textFilteredEntries]);
+    return investorEntityFilteredEntries;
+  }, [isInvestorSearch, investorEntityFilteredEntries]);
 
   const networkSectorOptions = useMemo(() => {
     const set = new Set<string>();
@@ -3081,8 +3092,8 @@ export function CommunityView({
   }, [networkDirectorySort, networkDirectorySortOptionsForUi]);
 
   const networkDirectoryGridEntries = useMemo(() => {
-    if (!directoryDbGrid) return textFilteredEntries;
-    let list = [...textFilteredEntries];
+    if (!directoryDbGrid) return investorEntityFilteredEntries;
+    let list = [...investorEntityFilteredEntries];
     if (networkDirectorySector !== NETWORK_DIRECTORY_SECTOR_ALL) {
       list = list.filter((e) => safeTextTrim(e.sector) === networkDirectorySector);
     }
@@ -3095,7 +3106,7 @@ export function CommunityView({
     return list;
   }, [
     directoryDbGrid,
-    textFilteredEntries,
+    investorEntityFilteredEntries,
     networkDirectorySector,
     networkDirectoryStage,
     effectiveNetworkDirectorySort,
@@ -3105,7 +3116,7 @@ export function CommunityView({
     if (directoryDbGrid) {
       return networkDirectoryGridEntries;
     }
-    const list = [...textFilteredEntries];
+    const list = [...investorEntityFilteredEntries];
     if (isInvestorSearch || isOperatorHubLayout) {
       list.sort((a, b) => compareInvestorsForSort(a, b, investorSort));
     }
@@ -3113,7 +3124,7 @@ export function CommunityView({
   }, [
     directoryDbGrid,
     networkDirectoryGridEntries,
-    textFilteredEntries,
+    investorEntityFilteredEntries,
     investorSort,
     isInvestorSearch,
     isOperatorHubLayout,
@@ -3418,7 +3429,9 @@ export function CommunityView({
   }, [isOperatorHubLayout, activeScope, companyData?.sector, companyData?.stage, analysisResult]);
 
   const showInvestorRails =
-    isInvestorSearch && (investorRailSuggested.length > 0 || investorRailTrending.length > 0);
+    isInvestorSearch &&
+    investorEntityFilter !== "investors" &&
+    (investorRailSuggested.length > 0 || investorRailTrending.length > 0);
 
   const showNetworkRails =
     !isInvestorSearch &&
@@ -3766,7 +3779,7 @@ export function CommunityView({
         className="mb-2 scroll-mt-24 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:overflow-x-visible"
         data-section="network-pulse-cohorts"
       >
-        <div className="flex min-w-max items-stretch gap-2.5 lg:min-w-0 lg:w-full lg:gap-3">
+        <div className="grid min-w-max grid-flow-col auto-cols-[240px] items-stretch gap-2.5 lg:min-w-0 lg:w-full lg:grid-flow-row lg:grid-cols-2 lg:gap-3 2xl:grid-cols-4">
           {cohorts.map((cohort, cohortIdx) => {
             const Icon = cohort.icon;
 
@@ -3778,7 +3791,7 @@ export function CommunityView({
                   onClick={() => setActiveCohortId(cohort.id)}
                   className={cn(
                     "group flex min-h-0 snap-start shrink-0 flex-col rounded-lg border px-3.5 py-3 text-left",
-                    "w-[220px] transition-[border-color,box-shadow,background-color] duration-200 lg:min-w-0 lg:w-auto lg:flex-1",
+                    "w-[240px] transition-[border-color,box-shadow,background-color] duration-200 lg:min-w-0 lg:w-auto",
                     "border-border/42 bg-card/97 shadow-[0_1px_1px_rgba(0,0,0,0.022)] dark:border-white/[0.09] dark:bg-white/[0.038]",
                     "hover:border-border/70 hover:shadow-[0_2px_10px_rgba(0,0,0,0.045)] hover:bg-card dark:hover:border-white/16 dark:hover:bg-white/[0.055]",
                   )}
@@ -3815,7 +3828,7 @@ export function CommunityView({
                       <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
                         {cohort.timeframe}
                       </span>
-                      <div className="flex shrink-0 items-baseline justify-end gap-2">
+                      <div className="flex min-w-0 flex-1 items-baseline justify-end gap-2">
                         <RotatingCohortTrendText
                           stats={cohort.trendStats}
                           initialDelayMs={2200 + cohortIdx * 550}
@@ -3834,7 +3847,7 @@ export function CommunityView({
                 onClick={() => setActiveCohortId(cohort.id)}
                 className={[
                   "group relative snap-start shrink-0 flex flex-col justify-between overflow-hidden rounded-xl px-4 py-3.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
-                  "w-[220px] lg:w-auto lg:min-w-0 lg:flex-1",
+                  "w-[240px] lg:w-auto lg:min-w-0",
                   "border border-border bg-card shadow-sm hover:border-border/80",
                 ].join(" ")}
               >
@@ -3858,7 +3871,7 @@ export function CommunityView({
                     <span className="shrink-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-tight text-muted-foreground/85">
                       {cohort.timeframe}
                     </span>
-                    <div className="flex shrink-0 items-baseline justify-end gap-2">
+                    <div className="flex min-w-0 flex-1 items-baseline justify-end gap-2">
                       <RotatingCohortTrendText
                         stats={cohort.trendStats}
                         initialDelayMs={2200 + cohortIdx * 550}
@@ -4055,25 +4068,53 @@ export function CommunityView({
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               {isInvestorSearch && (
-                <Select
-                  value={investorSort}
-                  onValueChange={(v) => setInvestorSort(v as InvestorSortValue)}
-                >
-                  <SelectTrigger
-                    aria-label="Sort investors"
-                    className="h-8 w-[min(100%,11.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[11.5rem]"
+                <>
+                  <div
+                    className="flex h-8 items-center rounded-lg border border-border/80 bg-background/80 p-0.5 shadow-sm"
+                    role="group"
+                    aria-label="Filter investor directory by entity type"
                   >
-                    <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent align="end" className="min-w-[12rem]">
-                    {INVESTOR_SORT_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                        {opt.label}
-                      </SelectItem>
+                    {([
+                      ["all", "All"],
+                      ["firms", "Firms"],
+                      ["investors", "Investors"],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setInvestorEntityFilter(value)}
+                        aria-pressed={investorEntityFilter === value}
+                        className={cn(
+                          "h-7 rounded-md px-2.5 text-[9px] font-semibold uppercase tracking-[0.1em] transition-colors",
+                          investorEntityFilter === value
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        {label}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                  <Select
+                    value={investorSort}
+                    onValueChange={(v) => setInvestorSort(v as InvestorSortValue)}
+                  >
+                    <SelectTrigger
+                      aria-label="Sort investors"
+                      className="h-8 w-[min(100%,11.5rem)] shrink-0 gap-1.5 rounded-lg border-border/80 bg-background/80 px-2.5 text-[11px] font-medium shadow-sm sm:w-[11.5rem]"
+                    >
+                      <ArrowDownWideNarrow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent align="end" className="min-w-[12rem]">
+                      {INVESTOR_SORT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
               {directoryDbGrid && !isInvestorSearch && (
                 <>
@@ -4150,7 +4191,15 @@ export function CommunityView({
                         isOperatorHubLayout ? "operators" : labels.plural
                       }`
                     : `${visibleGrid.length} of ${gridEntries.length} ${
-                        isInvestorSearch ? "investors" : isOperatorHubLayout ? "operators" : labels.plural
+                        isInvestorSearch
+                          ? investorEntityFilter === "firms"
+                            ? "firms"
+                            : investorEntityFilter === "investors"
+                              ? "investors"
+                              : "results"
+                          : isOperatorHubLayout
+                            ? "operators"
+                            : labels.plural
                       }`}
               </span>
             </div>

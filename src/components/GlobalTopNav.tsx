@@ -1759,13 +1759,8 @@ export function GlobalTopNav({
             <div className="p-1">
               <DropdownMenuItem
                 onClick={() => {
-                  const fromIntel = location.pathname === "/intelligence";
-                  if (fromIntel) navigate("/");
-                  const url = new URL(fromIntel ? `${window.location.origin}/` : window.location.href);
-                  url.searchParams.set("view", "profile-workspace");
-                  url.searchParams.delete("tab");
-                  window.history.replaceState({}, "", url.toString());
-                  onViewChange?.("profile-workspace" as ViewType);
+                  navigate({ pathname: "/", search: "?view=settings&tab=account" });
+                  onViewChange?.("settings" as ViewType);
                 }}
                 className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer"
               >

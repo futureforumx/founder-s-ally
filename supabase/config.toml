@@ -1,5 +1,12 @@
 project_id = "zmnlsdohtwztneamvwaq"
 
+[functions.stripe-billing]
+verify_jwt = true
+
+# Stripe authenticates this endpoint with its webhook signature.
+[functions.stripe-webhook]
+verify_jwt = false
+
 [functions.audit-deck]
 verify_jwt = false
 

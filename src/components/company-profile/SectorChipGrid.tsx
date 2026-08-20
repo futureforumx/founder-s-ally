@@ -1,5 +1,5 @@
-import { useCallback, useRef } from "react";
-import { Sparkles, Pencil } from "lucide-react";
+import { useCallback, useRef, useState, type DragEvent } from "react";
+import { GripVertical, Sparkles, Pencil, X } from "lucide-react";
 import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
 
 // ── Types ──
@@ -101,24 +101,110 @@ function Chip({
   );
 }
 
-// ── Summary Bar ──
+// ── Ranked sector alignment ──
 
-function SummaryBar({ primary, secondary }: { primary: string | null; secondary: string[] }) {
-  if (!primary && secondary.length === 0) return null;
+function SectorAlignmentSlots({
+  primary,
+  secondary,
+  onChange,
+}: {
+  primary: string | null;
+  secondary: string[];
+  onChange: (selection: SectorChipSelection) => void;
+}) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const ranked = [primary, ...secondary].filter((sector): sector is string => Boolean(sector)).slice(0, 3);
+
+  const commitRanked = (next: string[]) => {
+    onChange({
+      primary_sector: next[0] ?? null,
+      secondary_sectors: next.slice(1, 3),
+    });
+  };
+
+  const handleDragStart = (event: DragEvent<HTMLDivElement>, index: number) => {
+    setDragIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>, targetIndex: number) => {
+    event.preventDefault();
+    const sourceFromTransfer = Number(event.dataTransfer.getData("text/plain"));
+    const sourceIndex = dragIndex ?? sourceFromTransfer;
+    if (!Number.isInteger(sourceIndex) || sourceIndex < 0 || sourceIndex >= ranked.length) return;
+
+    const next = [...ranked];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(Math.min(targetIndex, next.length), 0, moved);
+    commitRanked(next);
+    setDragIndex(null);
+  };
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
-      {primary && (
-        <span className="font-bold text-foreground">{primary}</span>
-      )}
-      {primary && <span className="text-muted-foreground/50">(Primary)</span>}
-      {secondary.map((s) => (
-        <span key={s} className="flex items-center gap-1">
-          <span className="text-muted-foreground/30">·</span>
-          <span className="text-foreground/80">{s}</span>
-          <span className="text-muted-foreground/50">(Secondary)</span>
-        </span>
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sector alignment</p>
+          <p className="text-[10px] text-muted-foreground/70">Drag to reorder priority.</p>
+        </div>
+        <span className="text-[9px] font-semibold text-muted-foreground">{ranked.length}/3 selected</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {[0, 1, 2].map((index) => {
+          const sector = ranked[index];
+          const isDragging = dragIndex === index;
+          return (
+            <div
+              key={index}
+              draggable={Boolean(sector)}
+              onDragStart={(event) => sector && handleDragStart(event, index)}
+              onDragEnd={() => setDragIndex(null)}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => handleDrop(event, index)}
+              className={`group min-h-[76px] rounded-lg border p-2.5 transition-colors ${
+                sector
+                  ? "cursor-grab border-border bg-muted/45 active:cursor-grabbing"
+                  : "border-dashed border-border/70 bg-muted/15"
+              } ${isDragging ? "opacity-40" : ""}`}
+            >
+              <div className="flex items-start gap-2">
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${
+                  index === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    {index === 0 ? "Primary" : "Secondary"}
+                  </p>
+                  <p className={`mt-1 text-xs font-semibold leading-snug ${
+                    sector ? "text-foreground" : "text-muted-foreground/45"
+                  }`}>
+                    {sector ?? "Drop sector here"}
+                  </p>
+                </div>
+                {sector && (
+                  <>
+                    <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/45" aria-hidden />
+                    <button
+                      type="button"
+                      onClick={() => commitRanked(ranked.filter((_, rankedIndex) => rankedIndex !== index))}
+                      className="rounded p-0.5 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label={`Remove ${sector}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -296,7 +382,11 @@ export function SectorChipGrid({
             );
           })}
         </div>
-        <SummaryBar primary={primary_sector} secondary={secondary_sectors} />
+        <SectorAlignmentSlots
+          primary={primary_sector}
+          secondary={secondary_sectors}
+          onChange={onChange}
+        />
       </div>
 
       {/* Business Model */}
