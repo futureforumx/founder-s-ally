@@ -73,24 +73,38 @@ if (!SUPA || !KEY) {
 const sb = createClient(SUPA, KEY, { auth: { persistSession: false } });
 
 async function main() {
-  let q = sb
-    .from("firm_records")
-    .select("id,firm_name,website_url,hq_city,location,ready_for_live")
-    .is("deleted_at", null)
-    .not("website_url", "is", null);
-
-  if (READY_ONLY) {
-    q = q.eq("ready_for_live", true);
+  const fetched: {
+    id: string;
+    firm_name: string | null;
+    website_url: string | null;
+    hq_city: string | null;
+    location: string | null;
+    ready_for_live: boolean | null;
+  }[] = [];
+  const pageSize = 1000;
+  const fetchCap = Math.min(MAX * 4, 20000);
+  while (fetched.length < fetchCap) {
+    const from = fetched.length;
+    const to = Math.min(from + pageSize, fetchCap) - 1;
+    let q = sb
+      .from("firm_records")
+      .select("id,firm_name,website_url,hq_city,location,ready_for_live")
+      .is("deleted_at", null)
+      .not("website_url", "is", null)
+      .order("firm_name")
+      .range(from, to);
+    if (READY_ONLY) q = q.eq("ready_for_live", true);
+    const { data, error } = await q;
+    if (error) {
+      console.error(error);
+      process.exit(1);
+    }
+    if (!data?.length) break;
+    fetched.push(...data);
+    if (data.length < to - from + 1) break;
   }
 
-  const { data, error } = await q.order("firm_name").limit(Math.min(MAX * 4, 8000));
-
-  if (error) {
-    console.error(error);
-    process.exit(1);
-  }
-
-  const rows = (data ?? []).filter((r) => {
+  const rows = fetched.filter((r) => {
     const w = (r.website_url ?? "").trim();
     if (w.length < 8 || !hostnameOk(w)) return false;
     if (FORCE) return true;

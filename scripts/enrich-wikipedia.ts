@@ -491,31 +491,41 @@ async function main() {
   console.log(`${"═".repeat(66)}`);
   console.log(`  Max: ${MAX}  |  Delay: ${DELAY_MS}ms  |  Timeout: ${TIMEOUT}ms\n`);
 
-  const { data: firms, error } = await supabase
-    .from("firm_records")
-    .select(
-      "id, firm_name, website_url, logo_url, aum, email, hq_city, hq_state, hq_country, total_headcount, founded_year"
-    )
-    .or(
-      [
-        "website_url.is.null",
-        "logo_url.is.null",
-        "aum.is.null",
-        "email.is.null",
-        "hq_city.is.null",
-        "total_headcount.is.null",
-        "founded_year.is.null",
-      ].join(",")
-    )
-    .is("deleted_at", null)
-    .limit(MAX);
+  const firms: FirmRow[] = [];
+  const pageSize = 1000;
+  while (firms.length < MAX) {
+    const from = firms.length;
+    const to = Math.min(from + pageSize, MAX) - 1;
+    const { data, error } = await supabase
+      .from("firm_records")
+      .select(
+        "id, firm_name, website_url, logo_url, aum, email, hq_city, hq_state, hq_country, total_headcount, founded_year"
+      )
+      .or(
+        [
+          "website_url.is.null",
+          "logo_url.is.null",
+          "aum.is.null",
+          "email.is.null",
+          "hq_city.is.null",
+          "total_headcount.is.null",
+          "founded_year.is.null",
+        ].join(",")
+      )
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, to);
 
-  if (error) {
-    console.error("❌  Failed to load firms:", error.message);
-    process.exit(1);
+    if (error) {
+      console.error("❌  Failed to load firms:", error.message);
+      process.exit(1);
+    }
+    if (!data?.length) break;
+    firms.push(...(data as FirmRow[]));
+    if (data.length < to - from + 1) break;
   }
 
-  const total = firms?.length ?? 0;
+  const total = firms.length;
   console.log(`  Loaded ${total} firms to process.\n`);
 
   let updated = 0;

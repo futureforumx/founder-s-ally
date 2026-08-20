@@ -183,18 +183,26 @@ async function main() {
     console.log(`Revert pass: ${n} row(s)\n`);
   }
 
-  const { data: rows, error } = await sb
-    .from("firm_records")
-    .select("id,firm_name,website_url,logo_url")
-    .is("deleted_at", null)
-    .not("website_url", "is", null);
-
-  if (error) {
-    console.error(error.message);
-    process.exit(1);
+  const rows: Row[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb
+      .from("firm_records")
+      .select("id,firm_name,website_url,logo_url")
+      .is("deleted_at", null)
+      .not("website_url", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    if (!data?.length) break;
+    rows.push(...(data as Row[]));
+    if (data.length < pageSize) break;
   }
 
-  const targets = (rows ?? []).filter((r: Row) => {
+  const targets = rows.filter((r: Row) => {
     const logo = r.logo_url?.trim() || "";
     return !logo || isProxyLogoUrl(logo);
   });

@@ -92,22 +92,29 @@ type FirmRow = {
 };
 
 async function main() {
-  let q = sb
-    .from("firm_records")
-    .select("id,firm_name,website_url,ready_for_live")
-    .is("deleted_at", null)
-    .not("website_url", "is", null);
-
-  if (READY_ONLY) q = q.eq("ready_for_live", true);
-
   const fetchLimit = Math.min(Math.max(MAX + START_OFFSET + 500, 2000), 50000);
-  const { data, error } = await q.order("firm_name").limit(fetchLimit);
-  if (error) {
-    console.error(error);
-    process.exit(1);
+  const allRows: FirmRow[] = [];
+  const pageSize = 1000;
+  while (allRows.length < fetchLimit) {
+    const from = allRows.length;
+    const to = Math.min(from + pageSize, fetchLimit) - 1;
+    let page = sb
+      .from("firm_records")
+      .select("id,firm_name,website_url,ready_for_live")
+      .is("deleted_at", null)
+      .not("website_url", "is", null)
+      .order("firm_name")
+      .range(from, to);
+    if (READY_ONLY) page = page.eq("ready_for_live", true);
+    const { data, error } = await page;
+    if (error) {
+      console.error(error);
+      process.exit(1);
+    }
+    if (!data?.length) break;
+    allRows.push(...(data as FirmRow[]));
+    if (data.length < to - from + 1) break;
   }
-
-  const allRows = (data ?? []) as FirmRow[];
   const normalizedRows = allRows
     .map((row) => {
       const normalized = normalizeWebsiteUrl(row.website_url ?? "");
