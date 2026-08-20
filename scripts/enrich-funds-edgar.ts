@@ -242,21 +242,35 @@ async function edgarFetch(url: string, retries = 3): Promise<Response | null> {
 // ---------------------------------------------------------------------------
 
 async function loadFirms(): Promise<FirmRow[]> {
-  let query = supabase
-    .from("firm_records")
-    .select("id, firm_name, legal_name, slug, website_url")
-    .is("deleted_at", null)
-    .order("firm_name");
+  const includeIndividuals = ["1", "true", "yes"].includes(
+    (process.env.EDGAR_INCLUDE_INDIVIDUALS || "").toLowerCase(),
+  );
+  const out: FirmRow[] = [];
+  const pageSize = 1000;
+  const cap = TARGET_FIRM_SLUG ? 1 : Math.max(1, MAX_FIRMS);
+  let from = 0;
 
-  if (TARGET_FIRM_SLUG) {
-    query = query.eq("slug", TARGET_FIRM_SLUG);
-  } else {
-    query = query.limit(MAX_FIRMS);
+  while (out.length < cap) {
+    const to = from + pageSize - 1;
+    let query = supabase
+      .from("firm_records")
+      .select("id, firm_name, legal_name, slug, website_url")
+      .is("deleted_at", null)
+      .order("firm_name")
+      .range(from, to);
+    if (TARGET_FIRM_SLUG) query = query.eq("slug", TARGET_FIRM_SLUG);
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to load firms: ${error.message}`);
+    if (!data?.length) break;
+    from += data.length;
+    const rows = data as FirmRow[];
+    out.push(
+      ...rows.filter((row) => includeIndividuals || !/\(individual\)/i.test(row.firm_name ?? "")),
+    );
+    if (data.length < pageSize) break;
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(`Failed to load firms: ${error.message}`);
-  return (data ?? []) as FirmRow[];
+  return out.slice(0, cap);
 }
 
 // ---------------------------------------------------------------------------

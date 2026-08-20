@@ -359,6 +359,13 @@ export async function upsertStartup(
     for (const key of Object.keys(data)) {
       if (data[key] === null && existing[key] != null) delete data[key];
     }
+    // Matched by domain can try to rename into a row that already owns this name.
+    if (name && name !== existing.company_name) {
+      const { data: nameOwner } = await sb.from("startups").select("id").eq("company_name", name).maybeSingle();
+      if (nameOwner && nameOwner.id !== existing.id) {
+        data.company_name = existing.company_name;
+      }
+    }
   }
 
   let startupId: string;
@@ -392,7 +399,13 @@ export async function upsertStartup(
     created = true;
   } else {
     const { error } = await sb.from("startups").update(data).eq("id", existing.id);
-    if (error) throw new Error(`Update startup "${name}": ${error.message}`);
+    if (error?.message.includes("company_name_key") || error?.message.includes("company_name")) {
+      const { company_name: _ignored, ...withoutName } = data;
+      const { error: retryErr } = await sb.from("startups").update(withoutName).eq("id", existing.id);
+      if (retryErr) throw new Error(`Update startup "${name}": ${retryErr.message}`);
+    } else if (error) {
+      throw new Error(`Update startup "${name}": ${error.message}`);
+    }
     startupId = existing.id;
     created = false;
   }
