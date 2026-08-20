@@ -23,6 +23,7 @@ import type { FirmDeal } from "@/hooks/useInvestorProfile";
 import { fetchFreshCapitalLive, parseFreshCapitalFundRow, type FreshCapitalFundRow } from "@/lib/freshCapitalPublic";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
 import { safeLower, safeTrim } from "@/lib/utils";
+import { resolveActivelyDeploying } from "@/lib/activelyDeploying";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,10 @@ interface ActivityDashboardProps {
   deals?: FirmDeal[] | null;
   fallbackAum?: string | null;
   fallbackIsActivelyDeploying?: boolean | null;
+  fallbackHasFreshCapital?: boolean | null;
+  fallbackLikelyActivelyDeploying?: boolean | null;
+  fallbackActiveFundVintage?: number | null;
+  fallbackLastFundAnnouncementAt?: string | null;
   fallbackRecentDeals?: string[] | null;
 }
 
@@ -553,6 +558,12 @@ function CurrentFundCard({
   loading,
   fallbackAum,
   fallbackIsActivelyDeploying,
+  fallbackHasFreshCapital,
+  fallbackLikelyActivelyDeploying,
+  fallbackActiveFundVintage,
+  fallbackLastFundAnnouncementAt,
+  recentDealCount,
+  lastDealAt,
   edgarFallback,
 }: {
   funds: FundRecord[];
@@ -562,6 +573,12 @@ function CurrentFundCard({
   loading: boolean;
   fallbackAum?: string | null;
   fallbackIsActivelyDeploying?: boolean | null;
+  fallbackHasFreshCapital?: boolean | null;
+  fallbackLikelyActivelyDeploying?: boolean | null;
+  fallbackActiveFundVintage?: number | null;
+  fallbackLastFundAnnouncementAt?: string | null;
+  recentDealCount?: number | null;
+  lastDealAt?: string | null;
   edgarFallback?: EDGARFundRow | null;
 }) {
   const idx = funds.length > 0 ? Math.min(Math.max(0, fundIndex), funds.length - 1) : 0;
@@ -571,7 +588,16 @@ function CurrentFundCard({
   const radius = 28;
   const circumference = 2 * Math.PI * radius;
   const strokeDash = pct != null ? (Math.min(pct, 100) / 100) * circumference : 0;
-  const isDeploying = fund?.actively_deploying === true;
+  const isDeploying = resolveActivelyDeploying({
+    isActivelyDeploying: fallbackIsActivelyDeploying,
+    hasFreshCapital: fallbackHasFreshCapital,
+    likelyActivelyDeploying: fallbackLikelyActivelyDeploying,
+    fundLikelyActivelyDeploying: fund?.actively_deploying,
+    recentDealCount,
+    lastDealAt,
+    latestFundVintageYear: fund?.vintage_year ?? fallbackActiveFundVintage,
+    lastFundAnnouncementAt: fallbackLastFundAnnouncementAt,
+  });
 
   if (loading) {
     return (
@@ -645,7 +671,7 @@ function CurrentFundCard({
             <>
               <p className="text-sm font-semibold text-foreground">{fallbackAum} AUM</p>
               <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                {fallbackIsActivelyDeploying ? "Actively deploying" : "Firm-level data available; fund breakdown pending"}
+                {isDeploying ? "Actively deploying" : "Firm-level data available; fund breakdown pending"}
               </p>
             </>
           ) : (
@@ -715,13 +741,18 @@ function CurrentFundCard({
           {fund.size_usd ? `${fmtUsd(fund.size_usd)} · ` : ""}
           {pct != null ? `Est. ${pct.toFixed(0)}% Deployed` : "Deployment data pending"}
         </p>
-        {isDeploying && (
+        {isDeploying ? (
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
             </span>
             <span className="text-[10px] font-semibold text-success">Actively Writing Checks</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground/50" />
+            <span className="text-[10px] font-semibold text-muted-foreground">Not Actively Deploying</span>
           </div>
         )}
       </div>
@@ -741,6 +772,10 @@ export function ActivityDashboard({
   deals: dealsProp,
   fallbackAum,
   fallbackIsActivelyDeploying,
+  fallbackHasFreshCapital,
+  fallbackLikelyActivelyDeploying,
+  fallbackActiveFundVintage,
+  fallbackLastFundAnnouncementAt,
   fallbackRecentDeals,
 }: ActivityDashboardProps) {
   const [paceView, setPaceView] = useState<"pace" | "trend">("pace");
@@ -815,6 +850,28 @@ export function ActivityDashboard({
     }
     return db;
   }, [dbDeals, dealsProp]);
+
+  const statusLastDealAt = useMemo(() => {
+    let latest: string | null = null;
+    for (const d of allDeals) {
+      const t = d.date_announced;
+      if (!t) continue;
+      if (!latest || new Date(t) > new Date(latest)) latest = t;
+    }
+    return latest;
+  }, [allDeals]);
+
+  const statusRecentDealCount = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 18);
+    const n = allDeals.filter((d) => {
+      if (!d.date_announced) return false;
+      const dt = new Date(d.date_announced);
+      return !Number.isNaN(dt.getTime()) && dt >= cutoff;
+    }).length;
+    if (n > 0) return n;
+    return fallbackRecentDeals?.length ?? null;
+  }, [allDeals, fallbackRecentDeals]);
 
   const buckets = useMemo(() => buildMonthBuckets(allDeals), [allDeals]);
   const maxCount = useMemo(() => Math.max(...buckets.map((b) => b.count), 1), [buckets]);
@@ -908,6 +965,12 @@ export function ActivityDashboard({
           loading={fundLoading || (showEdgarOnMainCard && edgarLoading)}
           fallbackAum={fallbackAum}
           fallbackIsActivelyDeploying={fallbackIsActivelyDeploying}
+          fallbackHasFreshCapital={fallbackHasFreshCapital}
+          fallbackLikelyActivelyDeploying={fallbackLikelyActivelyDeploying}
+          fallbackActiveFundVintage={fallbackActiveFundVintage}
+          fallbackLastFundAnnouncementAt={fallbackLastFundAnnouncementAt}
+          recentDealCount={statusRecentDealCount}
+          lastDealAt={statusLastDealAt}
           edgarFallback={showEdgarOnMainCard ? edgarLatestFund : undefined}
         />
 

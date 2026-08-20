@@ -15,6 +15,8 @@ import { JobsTab } from "./founder-detail/JobsTab";
 import { useCompanyJobs } from "@/hooks/useCompanyJobs";
 import { FounderInsightCard } from "./founder-detail/FounderInsightCard";
 import { TABS, type Tab, type FounderEntry } from "./founder-detail/types";
+import { AdminLiveRecordControl } from "@/components/admin/AdminLiveRecordDialog";
+import { adminLiveRecordFromDirectory } from "@/lib/adminLiveRecord";
 
 function trimUrl(v: string | null | undefined): string | null {
   const s = String(v ?? "").trim();
@@ -73,6 +75,11 @@ export function FounderDetailPanel({
   );
 
   const jobsQuery = useCompanyJobs(organizationId);
+
+  const adminLiveTarget = useMemo(
+    () => (founder ? adminLiveRecordFromDirectory(founder) : null),
+    [founder],
+  );
 
   useEffect(() => {
     if (!tabList.includes(activeTab)) {
@@ -160,6 +167,7 @@ export function FounderDetailPanel({
                 {/* Right Action Cluster */}
                 <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
                   <div className="flex items-center gap-2">
+                    <AdminLiveRecordControl target={adminLiveTarget} />
                     <button className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-tight text-background hover:bg-foreground/90 transition-colors shadow-lg">
                       <Zap className="h-3 w-3" /> Add to Network
                     </button>

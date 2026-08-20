@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Users, Building2, MapPin, Sparkles, Briefcase, Handshake, Layers,
   ArrowRight, Flame, Loader2, LayoutGrid, Zap, TrendingUp, UserCog, CheckCircle2,
-  Activity, Heart, Info, ChevronDown, X, ArrowDownWideNarrow, Pencil,
+  Activity, Info, ChevronDown, X, ArrowDownWideNarrow,
   Landmark,
 } from "lucide-react";
 import {
@@ -18,6 +18,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import {
   useInvestorDirectory,
   useInvestorPeopleDirectory,
+  useDirectoryDeployingNameSet,
   mapDbInvestor,
   type LiveInvestorEntry,
 } from "@/hooks/useInvestorDirectory";
@@ -46,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
+import { listedInvestmentCount, recentDealCount, resolveActivelyDeploying, deployingNameKey } from "@/lib/activelyDeploying";
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
 import { formatStageForDisplay, normalizeStageKey, STAGE_ORDER, stageRank, collapseStagesToRange } from "@/lib/stageUtils";
@@ -58,20 +60,13 @@ import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { AumBand } from "@prisma/client";
-import { toast } from "sonner";
-import { isSupabaseConfigured, supabase, supabaseVcDirectory } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { isSupabaseConfigured, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { AdminLiveRecordDialog } from "@/components/admin/AdminLiveRecordDialog";
+import { AdminEditButton } from "@/components/admin/AdminEditButton";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  adminLiveRecordFromDirectory,
+  type AdminLiveRecordTarget,
+} from "@/lib/adminLiveRecord";
 
 interface CommunityViewProps {
   companyData?: CompanyData | null;
@@ -122,6 +117,15 @@ interface DirectoryEntry {
   /** VC JSON sectors when no DB verticals (single sector → specialist pill). */
   _seedSectors?: string[] | null;
   _isActivelyDeploying?: boolean;
+  /** `firm_records.has_fresh_capital` — newly raised fund. */
+  _hasFreshCapital?: boolean | null;
+  /** `firm_records.likely_actively_deploying` */
+  _likelyActivelyDeploying?: boolean | null;
+  /** Length of `recent_deals` when known. */
+  _recentDealCount?: number | null;
+  _activeFundVintage?: number | null;
+  _lastFundAnnouncementAt?: string | null;
+  _lastDealAt?: string | null;
   _founderSentimentScore?: number | null;
   _headcount?: string | null;
   _aum?: string | null;
@@ -177,247 +181,8 @@ function isUuid(value: string | null | undefined): value is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
-type AdminEditableRecord =
-  | {
-      type: "firm";
-      id: string;
-      name: string;
-      website_url: string | null;
-      location: string | null;
-      description: string | null;
-      firm_type: string | null;
-      aum: string | null;
-    }
-  | {
-      type: "investor";
-      id: string;
-      full_name: string;
-      title: string | null;
-      email: string | null;
-      linkedin_url: string | null;
-      x_url: string | null;
-      bio: string | null;
-    };
-
-function getAdminEditableRecord(entry: DirectoryEntry): AdminEditableRecord | null {
-  if (entry.category !== "investor") return null;
-  if (entry._investorEntityType === "person" && isUuid(entry._personData?.id)) {
-    return {
-      type: "investor",
-      id: String(entry._personData.id).trim(),
-      full_name: entry._personData.full_name ?? entry.name,
-      title: entry._personData.title ?? entry.model ?? null,
-      email: entry._personData.email ?? null,
-      linkedin_url: entry._personData.linkedin_url ?? null,
-      x_url: entry._personData.x_url ?? null,
-      bio: entry._personData.bio ?? entry.description ?? null,
-    };
-  }
-  if (isUuid(entry._firmId)) {
-    return {
-      type: "firm",
-      id: String(entry._firmId).trim(),
-      name: entry.name,
-      website_url: entry._websiteUrl ?? null,
-      location: entry.location || null,
-      description: entry.description || null,
-      firm_type: entry._firmType ?? null,
-      aum: entry._aum ?? null,
-    };
-  }
-  return null;
-}
-
-function sanitizeOptionalField(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function AdminRecordEditDialog({
-  record,
-  open,
-  onOpenChange,
-  onSaved,
-}: {
-  record: AdminEditableRecord | null;
-  open: boolean;
-  onOpenChange: (next: boolean) => void;
-  onSaved: () => Promise<void>;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [firmName, setFirmName] = useState("");
-  const [firmWebsite, setFirmWebsite] = useState("");
-  const [firmLocation, setFirmLocation] = useState("");
-  const [firmDescription, setFirmDescription] = useState("");
-  const [firmType, setFirmType] = useState("");
-  const [firmAum, setFirmAum] = useState("");
-
-  const [investorName, setInvestorName] = useState("");
-  const [investorTitle, setInvestorTitle] = useState("");
-  const [investorEmail, setInvestorEmail] = useState("");
-  const [investorLinkedin, setInvestorLinkedin] = useState("");
-  const [investorXUrl, setInvestorXUrl] = useState("");
-  const [investorBio, setInvestorBio] = useState("");
-
-  useEffect(() => {
-    if (!record) return;
-    if (record.type === "firm") {
-      setFirmName(record.name);
-      setFirmWebsite(record.website_url ?? "");
-      setFirmLocation(record.location ?? "");
-      setFirmDescription(record.description ?? "");
-      setFirmType(record.firm_type ?? "");
-      setFirmAum(record.aum ?? "");
-      return;
-    }
-    setInvestorName(record.full_name);
-    setInvestorTitle(record.title ?? "");
-    setInvestorEmail(record.email ?? "");
-    setInvestorLinkedin(record.linkedin_url ?? "");
-    setInvestorXUrl(record.x_url ?? "");
-    setInvestorBio(record.bio ?? "");
-  }, [record]);
-
-  async function handleSave() {
-    if (!record) return;
-    setSaving(true);
-    try {
-      if (record.type === "firm") {
-        const cleanName = firmName.trim();
-        if (!cleanName) {
-          toast.error("Firm name is required.");
-          return;
-        }
-        const { error } = await supabase
-          .from("firm_records")
-          .update({
-            firm_name: cleanName,
-            website_url: sanitizeOptionalField(firmWebsite),
-            location: sanitizeOptionalField(firmLocation),
-            description: sanitizeOptionalField(firmDescription),
-            firm_type: sanitizeOptionalField(firmType),
-            aum: sanitizeOptionalField(firmAum),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", record.id);
-        if (error) throw error;
-        toast.success("Firm record updated.");
-      } else {
-        const cleanName = investorName.trim();
-        if (!cleanName) {
-          toast.error("Investor name is required.");
-          return;
-        }
-        const { error } = await supabase
-          .from("firm_investors")
-          .update({
-            full_name: cleanName,
-            title: sanitizeOptionalField(investorTitle),
-            email: sanitizeOptionalField(investorEmail),
-            linkedin_url: sanitizeOptionalField(investorLinkedin),
-            x_url: sanitizeOptionalField(investorXUrl),
-            bio: sanitizeOptionalField(investorBio),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", record.id);
-        if (error) throw error;
-        toast.success("Investor record updated.");
-      }
-
-      await onSaved();
-      onOpenChange(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to update record.";
-      toast.error(message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{record?.type === "investor" ? "Edit Investor Record" : "Edit Firm Record"}</DialogTitle>
-          <DialogDescription>
-            Changes are applied directly to the live directory record.
-          </DialogDescription>
-        </DialogHeader>
-        {record?.type === "firm" ? (
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-name">Firm Name</Label>
-              <Input id="firm-name" value={firmName} onChange={(e) => setFirmName(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-website">Website</Label>
-              <Input id="firm-website" value={firmWebsite} onChange={(e) => setFirmWebsite(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-location">Location</Label>
-              <Input id="firm-location" value={firmLocation} onChange={(e) => setFirmLocation(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-type">Firm Type</Label>
-              <Input id="firm-type" value={firmType} onChange={(e) => setFirmType(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-aum">AUM</Label>
-              <Input id="firm-aum" value={firmAum} onChange={(e) => setFirmAum(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="firm-description">Description</Label>
-              <Textarea
-                id="firm-description"
-                value={firmDescription}
-                onChange={(e) => setFirmDescription(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-name">Investor Name</Label>
-              <Input id="investor-name" value={investorName} onChange={(e) => setInvestorName(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-title">Title</Label>
-              <Input id="investor-title" value={investorTitle} onChange={(e) => setInvestorTitle(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-email">Email</Label>
-              <Input id="investor-email" value={investorEmail} onChange={(e) => setInvestorEmail(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-linkedin">LinkedIn</Label>
-              <Input
-                id="investor-linkedin"
-                value={investorLinkedin}
-                onChange={(e) => setInvestorLinkedin(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-x">X URL</Label>
-              <Input id="investor-x" value={investorXUrl} onChange={(e) => setInvestorXUrl(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="investor-bio">Bio</Label>
-              <Textarea id="investor-bio" value={investorBio} onChange={(e) => setInvestorBio(e.target.value)} rows={4} />
-            </div>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+function getAdminEditableRecord(entry: DirectoryEntry): AdminLiveRecordTarget | null {
+  return adminLiveRecordFromDirectory(entry);
 }
 
 /** Legacy demo directory rows were removed — Network uses Supabase-backed hooks (`useCommunityGridData`). */
@@ -669,6 +434,77 @@ function investorAumBandLabel(aum: string | null | undefined): string | null {
   return band ? INVESTOR_CARD_AUM_BADGE[band] : null;
 }
 
+function directoryCapitalFields(src: {
+  isActivelyDeploying?: boolean | null;
+  hasFreshCapital?: boolean | null;
+  likelyActivelyDeploying?: boolean | null;
+  recentDeals?: unknown;
+  listedInvestmentCount?: number | null;
+  activeFundVintage?: number | null;
+  lastFundAnnouncementAt?: string | null;
+  lastDealAt?: string | null;
+}): Pick<
+  DirectoryEntry,
+  | "_isActivelyDeploying"
+  | "_hasFreshCapital"
+  | "_likelyActivelyDeploying"
+  | "_recentDealCount"
+  | "_activeFundVintage"
+  | "_lastFundAnnouncementAt"
+  | "_lastDealAt"
+  | "_dealVelocityScore"
+> {
+  const deals = Array.isArray(src.recentDeals) ? (src.recentDeals as string[]) : null;
+  const dealCount = Math.max(
+    recentDealCount(src.recentDeals) ?? 0,
+    listedInvestmentCount(src.recentDeals) ?? 0,
+    src.listedInvestmentCount ?? 0,
+  );
+  const velocity = computeDealVelocityScore(
+    dealCount > 0 ? new Array(dealCount).fill("") : deals,
+    src.isActivelyDeploying ?? null,
+  );
+  return {
+    _hasFreshCapital: src.hasFreshCapital === true,
+    _likelyActivelyDeploying: src.likelyActivelyDeploying === true,
+    _recentDealCount: dealCount > 0 ? dealCount : null,
+    _activeFundVintage: src.activeFundVintage ?? null,
+    _lastFundAnnouncementAt: src.lastFundAnnouncementAt ?? null,
+    _lastDealAt: src.lastDealAt ?? null,
+    _dealVelocityScore: velocity,
+    _isActivelyDeploying: resolveActivelyDeploying({
+      isActivelyDeploying: src.isActivelyDeploying,
+      hasFreshCapital: src.hasFreshCapital,
+      likelyActivelyDeploying: src.likelyActivelyDeploying,
+      recentDealCount: dealCount > 0 ? dealCount : null,
+      dealVelocityScore: velocity,
+      lastDealAt: src.lastDealAt,
+      latestFundVintageYear: src.activeFundVintage,
+      lastFundAnnouncementAt: src.lastFundAnnouncementAt,
+    }),
+  };
+}
+
+function directoryCapitalFieldsFromLive(inv: LiveInvestorEntry) {
+  return directoryCapitalFields({
+    isActivelyDeploying: inv.is_actively_deploying,
+    hasFreshCapital: inv.has_fresh_capital,
+    likelyActivelyDeploying: inv.likely_actively_deploying,
+    recentDeals: inv.recent_deals,
+    listedInvestmentCount: inv.listed_investment_count,
+    activeFundVintage: inv.active_fund_vintage,
+    lastFundAnnouncementAt: inv.last_fund_announcement_date,
+    lastDealAt: inv.most_recent_investment_date,
+  });
+}
+
+function markEntryActivelyDeploying(entry: DirectoryEntry, names: Set<string>): DirectoryEntry {
+  if (entry.category !== "investor" || entry._isActivelyDeploying === true) return entry;
+  const hits = [deployingNameKey(entry.name), deployingNameKey(entry._investorFirmName)].filter(Boolean);
+  if (!hits.some((k) => names.has(k))) return entry;
+  return { ...entry, _isActivelyDeploying: true, _likelyActivelyDeploying: true };
+}
+
 /** Same card shape as `dbOnlyFirmEntries` — used when merging `search_firm_records` RPC hits into the grid. */
 function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry {
   return {
@@ -690,7 +526,7 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
     _thesisVerticals: inv.thesis_verticals ?? [],
     _geoFocus: inv.geo_focus ?? null,
     _seedSectors: null,
-    _isActivelyDeploying: inv.is_actively_deploying === true,
+    ...directoryCapitalFieldsFromLive(inv),
     _founderSentimentScore: inv.founder_reputation_score ?? null,
     _headcount: inv.headcount ?? null,
     _aum: inv.aum ?? null,
@@ -701,10 +537,6 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
     _isRecent: inv.is_recent ?? false,
     _firmId: inv.id,
     _websiteUrl: inv.website_url ?? null,
-    _dealVelocityScore: computeDealVelocityScore(
-      inv.recent_deals ?? null,
-      inv.is_actively_deploying ?? null,
-    ),
     _fundingIntelActivity: inv.funding_intel_activity_score ?? null,
   };
 }
@@ -732,9 +564,9 @@ function firmLocationBadgeTooltipText(location: string): string {
 
 function deploymentStatusBadgeTooltipText(isDeploying: boolean): string {
   if (isDeploying) {
-    return "This fund is currently writing checks and evaluating new deals.";
+    return "This firm recently raised a fund or is currently writing checks.";
   }
-  return "We are not seeing active deployment signals for this firm right now (may still invest opportunistically).";
+  return "We are not seeing a recent fundraise or investment activity for this firm right now (may still invest opportunistically).";
 }
 
 const INVESTOR_CARD_META_BADGE =
@@ -799,11 +631,18 @@ function InvestorCard({
   const velocityScore = (founder as any)._dealVelocityScore ?? null;
   const velocityColor = velocityScore != null ? (velocityScore >= 70 ? "text-success" : velocityScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const velocityLabel = velocityScore == null ? null : velocityScore >= 80 ? "Hot" : velocityScore >= 60 ? "Active" : velocityScore >= 35 ? "Moderate" : "Slow";
-  const MIN_DEPLOYING_VELOCITY_SCORE = 35;
-  /** Only treat as deploying when the firm record explicitly says so (never default unknown/null to true). */
   const showAsActivelyDeploying =
-    founder._isActivelyDeploying === true &&
-    (velocityScore == null || velocityScore >= MIN_DEPLOYING_VELOCITY_SCORE);
+    founder._isActivelyDeploying === true ||
+    resolveActivelyDeploying({
+      isActivelyDeploying: founder._isActivelyDeploying,
+      hasFreshCapital: founder._hasFreshCapital,
+      likelyActivelyDeploying: founder._likelyActivelyDeploying,
+      recentDealCount: founder._recentDealCount,
+      dealVelocityScore: velocityScore,
+      latestFundVintageYear: founder._activeFundVintage,
+      lastFundAnnouncementAt: founder._lastFundAnnouncementAt,
+      lastDealAt: founder._lastDealAt,
+    });
   const { sector: investorSector, stage: investorStage } = investorSectorStageParts(founder);
   const focusBadge = investorFocusBadgeFromDirectoryFields(founder);
   const subtitle = isPerson
@@ -854,28 +693,7 @@ function InvestorCard({
           {/* Upper right: edit + status icons (deploying + trending/popular/recent) */}
           <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
             {showAdminEdit ? (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAdminEdit?.();
-                      }}
-                      aria-label="Edit record"
-                      className="mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background text-muted-foreground hover:text-foreground"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px] bg-popover/95 backdrop-blur-md p-2.5">
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      <span className="font-semibold text-foreground">Admin edit</span> — update this investor or firm record.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <AdminEditButton onClick={() => onAdminEdit?.()} />
             ) : null}
             {showAsActivelyDeploying ? (
               <div className="-mr-1.5">
@@ -1187,10 +1005,14 @@ function OperatorHubCard({
   founder,
   trending,
   onClick,
+  showAdminEdit,
+  onAdminEdit,
 }: {
   founder: DirectoryEntry;
   trending?: boolean;
   onClick?: () => void;
+  showAdminEdit?: boolean;
+  onAdminEdit?: () => void;
 }) {
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
@@ -1234,6 +1056,9 @@ function OperatorHubCard({
             }}
           />
           <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-0">
+            {showAdminEdit ? (
+              <AdminEditButton onClick={() => onAdminEdit?.()} />
+            ) : null}
             <VCBadgeContainer
               iconOnly
               vc_firm={{
@@ -1436,7 +1261,15 @@ function FounderCard({
   onAdminEdit?: () => void;
 }) {
   if (operatorHubLayout && founder.category === "operator") {
-    return <OperatorHubCard founder={founder} trending={trending} onClick={onClick} />;
+    return (
+      <OperatorHubCard
+        founder={founder}
+        trending={trending}
+        onClick={onClick}
+        showAdminEdit={showAdminEdit}
+        onAdminEdit={onAdminEdit}
+      />
+    );
   }
 
   // Use specialized investor card for investor entries
@@ -1500,6 +1333,9 @@ function FounderCard({
             )}
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end mt-2">
+            {showAdminEdit ? (
+              <AdminEditButton onClick={() => onAdminEdit?.()} />
+            ) : null}
             {founder._isRealProfile && (
               <Badge className="text-[9px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
                 <CheckCircle2 className="h-2.5 w-2.5 mr-0.5" /> Verified
@@ -1863,7 +1699,16 @@ function directoryEntryToInvestorPreview(e: DirectoryEntry): InvestorPreviewMode
     _websiteUrl: e._websiteUrl ?? null,
     _founderSentimentScore: e._founderSentimentScore ?? null,
     _matchScore: e._matchScore ?? null,
-    _isActivelyDeploying: e._isActivelyDeploying,
+    _isActivelyDeploying: resolveActivelyDeploying({
+      isActivelyDeploying: e._isActivelyDeploying,
+      hasFreshCapital: e._hasFreshCapital,
+      likelyActivelyDeploying: e._likelyActivelyDeploying,
+      recentDealCount: e._recentDealCount,
+      dealVelocityScore: e._dealVelocityScore ?? null,
+      latestFundVintageYear: e._activeFundVintage,
+      lastFundAnnouncementAt: e._lastFundAnnouncementAt,
+      lastDealAt: e._lastDealAt,
+    }),
     _isTrending: e._isTrending,
     _isPopular: e._isPopular,
     _isRecent: e._isRecent,
@@ -2013,7 +1858,7 @@ export function CommunityView({
   const [selectedVCFirm, setSelectedVCFirm] = useState<VCFirm | null>(null);
   const [selectedVCPerson, setSelectedVCPerson] = useState<VCPerson | null>(null);
   const [selectedVCPersonFirm, setSelectedVCPersonFirm] = useState<VCFirm | null>(null);
-  const [adminEditRecord, setAdminEditRecord] = useState<AdminEditableRecord | null>(null);
+  const [adminEditRecord, setAdminEditRecord] = useState<AdminLiveRecordTarget | null>(null);
   const [investorInitialTab, setInvestorInitialTab] = useState<"Updates" | "Activity">("Updates");
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
@@ -2058,6 +1903,21 @@ export function CommunityView({
   const { data: dbInvestors, isPending: dbInvestorsPending } = useInvestorDirectory();
   const { data: liveInvestorPeople, isPending: liveInvestorPeoplePending } =
     useInvestorPeopleDirectory();
+  const { data: deployingNameKeys } = useDirectoryDeployingNameSet();
+  const deployingNameSet = useMemo(() => {
+    const names = new Set(deployingNameKeys ?? []);
+    for (const inv of dbInvestors ?? []) {
+      if (
+        inv.is_actively_deploying === true ||
+        inv.likely_actively_deploying === true ||
+        inv.has_fresh_capital === true
+      ) {
+        const k = deployingNameKey(inv.name);
+        if (k) names.add(k);
+      }
+    }
+    return names;
+  }, [deployingNameKeys, dbInvestors]);
 
   // Build lookup maps with normalized keys and aliases
   const dbInvestorMap = useMemo(() => {
@@ -2165,7 +2025,16 @@ export function CommunityView({
           : sectorFocus,
         _geoFocus: person.firm?.geo_focus ?? null,
         _seedSectors: null,
-        _isActivelyDeploying: person.firm?.is_actively_deploying === true,
+        ...directoryCapitalFields({
+          isActivelyDeploying: person.firm?.is_actively_deploying,
+          hasFreshCapital: person.firm?.has_fresh_capital,
+          likelyActivelyDeploying: person.firm?.likely_actively_deploying,
+          recentDeals: person.firm?.recent_deals,
+          listedInvestmentCount: person.firm?.listed_investment_count,
+          activeFundVintage: person.firm?.active_fund_vintage,
+          lastFundAnnouncementAt: person.firm?.last_fund_announcement_date,
+          lastDealAt: person.firm?.most_recent_investment_date,
+        }),
         _founderSentimentScore: person.firm?.founder_reputation_score ?? null,
         _headcount: person.firm?.headcount ?? null,
         _aum: person.firm?.aum ?? null,
@@ -2189,10 +2058,6 @@ export function CommunityView({
               vcFirmMatch?.website_url ?? deriveWebsiteUrlFromFirmId(vcFirmMatch?.id ?? person.firm_id),
           }) ||
           null,
-        _dealVelocityScore: computeDealVelocityScore(
-          person.firm?.recent_deals ?? null,
-          person.firm?.is_actively_deploying ?? null,
-        ),
         _fundingIntelActivity:
           person.funding_intel_activity_score ?? person.firm?.funding_intel_activity_score ?? null,
         _investorEntityType: "person",
@@ -2290,7 +2155,16 @@ export function CommunityView({
           : sectorFocus,
         _geoFocus: (dbMatch as any)?.geo_focus ?? null,
         _seedSectors: null,
-        _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying === true,
+        ...directoryCapitalFields({
+          isActivelyDeploying: (dbMatch as any)?.is_actively_deploying,
+          hasFreshCapital: (dbMatch as any)?.has_fresh_capital,
+          likelyActivelyDeploying: (dbMatch as any)?.likely_actively_deploying,
+          recentDeals: (dbMatch as any)?.recent_deals,
+          listedInvestmentCount: (dbMatch as any)?.listed_investment_count,
+          activeFundVintage: (dbMatch as any)?.active_fund_vintage,
+          lastFundAnnouncementAt: (dbMatch as any)?.last_fund_announcement_date,
+          lastDealAt: (dbMatch as any)?.most_recent_investment_date,
+        }),
         _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
         _headcount: (dbMatch as any)?.headcount ?? null,
         _aum: (dbMatch as any)?.aum ?? vcFirm?.aum ?? null,
@@ -2315,10 +2189,6 @@ export function CommunityView({
             vcDirectoryWebsite: vcFirm?.website_url ?? deriveWebsiteUrlFromFirmId(person.firm_id),
           }) ||
           null,
-        _dealVelocityScore: computeDealVelocityScore(
-          (dbMatch as any)?.recent_deals ?? null,
-          (dbMatch as any)?.is_actively_deploying ?? null,
-        ),
         _fundingIntelActivity: (dbMatch as any)?.funding_intel_activity_score ?? null,
         _investorEntityType: "person",
         _investorFirmName: firmName,
@@ -2377,7 +2247,16 @@ export function CommunityView({
           _thesisVerticals: (dbMatch as any)?.thesis_verticals ?? [],
           _geoFocus: (dbMatch as any)?.geo_focus ?? null,
           _seedSectors: dbMatch ? null : (f.sectors || []).filter(Boolean),
-          _isActivelyDeploying: (dbMatch as any)?.is_actively_deploying === true,
+          ...directoryCapitalFields({
+            isActivelyDeploying: (dbMatch as any)?.is_actively_deploying,
+            hasFreshCapital: (dbMatch as any)?.has_fresh_capital,
+            likelyActivelyDeploying: (dbMatch as any)?.likely_actively_deploying,
+            recentDeals: (dbMatch as any)?.recent_deals,
+            listedInvestmentCount: (dbMatch as any)?.listed_investment_count,
+            activeFundVintage: (dbMatch as any)?.active_fund_vintage,
+            lastFundAnnouncementAt: (dbMatch as any)?.last_fund_announcement_date,
+            lastDealAt: (dbMatch as any)?.most_recent_investment_date,
+          }),
           _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? null,
           _headcount: (dbMatch as any)?.headcount ?? null,
           _aum: resolvedAum,
@@ -2397,10 +2276,6 @@ export function CommunityView({
               firmRecordsWebsite: (dbMatch as any)?.website_url ?? null,
               vcDirectoryWebsite: fallbackWebsite ?? null,
             }) || null,
-          _dealVelocityScore: computeDealVelocityScore(
-            (dbMatch as any)?.recent_deals ?? null,
-            (dbMatch as any)?.is_actively_deploying ?? null,
-          ),
           _fundingIntelActivity: dbMatch?.funding_intel_activity_score ?? null,
           _investorEntityType: "firm" as const,
         };
@@ -2437,7 +2312,7 @@ export function CommunityView({
         _thesisVerticals: inv.thesis_verticals ?? [],
         _geoFocus: inv.geo_focus ?? null,
         _seedSectors: null,
-        _isActivelyDeploying: inv.is_actively_deploying === true,
+        ...directoryCapitalFieldsFromLive(inv),
         _founderSentimentScore: inv.founder_reputation_score ?? null,
         _headcount: inv.headcount ?? null,
         _aum: inv.aum ?? null,
@@ -2452,10 +2327,6 @@ export function CommunityView({
             firmName: inv.name,
             firmRecordsWebsite: inv.website_url ?? null,
           }) || null,
-        _dealVelocityScore: computeDealVelocityScore(
-          inv.recent_deals ?? null,
-          inv.is_actively_deploying ?? null,
-        ),
         _fundingIntelActivity: inv.funding_intel_activity_score ?? null,
         _investorEntityType: "firm" as const,
       });
@@ -2579,8 +2450,11 @@ export function CommunityView({
       ...vcEntries,
     ];
     /** `firm_investors` rows + MDM `vc_people` not in DB — investor directory must list both firms and people. */
-    if (!isInvestorSearch) return base;
-    return [...base, ...liveInvestorPersonEntries, ...vcJsonPersonDirectoryEntries];
+    const merged = !isInvestorSearch
+      ? base
+      : [...base, ...liveInvestorPersonEntries, ...vcJsonPersonDirectoryEntries];
+    if (deployingNameSet.size === 0) return merged;
+    return merged.map((entry) => markEntryActivelyDeploying(entry, deployingNameSet));
   }, [
     vcEntries,
     dbOnlyFirmEntries,
@@ -2590,6 +2464,7 @@ export function CommunityView({
     liveInvestorPersonEntries,
     vcJsonPersonDirectoryEntries,
     isInvestorSearch,
+    deployingNameSet,
   ]);
 
   const isOperatorHubLayout = !isInvestorSearch && activeScope === "operators";
@@ -3280,8 +3155,8 @@ export function CommunityView({
   }, [realFounderEntries, realCompanyEntries, realOperatorEntries, activeScope]);
 
   const investorCarouselPool = useMemo(() => {
-    return vcEntries.map((e) => enrichInvestorSeedEntry(e));
-  }, [vcEntries, enrichInvestorSeedEntry]);
+    return vcEntries.map((e) => markEntryActivelyDeploying(enrichInvestorSeedEntry(e), deployingNameSet));
+  }, [vcEntries, enrichInvestorSeedEntry, deployingNameSet]);
 
   const investorRailSuggested = useMemo(
     () => (isInvestorSearch ? investorCarouselPool.slice(0, 8) : []),
@@ -3693,6 +3568,7 @@ export function CommunityView({
       queryClient.invalidateQueries({ queryKey: ["investor-people-directory"] }),
       queryClient.invalidateQueries({ queryKey: ["investor-profile"] }),
       queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] }),
+      queryClient.invalidateQueries({ queryKey: ["community-grid"] }),
     ]);
   }, [queryClient]);
 
@@ -4503,8 +4379,8 @@ export function CommunityView({
           setSelectedVCPersonFirm(null);
         }}
       />
-      <AdminRecordEditDialog
-        record={adminEditRecord}
+      <AdminLiveRecordDialog
+        target={adminEditRecord}
         open={Boolean(adminEditRecord)}
         onOpenChange={(next) => {
           if (!next) setAdminEditRecord(null);

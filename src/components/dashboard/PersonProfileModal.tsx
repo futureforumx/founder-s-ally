@@ -11,6 +11,8 @@ import {
   BookOpen, ExternalLink, Sparkles, Target, ChevronRight, Star, AlertTriangle,
 } from "lucide-react";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
+import { AdminLiveRecordControl } from "@/components/admin/AdminLiveRecordDialog";
+import { isAdminLiveRecordUuid } from "@/lib/adminLiveRecord";
 import { useInvestorMapping } from "@/hooks/useInvestorMapping";
 import { Badge } from "@/components/ui/badge";
 import { FirmFavicon } from "@/components/ui/firm-favicon";
@@ -238,6 +240,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
   const [websiteProfile, setWebsiteProfile] = useState<WebsiteDerivedPersonProfile | null>(null);
   const [dbEducationSummary, setDbEducationSummary] = useState<string | null>(null);
   const [dbEducationItems, setDbEducationItems] = useState<string[]>([]);
+  const [personSnapEpoch, setPersonSnapEpoch] = useState(0);
   const handleClose = useCallback(() => {
     window.requestAnimationFrame(() => {
       startTransition(() => {
@@ -253,6 +256,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     safeTrim(person?.affiliations?.[0]?.firm_name) ||
     "";
   const reviewVcFirmId = firm?.id ?? person?.firm_id ?? null;
+  const adminLiveTarget = useMemo(
+    () =>
+      person && isAdminLiveRecordUuid(person.id)
+        ? {
+            entity: "firm-investors" as const,
+            id: person.id,
+            title: person.full_name || "Investor",
+          }
+        : null,
+    [person],
+  );
 
   const mergedFromDb = useMemo(() => {
     if (!person) return null;
@@ -332,7 +346,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     return () => {
       cancelled = true;
     };
-  }, [person?.id, person?.firm_id]);
+  }, [person?.id, person?.firm_id, personSnapEpoch]);
 
   useEffect(() => {
     if (!person) {
@@ -836,6 +850,13 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h2 className="text-2xl font-bold text-foreground">{person.full_name}</h2>
+                      <AdminLiveRecordControl
+                        target={adminLiveTarget}
+                        onSaved={async () => {
+                          await queryClient.invalidateQueries({ queryKey: ["investor-people-directory"] });
+                          setPersonSnapEpoch((n) => n + 1);
+                        }}
+                      />
                       {displayLocation ? (
                         <span className="text-sm text-muted-foreground font-medium flex items-center gap-1">
                           <MapPin className="w-3 h-3 shrink-0" /> {displayLocation}

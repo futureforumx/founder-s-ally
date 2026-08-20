@@ -16,6 +16,9 @@ export interface FounderEntry {
   _twitterUrl?: string | null;
   /** When set (network directory), drives org-name line for company cards. */
   category?: "founder" | "investor" | "company" | "operator";
+  _companyName?: string | null;
+  _profileId?: string | null;
+  _firmId?: string | null;
 }
 
 export const TABS = ["Overview", "Market Insights", "Connections", "Investors", "Jobs"] as const;

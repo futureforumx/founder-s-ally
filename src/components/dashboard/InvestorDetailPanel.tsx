@@ -8,6 +8,8 @@ import { resolveInvestorHeroStageFocus } from "@/lib/stageUtils";
 import { ReviewSubmissionModal } from "@/components/investor-match/ReviewSubmissionModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, BookmarkPlus, CheckCircle2, Star, MapPin, Users, Briefcase } from "lucide-react";
+import { AdminLiveRecordControl } from "@/components/admin/AdminLiveRecordDialog";
+import { isAdminLiveRecordUuid } from "@/lib/adminLiveRecord";
 import { ActivityDashboard } from "./investor-detail/ActivityDashboard";
 import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -29,6 +31,7 @@ import {
 } from "@/hooks/useInvestorProfile";
 import { useFirmRecordXUrlSupplement } from "@/hooks/useFirmRecordXUrlSupplement";
 import { looksLikeFirmRecordsUuid } from "@/lib/pickFirmXUrl";
+import { resolveActivelyDeploying } from "@/lib/activelyDeploying";
 import { isMeaninglessDisplayLocation } from "@/lib/locationLineQuality";
 import { resolveFirmContactEmailByWebsiteUrl } from "@/lib/firmContactEmailOverrides";
 import { getPartnersForFirm, type PartnerPerson } from "./investor-detail/types";
@@ -217,6 +220,15 @@ function formatUsdCheckRangeLine(min: number | null, max: number | null): string
   if (min != null) return fmt(min);
   if (max != null) return fmt(max);
   return "";
+}
+
+/** Parse `firm_records.headcount` display strings like "12", "12 people", or "10–15". */
+function parseDirectoryHeadcount(raw: string | null | undefined): number | null {
+  const t = safeTrim(raw);
+  if (!t) return null;
+  const nums = t.match(/\d+/g)?.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0) ?? [];
+  if (nums.length === 0) return null;
+  return Math.max(...nums);
 }
 
 /** Prefer Supabase `firm_records` + relations over `investor-enrich` (Exa/Gemini) when the row is rich enough. */
@@ -533,6 +545,15 @@ export function InvestorDetailPanel({
   const liveQuery = preferredLiveFirmRecordId ? liveByIdQuery : liveByNameQuery;
   const liveProfile = liveQuery.data;
   const liveLoading = liveQuery.isLoading;
+  const adminLiveTarget = useMemo(() => {
+    const id = preferredLiveFirmRecordId ?? liveProfile?.id ?? null;
+    if (!isAdminLiveRecordUuid(id)) return null;
+    return {
+      entity: "firms" as const,
+      id,
+      title: liveProfile?.firm_name || investor?.name || vcFirm?.name || "Firm",
+    };
+  }, [preferredLiveFirmRecordId, liveProfile?.id, liveProfile?.firm_name, investor?.name, vcFirm?.name]);
   const fallbackFirmInvestorsQuery = useQuery<VCPerson[]>({
     queryKey: ["fallback-firm-investors-by-name", safeLower(investor?.name || vcFirm?.name || "")],
     enabled: Boolean(investor?.name || vcFirm?.name),
@@ -1343,19 +1364,20 @@ export function InvestorDetailPanel({
   );
 
   /**
-   * Prefer the same list the Investors tab shows (`mergedPartners`) so the number matches the UI.
-   * When that list is still empty, fall back to `firm_records.total_headcount`.
+   * Prefer the larger of listed partners, `total_headcount`, and the directory headcount
+   * string so a still-loading partner list cannot show “1” for a 12-person team.
    */
   const { heroHeadcount, heroHeadcountFromWebsite } = useMemo(() => {
     const rawDb = dealSizeProfile?.total_headcount;
     const dbHeadcount =
       typeof rawDb === "number" && Number.isFinite(rawDb) && rawDb > 0 ? rawDb : null;
+    const parsedHeadcount = parseDirectoryHeadcount(dealSizeProfile?.headcount);
     const mergedCount = mergedPartners.length;
-    const heroHeadcount = mergedCount > 0 ? mergedCount : dbHeadcount;
+    const heroHeadcount = Math.max(mergedCount, dbHeadcount ?? 0, parsedHeadcount ?? 0) || null;
     const heroHeadcountFromWebsite =
-      dbHeadcount == null ? mergedCount > 0 : mergedCount > (dbHeadcount ?? 0);
+      dbHeadcount == null && parsedHeadcount == null ? mergedCount > 0 : mergedCount > (dbHeadcount ?? parsedHeadcount ?? 0);
     return { heroHeadcount, heroHeadcountFromWebsite };
-  }, [dealSizeProfile?.total_headcount, mergedPartners]);
+  }, [dealSizeProfile?.total_headcount, dealSizeProfile?.headcount, mergedPartners]);
   const heroDataSource: "live" | "verified" = liveProfile?.source === "live" ? "live" : enrichedData ? "live" : "verified";
   const heroLastSynced = liveProfile?.last_enriched_at
     ? new Date(liveProfile.last_enriched_at)
@@ -1433,10 +1455,10 @@ export function InvestorDetailPanel({
                   <div className="absolute -top-8 right-0 w-64 h-64 rounded-full bg-emerald-500/[0.06] blur-3xl" />
                 </div>
                 {/* Identity + Scores + Actions row */}
-                <div className="relative z-10 flex items-start gap-5 px-8 pt-6 pb-3">
+                <div className="relative z-10 flex flex-wrap items-start gap-5 px-8 pt-6 pb-3">
 
                   {/* Left: Identity block */}
-                  <div className="flex min-w-0 flex-[1_1_0%] items-start gap-3.5">
+                  <div className="flex min-w-[16rem] flex-1 items-start gap-3.5">
                     {liveLoading ? (
                       <Skeleton className="h-[86px] w-[86px] rounded-2xl shrink-0" />
                     ) : (
@@ -1468,15 +1490,27 @@ export function InvestorDetailPanel({
                               {heroName}
                             </h2>
                             <CheckCircle2 className="h-[15px] w-[15px] shrink-0 text-accent fill-accent/15 mb-0.5" />
+                            <AdminLiveRecordControl
+                              target={adminLiveTarget}
+                              className="shrink-0"
+                              onSaved={async () => {
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ["investor-profile"] }),
+                                  queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] }),
+                                  queryClient.invalidateQueries({ queryKey: ["investor-directory"] }),
+                                  queryClient.invalidateQueries({ queryKey: ["firm-record-id-from-vc-directory"] }),
+                                ]);
+                              }}
+                            />
                           </div>
 
-                          {/* Meta — one row; hairline dividers + padding read cleaner than middots */}
+                          {/* Meta — wrap instead of clipping so headcount / AUM stay fully visible */}
                           <div
-                            className="mt-2 flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[10px] leading-snug text-foreground/70 sm:text-[11px]"
+                            className="mt-2 flex min-w-0 flex-wrap items-center gap-y-1 text-[10px] leading-snug text-foreground/70 sm:text-[11px]"
                           >
                             <div
                               role="group"
-                              className="flex min-h-[1.125rem] max-w-[11rem] shrink-0 items-center gap-1.5 pr-2"
+                              className="flex min-h-[1.125rem] max-w-[14rem] shrink-0 items-center gap-1.5 pr-2"
                               aria-label={`Location: ${connectLocation ?? "unknown"}`}
                             >
                               <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -1492,7 +1526,7 @@ export function InvestorDetailPanel({
                               title="Assets under management"
                               aria-label={`AUM: ${heroAumDisplay ?? "unknown"}`}
                             >
-                              <span className="font-medium text-foreground/80">{heroAumDisplay ?? "—"}</span>
+                              <span className="font-medium tabular-nums text-foreground/80">{heroAumDisplay ?? "—"}</span>
                             </span>
                             <span
                               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3"
@@ -1504,7 +1538,7 @@ export function InvestorDetailPanel({
                               aria-label={`Headcount: ${heroHeadcount != null ? String(heroHeadcount) : "unknown"}`}
                             >
                               <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                              <span className="font-medium text-foreground/80">
+                              <span className="font-medium tabular-nums text-foreground/80">
                                 {heroHeadcount != null
                                   ? `${heroHeadcountFromWebsite ? "~" : ""}${heroHeadcount}`
                                   : "—"}
@@ -1525,7 +1559,7 @@ export function InvestorDetailPanel({
                               className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-l border-border/50 pl-3 text-left transition-colors [-webkit-tap-highlight-color:transparent] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                             >
                               <Briefcase className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                              <span className="font-medium text-foreground/80 tabular-nums underline-offset-2 decoration-border/60 hover:underline">
+                              <span className="font-medium tabular-nums text-foreground/80 underline-offset-2 decoration-border/60 hover:underline">
                                 {heroInvestmentsTotal != null ? heroInvestmentsTotal : "—"}
                               </span>
                             </button>
@@ -1570,8 +1604,8 @@ export function InvestorDetailPanel({
                     </div>
                   </div>
 
-                  {/* Middle: Score strip — right-anchored so the identity block keeps room for the full name + pitch */}
-                  <div className="ml-auto min-w-0 flex-[0_1_360px]">
+                  {/* Middle: Score strip — do not shrink the identity stats to fit */}
+                  <div className="ml-auto w-fit max-w-full shrink-0">
                     <ScoreTilesRow
                       matchScore={matchScore}
                       firmName={heroName}
@@ -1584,7 +1618,7 @@ export function InvestorDetailPanel({
                   </div>
 
                   {/* Right: Actions + data provenance */}
-                  <div className="flex w-[230px] shrink-0 flex-col items-end gap-2.5">
+                  <div className="flex w-[248px] shrink-0 flex-col items-end gap-2.5">
                     <div className="flex items-center gap-1.5">
                       {/* Rate */}
                       {myFirmRateDisplay ? (
@@ -1627,12 +1661,12 @@ export function InvestorDetailPanel({
                         <X className="h-[14px] w-[14px]" />
                       </button>
                     </div>
-                    <div className="w-full space-y-1 text-right">
-                      <p className="text-[10px] text-muted-foreground/90 truncate">
+                    <div className="w-full max-w-[248px] space-y-1 text-right">
+                      <p className="text-[10px] text-muted-foreground/90 whitespace-normal break-words">
                         <span className="font-medium text-foreground/75">Sector:</span>{" "}
                         {heroSectorFocus}
                       </p>
-                      <p className="text-[10px] text-muted-foreground/90 truncate">
+                      <p className="text-[10px] text-muted-foreground/90 whitespace-normal break-words">
                         <span className="font-medium text-foreground/75">Stage:</span>{" "}
                         {heroStageFocus}
                       </p>
@@ -1657,14 +1691,14 @@ export function InvestorDetailPanel({
               <div className="flex-1 overflow-y-auto">
                 <div className="px-8 py-6 space-y-5">
                   {/* Tabs */}
-                  <div className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
+                  <div className="flex flex-wrap items-center gap-1 rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm">
                     {INVESTOR_TABS.map((tab) => {
                       const isActive = activeTab === tab;
                       return (
                         <button
                           key={tab}
                           onClick={() => setActiveTab(tab)}
-                          className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
+                          className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all duration-200 ${
                             isActive
                               ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
                               : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
@@ -1705,6 +1739,10 @@ export function InvestorDetailPanel({
                             firstNonEmpty(dealSizeProfile?.aum, vcFirm?.aum, liveProfile?.aum),
                           )}
                           fallbackIsActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
+                          fallbackHasFreshCapital={dealSizeProfile?.has_fresh_capital ?? null}
+                          fallbackLikelyActivelyDeploying={dealSizeProfile?.likely_actively_deploying ?? null}
+                          fallbackActiveFundVintage={dealSizeProfile?.active_fund_vintage ?? null}
+                          fallbackLastFundAnnouncementAt={dealSizeProfile?.last_fund_announcement_date ?? null}
                           fallbackRecentDeals={dealSizeProfile?.recent_deals ?? null}
                         />
                       </motion.div>
@@ -1730,7 +1768,15 @@ export function InvestorDetailPanel({
                         firmDisplayName={
                           liveProfile?.firm_name ?? vcFirm?.name ?? null
                         }
-                        isActivelyDeploying={dealSizeProfile?.is_actively_deploying ?? null}
+                        isActivelyDeploying={resolveActivelyDeploying({
+                          isActivelyDeploying: dealSizeProfile?.is_actively_deploying ?? null,
+                          hasFreshCapital: dealSizeProfile?.has_fresh_capital ?? null,
+                          likelyActivelyDeploying: dealSizeProfile?.likely_actively_deploying ?? null,
+                          recentDealCount: dealSizeProfile?.recent_deals?.length ?? null,
+                          lastDealAt: dealSizeProfile?.deals?.[0]?.date_announced ?? null,
+                          latestFundVintageYear: dealSizeProfile?.active_fund_vintage ?? null,
+                          lastFundAnnouncementAt: dealSizeProfile?.last_fund_announcement_date ?? null,
+                        })}
                         firmAum={firmAumDisplayForInvestorPanel(
                           heroFirmNameForAum,
                           firstNonEmpty(dealSizeProfile?.aum, vcFirm?.aum, liveProfile?.aum),

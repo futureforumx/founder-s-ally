@@ -1,8 +1,9 @@
 /**
  * admin-market-intel  v4
  *
- * GET  ?entity=companies|founders|operators|firms|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
+ * GET  ?entity=companies|founders|operators|firms|firm-investors|people|organizations|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
  *   → { rows, total }
+ * GET  ?entity=<table-backed>&id=<uuid>  → { row }  (full-row live editor)
  *   - firm-funds: **requires** ?firm_id=<firm_records.id> — only vc_funds for that firm (Firm Records admin).
  *   - fresh-funds: global Fund Watch list; optional ?firm_record_id=… to filter one firm.
  *   - fi-sources: Latest Funding ingestion source registry (editable via PATCH entity=fi-sources&id=). Alias: ?entity=fisources
@@ -320,11 +321,24 @@ function resolveEntityTable(entityCanonical: string): string | undefined {
     "firm-portfolio": "firm_recent_deals",
     firmportfolio: "firm_recent_deals",
     deals: "fi_deals_canonical",
+    people: "people",
+    organizations: "organizations",
   };
   return map[n];
 }
 
-const PROTECTED = new Set(["id","created_at","deleted_at","sector_embedding","updated_at"]);
+const PROTECTED = new Set([
+  "id",
+  "created_at",
+  "createdAt",
+  "deleted_at",
+  "sector_embedding",
+  "updated_at",
+  "updatedAt",
+]);
+
+/** Prisma-mirrored tables use camelCase timestamps. */
+const CAMEL_UPDATED_AT_TABLES = new Set(["people", "organizations"]);
 
 /** Plain `vc_funds` columns — no PostgREST embed (see `firm_records.latest_verified_vc_fund_id` ↔ `vc_funds.id`). */
 const VCFUND_COLS = [
@@ -854,7 +868,8 @@ Deno.serve(async (req) => {
     const body  = await req.json().catch(() => ({})) as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(body)) {
-      if (!PROTECTED.has(k)) patch[k] = v;
+      if (PROTECTED.has(k) || /embedding$/i.test(k)) continue;
+      patch[k] = v;
     }
 
     // Admin UI legacy field names → real columns (startups table has no `hq` / `twitter_url`).
@@ -875,7 +890,9 @@ Deno.serve(async (req) => {
     }
 
     if (!Object.keys(patch).length) return err("No patchable fields");
-    patch.updated_at = new Date().toISOString();
+    const now = new Date().toISOString();
+    if (CAMEL_UPDATED_AT_TABLES.has(table)) patch.updatedAt = now;
+    else patch.updated_at = now;
 
     const { data, error } = await db.from(table).update(patch).eq("id", id).select("*").single();
     if (error) return err(error.message, 500);
@@ -883,6 +900,17 @@ Deno.serve(async (req) => {
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
+
+  const recordId = url.searchParams.get("id")?.trim() ?? "";
+  if (recordId && looksLikeUuid(recordId)) {
+    const table = resolveEntityTable(entity);
+    if (table) {
+      const { data, error } = await db.from(table).select("*").eq("id", recordId).maybeSingle();
+      if (error) return err(error.message, 500);
+      if (!data) return err("Record not found", 404);
+      return json({ row: data });
+    }
+  }
 
   /** vc_funds rows + firm snapshot for admin list (Fund Watch or firm-scoped) */
   async function loadVcFundsWithFirms(
