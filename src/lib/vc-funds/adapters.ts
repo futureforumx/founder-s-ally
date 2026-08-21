@@ -220,109 +220,130 @@ async function getPlaywrightSession(provider: ProviderKey): Promise<ProviderSess
   return promise;
 }
 
+async function abandonPlaywright(browser?: { close: () => Promise<unknown> } | null, context?: { close: () => Promise<unknown> } | null): Promise<null> {
+  await context?.close?.().catch(() => null);
+  await browser?.close?.().catch(() => null);
+  return null;
+}
+
+export async function closeVcFundPlaywrightSessions(): Promise<void> {
+  const pending = [...providerSessions.values()];
+  providerSessions.clear();
+  await Promise.all(pending.map(async (promise) => {
+    const session = await promise.catch(() => null);
+    if (!session) return;
+    await abandonPlaywright(session.browser, session.context);
+  }));
+}
+
 async function createPlaywrightSession(provider: ProviderKey): Promise<ProviderSession | null> {
   const { chromium } = await import("@playwright/test");
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
-  });
-
-  const filePath = authFilePath(provider);
+  let browser: any;
   let context: any;
-  if (existsSync(filePath)) {
-    context = await browser.newContext({ storageState: JSON.parse(readFileSync(filePath, "utf8")) });
-  } else {
-    context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36",
-      viewport: { width: 1440, height: 900 },
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-blink-features=AutomationControlled"],
     });
-  }
-  const page = await context.newPage();
 
-  if (provider === "signal_nfx") {
-    await page.goto("https://signal.nfx.com/investors", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
-    await page.waitForTimeout(2000);
-    if (page.url().includes("/login")) {
-      const email = envValue("SIGNAL_NFX_EMAIL", "SIGNAL_NFX_EMAIL_2");
-      const password = envValue("SIGNAL_NFX_PASSWORD", "SIGNAL_NFX_PASSWORD_2");
-      if (!email || !password) return null;
-      await page.goto("https://signal.nfx.com/login", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
-      const emailInput = page.locator('input[type="email"], input[name="email"]').first();
-      if (!await emailInput.isVisible().catch(() => false)) return null;
-      await emailInput.fill(email);
-      const continueButton = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
-      if (await continueButton.isVisible().catch(() => false)) {
-        await continueButton.click().catch(() => null);
-        await page.waitForTimeout(1200);
-      }
-      const passwordInput = page.locator('input[type="password"]').first();
-      if (!await passwordInput.isVisible().catch(() => false)) return null;
-      await passwordInput.fill(password);
-      const loginButton = page.locator('button:has-text("Log In"), button:has-text("Sign In"), button[type="submit"]').first();
-      await loginButton.click().catch(() => null);
-      await page.waitForURL((url: URL) => !url.toString().includes("/login"), { timeout: 20000 }).catch(() => null);
-      if (page.url().includes("/login")) return null;
-      ensureDataDir();
-      await context.storageState({ path: filePath });
+    const filePath = authFilePath(provider);
+    if (existsSync(filePath)) {
+      context = await browser.newContext({ storageState: JSON.parse(readFileSync(filePath, "utf8")) });
+    } else {
+      context = await browser.newContext({
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36",
+        viewport: { width: 1440, height: 900 },
+      });
     }
-  }
+    const page = await context.newPage();
 
-  if (provider === "cb_insights") {
-    await page.goto("https://app.cbinsights.com/", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
-    await page.waitForTimeout(2000);
-    if (page.url().includes("/login")) {
-      const email = envValue("CBI_EMAIL");
-      const password = envValue("CBI_PASSWORD");
-      if (!email || !password) return null;
-      const emailInput = page.locator('input[name="email"], input[type="email"], input[name="username"]').first();
-      if (!await emailInput.isVisible().catch(() => false)) return null;
-      await emailInput.fill(email);
-      const continueButton = page.locator('button:has-text("Continue"), button[type="submit"]').first();
-      if (await continueButton.isVisible().catch(() => false)) {
-        await continueButton.click().catch(() => null);
-        await page.waitForTimeout(1000);
+    if (provider === "signal_nfx") {
+      await page.goto("https://signal.nfx.com/investors", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
+      await page.waitForTimeout(2000);
+      if (page.url().includes("/login")) {
+        const email = envValue("SIGNAL_NFX_EMAIL", "SIGNAL_NFX_EMAIL_2");
+        const password = envValue("SIGNAL_NFX_PASSWORD", "SIGNAL_NFX_PASSWORD_2");
+        if (!email || !password) return abandonPlaywright(browser, context);
+        await page.goto("https://signal.nfx.com/login", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
+        const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+        if (!await emailInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await emailInput.fill(email);
+        const continueButton = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
+        if (await continueButton.isVisible().catch(() => false)) {
+          await continueButton.click().catch(() => null);
+          await page.waitForTimeout(1200);
+        }
+        const passwordInput = page.locator('input[type="password"]').first();
+        if (!await passwordInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await passwordInput.fill(password);
+        const loginButton = page.locator('button:has-text("Log In"), button:has-text("Sign In"), button[type="submit"]').first();
+        await loginButton.click().catch(() => null);
+        await page.waitForURL((url: URL) => !url.toString().includes("/login"), { timeout: 20000 }).catch(() => null);
+        if (page.url().includes("/login")) return abandonPlaywright(browser, context);
+        ensureDataDir();
+        await context.storageState({ path: filePath });
       }
-      const passwordInput = page.locator('input[type="password"]').first();
-      if (!await passwordInput.isVisible().catch(() => false)) return null;
-      await passwordInput.fill(password);
-      const loginButton = page.locator('button:has-text("Log in"), button:has-text("Sign in"), button[type="submit"]').first();
-      await loginButton.click().catch(() => null);
-      await page.waitForURL((url: URL) => !url.pathname.includes("/login"), { timeout: 30000 }).catch(() => null);
-      if (page.url().includes("/login")) return null;
-      ensureDataDir();
-      await context.storageState({ path: filePath });
     }
-  }
 
-  if (provider === "tracxn") {
-    await page.goto("https://platform.tracxn.com/a/home", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
-    await page.waitForTimeout(2000);
-    if (page.url().includes("/login")) {
-      const email = envValue("TRACXN_EMAIL");
-      const password = envValue("TRACXN_PASSWORD");
-      if (!email || !password) return null;
-      await page.goto("https://platform.tracxn.com/a/login", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
-      const emailInput = page.locator('input[type="email"], input[name="email"]').first();
-      if (!await emailInput.isVisible().catch(() => false)) return null;
-      await emailInput.fill(email);
-      const continueButton = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
-      if (await continueButton.isVisible().catch(() => false)) {
-        await continueButton.click().catch(() => null);
-        await page.waitForTimeout(1200);
+    if (provider === "cb_insights") {
+      await page.goto("https://app.cbinsights.com/", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
+      await page.waitForTimeout(2000);
+      if (page.url().includes("/login")) {
+        const email = envValue("CBI_EMAIL");
+        const password = envValue("CBI_PASSWORD");
+        if (!email || !password) return abandonPlaywright(browser, context);
+        const emailInput = page.locator('input[name="email"], input[type="email"], input[name="username"]').first();
+        if (!await emailInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await emailInput.fill(email);
+        const continueButton = page.locator('button:has-text("Continue"), button[type="submit"]').first();
+        if (await continueButton.isVisible().catch(() => false)) {
+          await continueButton.click().catch(() => null);
+          await page.waitForTimeout(1000);
+        }
+        const passwordInput = page.locator('input[type="password"]').first();
+        if (!await passwordInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await passwordInput.fill(password);
+        const loginButton = page.locator('button:has-text("Log in"), button:has-text("Sign in"), button[type="submit"]').first();
+        await loginButton.click().catch(() => null);
+        await page.waitForURL((url: URL) => !url.pathname.includes("/login"), { timeout: 30000 }).catch(() => null);
+        if (page.url().includes("/login")) return abandonPlaywright(browser, context);
+        ensureDataDir();
+        await context.storageState({ path: filePath });
       }
-      const passwordInput = page.locator('input[type="password"]').first();
-      if (!await passwordInput.isVisible().catch(() => false)) return null;
-      await passwordInput.fill(password);
-      const loginButton = page.locator('button:has-text("Log in"), button:has-text("Sign in"), button[type="submit"]').first();
-      await loginButton.click().catch(() => null);
-      await page.waitForURL((url: URL) => !url.pathname.includes("/login"), { timeout: 30000 }).catch(() => null);
-      if (page.url().includes("/login")) return null;
-      ensureDataDir();
-      await context.storageState({ path: filePath });
     }
-  }
 
-  return { browser, context, page };
+    if (provider === "tracxn") {
+      await page.goto("https://platform.tracxn.com/a/home", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
+      await page.waitForTimeout(2000);
+      if (page.url().includes("/login")) {
+        const email = envValue("TRACXN_EMAIL");
+        const password = envValue("TRACXN_PASSWORD");
+        if (!email || !password) return abandonPlaywright(browser, context);
+        await page.goto("https://platform.tracxn.com/a/login", { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => null);
+        const emailInput = page.locator('input[type="email"], input[name="email"]').first();
+        if (!await emailInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await emailInput.fill(email);
+        const continueButton = page.locator('button:has-text("Continue"), button:has-text("Next"), button[type="submit"]').first();
+        if (await continueButton.isVisible().catch(() => false)) {
+          await continueButton.click().catch(() => null);
+          await page.waitForTimeout(1200);
+        }
+        const passwordInput = page.locator('input[type="password"]').first();
+        if (!await passwordInput.isVisible().catch(() => false)) return abandonPlaywright(browser, context);
+        await passwordInput.fill(password);
+        const loginButton = page.locator('button:has-text("Log in"), button:has-text("Sign in"), button[type="submit"]').first();
+        await loginButton.click().catch(() => null);
+        await page.waitForURL((url: URL) => !url.pathname.includes("/login"), { timeout: 30000 }).catch(() => null);
+        if (page.url().includes("/login")) return abandonPlaywright(browser, context);
+        ensureDataDir();
+        await context.storageState({ path: filePath });
+      }
+    }
+
+    return { browser, context, page };
+  } catch {
+    return abandonPlaywright(browser, context);
+  }
 }
 
 async function fetchSignalNfxProfileEvidence(args: AuthenticatedProviderEvidenceArgs): Promise<ExtractedFundAnnouncement | null> {

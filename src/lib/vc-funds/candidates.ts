@@ -69,6 +69,33 @@ function textBlob(item: Pick<ExtractedFundAnnouncement, "sourceTitle" | "rawText
   return [item.sourceTitle, item.fundName, item.fundLabel, item.rawText].filter(Boolean).join(" ");
 }
 
+const TRUSTED_SOURCE_FEED_PUBLISHER = /techcrunch|alleywatch|geekwire|pr newswire|vc sheet/i;
+const TRUSTED_STRUCTURED_PUBLISHER = /shai goldman|everything startups|vc stack/i;
+const TRUSTED_STRUCTURED_FEED_KEYS = new Set([
+  "SHAI_GOLDMAN_NEW_FUNDS_SHEET",
+  "VCSHEET_FUNDS",
+  "EVERYTHING_STARTUPS_NEW_VC_FUNDS",
+]);
+const TRUSTED_SOURCE_FEED_KEYS = /TECHCRUNCH|ALLEYWATCH|GEEKWIRE|PRNEWSWIRE/;
+
+function sourceFeedKey(item: ExtractedFundAnnouncement): string {
+  return typeof item.metadata?.source_feed_key === "string" ? item.metadata.source_feed_key : "";
+}
+
+/** Live news/press listings that should get the source-feed confidence boost. */
+export function isTrustedSourceFeed(item: ExtractedFundAnnouncement): boolean {
+  if (item.metadata?.detection_mode !== "source_feed_listing") return false;
+  return TRUSTED_SOURCE_FEED_PUBLISHER.test(item.sourcePublisher || "") || TRUSTED_SOURCE_FEED_KEYS.test(sourceFeedKey(item));
+}
+
+/** Curated structured listings (Shai Goldman sheet, VC Sheet) that can auto-verify without official-site corroboration. */
+export function isTrustedStructuredSource(item: ExtractedFundAnnouncement): boolean {
+  const key = sourceFeedKey(item);
+  if (key && TRUSTED_STRUCTURED_FEED_KEYS.has(key)) return true;
+  if (item.metadata?.detection_mode !== "structured_source_listing") return false;
+  return TRUSTED_STRUCTURED_PUBLISHER.test(item.sourcePublisher || "");
+}
+
 function dateDiffDays(a: string, b: string): number {
   const left = new Date(a).getTime();
   const right = new Date(b).getTime();
@@ -119,12 +146,8 @@ export function scoreCandidateCapitalEvent(args: {
   independentSourceCount?: number;
 }): number {
   const text = textBlob(args.item);
-  const trustedSourceFeed =
-    args.item.metadata?.detection_mode === "source_feed_listing" &&
-    /techcrunch|alleywatch|geekwire/i.test(args.item.sourcePublisher || "");
-  const trustedStructuredSource =
-    args.item.metadata?.detection_mode === "structured_source_listing" &&
-    /everything startups|vc stack/i.test(args.item.sourcePublisher || "");
+  const trustedSourceFeed = isTrustedSourceFeed(args.item);
+  const trustedStructuredSource = isTrustedStructuredSource(args.item);
   const vehicleHeadline = isLikelyVcFundVehicleHeadline(args.item.sourceTitle || "", args.item.rawText || "");
   let score = CAPITAL_EVENT_WEIGHTS.base;
 
@@ -180,12 +203,8 @@ export function explainCandidateScore(args: {
   independentSourceCount?: number;
 }): Record<string, unknown> {
   const text = textBlob(args.item);
-  const trustedSourceFeed =
-    args.item.metadata?.detection_mode === "source_feed_listing" &&
-    /techcrunch|alleywatch|geekwire/i.test(args.item.sourcePublisher || "");
-  const trustedStructuredSource =
-    args.item.metadata?.detection_mode === "structured_source_listing" &&
-    /everything startups|vc stack/i.test(args.item.sourcePublisher || "");
+  const trustedSourceFeed = isTrustedSourceFeed(args.item);
+  const trustedStructuredSource = isTrustedStructuredSource(args.item);
   const vehicleHeadline = isLikelyVcFundVehicleHeadline(args.item.sourceTitle || "", args.item.rawText || "");
   return {
     official_source: args.officialSourcePresent || args.item.sourceType === "official_website",

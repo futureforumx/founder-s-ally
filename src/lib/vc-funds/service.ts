@@ -4,6 +4,7 @@ import {
   computeConflictPenalty,
   computeCorroborationScore,
   computeFreshCapitalPriorityScore,
+  isTrustedStructuredSource,
   normalizeAnnouncementDate,
   scoreCandidateCapitalEvent,
   statusFromCandidateScore,
@@ -11,7 +12,7 @@ import {
 } from "./candidates";
 import { CAPITAL_EVENT_THRESHOLDS } from "./config";
 import { deriveCapitalWindow, deriveEstimatedCheckRange, deriveFirmCapitalState } from "./derivations";
-import { fetchAuthenticatedVerificationEvidence, refetchCapitalArticleDetails } from "./adapters";
+import { closeVcFundPlaywrightSessions, fetchAuthenticatedVerificationEvidence, refetchCapitalArticleDetails } from "./adapters";
 import {
   buildAnnouncementFundKey,
   inferSequenceNumber,
@@ -271,11 +272,6 @@ function candidateSourceFirmName(candidate: CandidateRow): string {
     : candidate.raw_firm_name;
 }
 
-function isTrustedStructuredVerificationSource(item: ExtractedFundAnnouncement): boolean {
-  const sourceKey = typeof item.metadata?.source_feed_key === "string" ? item.metadata.source_feed_key : "";
-  return sourceKey === "EVERYTHING_STARTUPS_NEW_VC_FUNDS";
-}
-
 function allowsStructuredVerificationBypass(
   items: ExtractedFundAnnouncement[],
   firmMatchConfidence: number,
@@ -283,7 +279,7 @@ function allowsStructuredVerificationBypass(
 ): boolean {
   if (firmMatchConfidence < 0.9) return false;
   if (!items.length) return false;
-  if (!items.every((item) => isTrustedStructuredVerificationSource(item))) return false;
+  if (!items.every((item) => isTrustedStructuredSource(item))) return false;
   const hasDate = items.some((item) => Boolean(item.announcedDate || item.closeDate));
   const hasSize = items.some((item) => typeof (item.finalSizeUsd ?? item.targetSizeUsd ?? item.fundSize) === "number");
   const hasLabel = items.some((item) => {
@@ -291,8 +287,7 @@ function allowsStructuredVerificationBypass(
     const firm = normalizeFirmName(item.firmName);
     return Boolean(label && firm && label.includes(firm));
   });
-  const detailEnriched = items.some((item) => item.metadata?.detail_enriched === true);
-  return hasDate && hasSize && (hasLabel || detailEnriched || (hasCanonicalFirmLink && detailEnriched));
+  return (hasDate || hasSize) && (hasLabel || hasCanonicalFirmLink);
 }
 
 function groupedFundLabelAlignsWithFirm(grouped: ExtractedFundAnnouncement[], firm: FirmRecordLookup): boolean {
@@ -460,40 +455,44 @@ export class FundSyncService {
   }
 
   async run(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
-    return this.withRunLog("daily", options, async () => {
-      const detectStats = await this.detectCandidateCapitalEvents(options);
-      if (options.dryRun) {
+    try {
+      return await this.withRunLog("daily", options, async () => {
+        const detectStats = await this.detectCandidateCapitalEvents(options);
+        if (options.dryRun) {
+          return {
+            ...detectStats,
+            processedCandidates: detectStats.parsed,
+          };
+        }
+
+        const verifyStats = await this.verifyCandidateClusters(options);
+        const promoteStats = await this.promoteCandidateCapitalEvents(options);
+        const rederivedFirms = await this.rederive(options);
+        const mirroredSignals = await this.mirrorVcFundSignalsToIntelligenceEvents({ ...options, verbose: options.verbose });
+
         return {
-          ...detectStats,
-          processedCandidates: detectStats.parsed,
+          fetched: detectStats.fetched,
+          parsed: detectStats.parsed,
+          processedCandidates: (detectStats.processedCandidates ?? detectStats.parsed) + verifyStats.processed,
+          verifiedCandidates: verifyStats.verified,
+          promotedCandidates: promoteStats.promotedCandidates ?? 0,
+          mirroredSignals,
+          rederivedFirms,
+          failures: (detectStats.failures ?? 0) + verifyStats.failures + (promoteStats.failures ?? 0),
+          matchedFirms: detectStats.matchedFirms + promoteStats.matchedFirms,
+          createdFirms: promoteStats.createdFirms,
+          upsertedFunds: promoteStats.upsertedFunds,
+          updatedFunds: promoteStats.updatedFunds,
+          attachedSources: promoteStats.attachedSources,
+          linkedPeople: promoteStats.linkedPeople,
+          emittedSignals: promoteStats.emittedSignals,
+          reviewQueueItems: detectStats.reviewQueueItems + verifyStats.review + promoteStats.reviewQueueItems,
+          sourceStats: mergeSourceStats(detectStats.sourceStats, verifyStats.sourceStats, promoteStats.sourceStats),
         };
-      }
-
-      const verifyStats = await this.verifyCandidateClusters(options);
-      const promoteStats = await this.promoteCandidateCapitalEvents(options);
-      const rederivedFirms = await this.rederive(options);
-      const mirroredSignals = await this.mirrorVcFundSignalsToIntelligenceEvents({ ...options, verbose: options.verbose });
-
-      return {
-        fetched: detectStats.fetched,
-        parsed: detectStats.parsed,
-        processedCandidates: (detectStats.processedCandidates ?? detectStats.parsed) + verifyStats.processed,
-        verifiedCandidates: verifyStats.verified,
-        promotedCandidates: promoteStats.promotedCandidates ?? 0,
-        mirroredSignals,
-        rederivedFirms,
-        failures: (detectStats.failures ?? 0) + verifyStats.failures + (promoteStats.failures ?? 0),
-        matchedFirms: detectStats.matchedFirms + promoteStats.matchedFirms,
-        createdFirms: promoteStats.createdFirms,
-        upsertedFunds: promoteStats.upsertedFunds,
-        updatedFunds: promoteStats.updatedFunds,
-        attachedSources: promoteStats.attachedSources,
-        linkedPeople: promoteStats.linkedPeople,
-        emittedSignals: promoteStats.emittedSignals,
-        reviewQueueItems: detectStats.reviewQueueItems + verifyStats.review + promoteStats.reviewQueueItems,
-        sourceStats: mergeSourceStats(detectStats.sourceStats, verifyStats.sourceStats, promoteStats.sourceStats),
-      };
-    });
+      });
+    } finally {
+      await closeVcFundPlaywrightSessions();
+    }
   }
 
   async detectCandidateCapitalEvents(options: FundSyncRunOptions = {}): Promise<FundSyncStats> {
@@ -642,7 +641,8 @@ export class FundSyncService {
   }
 
   async verifyCandidateClusters(options: FundSyncRunOptions = {}): Promise<FundSyncVerifyStats> {
-    return this.withRunLog("verify", options, async () => {
+    try {
+      return await this.withRunLog("verify", options, async () => {
       const candidates = await this.loadVerifiableCandidates(options);
       if (options.dryRun) {
         if (options.verbose) {
@@ -696,6 +696,9 @@ export class FundSyncService {
 
       return stats;
     });
+    } finally {
+      await closeVcFundPlaywrightSessions();
+    }
   }
 
   async verifyEscalatedCandidateCapitalEvent(candidate: CandidateRow): Promise<{
@@ -1721,7 +1724,13 @@ export class FundSyncService {
     });
     const clusterAgeDays = Math.max(0, Math.round((Date.now() - new Date(existingCluster.first_seen_at || existingCluster.created_at || Date.now()).getTime()) / 86400000));
     let status = statusFromCandidateScore(score);
-    if (status === "verified" && (!officialSourcePresent || corroborationScore < CAPITAL_EVENT_THRESHOLDS.minCorroborationScore) && score < CAPITAL_EVENT_THRESHOLDS.officialSourceAutoPromote) {
+    const trustedStructured = isTrustedStructuredSource(hydrated[0]);
+    if (
+      status === "verified" &&
+      !trustedStructured &&
+      (!officialSourcePresent || corroborationScore < CAPITAL_EVENT_THRESHOLDS.minCorroborationScore) &&
+      score < CAPITAL_EVENT_THRESHOLDS.officialSourceAutoPromote
+    ) {
       status = "escalated";
     }
     if (conflictPenalty > 0.35 || clusterAgeDays > CAPITAL_EVENT_THRESHOLDS.maxClusterAgeDaysBeforeReview) {
