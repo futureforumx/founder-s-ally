@@ -50,6 +50,32 @@ export type MarketDummySnapshot = {
   recommendations: DummyRecommendation[];
 };
 
+export type DummyCompetitor = {
+  name: string;
+  status: "Direct" | "Adjacent" | "Incumbent";
+  overlap: number;
+  funding: number;
+  lastRound: string;
+  employees: number;
+  positioning: string;
+};
+
+export type DummyMacroPoint = {
+  quarter: string;
+  value: number;
+};
+
+export type DummyMacroSnapshot = {
+  fedFundsPct: number;
+  fedFundsDelta: number;
+  dryPowder: number;
+  dryPowderDeltaPct: number;
+  ipoWindow: "Open" | "Cautious" | "Closed";
+  sentiment: number;
+  capitalIndex: DummyMacroPoint[];
+  notes: DummyRecommendation[];
+};
+
 const INVESTORS: DummyInvestor[] = [
   { name: "Andreessen Horowitz", domain: "a16z.com", deals: 0, deployed: 0 },
   { name: "Sequoia Capital", domain: "sequoiacap.com", deals: 0, deployed: 0 },
@@ -263,5 +289,94 @@ export function buildMarketDummySnapshot(
     investors,
     cagrOutlook,
     recommendations,
+  };
+}
+
+const COMPETITOR_STATUSES: DummyCompetitor["status"][] = ["Direct", "Direct", "Adjacent", "Incumbent", "Adjacent", "Direct"];
+
+export function buildCompetitorDummySnapshot(
+  sector: string,
+  namedCompetitors: string[],
+): DummyCompetitor[] {
+  const key = sector.trim() || "Unclassified";
+  const rand = mulberry32(hashString(`competitors:${key.toLowerCase()}`));
+  const pool = COMPANIES_BY_SECTOR[key] ?? DEFAULT_COMPANIES;
+  const named = namedCompetitors.map((n) => n.trim()).filter(Boolean);
+  const names = [...named];
+  for (const company of pool) {
+    if (names.length >= 6) break;
+    if (!names.some((n) => n.toLowerCase() === company.toLowerCase())) names.push(company);
+  }
+
+  return names.slice(0, 6).map((name, i) => {
+    const status = COMPETITOR_STATUSES[i % COMPETITOR_STATUSES.length];
+    const lastRound = ROUNDS[Math.min(i % ROUNDS.length, ROUNDS.length - 1)];
+    return {
+      name,
+      status,
+      overlap: Math.round(pickRange(rand, 38, 92)),
+      funding: roundTo(
+        lastRound === "Seed"
+          ? pickRange(rand, 6e6, 18e6)
+          : lastRound === "Series A"
+            ? pickRange(rand, 22e6, 55e6)
+            : lastRound === "Series B"
+              ? pickRange(rand, 70e6, 160e6)
+              : pickRange(rand, 180e6, 420e6),
+        1e5,
+      ),
+      lastRound,
+      employees: Math.round(pickRange(rand, 18, 420)),
+      positioning:
+        status === "Direct"
+          ? `Closest overlap on ${key.toLowerCase()} buyers and pricing motion.`
+          : status === "Incumbent"
+            ? `Legacy budget holder; slower to ship, stronger distribution.`
+            : `Partial overlap — competes on a wedge of the same workflow.`,
+    };
+  });
+}
+
+export function buildMacroDummySnapshot(sector: string): DummyMacroSnapshot {
+  const key = sector.trim() || "Unclassified";
+  const rand = mulberry32(hashString(`macro:${key.toLowerCase()}`));
+  const fedFundsPct = pickRange(rand, 3.4, 5.1);
+  const fedFundsDelta = pickRange(rand, -0.75, 0.25);
+  const dryPowder = roundTo(pickRange(rand, 280e9, 520e9), 1e9);
+  const dryPowderDeltaPct = pickRange(rand, -8, 14);
+  const sentiment = Math.round(pickRange(rand, 42, 78));
+  const ipoWindow: DummyMacroSnapshot["ipoWindow"] =
+    sentiment >= 66 ? "Open" : sentiment >= 52 ? "Cautious" : "Closed";
+
+  const capitalIndex: DummyMacroPoint[] = lastEightQuarters().map((quarter, i) => ({
+    quarter,
+    value: Number((48 + i * 3.2 + (rand() - 0.5) * 8).toFixed(1)),
+  }));
+
+  return {
+    fedFundsPct,
+    fedFundsDelta,
+    dryPowder,
+    dryPowderDeltaPct,
+    ipoWindow,
+    sentiment,
+    capitalIndex,
+    notes: [
+      {
+        title: "Rate path",
+        body: `Policy rates are ${fedFundsPct.toFixed(2)}% (${formatPct(fedFundsDelta)} vs prior year). ${key} rounds are still clearing when the story is capital-efficient rather than growth-at-all-costs.`,
+        confidence: Math.round(pickRange(rand, 76, 90)),
+      },
+      {
+        title: "Dry powder",
+        body: `An estimated ${formatUsdCompact(dryPowder)} sits undeployed in VC. ${ipoWindow === "Open" ? "The exit window is open enough that growth funds are competing for category leaders." : ipoWindow === "Cautious" ? "IPO/M&A is selective — late-stage buyers want proof of durability." : "Exits are constrained; expect longer holds and tighter late-stage pricing."}`,
+        confidence: Math.round(pickRange(rand, 72, 88)),
+      },
+      {
+        title: "Sector beta",
+        body: `Macro sentiment for ${key} is ${sentiment}/100. Lead with a 18–24 month runway plan and a wedge that still works if check sizes compress another 10–15%.`,
+        confidence: Math.round(pickRange(rand, 70, 86)),
+      },
+    ],
   };
 }

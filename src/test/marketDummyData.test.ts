@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildMarketDummySnapshot, formatUsdCompact } from "@/components/data-room/marketDummyData";
+import {
+  buildCompetitorDummySnapshot,
+  buildMacroDummySnapshot,
+  buildMarketDummySnapshot,
+  formatUsdCompact,
+} from "@/components/data-room/marketDummyData";
 
 describe("marketDummyData", () => {
   it("formats compact USD amounts", () => {
@@ -21,5 +26,19 @@ describe("marketDummyData", () => {
     const ai = buildMarketDummySnapshot("Artificial Intelligence", "Seed", []);
     const fin = buildMarketDummySnapshot("Fintech", "Seed", []);
     expect(ai.totalFunding).not.toBe(fin.totalFunding);
+  });
+
+  it("prefers named competitors then fills from the sector pool", () => {
+    const rows = buildCompetitorDummySnapshot("Fintech", ["Acme Pay"]);
+    expect(rows[0].name).toBe("Acme Pay");
+    expect(rows.length).toBe(6);
+  });
+
+  it("returns a stable macro snapshot", () => {
+    const a = buildMacroDummySnapshot("Fintech");
+    const b = buildMacroDummySnapshot("Fintech");
+    expect(a.fedFundsPct).toBe(b.fedFundsPct);
+    expect(a.capitalIndex).toHaveLength(8);
+    expect(a.notes).toHaveLength(3);
   });
 });
