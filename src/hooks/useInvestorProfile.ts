@@ -103,6 +103,8 @@ export interface InvestorProfile {
   total_headcount: number | null;
   /** Directory display string (`firm_records.headcount`), e.g. "12". */
   headcount: string | null;
+  /** Admin-set founder reputation score (`firm_records.founder_reputation_score`), 0–100. */
+  founder_reputation_score: number | null;
   // Joined relations
   partners: InvestorPartner[];
   deals: FirmDeal[];
@@ -196,6 +198,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       typeof firm.last_fund_announcement_date === "string" ? firm.last_fund_announcement_date : null,
     total_headcount: typeof firm.total_headcount === "number" ? firm.total_headcount : null,
     headcount: typeof firm.headcount === "string" ? firm.headcount : null,
+    founder_reputation_score: typeof firm.founder_reputation_score === "number" ? firm.founder_reputation_score : null,
     partners: (partnersRes.data ?? []).map((p: any) => ({
       ...p,
       profile_image_last_fetched_at: p.profile_image_last_fetched_at ?? null,

@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       _prisma_migrations: {
@@ -100,6 +125,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      banned_identities: {
+        Row: {
+          banned_by: string | null
+          banned_user_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          kind: string
+          reason: string | null
+          value: string
+        }
+        Insert: {
+          banned_by?: string | null
+          banned_user_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          kind: string
+          reason?: string | null
+          value: string
+        }
+        Update: {
+          banned_by?: string | null
+          banned_user_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          kind?: string
+          reason?: string | null
+          value?: string
+        }
+        Relationships: []
       }
       calendar_events: {
         Row: {
@@ -1839,8 +1897,8 @@ export type Database = {
           co_investors: string[]
           company_domain: string | null
           company_linkedin_url: string | null
-          company_logo_url: string | null
           company_location: string | null
+          company_logo_url: string | null
           company_name: string
           company_website: string | null
           confidence_score: number
@@ -1875,8 +1933,8 @@ export type Database = {
           co_investors?: string[]
           company_domain?: string | null
           company_linkedin_url?: string | null
-          company_logo_url?: string | null
           company_location?: string | null
+          company_logo_url?: string | null
           company_name: string
           company_website?: string | null
           confidence_score?: number
@@ -1911,8 +1969,8 @@ export type Database = {
           co_investors?: string[]
           company_domain?: string | null
           company_linkedin_url?: string | null
-          company_logo_url?: string | null
           company_location?: string | null
+          company_logo_url?: string | null
           company_name?: string
           company_website?: string | null
           confidence_score?: number
@@ -2270,6 +2328,7 @@ export type Database = {
           base_url: string
           created_at: string
           credibility_score: number
+          cron_schedule: string | null
           id: string
           last_fetched_at: string | null
           metadata: Json
@@ -2285,6 +2344,7 @@ export type Database = {
           base_url: string
           created_at?: string
           credibility_score?: number
+          cron_schedule?: string | null
           id?: string
           last_fetched_at?: string | null
           metadata?: Json
@@ -2300,6 +2360,7 @@ export type Database = {
           base_url?: string
           created_at?: string
           credibility_score?: number
+          cron_schedule?: string | null
           id?: string
           last_fetched_at?: string | null
           metadata?: Json
@@ -2307,30 +2368,6 @@ export type Database = {
           poll_interval_minutes?: number
           slug?: string
           source_type?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      tool_category_page_overrides: {
-        Row: {
-          category_slug: string
-          description: string | null
-          meta: string | null
-          title: string | null
-          updated_at: string
-        }
-        Insert: {
-          category_slug: string
-          description?: string | null
-          meta?: string | null
-          title?: string | null
-          updated_at?: string
-        }
-        Update: {
-          category_slug?: string
-          description?: string | null
-          meta?: string | null
-          title?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2594,6 +2631,15 @@ export type Database = {
           first_name: string | null
           founder_background: string | null
           full_name: string
+          funding_intel_activity_score: number | null
+          funding_intel_focus_json: Json | null
+          funding_intel_last_deal_at: string | null
+          funding_intel_metrics_json: Json | null
+          funding_intel_momentum_score: number | null
+          funding_intel_pace_label: string | null
+          funding_intel_recent_investments_json: Json | null
+          funding_intel_summary: string | null
+          funding_intel_updated_at: string | null
           geographic_concentration: string[] | null
           geographic_focus: string[] | null
           headshot_url: string | null
@@ -2619,6 +2665,9 @@ export type Database = {
           needs_review: boolean
           network_strength: number | null
           networks: string[] | null
+          ninjapear_enriched_at: string | null
+          ninjapear_profile: Json | null
+          ninjapear_profile_id: string | null
           notable_investments: string[] | null
           operator_background: string | null
           past_investments: Json | null
@@ -2698,6 +2747,15 @@ export type Database = {
           first_name?: string | null
           founder_background?: string | null
           full_name: string
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Json | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Json | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: Json | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           geographic_concentration?: string[] | null
           geographic_focus?: string[] | null
           headshot_url?: string | null
@@ -2723,6 +2781,9 @@ export type Database = {
           needs_review?: boolean
           network_strength?: number | null
           networks?: string[] | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_profile?: Json | null
+          ninjapear_profile_id?: string | null
           notable_investments?: string[] | null
           operator_background?: string | null
           past_investments?: Json | null
@@ -2802,6 +2863,15 @@ export type Database = {
           first_name?: string | null
           founder_background?: string | null
           full_name?: string
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Json | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Json | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: Json | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           geographic_concentration?: string[] | null
           geographic_focus?: string[] | null
           headshot_url?: string | null
@@ -2827,6 +2897,9 @@ export type Database = {
           needs_review?: boolean
           network_strength?: number | null
           networks?: string[] | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_profile?: Json | null
+          ninjapear_profile_id?: string | null
           notable_investments?: string[] | null
           operator_background?: string | null
           past_investments?: Json | null
@@ -3009,6 +3082,7 @@ export type Database = {
           deals_last_24m: number | null
           deleted_at: string | null
           description: string | null
+          domain: string | null
           dry_powder: string | null
           elevator_pitch: string | null
           email: string | null
@@ -3032,6 +3106,15 @@ export type Database = {
           freshness_synced_at: string | null
           freshness_verified_at: string | null
           fund_status: string | null
+          funding_intel_activity_score: number | null
+          funding_intel_focus_json: Json | null
+          funding_intel_last_deal_at: string | null
+          funding_intel_metrics_json: Json | null
+          funding_intel_momentum_score: number | null
+          funding_intel_pace_label: string | null
+          funding_intel_recent_investments_json: Json | null
+          funding_intel_summary: string | null
+          funding_intel_updated_at: string | null
           general_partner_count: number | null
           general_partner_names: string[] | null
           geo_focus: string[] | null
@@ -3093,6 +3176,11 @@ export type Database = {
           news_sentiment_score: number | null
           newsletters: string | null
           next_update_scheduled_at: string | null
+          ninjapear_company_profile: Json | null
+          ninjapear_enriched_at: string | null
+          ninjapear_headcount: number | null
+          ninjapear_headcount_growth: Json | null
+          ninjapear_headcount_observed_at: string | null
           notable_misses: string[] | null
           num_funds: number | null
           office_count: number | null
@@ -3210,6 +3298,7 @@ export type Database = {
           deals_last_24m?: number | null
           deleted_at?: string | null
           description?: string | null
+          domain?: string | null
           dry_powder?: string | null
           elevator_pitch?: string | null
           email?: string | null
@@ -3233,6 +3322,15 @@ export type Database = {
           freshness_synced_at?: string | null
           freshness_verified_at?: string | null
           fund_status?: string | null
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Json | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Json | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: Json | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
           geo_focus?: string[] | null
@@ -3294,6 +3392,11 @@ export type Database = {
           news_sentiment_score?: number | null
           newsletters?: string | null
           next_update_scheduled_at?: string | null
+          ninjapear_company_profile?: Json | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_headcount?: number | null
+          ninjapear_headcount_growth?: Json | null
+          ninjapear_headcount_observed_at?: string | null
           notable_misses?: string[] | null
           num_funds?: number | null
           office_count?: number | null
@@ -3411,6 +3514,7 @@ export type Database = {
           deals_last_24m?: number | null
           deleted_at?: string | null
           description?: string | null
+          domain?: string | null
           dry_powder?: string | null
           elevator_pitch?: string | null
           email?: string | null
@@ -3434,6 +3538,15 @@ export type Database = {
           freshness_synced_at?: string | null
           freshness_verified_at?: string | null
           fund_status?: string | null
+          funding_intel_activity_score?: number | null
+          funding_intel_focus_json?: Json | null
+          funding_intel_last_deal_at?: string | null
+          funding_intel_metrics_json?: Json | null
+          funding_intel_momentum_score?: number | null
+          funding_intel_pace_label?: string | null
+          funding_intel_recent_investments_json?: Json | null
+          funding_intel_summary?: string | null
+          funding_intel_updated_at?: string | null
           general_partner_count?: number | null
           general_partner_names?: string[] | null
           geo_focus?: string[] | null
@@ -3495,6 +3608,11 @@ export type Database = {
           news_sentiment_score?: number | null
           newsletters?: string | null
           next_update_scheduled_at?: string | null
+          ninjapear_company_profile?: Json | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_headcount?: number | null
+          ninjapear_headcount_growth?: Json | null
+          ninjapear_headcount_observed_at?: string | null
           notable_misses?: string[] | null
           num_funds?: number | null
           office_count?: number | null
@@ -3875,6 +3993,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fresh_capital_enrichment_settings: {
+        Row: {
+          fund_watch_schedule_note: string | null
+          fund_watch_source_keys: string | null
+          id: string
+          latest_funding_schedule_note: string | null
+          process_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          fund_watch_schedule_note?: string | null
+          fund_watch_source_keys?: string | null
+          id?: string
+          latest_funding_schedule_note?: string | null
+          process_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          fund_watch_schedule_note?: string | null
+          fund_watch_source_keys?: string | null
+          id?: string
+          latest_funding_schedule_note?: string | null
+          process_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       fund_aliases: {
         Row: {
@@ -5881,6 +6026,379 @@ export type Database = {
           },
         ]
       }
+      ninjapear_contact_details: {
+        Row: {
+          cache_key: string
+          checked_at: string
+          firm_investor_id: string | null
+          id: string
+          lookup_status: string
+          person_id: string | null
+          work_email: string | null
+        }
+        Insert: {
+          cache_key: string
+          checked_at?: string
+          firm_investor_id?: string | null
+          id?: string
+          lookup_status: string
+          person_id?: string | null
+          work_email?: string | null
+        }
+        Update: {
+          cache_key?: string
+          checked_at?: string
+          firm_investor_id?: string | null
+          id?: string
+          lookup_status?: string
+          person_id?: string | null
+          work_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ninjapear_contact_details_firm_investor_id_fkey"
+            columns: ["firm_investor_id"]
+            isOneToOne: false
+            referencedRelation: "firm_investors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_contact_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_contact_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_cross_company_operators"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_contact_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_contact_details_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_repeat_founders"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
+      ninjapear_enrichment_attempts: {
+        Row: {
+          attempted_at: string
+          cache_key: string
+          credit_cost: number | null
+          endpoint: string | null
+          error_code: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          operation: string
+          organization_id: string | null
+          outcome: string
+          person_id: string | null
+          vendor_cache_age_days: number | null
+        }
+        Insert: {
+          attempted_at?: string
+          cache_key: string
+          credit_cost?: number | null
+          endpoint?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          operation: string
+          organization_id?: string | null
+          outcome: string
+          person_id?: string | null
+          vendor_cache_age_days?: number | null
+        }
+        Update: {
+          attempted_at?: string
+          cache_key?: string
+          credit_cost?: number | null
+          endpoint?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          operation?: string
+          organization_id?: string | null
+          outcome?: string
+          person_id?: string | null
+          vendor_cache_age_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["primary_org_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_cross_company_operators"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_attempts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_repeat_founders"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
+      ninjapear_enrichment_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          credit_cost: number | null
+          fetched_at: string
+          firm_id: string | null
+          firm_investor_id: string | null
+          fresh_until: string
+          id: string
+          operation: string
+          organization_id: string | null
+          payload: Json | null
+          person_id: string | null
+          status: string
+          updated_at: string
+          vendor_cache_age_days: number | null
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          credit_cost?: number | null
+          fetched_at?: string
+          firm_id?: string | null
+          firm_investor_id?: string | null
+          fresh_until?: string
+          id?: string
+          operation: string
+          organization_id?: string | null
+          payload?: Json | null
+          person_id?: string | null
+          status: string
+          updated_at?: string
+          vendor_cache_age_days?: number | null
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          credit_cost?: number | null
+          fetched_at?: string
+          firm_id?: string | null
+          firm_investor_id?: string | null
+          fresh_until?: string
+          id?: string
+          operation?: string
+          organization_id?: string | null
+          payload?: Json | null
+          person_id?: string | null
+          status?: string
+          updated_at?: string
+          vendor_cache_age_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_firm_investor_id_fkey"
+            columns: ["firm_investor_id"]
+            isOneToOne: false
+            referencedRelation: "firm_investors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["primary_org_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_cross_company_operators"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "ninjapear_enrichment_cache_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_repeat_founders"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
+      ninjapear_headcount_snapshots: {
+        Row: {
+          employee_count: number
+          firm_id: string | null
+          id: string
+          observed_at: string
+          organization_id: string | null
+          vendor_cache_age_days: number | null
+        }
+        Insert: {
+          employee_count: number
+          firm_id?: string | null
+          id?: string
+          observed_at?: string
+          organization_id?: string | null
+          vendor_cache_age_days?: number | null
+        }
+        Update: {
+          employee_count?: number
+          firm_id?: string | null
+          id?: string
+          observed_at?: string
+          organization_id?: string | null
+          vendor_cache_age_days?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ninjapear_headcount_snapshots_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_headcount_snapshots_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "investor_directory_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_headcount_snapshots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_headcount_snapshots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_org_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ninjapear_headcount_snapshots_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_signals"
+            referencedColumns: ["primary_org_id"]
+          },
+        ]
+      }
+      onboarding_workflow: {
+        Row: {
+          definition: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          definition?: Json
+          id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          definition?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       operator_companies: {
         Row: {
           active_job_count: number | null
@@ -6202,6 +6720,11 @@ export type Database = {
           linkedinUrl: string | null
           location: string | null
           logoUrl: string | null
+          ninjapear_company_profile: Json | null
+          ninjapear_enriched_at: string | null
+          ninjapear_headcount: number | null
+          ninjapear_headcount_growth: Json | null
+          ninjapear_headcount_observed_at: string | null
           ready_for_live: boolean
           sourceIds: string[] | null
           stageProxy: string | null
@@ -6233,6 +6756,11 @@ export type Database = {
           linkedinUrl?: string | null
           location?: string | null
           logoUrl?: string | null
+          ninjapear_company_profile?: Json | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_headcount?: number | null
+          ninjapear_headcount_growth?: Json | null
+          ninjapear_headcount_observed_at?: string | null
           ready_for_live?: boolean
           sourceIds?: string[] | null
           stageProxy?: string | null
@@ -6264,6 +6792,11 @@ export type Database = {
           linkedinUrl?: string | null
           location?: string | null
           logoUrl?: string | null
+          ninjapear_company_profile?: Json | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_headcount?: number | null
+          ninjapear_headcount_growth?: Json | null
+          ninjapear_headcount_observed_at?: string | null
           ready_for_live?: boolean
           sourceIds?: string[] | null
           stageProxy?: string | null
@@ -6275,6 +6808,39 @@ export type Database = {
           ycBatch?: string | null
           ycId?: string | null
           ycRawJson?: Json | null
+        }
+        Relationships: []
+      }
+      outbound_clicks: {
+        Row: {
+          context: string | null
+          created_at: string
+          destination_url: string
+          entity_id: string | null
+          id: string
+          referrer: string | null
+          type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          destination_url: string
+          entity_id?: string | null
+          id?: string
+          referrer?: string | null
+          type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          destination_url?: string
+          entity_id?: string | null
+          id?: string
+          referrer?: string | null
+          type?: string | null
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -6390,6 +6956,9 @@ export type Database = {
           lastName: string | null
           linkedinUrl: string | null
           location: string | null
+          ninjapear_enriched_at: string | null
+          ninjapear_profile: Json | null
+          ninjapear_profile_id: string | null
           ready_for_live: boolean
           sourceIds: string[] | null
           twitterUrl: string | null
@@ -6415,6 +6984,9 @@ export type Database = {
           lastName?: string | null
           linkedinUrl?: string | null
           location?: string | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_profile?: Json | null
+          ninjapear_profile_id?: string | null
           ready_for_live?: boolean
           sourceIds?: string[] | null
           twitterUrl?: string | null
@@ -6440,11 +7012,62 @@ export type Database = {
           lastName?: string | null
           linkedinUrl?: string | null
           location?: string | null
+          ninjapear_enriched_at?: string | null
+          ninjapear_profile?: Json | null
+          ninjapear_profile_id?: string | null
           ready_for_live?: boolean
           sourceIds?: string[] | null
           twitterUrl?: string | null
           updatedAt?: string | null
           ycId?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_source_config: {
+        Row: {
+          base_url: string | null
+          created_at: string
+          cron_schedule: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          max_items: number
+          name: string
+          notes: string | null
+          pipeline: string
+          source_key: string
+          updated_at: string
+        }
+        Insert: {
+          base_url?: string | null
+          created_at?: string
+          cron_schedule?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          max_items?: number
+          name: string
+          notes?: string | null
+          pipeline: string
+          source_key: string
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string | null
+          created_at?: string
+          cron_schedule?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          max_items?: number
+          name?: string
+          notes?: string | null
+          pipeline?: string
+          source_key?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -7286,6 +7909,33 @@ export type Database = {
           },
         ]
       }
+      signup_confirmation_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          email: string
+          expires_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          email: string
+          expires_at: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       source_articles: {
         Row: {
           article_url: string
@@ -7997,6 +8647,30 @@ export type Database = {
           },
         ]
       }
+      tool_category_page_overrides: {
+        Row: {
+          category_slug: string
+          description: string | null
+          meta: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          category_slug: string
+          description?: string | null
+          meta?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category_slug?: string
+          description?: string | null
+          meta?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_activity: {
         Row: {
           api_calls_count: number
@@ -8050,6 +8724,36 @@ export type Database = {
           id?: string
           tier?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_ip_log: {
+        Row: {
+          first_seen_at: string
+          hits: number
+          id: string
+          ip_address: string
+          last_seen_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          first_seen_at?: string
+          hits?: number
+          id?: string
+          ip_address: string
+          last_seen_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          first_seen_at?: string
+          hits?: number
+          id?: string
+          ip_address?: string
+          last_seen_at?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -8796,6 +9500,7 @@ export type Database = {
       }
       waitlist_users: {
         Row: {
+          admin_notes: string | null
           biggest_pain: string | null
           campaign: string | null
           company_name: string | null
@@ -8812,6 +9517,9 @@ export type Database = {
           referral_count: number
           referral_score: number
           referred_by_user_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_email: string | null
           role: string | null
           sector: string | null
           source: string | null
@@ -8823,6 +9531,7 @@ export type Database = {
           waitlist_position: number | null
         }
         Insert: {
+          admin_notes?: string | null
           biggest_pain?: string | null
           campaign?: string | null
           company_name?: string | null
@@ -8839,6 +9548,9 @@ export type Database = {
           referral_count?: number
           referral_score?: number
           referred_by_user_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_email?: string | null
           role?: string | null
           sector?: string | null
           source?: string | null
@@ -8850,6 +9562,7 @@ export type Database = {
           waitlist_position?: number | null
         }
         Update: {
+          admin_notes?: string | null
           biggest_pain?: string | null
           campaign?: string | null
           company_name?: string | null
@@ -8866,6 +9579,9 @@ export type Database = {
           referral_count?: number
           referral_score?: number
           referred_by_user_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_email?: string | null
           role?: string | null
           sector?: string | null
           source?: string | null
@@ -9606,6 +10322,51 @@ export type Database = {
       }
     }
     Functions: {
+      admin_update_waitlist_status: {
+        Args: {
+          p_reviewed_by: string
+          p_reviewed_by_email?: string
+          p_status: string
+          p_waitlist_user_id: string
+        }
+        Returns: {
+          admin_notes: string | null
+          biggest_pain: string | null
+          campaign: string | null
+          company_name: string | null
+          created_at: string
+          email: string
+          id: string
+          intent: string[]
+          linkedin_url: string | null
+          metadata: Json
+          name: string | null
+          priority_access: boolean
+          qualification_score: number
+          referral_code: string
+          referral_count: number
+          referral_score: number
+          referred_by_user_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_email: string | null
+          role: string | null
+          sector: string | null
+          source: string | null
+          stage: string | null
+          status: string
+          total_score: number
+          updated_at: string
+          urgency: string | null
+          waitlist_position: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "waitlist_users"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       batch_update_sector_embeddings: {
         Args: { updates: Json }
         Returns: number
@@ -9644,6 +10405,15 @@ export type Database = {
         Args: { p_name: string; p_slug: string }
         Returns: string
       }
+      fi_is_cdn_domain: { Args: { domain: string }; Returns: boolean }
+      fi_round_to_stage: {
+        Args: { round_type: string }
+        Returns: Database["public"]["Enums"]["OperatorCompanyStage"]
+      }
+      fi_sector_to_focus: {
+        Args: { sector: string }
+        Returns: Database["public"]["Enums"]["SectorFocus"]
+      }
       find_connections_by_investor: {
         Args: { _investor_name: string }
         Returns: {
@@ -9654,6 +10424,10 @@ export type Database = {
           stage: string
           user_id: string
         }[]
+      }
+      firm_records_host_from_website_url: {
+        Args: { url: string }
+        Returns: string
       }
       generate_waitlist_referral_code: { Args: never; Returns: string }
       get_active_funds_by_stage: {
@@ -9809,6 +10583,12 @@ export type Database = {
         }[]
       }
       get_my_company_ids: { Args: never; Returns: string[] }
+      get_new_vc_fund_sector_options: {
+        Args: { p_days?: number; p_limit?: number; p_stage?: string[] }
+        Returns: {
+          sector: string
+        }[]
+      }
       get_new_vc_funds: {
         Args: {
           p_days?: number
@@ -9902,7 +10682,7 @@ export type Database = {
           amount_label: string
           announced_at: string
           co_investors: string[]
-          company_logo_url: string | null
+          company_logo_url: string
           company_name: string
           confidence_score: number
           confirmation_status: string
@@ -9935,6 +10715,10 @@ export type Database = {
       }
       is_admin_or_above: { Args: { _user_id: string }; Returns: boolean }
       is_company_owner: { Args: { _company_id: string }; Returns: boolean }
+      is_identity_banned: {
+        Args: { _email: string; _ip: string }
+        Returns: boolean
+      }
       kb_populate_tsvector: {
         Args: { p_document_id: string }
         Returns: undefined
@@ -10053,6 +10837,231 @@ export type Database = {
         Returns: undefined
       }
       reveal_contact_info: { Args: { _investor_id: string }; Returns: Json }
+      search_firm_records: {
+        Args: { args: Json }
+        Returns: {
+          acquisition_exits: number | null
+          active_fund_count: number
+          active_fund_vintage: number | null
+          active_portfolio_count: number | null
+          address: string | null
+          adviser_crd_number: string | null
+          aliases: string[]
+          alternate_names: string[] | null
+          angellist_url: string | null
+          aum: string | null
+          aum_usd: number | null
+          avg_check_size: string | null
+          beehiiv_url: string | null
+          blog_url: string | null
+          breakout_companies: string[] | null
+          business_model_focus: string | null
+          ca_sb54_compliant: boolean | null
+          capital_freshness_boost_score: number | null
+          careers_page_url: string | null
+          cb_insights_url: string | null
+          co_investor_patterns: string[] | null
+          community_rating: number | null
+          company_type_focus: string | null
+          completeness_score: number
+          contact_page_url: string | null
+          countries_invested_in: string[] | null
+          created_at: string
+          crunchbase_url: string | null
+          current_fund_name: string | null
+          current_fund_size: string | null
+          current_fund_vintage_year: number | null
+          data_confidence_score: number | null
+          deals_last_24m: number | null
+          deleted_at: string | null
+          description: string | null
+          domain: string | null
+          dry_powder: string | null
+          elevator_pitch: string | null
+          email: string | null
+          email_source: string | null
+          enrichment_status: string
+          entity_type: Database["public"]["Enums"]["entity_type"] | null
+          estimated_check_range_json: Json
+          evidence_urls: string[] | null
+          exited_portfolio_count: number | null
+          extraction_confidence: number | null
+          facebook_url: string | null
+          favicon_url: string | null
+          firm_blog_url: string | null
+          firm_name: string
+          firm_type: string | null
+          first_investment_date: string | null
+          focus_enriched_at: string | null
+          founded_year: number | null
+          founder_reputation_score: number | null
+          fresh_capital_priority_score: number | null
+          freshness_synced_at: string | null
+          freshness_verified_at: string | null
+          fund_status: string | null
+          funding_intel_activity_score: number | null
+          funding_intel_focus_json: Json | null
+          funding_intel_last_deal_at: string | null
+          funding_intel_metrics_json: Json | null
+          funding_intel_momentum_score: number | null
+          funding_intel_pace_label: string | null
+          funding_intel_recent_investments_json: Json | null
+          funding_intel_summary: string | null
+          funding_intel_updated_at: string | null
+          general_partner_count: number | null
+          general_partner_names: string[] | null
+          geo_focus: string[] | null
+          has_fresh_capital: boolean
+          headcount: string | null
+          hiring_signals: Json | null
+          hq_city: string | null
+          hq_country: string | null
+          hq_region: Database["public"]["Enums"]["us_region"] | null
+          hq_state: string | null
+          hq_zip_code: string | null
+          id: string
+          impact_orientation:
+            | Database["public"]["Enums"]["impact_orientation"]
+            | null
+          industry_reputation: number | null
+          instagram_url: string | null
+          interviews: Json | null
+          investing_team_count: number | null
+          investment_pace: string | null
+          investment_philosophy: string | null
+          investment_themes: string[] | null
+          ipo_count: number | null
+          is_actively_deploying: boolean | null
+          is_popular: boolean | null
+          is_recent: boolean | null
+          is_trending: boolean | null
+          last_5_investments: Json | null
+          last_capital_signal_at: string | null
+          last_enriched_at: string | null
+          last_fund_announcement_date: string | null
+          last_verified_at: string | null
+          latest_fund_announcement_date: string | null
+          latest_fund_close: string | null
+          latest_fund_name: string | null
+          latest_fund_size_usd: number | null
+          latest_verified_vc_fund_id: string | null
+          lead_follow_behavior: string | null
+          lead_investments_count: number | null
+          lead_or_follow: string | null
+          lead_partner: string | null
+          legal_name: string | null
+          likely_actively_deploying: boolean | null
+          linkedin_url: string | null
+          location: string | null
+          locations: Json | null
+          logo_url: string | null
+          major_announcements: Json | null
+          manual_review_status: string | null
+          market_sentiment: string | null
+          match_score: number | null
+          max_check_size: number | null
+          medium_url: string | null
+          min_check_size: number | null
+          missing_column_name: string | null
+          most_recent_investment_date: string | null
+          needs_review: boolean
+          network_strength: number | null
+          news_sentiment_score: number | null
+          newsletters: string | null
+          next_update_scheduled_at: string | null
+          ninjapear_company_profile: Json | null
+          ninjapear_enriched_at: string | null
+          ninjapear_headcount: number | null
+          ninjapear_headcount_growth: Json | null
+          ninjapear_headcount_observed_at: string | null
+          notable_misses: string[] | null
+          num_funds: number | null
+          office_count: number | null
+          office_locations: Json | null
+          openvc_url: string | null
+          operating_partners: string[] | null
+          ownership_type: string | null
+          partner_names: string[] | null
+          pct_deployed: string | null
+          phone: string | null
+          pitchbook_url: string | null
+          podcasts: Json | null
+          portfolio_highlights: string[] | null
+          preferred_stage: string | null
+          prisma_firm_id: string | null
+          ready_for_live: boolean
+          recent_capital_signal_count: number
+          recent_deals: string[] | null
+          recent_focus: string | null
+          recent_news: Json | null
+          regions_invested_in: string[] | null
+          reputation_score: number | null
+          reputation_updated_at: string | null
+          reserve_strategy: string | null
+          responsiveness_score: number | null
+          sec_file_number: string | null
+          sector_classification:
+            | Database["public"]["Enums"]["sector_classification"]
+            | null
+          sector_embedding: string | null
+          sector_focus: string[] | null
+          sector_scope: Database["public"]["Enums"]["sector_scope_enum"] | null
+          sentiment_detail: string | null
+          signal_nfx_url: string | null
+          slug: string | null
+          social_sentiment_score: number | null
+          source_count: number
+          stage_classification:
+            | Database["public"]["Enums"]["stage_classification"]
+            | null
+          stage_focus: Database["public"]["Enums"]["stage_focus_enum"][] | null
+          stage_max: Database["public"]["Enums"]["stage_focus_enum"] | null
+          stage_min: Database["public"]["Enums"]["stage_focus_enum"] | null
+          startups_gallery_url: string | null
+          status: string | null
+          strategy_classifications: string[] | null
+          structure_classification:
+            | Database["public"]["Enums"]["structure_classification"]
+            | null
+          sub_sectors: string[] | null
+          substack_url: string | null
+          tagline: string | null
+          team_people_url: string | null
+          theme_classification:
+            | Database["public"]["Enums"]["theme_classification"]
+            | null
+          thesis_orientation:
+            | Database["public"]["Enums"]["thesis_orientation"]
+            | null
+          thesis_verticals: string[]
+          thought_leadership_links: string[] | null
+          tiktok_url: string | null
+          total_headcount: number | null
+          total_investors: number | null
+          total_partners: number | null
+          tracxn_url: string | null
+          trustfinta_url: string | null
+          underrepresented_founders_focus: boolean | null
+          underrepresented_founders_focus_label: string | null
+          underrepresented_founders_focus_rationale: string | null
+          unicorns: string[] | null
+          updated_at: string | null
+          value_add_score: number | null
+          vcsheet_url: string | null
+          verification_status: string | null
+          volatility_score: number | null
+          website_url: string | null
+          wellfound_url: string | null
+          x_url: string | null
+          youtube_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "firm_records"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       waitlist_get_status: {
@@ -10258,12 +11267,12 @@ export type Database = {
         | "Pre-Seed"
         | "Seed"
         | "Series A"
-        | "Series B"
         | "Series B+"
+        | "Growth"
+        | "Series B"
         | "Series C"
         | "Series C+"
         | "Series D"
-        | "Growth"
       StartupDataSource:
         | "SEEDTABLE"
         | "TOPSTARTUPS"
@@ -10449,6 +11458,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_permission: ["user", "manager", "admin", "god"],
@@ -10645,12 +11657,12 @@ export const Constants = {
         "Pre-Seed",
         "Seed",
         "Series A",
-        "Series B",
         "Series B+",
+        "Growth",
+        "Series B",
         "Series C",
         "Series C+",
         "Series D",
-        "Growth",
       ],
       StartupDataSource: [
         "SEEDTABLE",

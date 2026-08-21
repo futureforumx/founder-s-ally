@@ -600,6 +600,14 @@ function investorSectorStageParts(entry: DirectoryEntry): { sector: string | nul
   return { sector, stage: formatStageForDisplay(raw) };
 }
 
+/** Deterministic placeholder reputation score (keyed by firm name) for cards with no real founder_reputation_score yet — mirrors the matchScore placeholder below. */
+function stableReputationFallback(name: string | null | undefined): number {
+  const s = String(name ?? "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return 55 + (Math.abs(h) % 31);
+}
+
 // ── Investor Card ──
 function InvestorCard({
   founder,
@@ -623,7 +631,7 @@ function InvestorCard({
   const locationLine = safeTextTrim(founder.location);
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
-  const sentimentScore = founder._founderSentimentScore;
+  const sentimentScore = founder._founderSentimentScore ?? stableReputationFallback(founder.name);
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
   const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
   const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
@@ -1016,7 +1024,7 @@ function OperatorHubCard({
 }) {
   const websiteUrl = founder._websiteUrl || null;
   const logoUrl = founder._logoUrl || null;
-  const sentimentScore = founder._founderSentimentScore;
+  const sentimentScore = founder._founderSentimentScore ?? stableReputationFallback(founder.name);
   const sentimentColor =
     sentimentScore != null
       ? sentimentScore >= 70
@@ -3138,6 +3146,7 @@ export function CommunityView({
           ? (dbMatch as any).thesis_verticals
           : entry._thesisVerticals ?? [],
       _geoFocus: (dbMatch as any)?.geo_focus ?? entry._geoFocus ?? null,
+      _founderSentimentScore: (dbMatch as any)?.founder_reputation_score ?? entry._founderSentimentScore ?? null,
       _seedSectors:
         dbMatch && (dbMatch as any)?.thesis_verticals?.length > 0
           ? null

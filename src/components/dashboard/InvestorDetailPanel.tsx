@@ -720,6 +720,9 @@ export function InvestorDetailPanel({
 
   const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
 
+  const founderReputationScore =
+    liveProfile?.source === "live" ? liveProfile.founder_reputation_score ?? undefined : undefined;
+
   /** `liveProfile.id` is only a Supabase `firm_records` row when `source === "live"`. JSON fallback uses MDM domain ids — do not let those override an explicit DB id from Matches. */
   const databaseFirmId =
     liveProfile?.source === "live"
@@ -1611,6 +1614,7 @@ export function InvestorDetailPanel({
                       firmName={heroName}
                       companyContext={companyData}
                       investorContext={investorContext}
+                      founderReputationScore={founderReputationScore}
                       activeTileId={activeScoreTile}
                       onActiveTileChange={setActiveScoreTile}
                       showBreakdown={false}
@@ -1680,6 +1684,7 @@ export function InvestorDetailPanel({
                     firmName={heroName}
                     companyContext={companyData}
                     investorContext={investorContext}
+                    founderReputationScore={founderReputationScore}
                     activeTileId={activeScoreTile}
                     onActiveTileChange={setActiveScoreTile}
                     showTiles={false}
