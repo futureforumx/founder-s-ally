@@ -5,7 +5,7 @@
  *   npx tsx scripts/funding-intel/link-investor-persons.ts
  *   INTEL_DRY_RUN=1 npx tsx scripts/funding-intel/link-investor-persons.ts
  */
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { tokenJaccard } from "./lib/similarity.js";
 
 const prisma = new PrismaClient();
@@ -64,6 +64,43 @@ function bestPersonMatch(
   return top;
 }
 
+type PersonRow = { id: string; firm_id: string; first_name: string; last_name: string; preferred_name: string | null };
+
+async function publicTableExists(table: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = ${table}
+    ) AS "exists"
+  `;
+  return Boolean(rows[0]?.exists);
+}
+
+async function loadPeopleForFirms(firmIds: string[]): Promise<PersonRow[]> {
+  if (!firmIds.length) return [];
+  if (await publicTableExists("firm_investors")) {
+    return prisma.$queryRaw<PersonRow[]>`
+      SELECT
+        id::text AS id,
+        firm_id::text AS firm_id,
+        COALESCE(NULLIF(btrim(first_name), ''), split_part(COALESCE(full_name, ''), ' ', 1)) AS first_name,
+        COALESCE(NULLIF(btrim(last_name), ''), regexp_replace(COALESCE(full_name, ''), '^\\S+\\s*', '')) AS last_name,
+        COALESCE(preferred_name, full_name) AS preferred_name
+      FROM firm_investors
+      WHERE deleted_at IS NULL
+        AND firm_id::text IN (${Prisma.join(firmIds)})
+    `;
+  }
+  if (await publicTableExists("vc_people")) {
+    return prisma.vCPerson.findMany({
+      where: { firm_id: { in: firmIds }, deleted_at: null },
+      select: { id: true, firm_id: true, first_name: true, last_name: true, preferred_name: true },
+    });
+  }
+  return [];
+}
+
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL required");
   log(`start DRY=${DRY} MIN_J(base)=${MIN_J} (raised when firm has many partners)`);
@@ -93,10 +130,7 @@ async function main() {
     cursor = { id: links[links.length - 1]!.id };
 
     const firmIds = [...new Set(links.map((l) => l.vc_firm_id).filter(Boolean))] as string[];
-    const people = await prisma.vCPerson.findMany({
-      where: { firm_id: { in: firmIds }, deleted_at: null },
-      select: { id: true, firm_id: true, first_name: true, last_name: true, preferred_name: true },
-    });
+    const people = await loadPeopleForFirms(firmIds);
     const byFirm = new Map<string, typeof people>();
     for (const p of people) {
       const arr = byFirm.get(p.firm_id) ?? [];

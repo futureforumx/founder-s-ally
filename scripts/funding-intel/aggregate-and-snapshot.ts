@@ -191,6 +191,60 @@ function buildIntelNarrativeSummary(opts: {
   return `${who} ${sectorText} ${stageText} Pace vs the prior 31–90 day band is ${paceLabelHuman(opts.pace)}. ${roleHint}`.replace(/\s+/g, " ").trim();
 }
 
+async function touchFirmRecordsIntel(args: {
+  firmId: string;
+  activityScore: number;
+  momentumScore: number;
+  paceLabel: string | null;
+  summary: string;
+  focusJson: Prisma.InputJsonValue;
+  recentInvestments: Prisma.InputJsonValue;
+  metricsJson: Prisma.InputJsonValue;
+  lastSeen: Date | null;
+}) {
+  await prisma.$executeRaw`
+    UPDATE firm_records SET
+      funding_intel_activity_score = ${args.activityScore},
+      funding_intel_momentum_score = ${args.momentumScore},
+      funding_intel_pace_label = ${args.paceLabel},
+      funding_intel_summary = ${args.summary},
+      funding_intel_focus_json = ${JSON.stringify(args.focusJson)}::jsonb,
+      funding_intel_recent_investments_json = ${JSON.stringify(args.recentInvestments)}::jsonb,
+      funding_intel_metrics_json = ${JSON.stringify(args.metricsJson)}::jsonb,
+      funding_intel_last_deal_at = ${args.lastSeen},
+      funding_intel_updated_at = NOW()
+    WHERE id::text = ${args.firmId}
+       OR prisma_firm_id = ${args.firmId}
+  `;
+}
+
+async function touchFirmInvestorsIntel(args: {
+  personId: string;
+  activityScore: number;
+  momentumScore: number;
+  paceLabel: string | null;
+  summary: string;
+  focusJson: Prisma.InputJsonValue;
+  recentInvestments: Prisma.InputJsonValue;
+  metricsJson: Prisma.InputJsonValue;
+  lastSeen: Date | null;
+}) {
+  await prisma.$executeRaw`
+    UPDATE firm_investors SET
+      funding_intel_activity_score = ${args.activityScore},
+      funding_intel_momentum_score = ${args.momentumScore},
+      funding_intel_pace_label = ${args.paceLabel},
+      funding_intel_summary = ${args.summary},
+      funding_intel_focus_json = ${JSON.stringify(args.focusJson)}::jsonb,
+      funding_intel_recent_investments_json = ${JSON.stringify(args.recentInvestments)}::jsonb,
+      funding_intel_metrics_json = ${JSON.stringify(args.metricsJson)}::jsonb,
+      funding_intel_last_deal_at = ${args.lastSeen},
+      funding_intel_updated_at = NOW()
+    WHERE id::text = ${args.personId}
+       OR prisma_person_id = ${args.personId}
+  `;
+}
+
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL required");
 
@@ -427,6 +481,17 @@ async function main() {
             last_seen_investing_at: lastAt,
           },
         });
+        await touchFirmRecordsIntel({
+          firmId,
+          activityScore: snap.activity_score,
+          momentumScore: snap.momentum_score,
+          paceLabel: (snap.focus_json as { current_investment_pace_label?: string })?.current_investment_pace_label ?? null,
+          summary,
+          focusJson: snap.focus_json as Prisma.InputJsonValue,
+          recentInvestments: recentInv as unknown as Prisma.InputJsonValue,
+          metricsJson: m as Prisma.InputJsonValue,
+          lastSeen: lastAt,
+        });
       }
     }
 
@@ -631,6 +696,17 @@ async function main() {
             } as Prisma.InputJsonValue,
             last_seen_investing_at: lastAt,
           },
+        });
+        await touchFirmInvestorsIntel({
+          personId,
+          activityScore: snap.activity_score,
+          momentumScore: snap.momentum_score,
+          paceLabel: paceFromSnap,
+          summary,
+          focusJson: snap.focus_json as Prisma.InputJsonValue,
+          recentInvestments: recentInv as unknown as Prisma.InputJsonValue,
+          metricsJson: m as Prisma.InputJsonValue,
+          lastSeen: lastAt,
         });
       }
     }

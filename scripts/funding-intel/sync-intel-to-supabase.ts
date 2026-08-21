@@ -58,8 +58,11 @@ async function main() {
       firmOk += 1;
       continue;
     }
-    const { error } = await sb.from("firm_records").update(payload).eq("prisma_firm_id", row.vc_firm_id);
-    if (error) firmErr += 1;
+    const byId = await sb.from("firm_records").update(payload).eq("id", row.vc_firm_id);
+    const byPrisma = byId.error
+      ? await sb.from("firm_records").update(payload).eq("prisma_firm_id", row.vc_firm_id)
+      : byId;
+    if (byPrisma.error) firmErr += 1;
     else firmOk += 1;
   }
   log(`firm_records touch attempts=${firms.length} ok~${firmOk} err~${firmErr} (rows updated only when prisma_firm_id matches)`);
@@ -96,8 +99,11 @@ async function main() {
       pOk += 1;
       continue;
     }
-    const { error } = await sb.from("firm_investors").update(payload).eq("prisma_person_id", row.vc_person_id);
-    if (error) pErr += 1;
+    const byId = await sb.from("firm_investors").update(payload).eq("id", row.vc_person_id);
+    const byPrisma = byId.error
+      ? await sb.from("firm_investors").update(payload).eq("prisma_person_id", row.vc_person_id)
+      : byId;
+    if (byPrisma.error) pErr += 1;
     else pOk += 1;
   }
   log(`firm_investors touch attempts=${people.length} ok~${pOk} err~${pErr}`);

@@ -9,6 +9,12 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { normalizeCompanyName } from "../funding-ingest/normalize.js";
+import {
+  aliasesFromFirmRecord,
+  type AliasRow,
+  type CanonicalFirmRecord,
+  type FirmRow,
+} from "./lib/canonical-entities.js";
 import { canonicalDomain } from "./lib/domain.js";
 import { tokenJaccard } from "./lib/similarity.js";
 
@@ -17,8 +23,6 @@ const DRY = process.env.INTEL_DRY_RUN === "1";
 const BATCH = Math.max(50, parseInt(process.env.INTEL_LINK_BATCH || "400", 10));
 
 type StartupRow = { id: string; company_name: string; domain: string | null };
-type FirmRow = { id: string; firm_name: string };
-type AliasRow = { firm_id: string; alias_value: string; alias_type: string };
 
 function log(m: string) {
   console.log(`[intel:link] ${new Date().toISOString()} ${m}`);
@@ -34,11 +38,23 @@ function buildStartupIndexes(startups: StartupRow[]) {
   return { byDomain, byNormName, startups };
 }
 
+function nameTokens(name: string): string[] {
+  return normalizeCompanyName(name)
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+}
+
 function buildFirmIndexes(firms: FirmRow[], aliases: AliasRow[]) {
   const byNormName = new Map<string, string>();
   const byAlias = new Map<string, string>();
+  const byToken = new Map<string, FirmRow[]>();
   for (const f of firms) {
     byNormName.set(normalizeCompanyName(f.firm_name), f.id);
+    for (const t of nameTokens(f.firm_name)) {
+      const arr = byToken.get(t) ?? [];
+      arr.push(f);
+      byToken.set(t, arr);
+    }
   }
   for (const a of aliases) {
     if (a.alias_type === "WEBSITE_DOMAIN") {
@@ -47,7 +63,7 @@ function buildFirmIndexes(firms: FirmRow[], aliases: AliasRow[]) {
     }
     byAlias.set(normalizeCompanyName(a.alias_value), a.firm_id);
   }
-  return { byNormName, byAlias, firms };
+  return { byNormName, byAlias, byToken, firms };
 }
 
 function bestStartupFuzzy(
@@ -66,14 +82,108 @@ function bestStartupFuzzy(
   return best;
 }
 
-function bestFirmFuzzy(name: string, firms: FirmRow[], minJ: number): { id: string; j: number } | null {
+function bestFirmFuzzy(
+  name: string,
+  firms: FirmRow[],
+  minJ: number,
+  byToken?: Map<string, FirmRow[]>,
+): { id: string; j: number } | null {
+  let pool = firms;
+  if (byToken && byToken.size) {
+    const seen = new Set<string>();
+    const narrowed: FirmRow[] = [];
+    for (const t of nameTokens(name)) {
+      for (const f of byToken.get(t) ?? []) {
+        if (seen.has(f.id)) continue;
+        seen.add(f.id);
+        narrowed.push(f);
+      }
+    }
+    if (narrowed.length) pool = narrowed;
+    else return null;
+  }
   let best: { id: string; j: number } | null = null;
-  for (const f of firms) {
+  for (const f of pool) {
     const j = tokenJaccard(name, f.firm_name);
     if (j < minJ) continue;
     if (!best || j > best.j) best = { id: f.id, j };
   }
   return best;
+}
+
+async function publicColumnExists(table: string, column: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = ${table}
+        AND column_name = ${column}
+    ) AS "exists"
+  `;
+  return Boolean(rows[0]?.exists);
+}
+
+async function publicTableExists(table: string): Promise<boolean> {
+  const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = ${table}
+    ) AS "exists"
+  `;
+  return Boolean(rows[0]?.exists);
+}
+
+async function loadCanonicalFirms(): Promise<{ firms: FirmRow[]; aliases: AliasRow[]; source: string }> {
+  if (await publicColumnExists("firm_records", "firm_name")) {
+    const rows = await prisma.$queryRaw<CanonicalFirmRecord[]>`
+      SELECT
+        id::text AS id,
+        firm_name,
+        legal_name,
+        aliases,
+        alternate_names,
+        domain,
+        website_url
+      FROM firm_records
+      WHERE deleted_at IS NULL
+        AND firm_name IS NOT NULL
+        AND btrim(firm_name) <> ''
+    `;
+    if (rows.length) {
+      return {
+        firms: rows.map((r) => ({ id: r.id, firm_name: r.firm_name })),
+        aliases: rows.flatMap(aliasesFromFirmRecord),
+        source: "firm_records",
+      };
+    }
+  }
+
+  if (await publicColumnExists("vc_firms", "firm_name")) {
+    const firms = await prisma.vCFirm.findMany({
+      where: { deleted_at: null },
+      select: { id: true, firm_name: true },
+    });
+    let aliases: AliasRow[] = [];
+    if (await publicTableExists("vc_firm_aliases")) {
+      aliases = await prisma.vCFirmAlias.findMany({
+        select: { firm_id: true, alias_value: true, alias_type: true },
+      });
+    }
+    return { firms, aliases, source: "vc_firms" };
+  }
+
+  if (await publicColumnExists("vc_firms", "name")) {
+    const firms = await prisma.$queryRaw<FirmRow[]>`
+      SELECT id::text AS id, name AS firm_name
+      FROM vc_firms
+      WHERE name IS NOT NULL AND btrim(name) <> ''
+    `;
+    return { firms, aliases: [], source: "vc_firms.name" };
+  }
+
+  return { firms: [], aliases: [], source: "none" };
 }
 
 async function linkCompanies(
@@ -229,7 +339,7 @@ async function linkInvestors(
       }
 
       if (!firmId) {
-        const fuzzy = bestFirmFuzzy(inv.name_raw, firms, 0.88);
+        const fuzzy = bestFirmFuzzy(inv.name_raw, firms, 0.88, maps.byToken);
         if (fuzzy) {
           firmId = fuzzy.id;
           method = "FUZZY_HIGH";
@@ -239,7 +349,7 @@ async function linkInvestors(
       }
 
       if (!firmId) {
-        const med = bestFirmFuzzy(inv.name_raw, firms, 0.72);
+        const med = bestFirmFuzzy(inv.name_raw, firms, 0.72, maps.byToken);
         if (med && med.j < 0.88) {
           if (!DRY) {
             await prisma.entityMatchReview.create({
@@ -304,15 +414,9 @@ async function main() {
   const smaps = buildStartupIndexes(startups);
   log(`startups loaded: ${startups.length}`);
 
-  const firms = await prisma.vCFirm.findMany({
-    where: { deleted_at: null },
-    select: { id: true, firm_name: true },
-  });
-  const aliases = await prisma.vCFirmAlias.findMany({
-    select: { firm_id: true, alias_value: true, alias_type: true },
-  });
+  const { firms, aliases, source } = await loadCanonicalFirms();
   const fmaps = buildFirmIndexes(firms, aliases);
-  log(`vc_firms=${firms.length} aliases=${aliases.length}`);
+  log(`firms=${firms.length} aliases=${aliases.length} source=${source}`);
 
   const c = await linkCompanies(startups, smaps);
   log(`companies linked=${c.linked} reviews=${c.reviews} skipped=${c.skipped}`);
