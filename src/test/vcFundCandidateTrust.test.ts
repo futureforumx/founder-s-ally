@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   isLiveCuratedStructuredSource,
@@ -108,5 +110,11 @@ describe("trusted Fresh Capital sources", () => {
       },
     });
     expect(isTrustedStructuredSource(item)).toBe(true);
+  });
+
+  it("promote uses the defined trusted structured source helper", () => {
+    const source = readFileSync(path.join(process.cwd(), "src/lib/vc-funds/service.ts"), "utf8");
+    expect(source).not.toMatch(/\bisTrustedStructuredVerificationSource\b/);
+    expect(source).toMatch(/grouped\.every\(\(item\) => isTrustedStructuredSource\(item\)\)/);
   });
 });

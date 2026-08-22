@@ -626,23 +626,31 @@ export class FundSyncService {
 
       for (const candidate of candidates) {
         stats.processedCandidates = (stats.processedCandidates ?? 0) + 1;
-        const evidenceRows = await this.loadCandidateEvidence(candidate.id);
-        const sourceKey = preferredSourceKeyFromEvidenceRows(evidenceRows);
-        const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors, options);
-        if (!result) continue;
-        const { wasUpdate, attachedSources, linkedPeople, emittedSignals, firmMatched, sentToReview } = result;
-        if (sentToReview) {
-          stats.reviewQueueItems += 1;
-          continue;
+        try {
+          const evidenceRows = await this.loadCandidateEvidence(candidate.id);
+          const sourceKey = preferredSourceKeyFromEvidenceRows(evidenceRows);
+          const result = await this.promoteCandidateCapitalEvent(candidate, firms, investors, options);
+          if (!result) continue;
+          const { wasUpdate, attachedSources, linkedPeople, emittedSignals, firmMatched, sentToReview } = result;
+          if (sentToReview) {
+            stats.reviewQueueItems += 1;
+            continue;
+          }
+          if (firmMatched) stats.matchedFirms += 1;
+          if (wasUpdate) stats.updatedFunds += 1;
+          else stats.upsertedFunds += 1;
+          stats.promotedCandidates = (stats.promotedCandidates ?? 0) + 1;
+          recordSourceMetric(stats.sourceStats!, sourceKey, "promoted");
+          stats.attachedSources += attachedSources;
+          stats.linkedPeople += linkedPeople;
+          stats.emittedSignals += emittedSignals;
+        } catch (error) {
+          stats.failures = (stats.failures ?? 0) + 1;
+          recordSourceMetric(stats.sourceStats!, "unknown", "failures");
+          console.warn(
+            `[vc-fund:promote] candidate failed ${candidate.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
-        if (firmMatched) stats.matchedFirms += 1;
-        if (wasUpdate) stats.updatedFunds += 1;
-        else stats.upsertedFunds += 1;
-        stats.promotedCandidates = (stats.promotedCandidates ?? 0) + 1;
-        recordSourceMetric(stats.sourceStats!, sourceKey, "promoted");
-        stats.attachedSources += attachedSources;
-        stats.linkedPeople += linkedPeople;
-        stats.emittedSignals += emittedSignals;
       }
 
       return stats;
@@ -684,22 +692,30 @@ export class FundSyncService {
 
       for (const candidate of candidates) {
         stats.processed += 1;
-        const sourceKey = await this.loadCandidatePrimarySourceKey(candidate.id);
-        const outcome = await this.verifyEscalatedCandidateCapitalEvent(candidate);
-        if (options.verbose) {
-          console.log("[vc-fund:verify]", JSON.stringify({
-            candidateId: candidate.id,
-            clusterKey: candidate.cluster_key,
-            previousStatus: candidate.status,
-            outcome,
-          }, null, 2));
+        try {
+          const sourceKey = await this.loadCandidatePrimarySourceKey(candidate.id);
+          const outcome = await this.verifyEscalatedCandidateCapitalEvent(candidate);
+          if (options.verbose) {
+            console.log("[vc-fund:verify]", JSON.stringify({
+              candidateId: candidate.id,
+              clusterKey: candidate.cluster_key,
+              previousStatus: candidate.status,
+              outcome,
+            }, null, 2));
+          }
+          if (outcome.status === "verified") {
+            stats.verified += 1;
+            recordSourceMetric(stats.sourceStats!, sourceKey, "verified");
+          } else if (outcome.status === "review") stats.review += 1;
+          else if (outcome.status === "rejected") stats.rejected += 1;
+          else stats.escalated += 1;
+        } catch (error) {
+          stats.failures += 1;
+          recordSourceMetric(stats.sourceStats!, "unknown", "failures");
+          console.warn(
+            `[vc-fund:verify] candidate failed ${candidate.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
-        if (outcome.status === "verified") {
-          stats.verified += 1;
-          recordSourceMetric(stats.sourceStats!, sourceKey, "verified");
-        } else if (outcome.status === "review") stats.review += 1;
-        else if (outcome.status === "rejected") stats.rejected += 1;
-        else stats.escalated += 1;
         await sleep(delayMs);
       }
 
