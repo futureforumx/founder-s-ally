@@ -2,7 +2,7 @@
  * Helpers for `firm_records.locations` (jsonb): website scrapes, imports, etc.
  */
 
-import { normalizeHqDisplayLine } from "@/lib/formatCanonicalHqLine";
+import { normalizeHqDisplayLine } from "./formatCanonicalHqLine";
 
 export const FIRM_LOCATIONS_JSON_VERSION = 1 as const;
 
