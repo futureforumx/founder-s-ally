@@ -151,13 +151,13 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
       />
 
       {showSkeleton ? (
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-hidden">
           <FundingFeedSkeleton />
         </div>
       ) : filtered.length === 0 ? (
         <FundingFeedEmptyState variant={emptyVariant} />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-hidden">
           <table className={LATEST_FUNDING_TABLE}>
             <LatestFundingTableHeader />
             <tbody>

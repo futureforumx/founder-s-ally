@@ -33,6 +33,8 @@ export const RESERVED_APP_PATH_SLUGS = new Set([
   "admin",
   "firms",
   "companies",
+  "trending-companies",
+  "trending",
   "tools",
   "ai-agents",
   "api",

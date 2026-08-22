@@ -26,6 +26,7 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const FreshCapitalAliasRoute = lazy(() => import("./pages/FreshCapitalAliasRoute.tsx"));
+const TrendingCompaniesPage = lazy(() => import("./pages/TrendingCompaniesPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
 
 const queryClient = new QueryClient({
@@ -411,6 +412,14 @@ const App = () => (
                 element={
                   <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
                     <FreshCapitalPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/trending-companies"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <TrendingCompaniesPage />
                   </Suspense>
                 }
               />

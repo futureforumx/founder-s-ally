@@ -1852,7 +1852,7 @@ function ActivityTab() {
                 const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
                 let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
                 if (firmIds.length > 0) {
-                  const vfRes = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+                  const vfRes = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds);
                   vfData = (vfRes.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
                 }
                 const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));
@@ -1951,7 +1951,7 @@ function ActivityTab() {
             const dir = supabaseVcDirectory as unknown as { from: (t: string) => any };
             let vfData: { id: string; firm_name: string; logo_url: string | null }[] = [];
             if (firmIds.length > 0) {
-              const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds).is("deleted_at", null);
+              const res = await dir.from("vc_firms").select("id, firm_name, logo_url").in("id", firmIds);
               vfData = (res.data || []) as { id: string; firm_name: string; logo_url: string | null }[];
             }
             const vfMap = Object.fromEntries(vfData.map((f) => [f.id, f]));

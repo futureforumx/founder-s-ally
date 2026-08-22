@@ -324,12 +324,15 @@ async function fetchAllVcDirectoryTableRows(
   const acc: unknown[] = [];
   let from = 0;
   for (;;) {
-    const { data, error } = await supabaseVcDirectory
+    let query = supabaseVcDirectory
       .from(table)
       .select(columns)
-      .is("deleted_at", null)
       .order("id", { ascending: true })
       .range(from, from + VC_DIRECTORY_PAGE_SIZE - 1);
+    if (table === "vc_people") {
+      query = query.is("deleted_at", null);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     const chunk = data ?? [];
     acc.push(...chunk);

@@ -152,7 +152,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .ilike("website_url", `%${safe}%`)
-      .is("deleted_at", null)
       .limit(1);
     return (data?.[0]?.id as string) ?? null;
   };
@@ -165,7 +164,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .ilike("firm_name", n)
-      .is("deleted_at", null)
       .limit(1);
     if (!exactErr && exact?.[0]?.id) return exact[0].id as string;
 
@@ -173,7 +171,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .ilike("legal_name", n)
-      .is("deleted_at", null)
       .limit(1);
     if (legalExact?.[0]?.id) return legalExact[0].id as string;
 
@@ -182,7 +179,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .ilike("firm_name", `%${safe}%`)
-      .is("deleted_at", null)
       .limit(1);
     if (looseName?.[0]?.id) return looseName[0].id as string;
 
@@ -190,7 +186,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .ilike("legal_name", `%${safe}%`)
-      .is("deleted_at", null)
       .limit(1);
     return (looseLegal?.[0]?.id as string) ?? null;
   };
@@ -217,7 +212,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .eq("id", candidate)
-      .is("deleted_at", null)
       .maybeSingle();
     if (!error && data?.id) return data.id as string;
     return null;
@@ -232,7 +226,6 @@ async function resolveVcFirmId(
       .from("vc_firms")
       .select("id")
       .eq("slug", trimmed)
-      .is("deleted_at", null)
       .maybeSingle();
     if (bySlug?.id) return bySlug.id as string;
 
@@ -243,7 +236,6 @@ async function resolveVcFirmId(
           .from("vc_firms")
           .select("id")
           .eq("slug", slugHyphen)
-          .is("deleted_at", null)
           .maybeSingle();
         if (bySlugHy?.id) return bySlugHy.id as string;
       }
@@ -265,7 +257,6 @@ async function resolveVcFirmId(
         .from("vc_firms")
         .select("id")
         .ilike("website_url", `%${safeHost}%`)
-        .is("deleted_at", null)
         .limit(1);
       if (byUrl?.[0]?.id) return byUrl[0].id as string;
     }
@@ -759,7 +750,6 @@ export function ReviewSubmissionModal({
           .from("vc_firms")
           .select("firm_name, logo_url, website_url")
           .eq("id", vcFirmId)
-          .is("deleted_at", null)
           .maybeSingle();
         if (cancelled || error) return;
         const logo =

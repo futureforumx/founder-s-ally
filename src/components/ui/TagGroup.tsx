@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const BADGE_BASE =
-  "inline-flex shrink-0 items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-medium";
+  "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium";
 
 const VARIANT_CLASS = {
   stage: "border-blue-500/20 bg-blue-500/10 text-blue-400",
@@ -35,7 +35,11 @@ function normalizeItems(items: TagGroupProps["items"]): string[] {
 }
 
 function TagPill({ tag, variant }: { tag: string; variant: TagGroupVariant }) {
-  return <span className={cn(BADGE_BASE, VARIANT_CLASS[variant])}>{tag}</span>;
+  return (
+    <span className={cn(BADGE_BASE, VARIANT_CLASS[variant], "min-w-0 max-w-full truncate")} title={tag}>
+      {tag}
+    </span>
+  );
 }
 
 export function TagGroup({ items, maxVisible = 1, variant = "geo", className }: TagGroupProps) {

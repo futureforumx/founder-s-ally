@@ -18,6 +18,7 @@ describe("freshCapitalPublicPaths", () => {
     expect(normalizePublicPathSlug("admin/intelligence")).toBeNull();
     expect(normalizePublicPathSlug("/admin")).toBe("admin");
     expect(isReservedAppPathSlug("admin")).toBe(true);
+    expect(isReservedAppPathSlug("trending-companies")).toBe(true);
     expect(validateFreshCapitalPublicPathInput("/admin").error).toMatch(/already used/i);
     expect(normalizePublicPathSlug("not a path")).toBeNull();
     expect(normalizePublicPathSlug("")).toBeNull();

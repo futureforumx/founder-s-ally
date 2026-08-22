@@ -46,7 +46,10 @@ Sentry.init({
 // ---------------------------------------------------------------------------
 // Route detection for public pages
 // ---------------------------------------------------------------------------
-const isFreshCapitalPath = /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds)(\/)?$/i.test(window.location.pathname);
+const isPublicIntelPath =
+  /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds|trending-companies)(\/)?$/i.test(
+    window.location.pathname,
+  );
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
 
@@ -110,8 +113,8 @@ const inner = sentryEnabled ? (
 // ---------------------------------------------------------------------------
 const root = createRoot(document.getElementById("root")!);
 
-if (isFreshCapitalPath && !hasAuthCode) {
-  import("./pages/FreshCapitalPage.tsx").then(({ default: FreshCapitalPage }) => {
+if (isPublicIntelPath && !hasAuthCode) {
+  import("./pages/PublicIntelApp.tsx").then(({ default: PublicIntelApp }) => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -127,7 +130,7 @@ if (isFreshCapitalPath && !hasAuthCode) {
       <RootErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <FreshCapitalPage />
+            <PublicIntelApp />
           </BrowserRouter>
         </QueryClientProvider>
       </RootErrorBoundary>,

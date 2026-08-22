@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { CompanyRowMark, EntityRowMark } from "./CompanyRowMark";
 
 /** Shared table so header and body use one column layout. */
-export const LATEST_FUNDING_TABLE = "w-full min-w-[56rem] table-fixed border-collapse";
+export const LATEST_FUNDING_TABLE = "w-full min-w-0 table-fixed border-collapse";
 
 const TH = "px-2 py-2.5 text-left font-semibold first:pl-4 last:pr-4";
 const TD = "px-2 py-3 align-middle first:pl-4 last:pr-4";

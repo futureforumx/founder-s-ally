@@ -1,16 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import MuxPlayer from "@mux/mux-player-react";
 import type MuxPlayerElement from "@mux/mux-player";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { PublicIntelMoreResources } from "@/components/fresh-capital/PublicIntelMoreResources";
 import { trackFreshCapitalGetFullAccess } from "@/lib/freshCapitalAnalytics";
 
 /** Same asset as auth rotation (`AUTH_HERO_MUX_DEFAULT_PLAYBACK_IDS`) — use MuxPlayer, not iframe (iframe often blocked / zero-size). */
@@ -18,16 +11,9 @@ const FRESH_CAPITAL_HERO_MUX_PLAYBACK_ID = "GwpGwspdiRXiP00bFyarvtSMx9eno01Tfjld
 
 type Props = {
   onNotifyClick: () => void;
-  fundsTracked: number;
+  trackedCount: number;
+  trackedLabel?: string;
 };
-
-const HERO_EXPLORE_MENU =
-  "min-w-[12.5rem] rounded-lg border border-zinc-700/90 bg-zinc-950 py-1 text-zinc-100 shadow-xl";
-
-const HERO_EXPLORE_ITEM = cn(
-  "cursor-pointer rounded-none px-3 py-2 text-[13px] font-normal leading-snug text-zinc-200",
-  "focus:bg-white/[0.06] focus:text-zinc-50 data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-zinc-50",
-);
 
 function RollingDigit({ digit, delayMs }: { digit: number; delayMs: number }) {
   const n = Math.min(9, Math.max(0, digit));
@@ -50,7 +36,7 @@ function RollingDigit({ digit, delayMs }: { digit: number; delayMs: number }) {
   );
 }
 
-function FundsTrackedStat({ value }: { value: number }) {
+function TrackedStat({ value, label }: { value: number; label: string }) {
   const target = Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
   const [shown, setShown] = useState(0);
 
@@ -70,8 +56,8 @@ function FundsTrackedStat({ value }: { value: number }) {
   const digits = String(shown).padStart(width, "0").split("").map((ch) => Number(ch));
 
   return (
-    <div className="flex min-w-[5.5rem] flex-col gap-1" aria-label={`${target} funds tracked`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Funds tracked</p>
+    <div className="flex min-w-[5.5rem] flex-col gap-1" aria-label={`${target} ${label.toLowerCase()}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">{label}</p>
       <p className="font-semibold tabular-nums text-[28px] leading-none tracking-tight text-[#eeeeee] sm:text-[32px]">
         {digits.map((d, i) => (
           <RollingDigit key={`${width}-${i}`} digit={d} delayMs={i * 70} />
@@ -81,7 +67,7 @@ function FundsTrackedStat({ value }: { value: number }) {
   );
 }
 
-export function FreshCapitalHero({ onNotifyClick, fundsTracked }: Props) {
+export function FreshCapitalHero({ onNotifyClick, trackedCount, trackedLabel = "Funds tracked" }: Props) {
   const muxRef = useRef<MuxPlayerElement | null>(null);
 
   /** Same autoplay kick as `/auth` — Safari / Low Power Mode need explicit play(). */
@@ -153,34 +139,12 @@ export function FreshCapitalHero({ onNotifyClick, fundsTracked }: Props) {
             >
               Notify me
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                type="button"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-[#eeeeee]/80 outline-none ring-offset-black transition-colors hover:bg-white/[0.06] hover:text-[#eeeeee] focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-black data-[state=open]:bg-white/[0.06] data-[state=open]:text-[#eeeeee]"
-              >
-                <span>More resources</span>
-                <ChevronDown className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.75} aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={6} className={HERO_EXPLORE_MENU}>
-                <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                  <Link to="/?view=resources">Fundraising best practices</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                  <Link to="/?view=investor-funding">Recent funding</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                  <Link to="/?view=directory">Trending companies</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={HERO_EXPLORE_ITEM} onSelect={(e) => e.preventDefault()}>
-                  <Link to="/tools/ai-agents">Agent Library</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <PublicIntelMoreResources />
           </div>
         </div>
 
         <div className="max-w-2xl space-y-4">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-primary">Fund Watch</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-primary">Capital Roundup</p>
           <h1 className="text-balance text-[30px] font-semibold leading-tight tracking-tight text-[#eeeeee] sm:leading-[1.1]">
             See which investors just raised fresh capital
           </h1>
@@ -188,7 +152,7 @@ export function FreshCapitalHero({ onNotifyClick, fundsTracked }: Props) {
             Track new VC funds and active investors—so you know exactly who to target right now.
           </p>
           <div className="flex flex-wrap items-end gap-5">
-            <FundsTrackedStat value={fundsTracked} />
+            <TrackedStat key={trackedLabel} value={trackedCount} label={trackedLabel} />
             <Button
               type="button"
               variant="outline"

@@ -72,8 +72,8 @@ const ACCESS_CARD = cn(
 );
 
 const FUND_WATCH_COLS = cn(
-  "w-full min-w-[64rem]",
-  "grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)_minmax(5.75rem,0.55fr)_minmax(5.75rem,0.55fr)_minmax(6.5rem,0.65fr)_minmax(7.25rem,0.9fr)_minmax(5.5rem,0.6fr)]",
+  "w-full min-w-0",
+  "grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)_minmax(0,0.5fr)_minmax(0,0.5fr)_minmax(0,0.65fr)_minmax(0,0.8fr)_minmax(0,0.55fr)]",
 );
 
 const FUND_WATCH_DESKTOP_GRID = cn("grid h-14 items-center gap-x-3 px-4 pr-10", FUND_WATCH_COLS);
@@ -98,6 +98,7 @@ type Props = {
   insightsHeatmapBuckets: HeatmapBucket[];
   /** Opens Fund Watch or Latest Funding when a public path alias is configured. */
   initialMainTab?: "fresh_funds" | "latest_funding";
+  onMainTabChange?: (tab: "fresh_funds" | "latest_funding" | "insights") => void;
   onNotifyClick: () => void;
   onUnlockClick?: () => void;
 };
@@ -676,6 +677,7 @@ export function FreshCapitalLiveFeed({
   isProductionBuild,
   insightsHeatmapBuckets,
   initialMainTab = "fresh_funds",
+  onMainTabChange,
   onNotifyClick,
   onUnlockClick,
 }: Props) {
@@ -735,6 +737,9 @@ export function FreshCapitalLiveFeed({
   useEffect(() => {
     setMainTab(initialMainTab);
   }, [initialMainTab]);
+  useEffect(() => {
+    onMainTabChange?.(mainTab);
+  }, [mainTab, onMainTabChange]);
   const { data: freshnessData } = useVcFundSyncFreshness();
   const lastUpdatedLabel = freshnessData?.completedAt
     ? `New funds added daily · Last updated ${formatSyncTimestamp(freshnessData.completedAt)}`
@@ -958,7 +963,7 @@ export function FreshCapitalLiveFeed({
               </div>
             </div>
 
-            <div className={cn("overflow-x-auto", ACCESS_CARD)}>
+            <div className={cn("min-w-0 overflow-x-hidden", ACCESS_CARD)}>
               {loading ? (
                 <div className="flex min-h-[220px] items-center justify-center gap-2 text-sm text-[#b3b3b3]">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />

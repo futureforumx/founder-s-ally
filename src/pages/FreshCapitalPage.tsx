@@ -11,6 +11,7 @@ import {
   FreshCapitalWhyMatters,
 } from "@/components/fresh-capital/FreshCapitalSections";
 import { useFreshCapitalPageData } from "@/hooks/useFreshCapitalPageData";
+import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
 import {
   trackFreshCapitalJoinVekta,
   trackFreshCapitalPageView,
@@ -37,6 +38,12 @@ export default function FreshCapitalPage() {
   const pathSlug = normalizePublicPathSlug(pathname) ?? "fresh-capital";
   const { data: pathDestination } = useFreshCapitalPublicDestination(pathSlug);
   const initialMainTab = destinationToFeedTab(pathDestination ?? "new_funds");
+  const [mainTab, setMainTab] = useState<"fresh_funds" | "latest_funding" | "insights">(initialMainTab);
+  const roundsQuery = useRecentFundingFeed({ limit: 200 });
+
+  useEffect(() => {
+    setMainTab(initialMainTab);
+  }, [initialMainTab]);
 
   useEffect(() => {
     const prev = document.title;
@@ -83,7 +90,14 @@ export default function FreshCapitalPage() {
   return (
     <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
       <FreshCapitalHero
-        fundsTracked={catalogQuery.data?.funds.length ?? 0}
+        trackedCount={
+          mainTab === "latest_funding"
+            ? roundsQuery.isLoading
+              ? 0
+              : roundsQuery.rows.length
+            : catalogQuery.data?.funds.length ?? 0
+        }
+        trackedLabel={mainTab === "latest_funding" ? "Rounds tracked" : "Funds tracked"}
         onNotifyClick={() => setSubscribeOpen(true)}
       />
       <SubscribeModal open={subscribeOpen} onOpenChange={setSubscribeOpen} />
@@ -110,6 +124,7 @@ export default function FreshCapitalPage() {
         onSectorChange={onSectorChange}
         insightsHeatmapBuckets={heatmapBuckets}
         initialMainTab={initialMainTab}
+        onMainTabChange={setMainTab}
         onNotifyClick={() => setSubscribeOpen(true)}
         onUnlockClick={() => setRegisterOpen(true)}
       />
