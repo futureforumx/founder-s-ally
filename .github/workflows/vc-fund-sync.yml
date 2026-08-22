@@ -48,9 +48,13 @@ jobs:
           node-version: "20"
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright (authenticated provider enrichment)
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run VC fund daily sync

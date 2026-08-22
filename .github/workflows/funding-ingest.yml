@@ -44,7 +44,11 @@ jobs:
           node-version: "20"
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
 
       - name: Prisma migrate (idempotent)
         run: pnpm exec prisma migrate deploy
