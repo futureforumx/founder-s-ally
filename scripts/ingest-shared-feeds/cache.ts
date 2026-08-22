@@ -66,6 +66,13 @@ function envMsFromHours(name: string, defMs: number): number {
   return hours * 60 * 60 * 1000;
 }
 
+export function isMissingRawSourceTable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String(error.code) : "";
+  const message = "message" in error ? String(error.message) : String(error);
+  return code === "P2021" || /raw_source_articles/i.test(message);
+}
+
 export async function latestSharedFeedFetchedAt(
   sourceKey: SharedFeedSourceKey,
 ): Promise<Date | null> {
@@ -236,23 +243,34 @@ export async function syncSharedFeeds(log: (s: string) => void): Promise<{
   let updated = 0;
 
   for (const sourceKey of SHARED_FEED_SOURCE_KEYS) {
-    const lastFetchedAt = await latestSharedFeedFetchedAt(sourceKey);
-    if (shouldSkipSharedFeedFetch(lastFetchedAt, now, maxAgeMs, force)) {
-      const ageHours = lastFetchedAt
-        ? ((now.getTime() - lastFetchedAt.getTime()) / 3_600_000).toFixed(1)
-        : "?";
-      log(`[${sourceKey}] skip HTTP — cache age ${ageHours}h < ${(maxAgeMs / 3_600_000).toFixed(0)}h`);
-      skipped.push(sourceKey);
-      continue;
-    }
+    try {
+      const lastFetchedAt = await latestSharedFeedFetchedAt(sourceKey);
+      if (shouldSkipSharedFeedFetch(lastFetchedAt, now, maxAgeMs, force)) {
+        const ageHours = lastFetchedAt
+          ? ((now.getTime() - lastFetchedAt.getTime()) / 3_600_000).toFixed(1)
+          : "?";
+        log(`[${sourceKey}] skip HTTP — cache age ${ageHours}h < ${(maxAgeMs / 3_600_000).toFixed(0)}h`);
+        skipped.push(sourceKey);
+        continue;
+      }
 
-    log(`[${sourceKey}] fetching live RSS (max=${maxItems})`);
-    const items = await NETWORK_FETCHERS[sourceKey](null, maxItems, log);
-    const result = await upsertRawListings(items, log);
-    inserted += result.inserted;
-    updated += result.updated;
-    fetched.push(sourceKey);
-    log(`[${sourceKey}] cached ${items.length} listing(s)`);
+      log(`[${sourceKey}] fetching live RSS (max=${maxItems})`);
+      const items = await NETWORK_FETCHERS[sourceKey](null, maxItems, log);
+      const result = await upsertRawListings(items, log);
+      inserted += result.inserted;
+      updated += result.updated;
+      fetched.push(sourceKey);
+      log(`[${sourceKey}] cached ${items.length} listing(s)`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (isMissingRawSourceTable(error)) {
+        log(`[${sourceKey}] skip cache — raw_source_articles is missing (${detail})`);
+        skipped.push(sourceKey);
+        continue;
+      }
+      log(`[${sourceKey}] shared feed sync failed: ${detail}`);
+      skipped.push(sourceKey);
+    }
   }
 
   return { skipped, fetched, inserted, updated };

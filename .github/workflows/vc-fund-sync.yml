@@ -55,6 +55,11 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
+      - name: Prisma migrate (idempotent)
+        run: pnpm exec prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Install Playwright (authenticated provider enrichment)
         run: npx playwright install --with-deps chromium
 

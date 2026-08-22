@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isMissingRawSourceTable,
   listingItemFromRawRow,
   rawListingContentHash,
   shouldSkipSharedFeedFetch,
@@ -52,6 +53,14 @@ describe("listingItemFromRawRow", () => {
       publishedAt: new Date("2026-08-21T12:00:00.000Z"),
       summary: "Seed round",
     });
+  });
+});
+
+describe("isMissingRawSourceTable", () => {
+  it("recognizes Prisma P2021 for the raw listing cache", () => {
+    expect(isMissingRawSourceTable({ code: "P2021", message: "The table `public.raw_source_articles` does not exist" })).toBe(true);
+    expect(isMissingRawSourceTable({ code: "P2025", message: "Record not found" })).toBe(false);
+    expect(isMissingRawSourceTable(null)).toBe(false);
   });
 });
 
