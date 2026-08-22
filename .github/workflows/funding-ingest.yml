@@ -38,15 +38,13 @@ jobs:
         with:
           version: 10
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20"
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright (startups.gallery / Framer listings)
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Prisma migrate (idempotent)
         run: pnpm exec prisma migrate deploy
