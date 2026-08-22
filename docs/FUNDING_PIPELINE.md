@@ -48,6 +48,8 @@ fi_errors            (pipeline error log, per stage)
 
 ### Source-specific notes
 
+**startups.gallery /news** — The listing is a structured Company / Amount / Round / Date / Lead / Source table. The adapter parses every `Post` row (no keyword filter). Press URLs that block scraping (LinkedIn, X) still produce deals from the listing fields. The Edge Function does not paginate Framer "Load More"; the daily Node ingest clicks Load More so the public feed can include the full current table.
+
 **TechCrunch** — The venture category page contains opinion, analysis, and podcast posts in addition to funding announcements. The adapter fetches the RSS feed and runs a keyword classifier (`classifyTechCrunchArticle`) on each title + snippet. Items below 0.50 classification confidence are dropped before any detail-page fetch.
 
 **VC Stack** — All items go through `classifyVcStackItem` which looks for explicit rumor signals ("reportedly", "may be raising", "in talks to raise", etc.). Confirmed items get `source_type = 'curated_feed'` and `is_rumor = false`; rumors get `source_type = 'rumor'`, `is_rumor = true`, and a meaningfully lower `confidence_score` (≤ 0.45). Both are stored in `fi_deals_canonical` with `is_rumor` set accordingly. The `get_recent_funding_feed` RPC deprioritizes rumors in the dedup ranking.

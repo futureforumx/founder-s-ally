@@ -2,6 +2,8 @@ import { createFundSyncService } from "../../src/lib/vc-funds/service";
 import { buildDefaultFundAdapters } from "../../src/lib/vc-funds/adapters";
 import type { FundSyncRunOptions } from "../../src/lib/vc-funds/types";
 import { loadEnvFiles } from "../lib/loadEnvFiles";
+import { createClient } from "@supabase/supabase-js";
+import { normalizeDisabledSourceKeys } from "../../src/lib/freshCapitalPipelineSources";
 
 loadEnvFiles([".env", ".env.local", ".env.enrichment"]);
 
@@ -15,6 +17,28 @@ function requiredEnv(name: string): string {
   return value;
 }
 
+export async function loadDisabledFundWatchSourceKeys(): Promise<string[]> {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!url || !key) return [];
+  try {
+    const sb = createClient(url, key, { auth: { persistSession: false } });
+    const { data, error } = await sb
+      .from("fresh_capital_enrichment_settings")
+      .select("disabled_source_keys")
+      .eq("id", "default")
+      .maybeSingle();
+    if (error) {
+      console.warn("[vc-fund-sync] could not load disabled_source_keys:", error.message);
+      return [];
+    }
+    return normalizeDisabledSourceKeys(data?.disabled_source_keys);
+  } catch (error) {
+    console.warn("[vc-fund-sync] could not load disabled_source_keys:", error);
+    return [];
+  }
+}
+
 export async function runFundSync(options: FundSyncRunOptions = {}) {
   const service = createFundSyncService({
     supabaseUrl: requiredEnv("SUPABASE_URL"),
@@ -22,7 +46,10 @@ export async function runFundSync(options: FundSyncRunOptions = {}) {
     adapters: buildDefaultFundAdapters(),
   });
 
-  const stats = await service.run(options);
+  const stats = await service.run({
+    ...options,
+    disabledSourceKeys: options.disabledSourceKeys ?? await loadDisabledFundWatchSourceKeys(),
+  });
   console.log("[vc-fund-sync]", JSON.stringify(stats, null, 2));
   return stats;
 }

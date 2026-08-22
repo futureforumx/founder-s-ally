@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { InvestorDiscovery } from "./company-profile/InvestorDiscovery";
 import { toast } from "sonner";
 import { AreaChart, Area, Tooltip, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 export interface ExtractedInvestor {
   investorName: string;
@@ -281,9 +282,8 @@ function CompactSuggestionCard({
           </Badge>
           {row._sourceUrl && (
             <a
-              href={row._sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={formatOutboundUrl(row._sourceUrl)}
+              {...EXTERNAL_SOURCE_LINK_ATTRS}
               className="inline-flex items-center gap-0.5 text-[10px] text-accent hover:text-accent/80 transition-colors"
               onClick={(e) => e.stopPropagation()}
             >

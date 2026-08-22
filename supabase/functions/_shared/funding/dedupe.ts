@@ -70,6 +70,7 @@ export function mergeIntoCanonical(
     ...existing,
     // Company — prefer higher-priority source
     company_website:          pickBetter(existing.company_website,   incoming.company_website),
+    company_logo_url:         pickBetter(existing.company_logo_url,  incoming.company_logo_url),
     company_domain:           pickBetter(existing.company_domain,    incoming.company_domain),
     company_location:         pickBetter(existing.company_location,  incoming.company_location),
     // Sector
@@ -125,7 +126,7 @@ export function candidateToCanonical(
     normalized_company_name:  c.normalized_company_name,
     company_domain:           c.company_domain,
     company_website:          c.company_website,
-    company_logo_url:         null,
+    company_logo_url:         c.company_logo_url ?? null,
     company_linkedin_url:     null,
     company_location:         c.company_location,
     sector_raw:               c.sector_raw,

@@ -1,6 +1,5 @@
 /**
  * No DATABASE_URL required — fetches listing pages / RSS for each source and prints JSON.
- * Use after `npx playwright install chromium` for startups.gallery (Framer).
  *
  *   npx tsx scripts/funding-ingest/smoke-test.ts
  *   INGEST_MAX_ARTICLES_PER_SOURCE=3 npx tsx scripts/funding-ingest/smoke-test.ts

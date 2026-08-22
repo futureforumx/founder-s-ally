@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabasePublicDirectory } from "@/integrations/supabase/client";
 import type { CompanyProfile, FounderProfile, OperatorProfile } from "@/hooks/useProfile";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 
 const sb = supabasePublicDirectory as any;
 
@@ -207,7 +208,7 @@ export function useCommunityGridData({
           full_name: fullName || "Unknown",
           title: r.title || "Founder",
           bio: p.bio || null,
-          location: [p.city, p.country].filter(Boolean).join(", ") || null,
+          location: formatCanonicalHqLine(p.city, null, p.country) || null,
           user_type: "founder",
           avatar_url: p.avatarUrl || null,
           company_id: null,

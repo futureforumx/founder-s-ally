@@ -12,9 +12,20 @@ import {
   GitBranch,
   AlertCircle,
   Save,
+  Plus,
 } from "lucide-react";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import {
+  FUND_WATCH_FEED_SOURCES,
+  isPipelineSourceEnabled,
+  lastScannedFromSyncRun,
+  normalizeDisabledSourceKeys,
+  normalizeSourceUrl,
+  slugFromSourceName,
+  withSourceEnabled,
+} from "@/lib/freshCapitalPipelineSources";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -98,6 +109,7 @@ type FcEnrichmentSettingsRow = {
   fund_watch_schedule_note: string | null;
   latest_funding_schedule_note: string | null;
   process_notes: string | null;
+  disabled_source_keys: string[];
   updated_at: string;
 };
 
@@ -107,6 +119,7 @@ const EMPTY_FC_ENRICHMENT: FcEnrichmentSettingsRow = {
   fund_watch_schedule_note: "",
   latest_funding_schedule_note: "",
   process_notes: "",
+  disabled_source_keys: [],
   updated_at: "",
 };
 
@@ -145,6 +158,9 @@ export function FreshCapitalEnrichmentAdmin() {
   const [savingFcSettings, setSavingFcSettings] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Partial<FiSourceRow>>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [addName, setAddName] = useState("");
+  const [addUrl, setAddUrl] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -174,6 +190,7 @@ export function FreshCapitalEnrichmentAdmin() {
         fund_watch_schedule_note: r.fund_watch_schedule_note ?? "",
         latest_funding_schedule_note: r.latest_funding_schedule_note ?? "",
         process_notes: r.process_notes ?? "",
+        disabled_source_keys: normalizeDisabledSourceKeys(r.disabled_source_keys),
         updated_at: r.updated_at,
       });
     } else if (!fcRes.error) {
@@ -212,7 +229,6 @@ export function FreshCapitalEnrichmentAdmin() {
     setSavingId(row.id);
     const patch: Record<string, unknown> = {};
     if (d.name !== undefined) patch.name = d.name;
-    if (d.active !== undefined) patch.active = d.active;
     if (d.poll_interval_minutes !== undefined) patch.poll_interval_minutes = d.poll_interval_minutes;
     if (d.credibility_score !== undefined) patch.credibility_score = d.credibility_score;
     try {
@@ -267,6 +283,7 @@ export function FreshCapitalEnrichmentAdmin() {
           fund_watch_schedule_note: r.fund_watch_schedule_note ?? "",
           latest_funding_schedule_note: r.latest_funding_schedule_note ?? "",
           process_notes: r.process_notes ?? "",
+          disabled_source_keys: normalizeDisabledSourceKeys(r.disabled_source_keys),
           updated_at: r.updated_at,
         });
       }
@@ -278,13 +295,114 @@ export function FreshCapitalEnrichmentAdmin() {
     }
   };
 
+  const lastFetchForSource = (row: FiSourceRow): string | null => {
+    if (row.last_fetched_at) return row.last_fetched_at;
+    const times = fetchRuns
+      .filter((r) => r.source_id === row.id || r.source_slug === row.slug)
+      .map((r) => r.completed_at || r.started_at)
+      .filter(Boolean)
+      .sort();
+    return times.at(-1) ?? null;
+  };
+
+  const toggleLatestFundingSource = async (row: FiSourceRow, enabled: boolean) => {
+    const prev = row.active;
+    setSources((list) => list.map((s) => (s.id === row.id ? { ...s, active: enabled } : s)));
+    setSavingId(row.id);
+    try {
+      if (!SUPABASE_URL) throw new Error("Supabase not configured");
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fisources&id=${encodeURIComponent(row.id)}`,
+        { method: "PATCH", headers: await adminHeaders(), body: JSON.stringify({ active: enabled }) },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+    } catch (e: unknown) {
+      setSources((list) => list.map((s) => (s.id === row.id ? { ...s, active: prev } : s)));
+      toast.error("Could not update source", { description: String(e) });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const addSource = async () => {
+    const name = addName.trim();
+    const url = normalizeSourceUrl(addUrl);
+    if (!name) {
+      toast.error("Name is required");
+      return;
+    }
+    if (!url) {
+      toast.error("Enter a valid URL");
+      return;
+    }
+    setAdding(true);
+    try {
+      if (!SUPABASE_URL) throw new Error("Supabase not configured");
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fisources`,
+        {
+          method: "POST",
+          headers: await adminHeaders(),
+          body: JSON.stringify({ name, base_url: url }),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (json.row) {
+        setSources((list) => [...list, json.row as FiSourceRow].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      setAddName("");
+      setAddUrl("");
+      toast.success("Source added");
+    } catch (e: unknown) {
+      toast.error("Could not add source", { description: String(e) });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const toggleFundWatchSource = async (key: string, enabled: boolean) => {
+    const prev = fcSettings.disabled_source_keys;
+    const next = withSourceEnabled(prev, key, enabled);
+    setFcSettings((s) => ({ ...s, disabled_source_keys: next }));
+    setSavingId(`fw:${key}`);
+    try {
+      if (!SUPABASE_URL) throw new Error("Supabase not configured");
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=fcenrichmentsettings`,
+        {
+          method: "PATCH",
+          headers: await adminHeaders(),
+          body: JSON.stringify({ disabled_source_keys: next }),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (json.row?.disabled_source_keys) {
+        setFcSettings((s) => ({
+          ...s,
+          disabled_source_keys: normalizeDisabledSourceKeys(json.row.disabled_source_keys),
+        }));
+      }
+    } catch (e: unknown) {
+      setFcSettings((s) => ({ ...s, disabled_source_keys: prev }));
+      toast.error("Could not update source", { description: String(e) });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const sourceSwitchClass =
+    "data-[state=checked]:!bg-[#2EE6A6] data-[state=unchecked]:!bg-white/20 [&>span]:data-[state=checked]:!bg-[#050505] [&>span]:data-[state=unchecked]:!bg-white/80";
+
   return (
     <div className="flex flex-col gap-6 h-full min-h-0 overflow-auto pb-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-white/90">Enrichment &amp; pipelines</h1>
           <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Configure Latest Funding sources, review schedules and process, monitor VC fund sync and fetch runs.
+            Turn sources on or off, then review schedules, process notes, and recent runs.
           </p>
         </div>
         <button
@@ -312,12 +430,150 @@ export function FreshCapitalEnrichmentAdmin() {
         </div>
       )}
 
+      <div className="rounded-xl border p-4" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+        <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-emerald-400/80">Sources</p>
+        <p className="mb-4 text-[12px] text-white/45">
+          ON/OFF controls whether the next scheduled job scans that feed. Last scanned is the most recent successful fetch.
+        </p>
+        <form
+          className="mb-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void addSource();
+          }}
+        >
+          <label className="text-[10px] uppercase tracking-wider text-white/35">
+            Name
+            <input
+              className="mt-1 w-full rounded border border-white/10 bg-black/20 px-2 py-1.5 text-[12px] text-white/85"
+              placeholder="GeekWire Fundings"
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+            />
+          </label>
+          <label className="text-[10px] uppercase tracking-wider text-white/35">
+            URL
+            <input
+              className="mt-1 w-full rounded border border-white/10 bg-black/20 px-2 py-1.5 text-[12px] text-white/85"
+              placeholder="https://www.geekwire.com/fundings/"
+              value={addUrl}
+              onChange={(e) => setAddUrl(e.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={adding || !addName.trim() || !addUrl.trim()}
+            className="inline-flex h-[34px] items-center justify-center gap-1.5 rounded-md px-3 text-[11px] font-semibold disabled:opacity-40"
+            style={{ background: "#2EE6A6", color: "#050505" }}
+          >
+            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Add source
+          </button>
+        </form>
+        {addName.trim() ? (
+          <p className="mb-3 font-mono text-[10px] text-white/30">
+            Slug: {slugFromSourceName(addName)}
+          </p>
+        ) : null}
+        <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px,1.6fr) 130px 88px minmax(160px,1fr)", minWidth: 580 }}>
+            <div style={HDR}>Source</div>
+            <div style={HDR}>Pipeline</div>
+            <div style={HDR}>Status</div>
+            <div style={HDR}>Last scanned</div>
+
+            {sources.map((row) => {
+              const on = Boolean(row.active);
+              const busy = savingId === row.id;
+              return (
+                <div key={`lf-${row.id}`} style={{ display: "contents" }}>
+                  <div style={CELL}>
+                    <div className="truncate text-white/85">{row.name}</div>
+                    <div className="truncate font-mono text-[10px] text-white/30">{row.slug}</div>
+                  </div>
+                  <div style={CELL}>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-sky-300/90"
+                      style={{ background: "rgba(56,189,248,0.12)" }}
+                    >
+                      Latest Funding
+                    </span>
+                  </div>
+                  <div style={CELL}>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={on}
+                        disabled={busy || loading}
+                        onCheckedChange={(v) => void toggleLatestFundingSource(row, v)}
+                        className={sourceSwitchClass}
+                        aria-label={`${row.name} ${on ? "on" : "off"}`}
+                      />
+                      <span
+                        className="font-mono text-[10px] uppercase tracking-wider"
+                        style={{ color: on ? "#2EE6A6" : "rgba(255,255,255,0.35)" }}
+                      >
+                        {busy ? "…" : on ? "On" : "Off"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ ...CELL, fontSize: 11, color: "rgba(255,255,255,0.55)" }}>
+                    {fmtTs(lastFetchForSource(row))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {FUND_WATCH_FEED_SOURCES.map((src) => {
+              const on = isPipelineSourceEnabled(src.key, fcSettings.disabled_source_keys);
+              const busy = savingId === `fw:${src.key}`;
+              const scanned = on
+                ? lastScannedFromSyncRun(dailySync?.stats ?? null, src.key, dailySync?.completed_at)
+                : null;
+              return (
+                <div key={`fw-${src.key}`} style={{ display: "contents" }}>
+                  <div style={CELL}>
+                    <div className="truncate text-white/85">{src.name}</div>
+                    <div className="truncate font-mono text-[10px] text-white/30">{src.key}</div>
+                  </div>
+                  <div style={CELL}>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-emerald-300/90"
+                      style={{ background: "rgba(46,230,166,0.12)" }}
+                    >
+                      New Funds
+                    </span>
+                  </div>
+                  <div style={CELL}>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={on}
+                        disabled={busy || loading}
+                        onCheckedChange={(v) => void toggleFundWatchSource(src.key, v)}
+                        className={sourceSwitchClass}
+                        aria-label={`${src.name} ${on ? "on" : "off"}`}
+                      />
+                      <span
+                        className="font-mono text-[10px] uppercase tracking-wider"
+                        style={{ color: on ? "#2EE6A6" : "rgba(255,255,255,0.35)" }}
+                      >
+                        {busy ? "…" : on ? "On" : "Off"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ ...CELL, fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{fmtTs(scanned)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Schedules + operator notes (Fund Watch vs Latest Funding) */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border p-4" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
           <div className="mb-3 flex items-center gap-2">
             <GitBranch className="h-4 w-4 text-emerald-400/90" />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-white/50">Fund Watch</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-white/50">New Funds</span>
           </div>
           <p className="text-[12px] leading-relaxed text-white/55">
             <strong className="text-white/80">Default schedule:</strong> <code className="text-[10px] text-white/45">vc-fund-sync.yml</code> —{" "}
@@ -357,7 +613,7 @@ export function FreshCapitalEnrichmentAdmin() {
             <code className="text-[10px]">npm run intel:funding:pipeline</code>.
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-white/45">
-            <strong className="text-white/65">Sources:</strong> edit each row in <strong className="text-white/55">fi_sources</strong> below (poll, weight, active).
+            <strong className="text-white/65">Sources:</strong> ON/OFF lives in the Sources table above. Poll interval and credibility stay in the registry cards below.
           </p>
           <label className="mt-3 block text-[10px] uppercase tracking-wider text-white/35">
             Schedule &amp; pipeline notes
@@ -399,7 +655,7 @@ export function FreshCapitalEnrichmentAdmin() {
         <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-emerald-400/80">Process overview</p>
         <ul className="list-disc space-y-1.5 pl-5 text-[12px] leading-relaxed text-white/55">
           <li>
-            <span className="text-white/70">Fund Watch:</span> candidates from adapters → clustering → promotion into{" "}
+            <span className="text-white/70">New Funds:</span> candidates from adapters → clustering → promotion into{" "}
             <code className="text-[10px]">vc_funds</code> + firm rollups; runs logged in <code className="text-[10px]">vc_fund_sync_runs</code>.
           </li>
           <li>
@@ -506,7 +762,7 @@ export function FreshCapitalEnrichmentAdmin() {
           Latest Funding — source registry (fi_sources)
         </p>
         <p className="mb-3 text-[11px] text-white/40">
-          Slug and adapter are fixed in migrations; adjust activation, poll interval, label, and credibility weight here.
+          Slug and adapter are fixed in migrations. Use Sources above for ON/OFF; adjust poll interval, label, and credibility here.
         </p>
         <div className="space-y-3">
           {sources.map((row) => {
@@ -534,7 +790,7 @@ export function FreshCapitalEnrichmentAdmin() {
                     Save
                   </button>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   <label className="text-[10px] uppercase tracking-wider text-white/35">
                     Name
                     <input
@@ -564,15 +820,6 @@ export function FreshCapitalEnrichmentAdmin() {
                       value={d.credibility_score}
                       onChange={(e) => setDraft(row.id, { credibility_score: Number(e.target.value) })}
                     />
-                  </label>
-                  <label className="flex items-end gap-2 text-[10px] uppercase tracking-wider text-white/35">
-                    <input
-                      type="checkbox"
-                      checked={d.active}
-                      onChange={(e) => setDraft(row.id, { active: e.target.checked })}
-                      className="rounded border-white/20"
-                    />
-                    <span>Active</span>
                   </label>
                 </div>
                 <p className="mt-2 truncate text-[10px] text-white/30">{row.base_url}</p>

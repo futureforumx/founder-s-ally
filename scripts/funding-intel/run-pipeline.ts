@@ -1,6 +1,6 @@
 /**
  * Full intelligence refresh after funding ingest:
- *   1) link-entities  2) link-investor-persons  3) aggregate-and-snapshot  4) sync-intel-to-supabase (optional)
+ *   1) link-entities  2) link-investor-persons  3) enrich-gaps  4) aggregate-and-snapshot  5) sync-intel-to-supabase (optional)
  *
  *   npx tsx scripts/funding-intel/run-pipeline.ts
  *   INTEL_SKIP_SUPABASE_SYNC=1 npx tsx scripts/funding-intel/run-pipeline.ts
@@ -16,6 +16,7 @@ function run(rel: string) {
 
 run("scripts/funding-intel/link-entities.ts");
 run("scripts/funding-intel/link-investor-persons.ts");
+run("scripts/funding-intel/enrich-gaps.ts");
 run("scripts/funding-intel/aggregate-and-snapshot.ts");
 const canSyncSupabase =
   process.env.INTEL_SKIP_SUPABASE_SYNC !== "1" &&

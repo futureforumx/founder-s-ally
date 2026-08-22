@@ -7,6 +7,7 @@ import {
 } from "@/lib/profileRead"; // full-row reads: profiles table + normalization (see module doc there)
 import { completeFounderOnboardingEdge } from "@/lib/completeFounderOnboardingEdge";
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 
 export interface Profile {
   id: string;
@@ -296,7 +297,7 @@ export function useFounderProfiles() {
             full_name: p.canonicalName || `${p.firstName || ""} ${p.lastName || ""}`.trim(),
             title: r.title || "Founder",
             bio: p.bio || null,
-            location: [p.city, p.country].filter(Boolean).join(", ") || null,
+            location: formatCanonicalHqLine(p.city, null, p.country) || null,
             user_type: "founder",
             avatar_url: p.avatarUrl || null,
             company_id: null,

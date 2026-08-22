@@ -1,6 +1,6 @@
 # Daily funding / deal news ingestion
 
-Production pipeline that runs on a **Pacific** schedule, fetches new articles from four deal-news surfaces, parses article HTML, extracts structured rounds, normalizes + dedupes, and writes to **Postgres via Prisma** with idempotent upserts, per-source checkpoints, and run-level summaries.
+Production pipeline that runs daily at **11:00 UTC** (4:00 AM PDT / 3:00 AM PST), fetches new articles from four deal-news surfaces, parses article HTML, extracts structured rounds, normalizes + dedupes, and writes to **Postgres via Prisma** with idempotent upserts, per-source checkpoints, and run-level summaries.
 
 ## 1. Where data lives (schema audit)
 
@@ -47,8 +47,8 @@ No separate `funding_deals` in Supabase migrations — this pipeline targets the
 | --- | --- | --- | --- |
 | **TechCrunch** `/category/venture/` | WordPress RSS `…/feed/` | `fetch` + HTML strip | Reliable in CI; `listing_url` = category page. |
 | **AlleyWatch** `/category/funding/` | Category RSS `…/feed/` | Same | Same pattern as TechCrunch. |
-| **GeekWire** `/fundings/` | Try RSS feeds under `tag/funding` and `category/fundings`; fallback: parse hub HTML for `/YYYY/MM/DD/` article links | Same | Many datacenters get **403**; retries with backoff still may fail. Use `INGEST_SKIP_SOURCES=GEEKWIRE_FUNDINGS` in Actions vars or a residential/proxy egress. **Date**: parsed from GeekWire article URL when RSS missing. |
-| **startups.gallery** `/news` | Cheerio reads the site's own Company/Amount/Round/Date/Lead Investor/Source table directly from server-rendered HTML (`parseStartupsGalleryNewsRows`); falls back to link-only parsing, then **Playwright** (Framer client render), if the markup ever changes shape | `articleUrl` = the row's real "Source" press link (TechCrunch, LinkedIn, company blog, etc.); `presetDeal` carries company/amount/round/date/lead investor straight from the table so the deal is captured even if the source link can't be scraped | `listing_url` = `/news`. Playwright can be disabled with `INGEST_STARTUPS_GALLERY_PLAYWRIGHT=0`. |
+| **GeekWire** `/fundings/` | Try RSS feeds under `tag/funding` and `category/fundings`; fallback: parse hub HTML for `/YYYY/MM/DD/` article links | Same | Datacenter IPs often get **403**. Set GitHub secret `INGEST_FETCH_PROXY_URL` to the Cloudflare Worker in `workers/ingest-proxy/` (host-allowlisted to geekwire.com). **Date**: parsed from GeekWire article URL when RSS missing. |
+| **startups.gallery** `/news` | HTTP fetch of Framer **Funding Tracker** CMS `.framercms` chunks (joined to Companies / Stages / Investors collections); SSR HTML table as fallback | `articleUrl` = the row's real "Source" press link; `presetDeal` carries company/amount/round/date/lead investor | Incremental via `ingestion_source_checkpoints.cursor_json.cms_ids` so already-ingested CMS rows are skipped. |
 
 **Extraction**: `extract.ts` deterministic regex/heuristics on title + body; optional **OpenAI** JSON (`openaiExtract.ts`) merged in `run.ts` when `OPENAI_API_KEY` is set and `INGEST_DISABLE_OPENAI` is not `1`.
 
@@ -56,11 +56,11 @@ No separate `funding_deals` in Supabase migrations — this pipeline targets the
 
 **Idempotency**: `source_articles.canonical_url` unique upsert; `funding_deals (source_article_id, slot_index)` unique upsert; investors replaced each run for that deal.
 
-## 3. Scheduling (1:00 AM America/Los_Angeles)
+## 3. Scheduling (11:00 UTC)
 
-GitHub Actions `cron` is **UTC-only**. Workflow `.github/workflows/funding-ingest.yml` fires at **08:00 and 09:00 UTC** daily so **01:00 local** is covered across **PST (UTC−8)** and **PDT (UTC−7)**.
+GitHub Actions `cron` is **UTC-only**. Workflow `.github/workflows/funding-ingest.yml` fires once daily at **11:00 UTC** (4:00 AM PDT / 3:00 AM PST). Manual `workflow_dispatch` runs the same job with no timezone guard.
 
-The script sets `INGEST_REQUIRE_PACIFIC_HOUR=1` for **scheduled** runs only; it **exits 0 without work** unless the current hour in `America/Los_Angeles` is **1**. Manual `workflow_dispatch` sets `INGEST_SKIP_PACIFIC_GUARD=1` so operators can run a full ingest anytime.
+Both this workflow and **VC fund sync** start with `pnpm run ingest:shared-feeds`, which caches TechCrunch Venture and AlleyWatch Funding RSS into `raw_source_articles` (skipping HTTP if the cache is less than 20 hours old).
 
 ## Commands
 
@@ -90,20 +90,17 @@ npm run funding:ingest:samples
 | `OPENAI_MODEL` | No | Override model id |
 | `INGEST_DRY_RUN` | No | `1` = no DB writes |
 | `INGEST_MAX_ARTICLES_PER_SOURCE` | No | Default `40` per source per run |
-| `INGEST_REQUIRE_PACIFIC_HOUR` | No | `1` = exit unless America/Los_Angeles clock hour matches target |
-| `INGEST_PACIFIC_TARGET_HOUR` | No | `0`–`23` (default **4**) — used with `INGEST_REQUIRE_PACIFIC_HOUR`; CI uses **4** for 4:00 AM Pacific |
-| `INGEST_SKIP_PACIFIC_GUARD` | No | `1` = bypass Pacific hour guard |
+| `INGEST_STARTUPS_GALLERY_MAX` | No | Default `500`. startups.gallery `/news` is a finite table — ingest new CMS rows up to this cap |
 | `INGEST_SKIP_SOURCES` | No | Comma list: `GEEKWIRE_FUNDINGS`, `TECHCRUNCH_VENTURE`, … |
+| `INGEST_FETCH_PROXY_URL` | No | Cloudflare Worker origin for GeekWire (`workers/ingest-proxy`). Example: `https://vekta-ingest-proxy.example.workers.dev` |
 | `INGEST_DISABLE_OPENAI` | No | `1` = never call OpenAI |
-| `INGEST_STARTUPS_GALLERY_PLAYWRIGHT` | No | `0` = do not use Playwright for `/news` |
 | `INGEST_TRIGGER` | No | Stored on `ingestion_runs.trigger_kind` |
 
 ## Production / CI
 
 1. Set GitHub **secret** `DATABASE_URL` and optional `OPENAI_API_KEY`.
-2. Optional **variable** `INGEST_SKIP_SOURCES` (e.g. `GEEKWIRE_FUNDINGS` if 403 persists).
-3. Workflow **Funding ingest** runs on schedule + `workflow_dispatch`.
-4. First CI run: `npx playwright install --with-deps chromium` is already in the workflow for Framer.
+2. Set **secret** `INGEST_FETCH_PROXY_URL` to the deployed `workers/ingest-proxy` URL so GeekWire is not fetched from GitHub’s IPs.
+3. Workflow **Funding ingest** runs daily at 11:00 UTC + `workflow_dispatch`. It caches shared RSS, then ingests, then runs market intel.
 
 ## Market intelligence (linking + rollups + scores)
 

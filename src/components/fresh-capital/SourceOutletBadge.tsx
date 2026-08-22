@@ -1,5 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isValidOutboundUrl } from "@/lib/outboundUrl";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 type Props = {
   hasArticle: boolean;
@@ -32,7 +34,7 @@ export function SourceOutletBadge({
   const primary = (outletLabel?.trim() || "Source").trim();
   const mutedAlt = noLinkFallbackLabel?.trim() || "";
   const displayMuted = mutedAlt || "No article link";
-  const canLink = Boolean(hasArticle && href?.trim());
+  const canLink = Boolean(hasArticle && href?.trim() && isValidOutboundUrl(href.trim()));
 
   const content = (
     <>
@@ -56,9 +58,8 @@ export function SourceOutletBadge({
   if (canLink) {
     return (
       <a
-        href={href!.trim()}
-        target="_blank"
-        rel="noopener"
+        href={formatOutboundUrl(href!.trim(), "fresh_funds")}
+        {...EXTERNAL_SOURCE_LINK_ATTRS}
         className={cn(
           pillClass,
           "no-underline hover:border-zinc-700/80 hover:bg-zinc-900/50 hover:text-zinc-400",

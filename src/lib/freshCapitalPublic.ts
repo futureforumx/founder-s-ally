@@ -1,6 +1,7 @@
 import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
 import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
+import { canonicalSectorTagsForDisplay, titleCaseSectorLabel } from "@/lib/latestFundingFilters";
 
 /**
  * Canonical public Fresh Capital feed source:
@@ -66,6 +67,17 @@ export type FreshCapitalFundRow = {
   firm_website_url: string | null;
   /** Firm-level AUM in USD (`firm_records.aum`), not this fund vehicle’s target/final size. */
   firm_aum_usd: number | null;
+  firm_linkedin_url?: string | null;
+  firm_x_url?: string | null;
+  firm_crunchbase_url?: string | null;
+  firm_github_url?: string | null;
+  firm_medium_url?: string | null;
+  firm_substack_url?: string | null;
+  firm_instagram_url?: string | null;
+  firm_facebook_url?: string | null;
+  firm_youtube_url?: string | null;
+  firm_angellist_url?: string | null;
+  firm_beehiiv_url?: string | null;
 };
 
 export type FreshCapitalStageFilter = "all" | "seed" | "series_a" | "growth";
@@ -182,7 +194,7 @@ const LUX_CAPITAL_IX_SECTOR_FOCUS_DISPLAY = [
   "Frontier Science",
   "Transportation",
   "Robotics",
-  "AI/ML",
+  "AI",
   "Data",
 ] as const;
 
@@ -277,9 +289,10 @@ export function geographyFocusForDisplay(
   row: Pick<FreshCapitalFundRow, "firm_name" | "geography_focus" | "fund_name">,
 ): string[] | null | undefined {
   const firmLc = row.firm_name?.trim().toLowerCase() ?? "";
-  if (firmLc.includes("credo ventures")) return ["Europe"];
-  if (isHeartlandVenturesFundIIIDisplayCase(row)) return ["U.S."];
-  return row.geography_focus ?? null;
+  if (firmLc.includes("credo ventures")) return canonicalGeoTagsForDisplay(["Europe"]);
+  if (isHeartlandVenturesFundIIIDisplayCase(row)) return canonicalGeoTagsForDisplay(["U.S."]);
+  if (row.geography_focus == null) return row.geography_focus;
+  return canonicalGeoTagsForDisplay(row.geography_focus);
 }
 
 /**
@@ -348,36 +361,42 @@ const KP_SELECT_IV_SECTOR_FOCUS_DISPLAY = [
 export function sectorFocusForDisplay(
   row: Pick<FreshCapitalFundRow, "firm_name" | "sector_focus" | "fund_name">,
 ): string[] {
+  let tags: string[];
+  let capAtThree = false;
   if (isHummingbirdInauguralGrowthFundDisplayCase(row)) {
-    return [...HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY];
+    tags = [...HUMMINGBIRD_GROWTH_FUND_I_SECTOR_FOCUS_DISPLAY];
+  } else if (isKleinerPerkinsKP22DisplayCase(row)) {
+    tags = [...KP22_SECTOR_FOCUS_DISPLAY];
+  } else if (isKpSelectIVDisplayCase(row)) {
+    tags = [...KP_SELECT_IV_SECTOR_FOCUS_DISPLAY];
+  } else if (isAntlerUSFundIIDisplayCase(row)) {
+    tags = [...ANTLER_US_FUND_II_SECTOR_FOCUS_DISPLAY];
+  } else if (isLuxCapitalIXDisplayCase(row)) {
+    tags = [...LUX_CAPITAL_IX_SECTOR_FOCUS_DISPLAY];
+  } else if (isA16zAmericanDynamismFundDisplayCase(row)) {
+    tags = [...A16Z_AMERICAN_DYNAMISM_SECTOR_FOCUS_DISPLAY];
+  } else {
+    const key = row.firm_name?.trim().toLowerCase();
+    const override = key ? SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
+    if (override?.length) {
+      tags = [...override];
+    } else {
+      tags = (row.sector_focus ?? []).filter(Boolean);
+      capAtThree = true;
+    }
   }
-  if (isKleinerPerkinsKP22DisplayCase(row)) {
-    return [...KP22_SECTOR_FOCUS_DISPLAY];
-  }
-  if (isKpSelectIVDisplayCase(row)) {
-    return [...KP_SELECT_IV_SECTOR_FOCUS_DISPLAY];
-  }
-  if (isAntlerUSFundIIDisplayCase(row)) {
-    return [...ANTLER_US_FUND_II_SECTOR_FOCUS_DISPLAY];
-  }
-  if (isLuxCapitalIXDisplayCase(row)) {
-    return [...LUX_CAPITAL_IX_SECTOR_FOCUS_DISPLAY];
-  }
-  if (isA16zAmericanDynamismFundDisplayCase(row)) {
-    return [...A16Z_AMERICAN_DYNAMISM_SECTOR_FOCUS_DISPLAY];
-  }
-  const key = row.firm_name?.trim().toLowerCase();
-  const override = key ? SECTOR_FOCUS_DISPLAY_OVERRIDE_BY_FIRM_NAME[key] : undefined;
-  if (override?.length) return [...override];
-  return (row.sector_focus ?? []).filter(Boolean).slice(0, 3);
+  const canonical = canonicalSectorTagsForDisplay(tags);
+  return capAtThree ? canonical.slice(0, 3) : canonical;
 }
 
 export function formatFundSizeUsd(value: number | null | undefined): string | null {
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `$${Math.round(value / 1e6)}M`;
-  if (value >= 1e3) return `$${Math.round(value / 1e3)}K`;
-  return `$${Math.round(value)}`;
+  // Fund vehicles are often stored in millions (125) or full USD (125000000). Both should read $125M.
+  const usd = value < 1_000_000 ? value * 1_000_000 : value;
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(1)}B`;
+  if (usd >= 1e6) return `$${Math.round(usd / 1e6)}M`;
+  if (usd >= 1e3) return `$${Math.round(usd / 1e3)}K`;
+  return `$${Math.round(usd)}`;
 }
 
 /**
@@ -502,10 +521,67 @@ export function firstGuessedFirmWebsiteFromName(firmName: string | null | undefi
 }
 
 /**
- * After `get_new_vc_funds`, fill `firm_website_url` / `firm_domain` from `firm_records` only when the RPC
- * row did not already supply a website. Otherwise a stale `firm_records.website_url` would overwrite the
- * canonical URL from the fund pipeline (e.g. Kleiner Perkins correct in `get_new_vc_funds`, wrong in DB).
+ * After `get_new_vc_funds`, fill missing website + social URLs from `firm_records`.
+ * Website is only filled when the RPC row omitted it (a stale `firm_records.website_url`
+ * must not overwrite the fund pipeline). Socials always fill gaps from the live firm row.
  */
+export type FirmRecordPublicHydrate = {
+  id: string;
+  website_url?: string | null;
+  linkedin_url?: string | null;
+  x_url?: string | null;
+  crunchbase_url?: string | null;
+  medium_url?: string | null;
+  substack_url?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  youtube_url?: string | null;
+  angellist_url?: string | null;
+  beehiiv_url?: string | null;
+};
+
+function firstFilledUrl(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+export function applyFirmRecordHydrationToFreshCapitalRow(
+  row: FreshCapitalFundRow,
+  record: FirmRecordPublicHydrate,
+): FreshCapitalFundRow {
+  const next: FreshCapitalFundRow = {
+    ...row,
+    firm_linkedin_url: firstFilledUrl(row.firm_linkedin_url, record.linkedin_url),
+    firm_x_url: firstFilledUrl(row.firm_x_url, record.x_url),
+    firm_crunchbase_url: firstFilledUrl(row.firm_crunchbase_url, record.crunchbase_url),
+    firm_medium_url: firstFilledUrl(row.firm_medium_url, record.medium_url),
+    firm_substack_url: firstFilledUrl(row.firm_substack_url, record.substack_url),
+    firm_instagram_url: firstFilledUrl(row.firm_instagram_url, record.instagram_url),
+    firm_facebook_url: firstFilledUrl(row.firm_facebook_url, record.facebook_url),
+    firm_youtube_url: firstFilledUrl(row.firm_youtube_url, record.youtube_url),
+    firm_angellist_url: firstFilledUrl(row.firm_angellist_url, record.angellist_url),
+    firm_beehiiv_url: firstFilledUrl(row.firm_beehiiv_url, record.beehiiv_url),
+  };
+
+  const websiteFromDb = firstFilledUrl(record.website_url);
+  if (websiteFromDb && !row.firm_website_url?.trim()) {
+    next.firm_website_url = websiteFromDb;
+    try {
+      const href = /^https?:\/\//i.test(websiteFromDb)
+        ? websiteFromDb
+        : `https://${websiteFromDb.replace(/^\/+/, "")}`;
+      next.firm_domain = new URL(href).hostname.replace(/^www\./i, "");
+    } catch {
+      /* keep RPC firm_domain when URL parse fails */
+    }
+  }
+
+  return next;
+}
+
 async function hydrateFreshCapitalRowsWithFirmRecords(
   funds: FreshCapitalFundRow[],
 ): Promise<FreshCapitalFundRow[]> {
@@ -514,46 +590,31 @@ async function hydrateFreshCapitalRowsWithFirmRecords(
   const ids = [...new Set(funds.map((f) => f.firm_record_id).filter(Boolean))];
   if (ids.length === 0) return funds;
 
-  const byId = new Map<string, string>();
+  const byId = new Map<string, FirmRecordPublicHydrate>();
   const chunkSize = 120;
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
     const { data, error } = await supabasePublicDirectory
       .from("firm_records")
-      .select("id, website_url")
+      .select(
+        "id, website_url, linkedin_url, x_url, crunchbase_url, medium_url, substack_url, instagram_url, facebook_url, youtube_url, angellist_url, beehiiv_url",
+      )
       .in("id", chunk)
       .is("deleted_at", null);
 
     if (error) {
-      if (import.meta.env.DEV) console.warn("[FreshCapital] hydrate firm_records.website_url", error.message);
+      if (import.meta.env.DEV) console.warn("[FreshCapital] hydrate firm_records socials", error.message);
       continue;
     }
     for (const row of data ?? []) {
-      const r = row as { id: string; website_url: string | null };
-      const w = typeof r.website_url === "string" ? r.website_url.trim() : "";
-      if (w) byId.set(r.id, w);
+      const r = row as FirmRecordPublicHydrate;
+      if (r?.id) byId.set(r.id, r);
     }
   }
 
   return funds.map((f) => {
-    const canonical = byId.get(f.firm_record_id);
-    if (!canonical) return f;
-
-    const rpcAlreadyHasWebsite = Boolean(f.firm_website_url?.trim());
-    if (rpcAlreadyHasWebsite) return f;
-
-    const next: FreshCapitalFundRow = { ...f, firm_website_url: canonical };
-
-    try {
-      const href = /^https?:\/\//i.test(canonical)
-        ? canonical
-        : `https://${canonical.replace(/^\/+/, "")}`;
-      next.firm_domain = new URL(href).hostname.replace(/^www\./i, "");
-    } catch {
-      /* keep RPC firm_domain when URL parse fails */
-    }
-
-    return next;
+    const record = byId.get(f.firm_record_id);
+    return record ? applyFirmRecordHydrationToFreshCapitalRow(f, record) : f;
   });
 }
 
@@ -611,15 +672,23 @@ export function formatAnnouncedDate(isoDate: string | null | undefined): string 
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** Fund Watch announced column — month and year only (e.g. `Oct 2026`). */
+export function formatAnnouncedMonthYear(isoDate: string | null | undefined): string {
+  if (!isoDate) return "—";
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return String(isoDate);
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
 /** Announced column — applies the same curated display fixes as {@link fundNameForDisplay} where needed. */
 export function announcedDateForDisplay(
   row: Pick<FreshCapitalFundRow, "firm_name" | "fund_name" | "announced_date" | "close_date">,
 ): string {
-  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return "March 16, 2026";
-  if (isHummingbirdFundVIDisplayCase(row)) return "March 16, 2026";
-  if (isKleinerPerkinsKP22DisplayCase(row)) return "March 24, 2026";
+  if (isHummingbirdInauguralGrowthFundDisplayCase(row)) return "Mar 2026";
+  if (isHummingbirdFundVIDisplayCase(row)) return "Mar 2026";
+  if (isKleinerPerkinsKP22DisplayCase(row)) return "Mar 2026";
   const iso = row.announced_date ?? row.close_date ?? null;
-  return formatAnnouncedDate(iso);
+  return formatAnnouncedMonthYear(iso);
 }
 
 /** MandA coverage of Hummingbird’s raise (Growth Fund I ~$600M within $800M total). */
@@ -653,7 +722,7 @@ export function expandFreshCapitalRowsForDisplay(rows: FreshCapitalFundRow[]): F
         fund_name: "Fund VI",
         final_size_usd: 200_000_000,
         target_size_usd: 200_000_000,
-        // Keep ISO for sorting; UI date is overridden to "March 16, 2026" above.
+        // Keep ISO for sorting; UI date is overridden to "Mar 2026" above.
         announced_date: "2026-03-16",
         close_date: row.close_date,
         stage_focus: ["Pre-Seed", "Seed", "Series A"],
@@ -664,29 +733,100 @@ export function expandFreshCapitalRowsForDisplay(rows: FreshCapitalFundRow[]): F
   return out;
 }
 
-/** Spellings that refer to the United States — Fresh Capital geo chips show `U.S.` only (display-only). */
-const US_GEO_FOCUS_LABEL_LC = new Set([
-  "united states",
-  "united states of america",
-  "usa",
-  "u.s.",
-  "u.s.a.",
-  "u.s.a",
-  "us",
-  "u.s",
-]);
+/**
+ * Match key for geo aliases: lowercase, drop parentheticals / dots, collapse space.
+ * `U.S.`, `US`, and `U. S. A.` all reduce to `us` / `usa`.
+ */
+function geoMatchKey(raw: string): string {
+  let key = raw
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/^the\s+/, "")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (/^[a-z](?:\s+[a-z]){1,3}$/.test(key)) key = key.replace(/\s+/g, "");
+  return key;
+}
+
+const GEO_DISPLAY_BY_MATCH_KEY: Record<string, string> = Object.freeze({
+  us: "U.S.",
+  usa: "U.S.",
+  "united states": "U.S.",
+  "united states of america": "U.S.",
+
+  uk: "UK",
+  "united kingdom": "UK",
+  "great britain": "UK",
+  britain: "UK",
+
+  eu: "Europe",
+  europe: "Europe",
+  "european union": "Europe",
+
+  apac: "Asia-Pacific",
+  "asia pacific": "Asia-Pacific",
+  asiapacific: "Asia-Pacific",
+
+  latam: "LatAm",
+  "latin america": "LatAm",
+  "latin-america": "LatAm",
+
+  mena: "MENA",
+  "middle east and north africa": "MENA",
+  "middle east & north africa": "MENA",
+
+  global: "Global",
+  worldwide: "Global",
+  international: "Global",
+});
+
+export function splitGeoLabels(raw: string | null | undefined): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const part of String(raw ?? "").split(/[;,|]|\/|(?:\s+&\s+)/)) {
+    const label = part.replace(/\s+/g, " ").trim();
+    if (!label) continue;
+    const key = geoMatchKey(label);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    labels.push(label);
+  }
+  return labels;
+}
+
+export function canonicalGeoChoiceLabel(raw: string): string {
+  const trimmed = raw.replace(/\s+/g, " ").trim();
+  if (!trimmed) return "";
+  const key = geoMatchKey(trimmed);
+  if (!key) return "";
+  return GEO_DISPLAY_BY_MATCH_KEY[key] ?? titleCaseSectorLabel(trimmed.replace(/\s*\([^)]*\)\s*/g, " ").trim());
+}
+
+/** Collapse synonym geo strings (e.g. US / U.S. / United States → U.S.) and drop duplicate clusters. */
+export function canonicalGeoTagsForDisplay(rawLabels: readonly string[]): string[] {
+  const byKey = new Map<string, string>();
+  const order: string[] = [];
+  for (const raw of rawLabels) {
+    for (const part of splitGeoLabels(raw)) {
+      const label = canonicalGeoChoiceLabel(part);
+      if (!label) continue;
+      const key = geoMatchKey(label);
+      if (!key || byKey.has(key)) continue;
+      byKey.set(key, label);
+      order.push(key);
+    }
+  }
+  return order.map((key) => byKey.get(key)!);
+}
 
 /**
  * Normalize one `geography_focus` entry for Fresh Capital geo chips.
- * Maps United States / U.S. / USA / US (whole chip) to **`U.S.`**; keeps `Global (…)` shortened to `Global`.
+ * Maps United States / U.S. / USA / US to **`U.S.`**; keeps `Global (…)` shortened to `Global`.
  */
 export function normalizeGeoFocusDisplayChip(geo: string): string {
-  const raw = geo.trim();
-  if (!raw) return "";
-  if (/^Global\s*\(/i.test(raw)) return "Global";
-  const collapsed = raw.replace(/\s+/g, " ").trim();
-  if (US_GEO_FOCUS_LABEL_LC.has(collapsed.toLowerCase())) return "U.S.";
-  return collapsed;
+  return canonicalGeoChoiceLabel(geo);
 }
 
 /**
@@ -698,12 +838,272 @@ export function freshCapitalFirmLocationLine(row: Pick<FreshCapitalFundRow, "fir
   return t || null;
 }
 
+const US_STATE_NAME_TO_ABBR: Record<string, string> = {
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+  "district of columbia": "DC",
+};
+
+const TRAILING_US_COUNTRY = new Set(["us", "usa", "u.s.", "u.s.a.", "united states", "united states of america"]);
+
+const COUNTRY_SHORT: Record<string, string> = {
+  england: "UK",
+  "united kingdom": "UK",
+  uk: "UK",
+  "u.k.": "UK",
+  "u.k": "UK",
+  gb: "UK",
+  britain: "UK",
+  "great britain": "UK",
+};
+
+const CITY_TO_US_STATE: Record<string, string> = {
+  burlingame: "CA",
+  "san francisco": "CA",
+  sf: "CA",
+  "palo alto": "CA",
+  "menlo park": "CA",
+  "mountain view": "CA",
+  "redwood city": "CA",
+  atherton: "CA",
+  "los altos": "CA",
+  sunnyvale: "CA",
+  cupertino: "CA",
+  "san mateo": "CA",
+  oakland: "CA",
+  berkeley: "CA",
+  "los angeles": "CA",
+  "santa monica": "CA",
+  "san jose": "CA",
+  "san diego": "CA",
+  "new york": "NY",
+  brooklyn: "NY",
+  boston: "MA",
+  cambridge: "MA",
+  austin: "TX",
+  seattle: "WA",
+  chicago: "IL",
+  miami: "FL",
+  denver: "CO",
+  boulder: "CO",
+  washington: "DC",
+  atlanta: "GA",
+  philadelphia: "PA",
+  portland: "OR",
+  phoenix: "AZ",
+};
+
+/** City nicknames / airport codes used as HQ city (never applied to the state slot). */
+const CITY_ABBREV_TO_NAME: Record<string, string> = {
+  sf: "San Francisco",
+  sfo: "San Francisco",
+  nyc: "New York",
+  ny: "New York",
+  la: "Los Angeles",
+  lax: "Los Angeles",
+  dc: "Washington",
+  sj: "San Jose",
+  sd: "San Diego",
+  atl: "Atlanta",
+  bos: "Boston",
+  chi: "Chicago",
+  sea: "Seattle",
+  aus: "Austin",
+  mia: "Miami",
+  den: "Denver",
+  phl: "Philadelphia",
+  pdx: "Portland",
+  slc: "Salt Lake City",
+  phx: "Phoenix",
+};
+
+function locationPartKey(part: string): string {
+  return part.toLowerCase().replace(/\./g, "");
+}
+
+function expandCityAbbrev(part: string): string | null {
+  return CITY_ABBREV_TO_NAME[locationPartKey(part)] ?? null;
+}
+
+function titleCaseLocationWord(word: string): string {
+  const lc = word.toLowerCase();
+  if (lc === "sf") return "San Francisco";
+  if (lc === "dc") return "DC";
+  if (lc === "uk") return "UK";
+  if (/^[A-Za-z]{2}$/.test(word)) return word.toUpperCase();
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+function titleCaseLocationPhrase(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(titleCaseLocationWord)
+    .join(" ");
+}
+
+/** "New York, New York" → "New York, NY"; "burlingame" → "Burlingame, CA"; first HQ only. */
+export function shortenFirmLocationLine(raw: string | null | undefined): string | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  const firstHq = t.split(/[;|/]/)[0]?.replace(/\s+/g, " ").trim() ?? t;
+  const parts = firstHq
+    .split(",")
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  while (parts.length > 1 && TRAILING_US_COUNTRY.has(parts[parts.length - 1]!.toLowerCase())) {
+    parts.pop();
+  }
+  if (parts.length === 0) return null;
+
+  const titled = parts.map((part, index) => {
+    const lc = part.toLowerCase();
+    const country = COUNTRY_SHORT[lc] ?? COUNTRY_SHORT[locationPartKey(part)];
+    if (country) return country;
+    const isCitySlot = index === 0;
+    if (isCitySlot) {
+      const expandedCity = expandCityAbbrev(part);
+      if (expandedCity) return expandedCity;
+    }
+    if (/^[A-Za-z]{2}$/.test(part) || /^[A-Za-z]\.[A-Za-z]\.?$/.test(part)) {
+      return locationPartKey(part).toUpperCase();
+    }
+    const state = US_STATE_NAME_TO_ABBR[lc];
+    if (state && index === parts.length - 1 && parts.length >= 2) return state;
+    return titleCaseLocationPhrase(part);
+  });
+
+  if (titled.length === 1) {
+    const city = titled[0]!;
+    const state = CITY_TO_US_STATE[city.toLowerCase()] ?? CITY_TO_US_STATE[parts[0]!.toLowerCase()];
+    if (state) return `${city}, ${state}`;
+    return city;
+  }
+
+  return titled.join(", ") || null;
+}
+
+const FUND_WATCH_SOURCE_BY_HOST: Record<string, string> = {
+  "techcrunch.com": "TechCrunch",
+  "tech.eu": "Tech EU",
+  "manda.be": "MandA",
+  "theinformation.com": "The Information",
+  "pitchbook.com": "PitchBook",
+  "geekwire.com": "GeekWire",
+  "alleywatch.com": "AlleyWatch",
+  "venturebeat.com": "VentureBeat",
+  "businesswire.com": "Business Wire",
+  "prnewswire.com": "PR Newswire",
+  "axios.com": "Axios",
+  "forbes.com": "Forbes",
+  "bloomberg.com": "Bloomberg",
+  "reuters.com": "Reuters",
+  "wsj.com": "WSJ",
+  "ft.com": "FT",
+  "cnbc.com": "CNBC",
+  "sifted.eu": "Sifted",
+  "pehub.com": "PE Hub",
+  "newcomer.co": "Newcomer",
+  "startups.gallery": "Startups Gallery",
+  "globenewswire.com": "GlobeNewswire",
+  "crunchbase.com": "Crunchbase",
+  "fortune.com": "Fortune",
+  "nytimes.com": "NYT",
+  "washingtonpost.com": "WaPo",
+};
+
+const AUTHOR_PLATFORM_ROOTS = new Set(["substack.com", "medium.com", "ghost.io"]);
+
+function looksLikeAuthorHandle(label: string): boolean {
+  const t = label.trim();
+  if (!t) return true;
+  if (/\d/.test(t)) return true;
+  if (/\s/.test(t)) return false;
+  if (t.length > 14) return true;
+  return false;
+}
+
+/**
+ * Publisher label for Fund Watch source links. Author handles and personal Substack/Medium
+ * hosts collapse to "Source" instead of raw slugs like Michellevolz1.
+ */
+export function formatFundWatchSourceLabel(url: string | null | undefined, title?: string | null): string {
+  const href = url?.trim();
+  if (href) {
+    try {
+      const host = new URL(href).hostname.replace(/^www\./i, "").toLowerCase();
+      if (FUND_WATCH_SOURCE_BY_HOST[host]) return FUND_WATCH_SOURCE_BY_HOST[host];
+      const parts = host.split(".").filter(Boolean);
+      const root = parts.slice(-2).join(".");
+      if (FUND_WATCH_SOURCE_BY_HOST[root]) return FUND_WATCH_SOURCE_BY_HOST[root];
+      if (AUTHOR_PLATFORM_ROOTS.has(root)) return "Source";
+      return "Source";
+    } catch {
+      /* fall through to title */
+    }
+  }
+  const sep = " | ";
+  const rawTitle = title?.trim() ?? "";
+  const i = rawTitle.lastIndexOf(sep);
+  const fromTitle = i >= 0 ? rawTitle.slice(i + sep.length).trim() : "";
+  if (fromTitle && !looksLikeAuthorHandle(fromTitle)) return fromTitle;
+  return "Source";
+}
+
 /** Firm meta row — aligns with canonical `firm_records` HQ when RPC lags a deploy. */
 export function freshCapitalFirmLocationLineForDisplay(
   row: Pick<FreshCapitalFundRow, "firm_name" | "firm_location">,
 ): string | null {
   if (row.firm_name?.trim().toLowerCase() === HUMMINGBIRD_VENTURES_LC) return "London, U.K.";
-  return freshCapitalFirmLocationLine(row);
+  return shortenFirmLocationLine(freshCapitalFirmLocationLine(row));
 }
 
 /**
@@ -824,17 +1224,17 @@ export function isLikelyNewFundAnnouncement(status: string | null | undefined): 
  * When `get_capital_heatmap_backend` exists, the UI uses that as the canonical source instead.
  */
 export function aggregateSectorHeatmap(rows: FreshCapitalFundRow[], topN = 8): HeatmapBucket[] {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { label: string; count: number }>();
   for (const r of rows) {
-    for (const raw of r.sector_focus ?? []) {
-      const k = raw?.trim();
-      if (!k) continue;
-      counts.set(k, (counts.get(k) ?? 0) + 1);
+    for (const label of canonicalSectorTagsForDisplay(r.sector_focus ?? [])) {
+      const key = label.toLowerCase();
+      const prev = counts.get(key);
+      counts.set(key, { label, count: (prev?.count ?? 0) + 1 });
     }
   }
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, topN);
-  const max = sorted[0]?.[1] ?? 1;
-  return sorted.map(([label, count]) => {
+  const sorted = [...counts.values()].sort((a, b) => b.count - a.count).slice(0, topN);
+  const max = sorted[0]?.count ?? 1;
+  return sorted.map(({ label, count }) => {
     const ratio = count / max;
     const tier: HeatmapBucket["tier"] = ratio >= 0.66 ? "high" : ratio >= 0.33 ? "moderate" : "low";
     return { label, count, intensity: ratio, tier };
@@ -1457,7 +1857,18 @@ export function parseFreshCapitalFundRow(raw: unknown): FreshCapitalFundRow | nu
     firm_domain: readStringAlt(r, "firm_domain", "firmDomain"),
     firm_location: readStringAlt(r, "firm_location", "firmLocation"),
     firm_website_url: readStringAlt(r, "firm_website_url", "firmWebsiteUrl"),
-    firm_aum_usd: readFiniteNumber(r.firm_aum_usd ?? r.firmAumUsd),
+    firm_aum_usd: coerceFirmAumUsdNumber(r.firm_aum_usd ?? r.firmAumUsd ?? r.firm_aum ?? r.firmAum),
+    firm_linkedin_url: readStringAlt(r, "firm_linkedin_url", "linkedin_url", "linkedinUrl"),
+    firm_x_url: readStringAlt(r, "firm_x_url", "x_url", "twitter_url", "twitterUrl"),
+    firm_crunchbase_url: readStringAlt(r, "firm_crunchbase_url", "crunchbase_url", "crunchbaseUrl"),
+    firm_github_url: readStringAlt(r, "firm_github_url", "github_url", "githubUrl"),
+    firm_medium_url: readStringAlt(r, "firm_medium_url", "medium_url", "mediumUrl"),
+    firm_substack_url: readStringAlt(r, "firm_substack_url", "substack_url", "substackUrl"),
+    firm_instagram_url: readStringAlt(r, "firm_instagram_url", "instagram_url", "instagramUrl"),
+    firm_facebook_url: readStringAlt(r, "firm_facebook_url", "facebook_url", "facebookUrl"),
+    firm_youtube_url: readStringAlt(r, "firm_youtube_url", "youtube_url", "youtubeUrl"),
+    firm_angellist_url: readStringAlt(r, "firm_angellist_url", "angellist_url", "angellistUrl"),
+    firm_beehiiv_url: readStringAlt(r, "firm_beehiiv_url", "beehiiv_url", "beehiivUrl"),
   };
 }
 

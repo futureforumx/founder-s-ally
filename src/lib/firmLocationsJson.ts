@@ -2,6 +2,8 @@
  * Helpers for `firm_records.locations` (jsonb): website scrapes, imports, etc.
  */
 
+import { normalizeHqDisplayLine } from "@/lib/formatCanonicalHqLine";
+
 export const FIRM_LOCATIONS_JSON_VERSION = 1 as const;
 
 export type FirmLocationOfficeEntry = {
@@ -26,26 +28,26 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function officeLineFromEntry(e: unknown): string | null {
   if (typeof e === "string") {
-    const t = e.trim();
-    return t.length > 0 ? t : null;
+    return normalizeHqDisplayLine(e) ?? (e.trim() || null);
   }
   if (!isRecord(e)) return null;
   const line = typeof e.line === "string" ? e.line.trim() : "";
-  return line.length > 0 ? line : null;
+  if (!line) return null;
+  return normalizeHqDisplayLine(line) ?? line;
 }
 
 /** Prefer explicit HQ line stored on the payload. */
 export function pickHqLineFromLocationsJson(locations: unknown): string | null {
   if (!isRecord(locations)) return null;
   const hq = typeof locations.hq_line === "string" ? locations.hq_line.trim() : "";
-  if (hq) return hq;
+  if (hq) return normalizeHqDisplayLine(hq) ?? hq;
   const offices = locations.offices;
   if (!Array.isArray(offices)) return null;
   for (const o of offices) {
     if (!isRecord(o)) continue;
     if (o.role === "hq") {
       const line = typeof o.line === "string" ? o.line.trim() : "";
-      if (line) return line;
+      if (line) return normalizeHqDisplayLine(line) ?? line;
     }
   }
   return null;

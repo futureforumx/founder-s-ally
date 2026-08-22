@@ -77,8 +77,13 @@ interface CommunityViewProps {
   investorTab?: string;
   /** Narrows investor grid by free text (from nav search) */
   investorListSearchQuery?: string;
-  /** When `nonce` changes, scrolls the investor grid to the matching firm card (VC directory id). */
-  investorScrollTo?: { vcFirmId: string; nonce: number } | null;
+  /** When `nonce` changes, opens and scrolls to the matching firm/person card. */
+  investorScrollTo?: {
+    vcFirmId: string;
+    filterQuery?: string;
+    personId?: string;
+    nonce: number;
+  } | null;
   /** Pin the directory to a specific scope on first render (e.g. "operators" for the Network tab). */
   initialScope?: EntityScope;
 }
@@ -179,6 +184,34 @@ function isUuid(value: string | null | undefined): value is string {
   const s = String(value).trim();
   if (!s) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+function findDirectoryEntryForNavPick(
+  pool: DirectoryEntry[],
+  fallback: DirectoryEntry[],
+  pick: { vcFirmId: string; filterQuery?: string; personId?: string },
+  getVCFirmMatch: (name: string) => VCFirm | null | undefined,
+): DirectoryEntry | null {
+  const lists = [pool, fallback];
+  if (pick.personId) {
+    for (const list of lists) {
+      const person = list.find((e) => e._personData?.id === pick.personId);
+      if (person) return person;
+    }
+  }
+  const matchesFirm = (e: DirectoryEntry) => {
+    if (e.category !== "investor" || e._investorEntityType === "person") return false;
+    if (e._firmId && e._firmId === pick.vcFirmId) return true;
+    if (e._vcFirmId && e._vcFirmId === pick.vcFirmId) return true;
+    if (getVCFirmMatch(e.name)?.id === pick.vcFirmId) return true;
+    const qk = pick.filterQuery ? normalizeFirmName(pick.filterQuery) : "";
+    return Boolean(qk && normalizeFirmName(e.name) === qk);
+  };
+  for (const list of lists) {
+    const firm = list.find(matchesFirm);
+    if (firm) return firm;
+  }
+  return null;
 }
 
 function getAdminEditableRecord(entry: DirectoryEntry): AdminLiveRecordTarget | null {
@@ -1878,6 +1911,7 @@ export function CommunityView({
   const [networkDirectorySector, setNetworkDirectorySector] = useState<string>(NETWORK_DIRECTORY_SECTOR_ALL);
   const [networkDirectoryStage, setNetworkDirectoryStage] = useState<string>(NETWORK_DIRECTORY_STAGE_ALL);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const openedDirectoryPickNonceRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isInvestorSearch) setActiveScope("investors");
@@ -3055,31 +3089,37 @@ export function CommunityView({
   useLayoutEffect(() => {
     if (!isInvestorSearch || !investorScrollTo?.vcFirmId) return;
     const { vcFirmId } = investorScrollTo;
+    const entry = findDirectoryEntryForNavPick(gridEntries, mergedEntries, investorScrollTo, getVCFirmMatch);
+    if (!entry) return;
 
     const idx = gridEntries.findIndex((e) => {
-      if (e.category !== "investor") return false;
-      if (e._firmId && e._firmId === vcFirmId) return true;
-      const vc = getVCFirmMatch(e.name);
-      return vc?.id === vcFirmId;
+      if (e === entry) return true;
+      if (e.category !== entry.category) return false;
+      if (entry._personData?.id && e._personData?.id === entry._personData.id) return true;
+      if (entry._firmId && e._firmId === entry._firmId && e._investorEntityType !== "person") return true;
+      return (
+        e._investorEntityType !== "person" &&
+        entry._investorEntityType !== "person" &&
+        normalizeFirmName(e.name) === normalizeFirmName(entry.name)
+      );
     });
-    if (idx < 0) return;
-
     if (idx >= visibleCount) {
       setVisibleCount((c) => Math.max(c, idx + 1));
       return;
     }
 
+    const scrollId = investorAnchorVcFirmId(entry) ?? vcFirmId;
     const safeId =
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
-        ? CSS.escape(vcFirmId)
-        : vcFirmId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        ? CSS.escape(scrollId)
+        : scrollId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
     requestAnimationFrame(() => {
       document.querySelector(`[data-vc-firm-id="${safeId}"]`)?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     });
-  }, [isInvestorSearch, investorScrollTo, gridEntries, visibleCount, getVCFirmMatch]);
+  }, [isInvestorSearch, investorScrollTo, gridEntries, mergedEntries, visibleCount, getVCFirmMatch, investorAnchorVcFirmId]);
 
   // Dynamic header for investor tabs
   const investorTabHeader = useMemo(() => {
@@ -3444,6 +3484,15 @@ export function CommunityView({
     setSelectedVCFirm(vcMatch ?? null);
     setSelectedInvestor(entry);
   }, [getVCFirmMatch]);
+
+  useLayoutEffect(() => {
+    if (!isInvestorSearch || !investorScrollTo?.vcFirmId) return;
+    if (openedDirectoryPickNonceRef.current === investorScrollTo.nonce) return;
+    const entry = findDirectoryEntryForNavPick(gridEntries, mergedEntries, investorScrollTo, getVCFirmMatch);
+    if (!entry) return;
+    openedDirectoryPickNonceRef.current = investorScrollTo.nonce;
+    handleInvestorClick(entry);
+  }, [isInvestorSearch, investorScrollTo, gridEntries, mergedEntries, getVCFirmMatch, handleInvestorClick]);
 
   const handleInvestorPreviewClick = useCallback(
     (inv: InvestorPreviewModel) => {

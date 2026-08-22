@@ -234,6 +234,8 @@ export interface FundSyncRunOptions {
   requireVerifiedForPromotion?: boolean;
   verifierBatchSize?: number;
   verificationRateMs?: number;
+  /** Fund Watch feed keys skipped by `source_feeds` (admin Enrichment → Sources). */
+  disabledSourceKeys?: string[];
 }
 
 export interface FundSyncSourceStats {

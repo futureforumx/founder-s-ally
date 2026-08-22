@@ -26,6 +26,7 @@ import { generateInvestorBio } from "@/lib/generateFallbacks";
 import { isPlausibleLocationLine } from "@/lib/locationLineQuality";
 import { supabase } from "@/integrations/supabase/client";
 import { splitBackgroundSummaryPortfolio } from "@/lib/investorBackgroundPortfolio";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 const FIRM_INVESTOR_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1048,9 +1049,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                             return inv.source_url ? (
                               <a
                                 key={key}
-                                href={inv.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={formatOutboundUrl(inv.source_url, "investor_profile")}
+                                {...EXTERNAL_SOURCE_LINK_ATTRS}
                                 className={rowClass}
                               >
                                 <DealLogo domain={host} name={inv.company_name} />
@@ -1199,9 +1199,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                             return item.source_url ? (
                               <a
                                 key={`${item.title}-${i}`}
-                                href={item.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={formatOutboundUrl(item.source_url, "investor_profile")}
+                                {...EXTERNAL_SOURCE_LINK_ATTRS}
                                 className="group flex items-start gap-2.5"
                               >
                                 {inner}

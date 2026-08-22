@@ -1,13 +1,33 @@
 import * as cheerio from "cheerio";
 import Parser from "rss-parser";
 import type { FundingIngestSourceKey } from "@prisma/client";
+import {
+  parseStartupsGalleryNewsHtml,
+  resolveStartupsGalleryUrl,
+  startupsGalleryArticleUrl,
+  startupsGalleryListingTitle,
+  galleryRowsFromFundingTrackerCms,
+  STARTUPS_GALLERY_NEWS_URL,
+  type StartupsGalleryNewsRow,
+} from "../../src/lib/startupsGalleryNews";
+import {
+  collectionFieldIdsByTitle,
+  discoverFramerCmsChunkUrl,
+  listFramerSiteModuleUrls,
+  moduleUrlForCollectionId,
+  parseFramerCmsChunk,
+  relatedCollectionModuleIds,
+  stringField,
+  type FramerCmsRecord,
+} from "../../src/lib/framerCmsChunk";
 import { canonicalizeArticleUrl } from "./url.js";
 import type { ListingItem } from "./types.js";
 import { withBackoff } from "./retry.js";
+import { firstPartyWebsiteFromUrl } from "../../src/lib/latestFundingMarks";
 
 /** Public listing / category pages (used as `listing_url` + discovery). */
 export const LISTING_PAGE_URLS: Record<FundingIngestSourceKey, string> = {
-  STARTUPS_GALLERY_NEWS: "https://startups.gallery/news",
+  STARTUPS_GALLERY_NEWS: STARTUPS_GALLERY_NEWS_URL,
   TECHCRUNCH_VENTURE: "https://techcrunch.com/category/venture/",
   GEEKWIRE_FUNDINGS: "https://www.geekwire.com/fundings/",
   ALLEYWATCH_FUNDING: "https://www.alleywatch.com/category/funding/",
@@ -15,8 +35,6 @@ export const LISTING_PAGE_URLS: Record<FundingIngestSourceKey, string> = {
 
 export const TECHCRUNCH_VENTURE_RSS = "https://techcrunch.com/category/venture/feed/";
 export const ALLEYWATCH_FUNDING_RSS = "https://www.alleywatch.com/category/funding/feed/";
-
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const parser = new Parser({
   timeout: 25_000,
@@ -39,11 +57,19 @@ const BROWSER_HEADERS: Record<string, string> = {
   "Accept-Language": "en-US,en;q=0.9",
 };
 
+export function resolveIngestFetchUrl(url: string, proxyEnv = process.env.INGEST_FETCH_PROXY_URL): string {
+  const proxy = (proxyEnv || "").trim().replace(/\/$/, "");
+  if (!proxy) return url;
+  if (!/geekwire\.com/i.test(url)) return url;
+  return `${proxy}?url=${encodeURIComponent(url)}`;
+}
+
 async function fetchText(url: string, log: (s: string) => void): Promise<string> {
+  const requestUrl = resolveIngestFetchUrl(url);
   return withBackoff(
     `GET:${url.slice(0, 60)}`,
     async () => {
-      const res = await fetch(url, {
+      const res = await fetch(requestUrl, {
         redirect: "follow",
         headers: {
           ...BROWSER_HEADERS,
@@ -52,6 +78,22 @@ async function fetchText(url: string, log: (s: string) => void): Promise<string>
       });
       if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
       return await res.text();
+    },
+    { log },
+  );
+}
+
+async function fetchBytes(url: string, log: (s: string) => void): Promise<Uint8Array> {
+  const requestUrl = resolveIngestFetchUrl(url);
+  return withBackoff(
+    `GET-BIN:${url.slice(0, 60)}`,
+    async () => {
+      const res = await fetch(requestUrl, {
+        redirect: "follow",
+        headers: BROWSER_HEADERS,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return new Uint8Array(await res.arrayBuffer());
     },
     { log },
   );
@@ -298,83 +340,176 @@ export async function fetchGeekwireFundings(since: Date | null, maxItems: number
   return out;
 }
 
-/** Splits startups.gallery's combined "$1B · Series D" cell into separate amount / round fields. */
-function splitAmountAndRound(text: string): { amount: string | null; round: string | null } {
-  const cleaned = text.trim();
-  if (!cleaned) return { amount: null, round: null };
-  const parts = cleaned.split(/\s*[·•]\s*/).map((p) => p.trim()).filter(Boolean);
-  const amount = parts.find((p) => /[\d]/.test(p) && /[$€£]|\d/.test(p)) ?? null;
-  const round = parts.find((p) => p !== amount) ?? null;
-  return { amount, round };
-}
-
-function resolveStartupsGalleryUrl(href: string): string {
-  if (href.startsWith("http")) return href;
-  if (href.startsWith("/")) return `https://startups.gallery${href}`;
-  return `https://startups.gallery/${href.replace(/^\.\//, "")}`;
-}
-
-/**
- * startups.gallery /news renders a structured table (Company · Round/Amount · Date · Lead
- * Investor · Press source link) that is present in the server-rendered HTML (Framer SSR), so we
- * can read the deal fields directly instead of guessing from surrounding text. Falls back to the
- * link-only parser (`parseStartupsGalleryNewsLinks`) if the markup ever changes shape.
- */
-function parseStartupsGalleryNewsRows(html: string, since: Date | null, maxItems: number): ListingItem[] {
-  const $ = cheerio.load(html);
+function listingItemsFromGalleryNewsRows(
+  rows: StartupsGalleryNewsRow[],
+  opts: { since: Date | null; maxItems: number; seenCmsIds?: Set<string> },
+): ListingItem[] {
+  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
   const out: ListingItem[] = [];
   const seen = new Set<string>();
-  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
+  const seenCms = opts.seenCmsIds ?? new Set<string>();
+  const useIdCursor = seenCms.size > 0;
 
-  $('div[data-framer-name="Post"]').each((_, el) => {
-    if (out.length >= maxItems) return false;
-    const row = $(el);
-    const nameLinks = row.find('a[data-framer-name="Company Name"][href]');
-    const companyLink = nameLinks.filter((_i, a) => /\/companies\//i.test($(a).attr("href") ?? "")).first();
-    const investorLink = nameLinks.filter((_i, a) => /\/investors\//i.test($(a).attr("href") ?? "")).first();
-    const companyHref = companyLink.attr("href")?.trim();
-    if (!companyHref) return undefined;
+  for (const row of rows) {
+    if (out.length >= opts.maxItems) break;
+    if (row.cmsId && seenCms.has(row.cmsId)) continue;
 
-    const companyPageUrl = canonicalizeArticleUrl(resolveStartupsGalleryUrl(companyHref));
-    const companyName = companyLink.find("p").first().text().trim() || companyLink.text().trim();
-
-    const amountText = row.find('div[data-framer-name="Amount"]').first().text().trim();
-    const { amount, round } = splitAmountAndRound(amountText);
-
-    const dateIso = row.find('div[data-framer-name="Date"] time[datetime]').first().attr("datetime");
-    const publishedAt = dateIso ? new Date(dateIso) : null;
+    const publishedAt = row.announcedAtIso ? new Date(row.announcedAtIso) : null;
     const validPublishedAt = publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null;
-    if (since && validPublishedAt && validPublishedAt <= since) return undefined;
+    if (!useIdCursor && opts.since && validPublishedAt && validPublishedAt <= opts.since) continue;
 
-    const investorName = investorLink.find("p").first().text().trim() || investorLink.text().trim() || null;
-
-    const sourceHref = row.find('a[data-framer-name="Source"][href]').first().attr("href")?.trim();
-    const articleUrl = sourceHref ? canonicalizeArticleUrl(sourceHref) : companyPageUrl;
-    if (seen.has(articleUrl)) return undefined;
+    const articleUrl = canonicalizeArticleUrl(startupsGalleryArticleUrl(row));
+    if (seen.has(articleUrl)) continue;
     seen.add(articleUrl);
-
-    const titleParts = [companyName, "raises", amount, round].filter(Boolean);
-    const title = titleParts.length > 1 ? titleParts.join(" ") : companyName || articleUrl;
 
     out.push({
       sourceKey: "STARTUPS_GALLERY_NEWS",
       listingPageUrl: hub,
       articleUrl,
-      title,
+      title: startupsGalleryListingTitle(row),
       publishedAt: validPublishedAt,
       summary: null,
-      presetDeal: companyName
-        ? {
-            company_name: companyName,
-            amount_raw: amount,
-            round_type_raw: round,
-            announced_date: validPublishedAt,
-            lead_investor: investorName,
-          }
-        : null,
+      externalId: row.cmsId ?? null,
+      presetDeal: {
+        company_name: row.companyName,
+        amount_raw: row.amountRaw,
+        round_type_raw: row.roundTypeRaw,
+        announced_date: validPublishedAt,
+        lead_investor: row.leadInvestor,
+        company_website: firstPartyWebsiteFromUrl(row.sourceUrl),
+        company_logo_url: row.logoUrl,
+      },
     });
-    return undefined;
+  }
+  return out;
+}
+
+function listingItemsFromGalleryRows(
+  html: string,
+  since: Date | null,
+  maxItems: number,
+  seenCmsIds?: Set<string>,
+): ListingItem[] {
+  return listingItemsFromGalleryNewsRows(parseStartupsGalleryNewsHtml(html), { since, maxItems, seenCmsIds });
+}
+
+async function loadFramerCollection(
+  moduleUrl: string,
+  log: (s: string) => void,
+): Promise<{ fields: Record<string, string>; records: FramerCmsRecord[]; relatedIds: string[] } | null> {
+  const js = await fetchText(moduleUrl, log);
+  const chunkUrl = discoverFramerCmsChunkUrl(js);
+  if (!chunkUrl) {
+    log(`[startups.gallery] no CMS chunk URL in ${moduleUrl.split("/").pop()}`);
+    return null;
+  }
+  const fields = collectionFieldIdsByTitle(js);
+  const bytes = await fetchBytes(chunkUrl, log);
+  const records = parseFramerCmsChunk(bytes, Object.values(fields));
+  log(`[startups.gallery] CMS ${moduleUrl.split("/").pop()} → ${records.length} record(s)`);
+  return { fields, records, relatedIds: relatedCollectionModuleIds(js) };
+}
+
+function lookupMap(
+  records: FramerCmsRecord[],
+  fields: Record<string, string>,
+  nameTitle: string,
+): Map<string, string> {
+  const nameKey = fields[nameTitle] || fields.Title || fields.Name;
+  const map = new Map<string, string>();
+  for (const rec of records) {
+    const id = typeof rec.id === "string" ? rec.id : null;
+    const name = stringField(rec, nameKey);
+    if (id && name) map.set(id, name);
+  }
+  return map;
+}
+
+async function fetchStartupsGalleryFromCms(
+  html: string,
+  log: (s: string) => void,
+): Promise<StartupsGalleryNewsRow[] | null> {
+  const moduleUrls = listFramerSiteModuleUrls(html);
+  const trackerModule = moduleUrls.find((u) => /c41Fybgm6/i.test(u));
+  if (!trackerModule) {
+    log("[startups.gallery] Funding Tracker module not found in page HTML");
+    return null;
+  }
+  const tracker = await loadFramerCollection(trackerModule, log);
+  if (!tracker || tracker.records.length === 0) return null;
+
+  const companiesId = tracker.relatedIds.find((id) => /Nykn2JMeY/i.test(id)) || "Nykn2JMeY";
+  const stagesId = tracker.relatedIds.find((id) => /Qxqd3ti7u/i.test(id)) || "Qxqd3ti7u";
+  const investorsId = tracker.relatedIds.find((id) => /kvFLVfA2o/i.test(id)) || "kvFLVfA2o";
+
+  const companiesUrl = moduleUrlForCollectionId(moduleUrls, companiesId);
+  const stagesUrl = moduleUrlForCollectionId(moduleUrls, stagesId);
+  const investorsUrl = moduleUrlForCollectionId(moduleUrls, investorsId);
+
+  const companiesCol = companiesUrl ? await loadFramerCollection(companiesUrl, log) : null;
+  const stagesCol = stagesUrl ? await loadFramerCollection(stagesUrl, log) : null;
+  const investorsCol = investorsUrl ? await loadFramerCollection(investorsUrl, log) : null;
+
+  const companies = new Map<string, { name: string; slug: string | null; logoUrl: string | null }>();
+  if (companiesCol) {
+    const nameKey = companiesCol.fields.Name;
+    const slugKey = companiesCol.fields.Slug;
+    for (const rec of companiesCol.records) {
+      const id = typeof rec.id === "string" ? rec.id : null;
+      const name = stringField(rec, nameKey);
+      if (!id || !name) continue;
+      companies.set(id, {
+        name,
+        slug: stringField(rec, slugKey),
+        logoUrl: null,
+      });
+    }
+  }
+
+  const rows = galleryRowsFromFundingTrackerCms(tracker.records, tracker.fields, {
+    companies,
+    stages: stagesCol ? lookupMap(stagesCol.records, stagesCol.fields, "Title") : new Map(),
+    investors: investorsCol ? lookupMap(investorsCol.records, investorsCol.fields, "Name") : new Map(),
   });
+  log(`[startups.gallery] CMS joined ${rows.length} deal row(s)`);
+  return rows;
+}
+
+export type GalleryFetchOptions = {
+  seenCmsIds?: string[];
+};
+
+/**
+ * startups.gallery /news — Framer Funding Tracker CMS chunk (HTTP), with SSR HTML fallback.
+ * Incremental runs skip CMS ids already stored on the source checkpoint.
+ */
+export async function fetchStartupsGalleryNews(
+  since: Date | null,
+  maxItems: number,
+  log: (s: string) => void,
+  options: GalleryFetchOptions = {},
+): Promise<ListingItem[]> {
+  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
+  const html = await fetchText(hub, log);
+  const seenCmsIds = new Set((options.seenCmsIds ?? []).filter(Boolean));
+
+  try {
+    const cmsRows = await fetchStartupsGalleryFromCms(html, log);
+    if (cmsRows && cmsRows.length > 0) {
+      const items = listingItemsFromGalleryNewsRows(cmsRows, { since, maxItems, seenCmsIds });
+      log(`[startups.gallery] CMS listings ${items.length} (seen=${seenCmsIds.size}, max=${maxItems})`);
+      return items;
+    }
+  } catch (e) {
+    log(`[startups.gallery] CMS fetch failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  log("[startups.gallery] falling back to SSR HTML table");
+  let out = listingItemsFromGalleryRows(html, since, maxItems, seenCmsIds);
+  if (out.length === 0) {
+    log("[startups.gallery] row parser found nothing — falling back to link-only parsing");
+    out = parseStartupsGalleryNewsLinks(html, since, maxItems);
+  }
   return out;
 }
 
@@ -414,63 +549,6 @@ function parseStartupsGalleryNewsLinks(html: string, since: Date | null, maxItem
     });
     return undefined;
   });
-  return out;
-}
-
-/**
- * startups.gallery /news — Framer often renders links client-side; cheerio may see an empty shell.
- * When `INGEST_STARTUPS_GALLERY_PLAYWRIGHT=0`, Playwright is skipped (listing may be empty).
- */
-export async function fetchStartupsGalleryNewsPlaywright(
-  since: Date | null,
-  maxItems: number,
-  log: (s: string) => void,
-): Promise<ListingItem[]> {
-  const { chromium } = await import("@playwright/test");
-  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ userAgent: BROWSER_HEADERS["User-Agent"] });
-  try {
-    await page.goto(hub, { waitUntil: "networkidle", timeout: 45_000 });
-    await sleep(2_500);
-    for (let i = 0; i < 8; i++) {
-      await page.evaluate(() => window.scrollBy(0, 900));
-      await sleep(400);
-    }
-    const html = await page.content();
-    const rows = parseStartupsGalleryNewsRows(html, since, maxItems);
-    return rows.length > 0 ? rows : parseStartupsGalleryNewsLinks(html, since, maxItems);
-  } finally {
-    await browser.close();
-  }
-}
-
-/**
- * startups.gallery /news — reads the full Company/Amount/Round/Date/Lead Investor/Source table
- * (`parseStartupsGalleryNewsRows`) so deals carry the same structured data the site shows, not
- * just a company link. Falls back to link-only parsing, then Playwright, so a markup change
- * degrades gracefully instead of losing the source entirely.
- */
-export async function fetchStartupsGalleryNews(since: Date | null, maxItems: number, log: (s: string) => void): Promise<ListingItem[]> {
-  const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
-  const html = await fetchText(hub, log);
-  let out = parseStartupsGalleryNewsRows(html, since, maxItems);
-
-  if (out.length === 0) {
-    log("[startups.gallery] row parser found nothing — falling back to link-only parsing");
-    out = parseStartupsGalleryNewsLinks(html, since, maxItems);
-  }
-
-  if (out.length === 0 && process.env.INGEST_STARTUPS_GALLERY_PLAYWRIGHT !== "0") {
-    log("[startups.gallery] static HTML had no deal rows/links — using Playwright (Framer)");
-    try {
-      out = await fetchStartupsGalleryNewsPlaywright(since, maxItems, log);
-    } catch (e) {
-      log(`[startups.gallery] Playwright failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  } else if (out.length === 0) {
-    log("[startups.gallery] no deal rows/links found (Playwright disabled via INGEST_STARTUPS_GALLERY_PLAYWRIGHT=0)");
-  }
   return out;
 }
 

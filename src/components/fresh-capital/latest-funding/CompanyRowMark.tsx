@@ -1,62 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
 import { prettyWebsiteHost } from "@/lib/latestFundingDisplay";
+import {
+  buildCompanyMarkCandidateUrls,
+  logoProxyUrlsForHost,
+  shouldRejectLoadedMark,
+} from "@/lib/latestFundingMarks";
+import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
 
-function faviconCandidates(host: string): string[] {
-  const h = host.trim().toLowerCase();
-  if (!h) return [];
-
-  const hostCandidates = new Set<string>([h]);
-  if (!h.startsWith("www.")) hostCandidates.add(`www.${h}`);
-  const rootParts = h.split(".");
-  if (rootParts.length >= 2) {
-    const rootHost = rootParts.slice(-2).join(".");
-    hostCandidates.add(rootHost);
-    hostCandidates.add(`www.${rootHost}`);
-  }
-
-  const urls: string[] = [];
-  for (const candidateHost of hostCandidates) {
-    // Primary logo provider.
-    urls.push(`https://img.logo.dev/${encodeURIComponent(candidateHost)}?size=64&format=png&fallback=404`);
-    // Secondary logo provider.
-    urls.push(`https://logo.clearbit.com/${encodeURIComponent(candidateHost)}`);
-    // Fallback provider.
-    urls.push(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(candidateHost)}&sz=128`);
-  }
-  return urls;
-}
-
-function directLogoUrl(url: string | null | undefined): string | null {
-  const t = url?.trim();
-  if (!t || !/^https?:\/\//i.test(t)) return null;
-  try {
-    return new URL(t).toString();
-  } catch {
-    return null;
-  }
-}
-
-export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
+export function EntityRowMark({
+  name,
+  websiteUrl,
+  logoUrl,
+  resetKey,
+}: {
+  name: string;
+  websiteUrl?: string | null;
+  logoUrl?: string | null;
+  resetKey?: string;
+}) {
   const candidates = useMemo(() => {
-    const direct = directLogoUrl(row.companyLogoUrl);
-    return [
-      ...(direct ? [direct] : []),
-      ...faviconCandidates(prettyWebsiteHost(row.websiteUrl) ?? ""),
-    ];
-  }, [row.companyLogoUrl, row.websiteUrl]);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const push = (u: string | null | undefined) => {
+      const t = u?.trim();
+      if (!t || seen.has(t)) return;
+      seen.add(t);
+      out.push(t);
+    };
+    push(sanitizeFirmLogoUrlForDisplay(logoUrl));
+    const host = prettyWebsiteHost(websiteUrl);
+    if (host) {
+      for (const url of logoProxyUrlsForHost(host)) push(url);
+    }
+    return out;
+  }, [logoUrl, websiteUrl]);
   const [attempt, setAttempt] = useState(0);
-  const letter = (row.companyName?.trim().charAt(0) || "?").toUpperCase();
+  const letter = (name?.trim().charAt(0) || "?").toUpperCase();
   const currentSrc = candidates[attempt] ?? null;
 
   useEffect(() => {
     setAttempt(0);
-  }, [row.id, candidates]);
+  }, [resetKey, candidates]);
 
   if (!candidates.length || attempt >= candidates.length) {
     return (
       <span
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[3px] border border-zinc-600/90 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
         aria-hidden
       >
         {letter}
@@ -68,13 +58,68 @@ export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
     <img
       src={currentSrc}
       alt=""
-      width={20}
-      height={20}
-      className="h-5 w-5 shrink-0 rounded-[3px] border border-zinc-600/80 bg-zinc-950 object-contain"
+      width={24}
+      height={24}
+      className="h-6 w-6 shrink-0 rounded-md bg-zinc-950 object-contain"
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setAttempt((i) => i + 1)}
+      onLoad={(event) => {
+        if (shouldRejectLoadedMark(currentSrc, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) {
+          setAttempt((i) => i + 1);
+        }
+      }}
+    />
+  );
+}
+
+export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
+  const candidates = useMemo(
+    () =>
+      buildCompanyMarkCandidateUrls({
+        companyName: row.companyName,
+        logoUrl: row.companyLogoUrl,
+        websiteUrl: row.websiteUrl,
+        sourceUrl: row.sourceUrl,
+      }),
+    [row.companyName, row.companyLogoUrl, row.websiteUrl, row.sourceUrl],
+  );
+  const [attempt, setAttempt] = useState(0);
+  const letter = (row.companyName?.trim().charAt(0) || "?").toUpperCase();
+  const currentSrc = candidates[attempt] ?? null;
+
+  useEffect(() => {
+    setAttempt(0);
+  }, [row.id, candidates]);
+
+  if (!candidates.length || attempt >= candidates.length) {
+    return (
+      <span
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
+        aria-hidden
+      >
+        {letter}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={currentSrc}
+      alt=""
+      width={24}
+      height={24}
+      className="h-6 w-6 shrink-0 rounded-md bg-zinc-950 object-contain"
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setAttempt((i) => i + 1)}
+      onLoad={(event) => {
+        if (shouldRejectLoadedMark(currentSrc, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)) {
+          setAttempt((i) => i + 1);
+        }
+      }}
     />
   );
 }

@@ -23,7 +23,11 @@ export type ListingItem = {
     round_type_raw: string | null;
     announced_date: Date | null;
     lead_investor: string | null;
+    company_website?: string | null;
+    company_logo_url?: string | null;
   } | null;
+  /** Stable CMS / listing id used for incremental checkpoints (startups.gallery). */
+  externalId?: string | null;
 };
 
 export type ExtractedDeal = {

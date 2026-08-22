@@ -6,7 +6,7 @@ import { getCompletionPercent, EMPTY_FORM, sanitizeCompanyData } from "@/compone
 import { safeTrim } from "@/lib/utils";
 import { SectorClassification } from "@/components/SectorTags";
 import { HomeView } from "@/components/dashboard/HomeView";
-import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { GlobalTopNav, type InvestorDirectoryPick } from "@/components/GlobalTopNav";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { VEKTA_OPEN_VC_REVIEW_EVENT, type VcReviewOpenDetail } from "@/lib/vcReviewNavigation";
 import { VEKTA_APP_NAVIGATE_EVENT, type NavigateableAppView } from "@/lib/appShellNavigate";
@@ -14,7 +14,7 @@ import { VEKTA_APP_NAVIGATE_EVENT, type NavigateableAppView } from "@/lib/appShe
 const ConnectionsPage = lazy(() => import("@/components/ConnectionsPage").then((module) => ({ default: module.ConnectionsPage })));
 const SettingsPage = lazy(() => import("@/components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const GroupsView = lazy(() => import("@/components/community/GroupsView").then((module) => ({ default: module.GroupsView })));
-const EventsView = lazy(() => import("@/components/community/EventsView").then((module) => ({ default: module.EventsView })));
+const MarketFundingView = lazy(() => import("@/components/community/MarketFundingView").then((module) => ({ default: module.MarketFundingView })));
 const HelpCenter = lazy(() => import("@/components/HelpCenter").then((module) => ({ default: module.HelpCenter })));
 const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((module) => ({ default: module.DeckAuditView })));
 const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((module) => ({ default: module.CompetitiveBenchmarking })));
@@ -163,6 +163,12 @@ const Index = () => {
   /** Syncs GlobalTopNav investor search UI with CommunityView (investor-search) grid */
   const [investorDirectoryTab, setInvestorDirectoryTab] = useState("all");
   const [investorListQuery, setInvestorListQuery] = useState("");
+  const [investorScrollTo, setInvestorScrollTo] = useState<{
+    vcFirmId: string;
+    filterQuery?: string;
+    personId?: string;
+    nonce: number;
+  } | null>(null);
   const [vcReviewBootstrap, setVcReviewBootstrap] = useState<VcReviewOpenDetail | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsedFromStorage);
 
@@ -413,6 +419,20 @@ const Index = () => {
     if (q.trim()) setActiveView("investor-search");
   }, []);
 
+  const handleInvestorDirectoryPick = useCallback((pick: InvestorDirectoryPick) => {
+    const firmId = safeTrim(pick.vcFirmId);
+    if (!firmId) return;
+    setInvestorDirectoryTab("all");
+    setInvestorListQuery(pick.filterQuery);
+    setActiveView("investor-search");
+    setInvestorScrollTo((prev) => ({
+      vcFirmId: firmId,
+      filterQuery: pick.filterQuery,
+      personId: safeTrim(pick.personId) || undefined,
+      nonce: (prev?.nonce ?? 0) + 1,
+    }));
+  }, []);
+
   const shellStyle = {
     "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "13rem",
   } as CSSProperties;
@@ -440,6 +460,7 @@ const Index = () => {
           onInvestorSearchChipChange={handleInvestorNavChip}
           investorSearchQuery={investorListQuery}
           onInvestorSearchQueryChange={handleInvestorSearchQuery}
+          onInvestorDirectoryPick={handleInvestorDirectoryPick}
           onInvestorSuggestionSelect={handleInvestorSuggestion}
           userSector={companyData?.sector}
           userStage={companyData?.stage}
@@ -581,6 +602,7 @@ const Index = () => {
                 variant={activeView === "investor-search" ? "investor-search" : "directory"}
                 investorTab={activeView === "investor-search" ? investorDirectoryTab : undefined}
                 investorListSearchQuery={activeView === "investor-search" ? investorListQuery : undefined}
+                investorScrollTo={activeView === "investor-search" ? investorScrollTo : undefined}
               />
             </DeferredSection>
           ) : activeView === "connections" ? (
@@ -596,8 +618,8 @@ const Index = () => {
               <GroupsView />
             </DeferredSection>
           ) : activeView === "events" ? (
-            <DeferredSection label="Loading events…">
-              <EventsView />
+            <DeferredSection label="Loading funding…">
+              <MarketFundingView />
             </DeferredSection>
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeferredSection label="Loading deck tools…">

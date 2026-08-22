@@ -7,6 +7,7 @@ import {
 } from "@/integrations/supabase/client";
 import { roundKindStageBucket, formatRoundKind } from "@/lib/latestFundingFilters";
 import { inferWebsiteUrlFromCompanyName, normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
+import { firstPartyWebsiteFromUrl } from "@/lib/latestFundingMarks";
 import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
 
 type RpcRow = {
@@ -52,6 +53,7 @@ function mapConfirmationStatus(
 function mapRow(r: RpcRow): RecentFundingRound {
   const rumorFromRpc = r.rumor_status ?? r.confirmation_status;
   const websiteUrl = normalizeWebsiteUrl(r.website_url)
+    ?? firstPartyWebsiteFromUrl(r.source_url)
     ?? inferWebsiteUrlFromCompanyName(r.company_name)
     ?? "";
   const leadWebsiteUrl = normalizeWebsiteUrl(r.lead_website_url);
@@ -177,7 +179,7 @@ async function fetchRecentFundingFeed(limit: number): Promise<RecentFundingRound
 export type RecentFundingDataSource = "ingest" | "seed_dev" | "ingest_plus_seed" | "seed_fallback";
 
 export function useRecentFundingFeed(options?: { limit?: number; refetchMs?: number }) {
-  const limit = options?.limit ?? 80;
+  const limit = options?.limit ?? 200;
   const refetchMs = options?.refetchMs ?? 120_000;
 
   const query = useQuery({

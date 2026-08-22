@@ -9,7 +9,7 @@ const copy: Record<
 > = {
   filter_mismatch: {
     title: "No recent funding matches this filter.",
-    body: "Try another stage chip or broaden the sector—new deals sync as we ingest announcements.",
+    body: "Clear search, widen amount, or reset filters—new deals sync as we ingest announcements.",
   },
   feed_empty: {
     title: "No funding announcements in the live feed yet.",

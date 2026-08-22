@@ -225,7 +225,8 @@ async function runSource(
   let listingItems;
   try {
     listingItems = await adapter.fetchListing(ctx);
-    listingItems = listingItems.slice(0, maxItems);
+    const cap = source.adapter_key === "startups_gallery" ? Math.max(maxItems, 500) : maxItems;
+    listingItems = listingItems.slice(0, cap);
   } catch (err) {
     const msg = String(err);
     errors.push({ stage: "fetch", url: source.base_url, message: msg });
@@ -251,17 +252,21 @@ async function runSource(
       continue;
     }
 
+    const listingComplete = Boolean(listingItem.presetDeal?.company_name);
+
     // ── Fetch detail page ────────────────────────────────────────────────
     let docText = "";
     let httpStatus = 0;
     let fetchError: string | null = null;
 
     try {
-      const fetchResult = await ctx.fetchUrl(listingItem.url);
-      docText    = fetchResult.text;
-      httpStatus = fetchResult.status;
-      if (!fetchResult.ok) {
-        fetchError = `HTTP ${fetchResult.status}: ${fetchResult.error ?? ""}`;
+      if (!listingComplete) {
+        const fetchResult = await ctx.fetchUrl(listingItem.url);
+        docText    = fetchResult.text;
+        httpStatus = fetchResult.status;
+        if (!fetchResult.ok) {
+          fetchError = `HTTP ${fetchResult.status}: ${fetchResult.error ?? ""}`;
+        }
       }
     } catch (err) {
       fetchError = String(err);
@@ -281,8 +286,8 @@ async function runSource(
       raw_html:       docText.slice(0, 500_000), // cap at 500KB
       content_hash:   contentHash,
       fetched_at:     new Date().toISOString(),
-      parse_status:   fetchError ? "failed" as const : "pending" as const,
-      parse_error:    fetchError,
+      parse_status:   fetchError && !listingComplete ? "failed" as const : "pending" as const,
+      parse_error:    listingComplete ? null : fetchError,
       parser_version: "1.0.0",
     };
 
@@ -303,7 +308,7 @@ async function runSource(
       docId = newDoc.id;
     }
 
-    if (fetchError) {
+    if (fetchError && !listingComplete) {
       errors.push({ stage: "fetch", url: listingItem.url, message: fetchError });
       await logError(db, runId, source.id, docId, "fetch", fetchError, listingItem.url);
       continue;
@@ -448,6 +453,9 @@ function normalizeCandidate(
   const lead_investor_normalized = normalizeInvestorName(raw.lead_investor_raw);
   const sector_normalized = normalizeSector(raw.sector_raw);
   const company_website = normalizeUrl(raw.company_website_raw);
+  const metaLogo = raw.extraction_metadata?.logo_url;
+  const company_logo_url =
+    typeof metaLogo === "string" && /^https?:\/\//i.test(metaLogo.trim()) ? metaLogo.trim() : null;
 
   const dedupe_key = buildDedupeKey(
     normalized_company_name,
@@ -467,6 +475,7 @@ function normalizeCandidate(
     normalized_company_name,
     company_domain,
     company_website,
+    company_logo_url,
     company_location:         raw.company_location_raw ?? null,
     sector_raw:               raw.sector_raw,
     sector_normalized,

@@ -1697,6 +1697,29 @@ model SourceArticle {
   @@map("source_articles")
 }
 
+/// Shared raw listing cache for GHA ingest jobs (TechCrunch / AlleyWatch RSS, etc.).
+/// Distinct from `source_articles`, which is processed extraction state.
+model RawSourceArticle {
+  id            String                 @id @default(cuid())
+  source_key    FundingIngestSourceKey
+  canonical_url String
+  article_url   String
+  listing_url   String?
+  title         String
+  published_at  DateTime?              @db.Timestamptz(6)
+  summary       String?                @db.Text
+  raw_payload   Json
+  content_hash  String                 @db.VarChar(128)
+  fetched_at    DateTime               @default(now()) @db.Timestamptz(6)
+  created_at    DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime               @updatedAt @db.Timestamptz(6)
+
+  @@unique([source_key, canonical_url])
+  @@index([source_key, published_at])
+  @@index([source_key, fetched_at])
+  @@map("raw_source_articles")
+}
+
 /// Structured deal extracted from an article (one slot per article for v1; extend slot_index for multi-deal posts).
 model FundingDeal {
   id                String        @id @default(cuid())

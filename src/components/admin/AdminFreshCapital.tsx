@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FreshCapitalEnrichmentAdmin } from "./FreshCapitalEnrichmentAdmin";
+import { FreshCapitalPublicPathsAdmin } from "./FreshCapitalPublicPathsAdmin";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -429,9 +431,8 @@ function LinkField({ label, value, onChange, placeholder }: {
       </div>
       {href ? (
         <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
+          href={formatOutboundUrl(href, "admin")}
+          {...EXTERNAL_SOURCE_LINK_ATTRS}
           className="mb-px inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded border transition-colors hover:bg-white/10"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
           aria-label={`Open ${label}`}
@@ -1030,7 +1031,7 @@ function FreshFundEditPanel({
     const label = draft.fund_name?.trim() || row.fund_name || "this fund";
     if (
       !window.confirm(
-        `Remove this fund from Fund Watch?\n\n${label}\n\nThe vehicle is soft-deleted (vc_funds.deleted_at). It will disappear from the public feed.`,
+        `Remove this fund from New Funds?\n\n${label}\n\nThe vehicle is soft-deleted (vc_funds.deleted_at). It will disappear from the public feed.`,
       )
     ) {
       return;
@@ -1042,7 +1043,7 @@ function FreshFundEditPanel({
       toast.error(`Delete failed: ${error}`);
       return;
     }
-    toast.success("Fund removed from Fund Watch");
+    toast.success("Fund removed from New Funds");
     onDeleted(row.id);
   };
 
@@ -1061,7 +1062,7 @@ function FreshFundEditPanel({
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div>
-          <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: "#2EE6A6" }}>Edit Fund Watch Row</p>
+          <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: "#2EE6A6" }}>Edit New Funds Row</p>
           <p className="text-[13px] font-semibold text-white/80 mt-0.5 truncate max-w-[350px]">
             {draft.firm_name ?? "Unknown firm"} · {draft.fund_name}
           </p>
@@ -1555,9 +1556,9 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
     <div className="flex flex-col gap-6 h-full">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-white/90">Fresh Capital Fund Watch</h1>
+          <h1 className="text-lg font-semibold text-white/90">Fresh Capital New Funds</h1>
           <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Edits the public /fresh-capital Fund Watch rows from vc_funds + firm_records.
+            Edits the public /fresh-capital New Funds rows from vc_funds + firm_records.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1581,6 +1582,8 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
           </button>
         </div>
       </div>
+
+      <FreshCapitalPublicPathsAdmin />
 
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -1801,6 +1804,8 @@ function LatestFundingDealsAdmin() {
         </div>
       </div>
 
+      <FreshCapitalPublicPathsAdmin />
+
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
@@ -1996,7 +2001,7 @@ export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) 
         style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
       >
         {[
-          ["funds", "Fund Watch"],
+          ["funds", "New Funds"],
           ["deals", "Latest Funding"],
           ["enrichment", "Enrichment"],
         ].map(([key, label]) => {

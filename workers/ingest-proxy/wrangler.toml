@@ -1,0 +1,6 @@
+name = "vekta-ingest-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-08-21"
+
+[vars]
+ALLOWED_HOSTS = "geekwire.com,www.geekwire.com"

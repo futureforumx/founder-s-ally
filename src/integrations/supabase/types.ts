@@ -3996,6 +3996,7 @@ export type Database = {
       }
       fresh_capital_enrichment_settings: {
         Row: {
+          disabled_source_keys: string[]
           fund_watch_schedule_note: string | null
           fund_watch_source_keys: string | null
           id: string
@@ -4004,6 +4005,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          disabled_source_keys?: string[]
           fund_watch_schedule_note?: string | null
           fund_watch_source_keys?: string | null
           id?: string
@@ -4012,11 +4014,36 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          disabled_source_keys?: string[]
           fund_watch_schedule_note?: string | null
           fund_watch_source_keys?: string | null
           id?: string
           latest_funding_schedule_note?: string | null
           process_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fresh_capital_public_paths: {
+        Row: {
+          created_at: string
+          destination: string
+          id: string
+          path_slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          destination: string
+          id?: string
+          path_slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          destination?: string
+          id?: string
+          path_slug?: string
           updated_at?: string
         }
         Relationships: []
@@ -7454,6 +7481,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      raw_source_articles: {
+        Row: {
+          article_url: string
+          canonical_url: string
+          content_hash: string
+          created_at: string
+          fetched_at: string
+          id: string
+          listing_url: string | null
+          published_at: string | null
+          raw_payload: Json
+          source_key: Database["public"]["Enums"]["FundingIngestSourceKey"]
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          article_url: string
+          canonical_url: string
+          content_hash: string
+          created_at?: string
+          fetched_at?: string
+          id: string
+          listing_url?: string | null
+          published_at?: string | null
+          raw_payload: Json
+          source_key: Database["public"]["Enums"]["FundingIngestSourceKey"]
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          article_url?: string
+          canonical_url?: string
+          content_hash?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          listing_url?: string | null
+          published_at?: string | null
+          raw_payload?: Json
+          source_key?: Database["public"]["Enums"]["FundingIngestSourceKey"]
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       recommendations: {
         Row: {

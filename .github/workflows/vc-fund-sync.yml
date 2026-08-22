@@ -1,9 +1,10 @@
 # Daily VC fund ingestion pipeline.
 #
-# Runs at 07:00 UTC — one hour before the company funding-ingest workflow
-# (08:00/09:00 UTC) so the two pipelines don't compete for CPU/network.
+# Runs at 07:00 UTC. Shared TechCrunch / AlleyWatch RSS is cached into
+# raw_source_articles first so funding-ingest can reuse the same payloads.
 #
 # Required repo secrets:
+#   DATABASE_URL               – Prisma / raw_source_articles
 #   VITE_SUPABASE_URL          – Supabase project URL (shared.ts maps this to SUPABASE_URL)
 #   SUPABASE_SERVICE_ROLE_KEY  – Service-role key for upsert / sync-run logging
 #
@@ -54,12 +55,18 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright (authenticated provider enrichment)
         run: npx playwright install --with-deps chromium
+
+      - name: Cache shared RSS feeds
+        run: pnpm run ingest:shared-feeds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Run VC fund daily sync
         run: pnpm run vc:fund-sync:daily
         env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           VC_FUND_DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}

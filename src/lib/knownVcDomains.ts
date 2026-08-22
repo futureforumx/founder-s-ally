@@ -88,6 +88,10 @@ export const KNOWN_VC_DOMAIN_BY_FIRM_NAME: Record<string, string> = {
   "general atlantic": "generalatlantic.com",
   "hummer winblad": "humwin.com",
   "idc ventures": "idcventures.com",
+  "nexus venture partners": "nexusvp.com",
+  nexus: "nexusvp.com",
+  "stellaris venture partners": "stellarisvp.com",
+  stellaris: "stellarisvp.com",
 };
 
 export function lookupKnownVcDomain(firmName: string | null | undefined): string | null {

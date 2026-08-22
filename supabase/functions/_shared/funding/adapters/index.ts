@@ -14,6 +14,7 @@ import { TechCrunchAdapter }      from "./techcrunch.ts";
 import { Venture5Adapter }        from "./venture5.ts";
 import { VcStackAdapter }         from "./vcstack.ts";
 import { CrunchbaseAdapter }      from "./crunchbase.ts";
+import { RssAdapter }             from "./rss.ts";
 
 export const ADAPTER_REGISTRY: Record<string, SourceAdapter> = {
   [StartupsGalleryAdapter.key]: StartupsGalleryAdapter,
@@ -22,6 +23,7 @@ export const ADAPTER_REGISTRY: Record<string, SourceAdapter> = {
   [Venture5Adapter.key]:        Venture5Adapter,
   [VcStackAdapter.key]:         VcStackAdapter,
   [CrunchbaseAdapter.key]:      CrunchbaseAdapter,
+  [RssAdapter.key]:             RssAdapter,
 };
 
 export function getAdapter(key: string): SourceAdapter | undefined {

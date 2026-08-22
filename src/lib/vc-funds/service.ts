@@ -5,6 +5,7 @@ import {
   computeCorroborationScore,
   computeFreshCapitalPriorityScore,
   isTrustedStructuredSource,
+  isLiveCuratedStructuredSource,
   normalizeAnnouncementDate,
   scoreCandidateCapitalEvent,
   statusFromCandidateScore,
@@ -23,7 +24,11 @@ import {
 } from "./matching";
 import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
-import { getSourcePriority } from "./sourcePriority";
+import {
+  DEAL_MATCH_WINDOW_DAYS,
+  fundAnnouncementQualityTier,
+  scoreFundIdentityMatch,
+} from "@/lib/ingestEntityMatch";
 import type {
   CandidateCapitalEventDraft,
   CandidateCapitalEventEvidence,
@@ -164,14 +169,17 @@ function canonicalizeFundDisplayName(firmName: string, chosenFundName: string, s
   return stripRedundantFirmPrefixFromFundName(firmName, trimmed);
 }
 
-function announcementSourcePriority(item: Pick<ExtractedFundAnnouncement, "sourceType" | "sourceUrl" | "sourcePublisher" | "sourceTitle" | "announcedDate" | "closeDate" | "confidence">): number {
+function announcementSourcePriority(item: Pick<ExtractedFundAnnouncement, "sourceType" | "sourceUrl" | "sourcePublisher" | "sourceTitle" | "announcedDate" | "closeDate" | "confidence" | "metadata">): number {
   const url = (item.sourceUrl || "").toLowerCase();
   const publisher = (item.sourcePublisher || "").toLowerCase();
   const title = (item.sourceTitle || "").toLowerCase();
+  const tier = fundAnnouncementQualityTier(item);
 
   if (item.sourceType === "official_website") return 400;
-  if (/techcrunch\.com|geekwire\.com/.test(url) || /\btechcrunch\b|\bgeekwire\b/.test(publisher)) return 300;
-  if (item.sourceType === "press_release" || /\bpr newswire\b|\bbusiness wire\b|\bglobenewswire\b|\baccesswire\b/.test(publisher)) return 200;
+  if (item.sourceType === "sec_filing" || item.sourceType === "adv_filing" || item.sourceType === "structured_provider") return 360;
+  if (tier === 2 || /techcrunch\.com|alleywatch\.com/.test(url) || /\btechcrunch\b|\balleywatch\b/.test(publisher)) return 300;
+  if (item.sourceType === "press_release" || /\bpr newswire\b|\bbusiness wire\b|\bglobenewswire\b|\baccesswire\b/.test(publisher)) return 180;
+  if (/geekwire\.com/.test(url) || /\bgeekwire\b/.test(publisher)) return 170;
   if (item.sourceType === "news_article") return 150;
   if (/#verified-profile\b/.test(url) || /\bprofile on\b/.test(title) || /\bsignal nfx\b|\bcb insights\b|\btracxn\b/.test(publisher)) return 25;
   return 100;
@@ -277,9 +285,10 @@ function allowsStructuredVerificationBypass(
   firmMatchConfidence: number,
   hasCanonicalFirmLink: boolean,
 ): boolean {
-  if (firmMatchConfidence < 0.9) return false;
   if (!items.length) return false;
   if (!items.every((item) => isTrustedStructuredSource(item))) return false;
+  const liveCurated = items.every((item) => isLiveCuratedStructuredSource(item));
+  if (!liveCurated && firmMatchConfidence < 0.9) return false;
   const hasDate = items.some((item) => Boolean(item.announcedDate || item.closeDate));
   const hasSize = items.some((item) => typeof (item.finalSizeUsd ?? item.targetSizeUsd ?? item.fundSize) === "number");
   const hasLabel = items.some((item) => {
@@ -744,8 +753,25 @@ export class FundSyncService {
     const independentSourceCount = new Set(hydrated.map((item) => `${item.sourceType}:${item.sourcePublisher || "unknown"}`)).size;
     const officialSourcePresent = hydrated.some((item) => item.sourceType === "official_website");
 
-    const firmRanking = await this.rankCandidateFirmMatches(candidate, hydrated);
-    if (firmRanking.length > 1 && firmRanking[0].confidence >= 0.8 && firmRanking[1].confidence >= 0.8 && Math.abs(firmRanking[0].confidence - firmRanking[1].confidence) <= 0.06) {
+    const firmRankingRaw = await this.rankCandidateFirmMatches(candidate, hydrated);
+    const liveStructured =
+      /shai goldman/i.test(String(candidate.publisher || "")) ||
+      (hydrated.length > 0 && hydrated.every((item) => isLiveCuratedStructuredSource(item)));
+    const sourceFirmName = candidateSourceFirmName(candidate);
+    const firmRanking = liveStructured
+      ? [...firmRankingRaw].sort(
+          (left, right) =>
+            normalizedTokenSimilarity(sourceFirmName, right.firm.firm_name) -
+            normalizedTokenSimilarity(sourceFirmName, left.firm.firm_name),
+        )
+      : firmRankingRaw;
+    const ambiguousCanonicalFirms =
+      !liveStructured &&
+      firmRanking.length > 1 &&
+      firmRanking[0].confidence >= 0.8 &&
+      firmRanking[1].confidence >= 0.8 &&
+      Math.abs(firmRanking[0].confidence - firmRanking[1].confidence) <= 0.06;
+    if (ambiguousCanonicalFirms) {
       await this.sendCandidateToReview(candidate, "Multiple plausible canonical firms", {
         conflictingFields: ["firm_record_id"],
         suggestedMatches: firmRanking.slice(0, 3).map((entry) => ({ id: entry.firm.id, firm_name: entry.firm.firm_name, confidence: entry.confidence })),
@@ -803,7 +829,10 @@ export class FundSyncService {
     }
 
     const targetStatus =
-      score >= CAPITAL_EVENT_THRESHOLDS.autoVerify && (corroborationScore >= CAPITAL_EVENT_THRESHOLDS.minCorroborationScore || officialSourcePresent || structuredBypass)
+      structuredBypass || (
+        score >= CAPITAL_EVENT_THRESHOLDS.autoVerify &&
+        (corroborationScore >= CAPITAL_EVENT_THRESHOLDS.minCorroborationScore || officialSourcePresent)
+      )
         ? "verified"
         : score >= CAPITAL_EVENT_THRESHOLDS.escalate
           ? "escalated"
@@ -1074,7 +1103,7 @@ export class FundSyncService {
       return { fundId: "", wasUpdate: false, attachedSources: 0, linkedPeople: 0, emittedSignals: 0, firmMatched: false, sentToReview: true };
     }
 
-    const structuredSourceOnly = grouped.every((item) => isTrustedStructuredVerificationSource(item));
+    const structuredSourceOnly = grouped.every((item) => isTrustedStructuredSource(item));
     if (structuredSourceOnly && !groupedFundLabelAlignsWithFirm(grouped, firm)) {
       await this.sendCandidateToReview(candidate, "Structured source fund label diverges from matched firm");
       return { fundId: "", wasUpdate: false, attachedSources: 0, linkedPeople: 0, emittedSignals: 0, firmMatched: true, sentToReview: true };
@@ -1100,9 +1129,30 @@ export class FundSyncService {
     }
 
     const overlapping = await this.findOverlappingCandidateFunds(candidate, firm.id);
-    if (overlapping.length > 0) {
+    const conflicting = overlapping.filter((row) => {
+      const match = scoreFundIdentityMatch(
+        {
+          firmName: candidate.raw_firm_name,
+          firmRecordId: firm.id,
+          fundLabel: candidate.normalized_fund_label,
+          sequenceNumber: candidate.fund_sequence_number,
+          sizeUsd: candidate.size_amount,
+          announcedDate: candidate.announced_date,
+        },
+        {
+          firmName: candidate.raw_firm_name,
+          firmRecordId: firm.id,
+          fundLabel: row.normalized_fund_label,
+          sequenceNumber: row.fund_sequence_number,
+          sizeUsd: null,
+          announcedDate: row.announced_date,
+        },
+      );
+      return !match.isMatch;
+    });
+    if (conflicting.length > 0) {
       await this.sendCandidateToReview(candidate, "Same firm has overlapping candidate funds that may be duplicate or misparsed", {
-        suggestedMatches: overlapping.map((row) => ({
+        suggestedMatches: conflicting.map((row) => ({
           id: row.id,
           cluster_key: row.cluster_key,
           normalized_fund_label: row.normalized_fund_label,
@@ -1651,7 +1701,9 @@ export class FundSyncService {
       .limit(1)
       .maybeSingle();
 
-    if (!existingCluster) {
+    const matchedCluster = existingCluster || (await this.findRecentMatchingCandidate(draft));
+
+    if (!matchedCluster) {
       const { data: inserted, error } = await this.supabase
         .from("candidate_capital_events")
         .insert({
@@ -1703,9 +1755,9 @@ export class FundSyncService {
       return { action: "inserted_cluster", candidateId: inserted.id, score: draft.confidenceScore, status: draft.status };
     }
 
-    await this.insertCandidateEvidence(existingCluster.id, evidence);
-    const evidenceRows = await this.loadCandidateEvidence(existingCluster.id);
-    const hydrated = this.hydrateAnnouncementsFromEvidence(existingCluster as CandidateRow, evidenceRows);
+    await this.insertCandidateEvidence(matchedCluster.id, evidence);
+    const evidenceRows = await this.loadCandidateEvidence(matchedCluster.id);
+    const hydrated = this.hydrateAnnouncementsFromEvidence(matchedCluster as CandidateRow, evidenceRows);
     const corroborationCount = hydrated.length;
     const sourceDiversity = new Set(evidenceRows.map((row) => `${row.publisher || ""}:${row.source_type}`)).size;
     const independentSourceCount = new Set(evidenceRows.map((row) => `${row.source_type}:${hostish(row.source_url || row.publisher || "")}`)).size;
@@ -1714,7 +1766,7 @@ export class FundSyncService {
     const conflictPenalty = computeConflictPenalty(hydrated);
     const score = scoreCandidateCapitalEvent({
       item: hydrated[0],
-      firm: existingCluster.firm_record_id ? { id: existingCluster.firm_record_id, firm_name: existingCluster.raw_firm_name } as FirmRecordLookup : null,
+      firm: matchedCluster.firm_record_id ? { id: matchedCluster.firm_record_id, firm_name: matchedCluster.raw_firm_name } as FirmRecordLookup : null,
       firmMatchConfidence,
       corroborationCount,
       officialSourcePresent,
@@ -1722,7 +1774,7 @@ export class FundSyncService {
       conflictPenalty,
       independentSourceCount,
     });
-    const clusterAgeDays = Math.max(0, Math.round((Date.now() - new Date(existingCluster.first_seen_at || existingCluster.created_at || Date.now()).getTime()) / 86400000));
+    const clusterAgeDays = Math.max(0, Math.round((Date.now() - new Date(matchedCluster.first_seen_at || matchedCluster.created_at || Date.now()).getTime()) / 86400000));
     let status = statusFromCandidateScore(score);
     const trustedStructured = isTrustedStructuredSource(hydrated[0]);
     if (
@@ -1748,7 +1800,7 @@ export class FundSyncService {
       raw_text: leadEvidence.raw_text,
       confidence_score: score,
       confidence_breakdown: {
-        ...(existingCluster.confidence_breakdown || {}),
+        ...(matchedCluster.confidence_breakdown || {}),
         corroboration_count: corroborationCount,
         corroboration_score: corroborationScore,
         conflict_penalty: conflictPenalty,
@@ -1760,22 +1812,59 @@ export class FundSyncService {
       source_diversity: sourceDiversity,
       official_source_present: officialSourcePresent,
       latest_seen_at: new Date().toISOString(),
-      status: existingCluster.status === "promoted" ? "promoted" : existingCluster.status === "verified" ? "verified" : status,
+      status: matchedCluster.status === "promoted" ? "promoted" : matchedCluster.status === "verified" ? "verified" : status,
       review_reason: status === "review" ? "Conflicting corroboration or stale escalated cluster" : null,
       metadata: {
-        ...(existingCluster.metadata || {}),
+        ...(matchedCluster.metadata || {}),
         source_urls: Array.from(new Set(evidenceRows.map((row) => row.source_url))),
         cluster_age_days: clusterAgeDays,
       },
-    }).eq("id", existingCluster.id);
+    }).eq("id", matchedCluster.id);
     if (error) throw new Error(`Failed to update candidate cluster: ${error.message}`);
     if (status === "review") {
-      await this.sendCandidateToReview(existingCluster as CandidateRow, "Conflicting corroboration or stale escalated cluster", {
+      await this.sendCandidateToReview(matchedCluster as CandidateRow, "Conflicting corroboration or stale escalated cluster", {
         conflictingFields: conflictPenalty > 0.35 ? ["size_amount", "announced_date", "fund_sequence_number"] : ["latest_seen_at"],
         evidenceRows,
       });
     }
-    return { action: "updated_cluster", candidateId: existingCluster.id, score, status };
+    return { action: "updated_cluster", candidateId: matchedCluster.id, score, status };
+  }
+
+  private async findRecentMatchingCandidate(draft: CandidateCapitalEventDraft) {
+    const since = new Date(Date.now() - DEAL_MATCH_WINDOW_DAYS * 86_400_000).toISOString();
+    let query = this.supabase
+      .from("candidate_capital_events")
+      .select("*")
+      .in("status", ["pending", "review", "escalated", "verifying", "verified", "promoted"])
+      .gte("latest_seen_at", since)
+      .order("latest_seen_at", { ascending: false })
+      .limit(40);
+    if (draft.firmRecordId) query = query.eq("firm_record_id", draft.firmRecordId);
+    else if (draft.normalizedFirmName) query = query.eq("normalized_firm_name", draft.normalizedFirmName);
+    const { data, error } = await query;
+    if (error || !data?.length) return null;
+    for (const row of data) {
+      const match = scoreFundIdentityMatch(
+        {
+          firmName: row.raw_firm_name,
+          firmRecordId: row.firm_record_id,
+          fundLabel: row.normalized_fund_label,
+          sequenceNumber: row.fund_sequence_number,
+          sizeUsd: row.size_amount,
+          announcedDate: row.announced_date,
+        },
+        {
+          firmName: draft.rawFirmName,
+          firmRecordId: draft.firmRecordId,
+          fundLabel: draft.normalizedFundLabel,
+          sequenceNumber: draft.fundSequenceNumber,
+          sizeUsd: draft.sizeAmount,
+          announcedDate: draft.announcedDate,
+        },
+      );
+      if (match.isMatch) return row;
+    }
+    return null;
   }
 
   private async insertCandidateEvidence(candidateId: string, evidence: CandidateCapitalEventEvidence) {
@@ -1804,7 +1893,9 @@ export class FundSyncService {
       .limit(options.maxItems ?? 200);
     if (options.firmId) query = query.eq("firm_record_id", options.firmId);
     if (options.clusterKey) query = query.eq("cluster_key", options.clusterKey);
-    if (options.dateFrom) query = query.gte("published_at", options.dateFrom);
+    if (options.dateFrom) {
+      query = query.or(`published_at.gte.${options.dateFrom},published_at.is.null`);
+    }
     if (options.dateTo) query = query.lte("published_at", options.dateTo);
     const { data, error } = await query;
     if (error) throw new Error(`Failed to load promotable candidates: ${error.message}`);

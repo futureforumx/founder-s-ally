@@ -1,16 +1,28 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
+import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { isSupabaseConfigured } from "@/integrations/supabase/client";
-import { buildDedupedSectorChoices, filterLatestFundingRows } from "@/lib/latestFundingFilters";
+import { buildVcFirmMatchIndex, resolveMatchedVcFirm } from "@/lib/fundingFeedEntityMatch";
+import {
+  applyLatestFundingTableFilters,
+  buildDedupedRoundChoices,
+  buildDedupedSectorChoices,
+  filterLatestFundingRows,
+  latestFundingFiltersAreDefault,
+  parseCustomAmountInput,
+  type LatestFundingAmountPreset,
+  type LatestFundingDateSort,
+} from "@/lib/latestFundingFilters";
 import type { FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
 import { cn } from "@/lib/utils";
 
 import { FundingFeedEmptyState } from "./FundingFeedEmptyState";
-import { FundingFeedRow } from "./FundingFeedRow";
+import { LatestFundingFilterBar } from "./LatestFundingFilterBar";
+import { FundingFeedRow, LATEST_FUNDING_TABLE, LatestFundingTableHeader } from "./FundingFeedRow";
 import { FundingFeedSkeleton } from "./FundingFeedSkeleton";
 
 const PANEL = cn(
-  "rounded-2xl border border-zinc-800 bg-[#000000] shadow-lg shadow-black/50 backdrop-blur-sm",
+  "overflow-hidden rounded-2xl border border-zinc-800 bg-[#000000] shadow-lg shadow-black/50 backdrop-blur-sm",
 );
 
 type Props = {
@@ -21,12 +33,56 @@ type Props = {
 };
 
 export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) {
-  const { rows: sourceRows, isLoading, error, ingestEmpty, dataSource } = useRecentFundingFeed({ limit: 120 });
+  const { rows: sourceRows, isLoading, error, ingestEmpty, dataSource } = useRecentFundingFeed({ limit: 200 });
+  const { firms } = useVCDirectory();
+  const leadFirmIndex = useMemo(() => buildVcFirmMatchIndex(firms), [firms]);
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedRounds, setSelectedRounds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [amountPreset, setAmountPreset] = useState<LatestFundingAmountPreset>("all");
+  const [customMinInput, setCustomMinInput] = useState("");
+  const [customMaxInput, setCustomMaxInput] = useState("");
+  const [dateSort, setDateSort] = useState<LatestFundingDateSort>("newest");
 
-  const filtered = useMemo(
+  const parentFiltered = useMemo(
     () => filterLatestFundingRows(sourceRows, stage, sector),
     [sourceRows, stage, sector],
   );
+  const customMinUsd = useMemo(() => parseCustomAmountInput(customMinInput), [customMinInput]);
+  const customMaxUsd = useMemo(() => parseCustomAmountInput(customMaxInput), [customMaxInput]);
+  const filtersAreDefault = latestFundingFiltersAreDefault({
+    query: searchQuery,
+    sectors: selectedSectors,
+    rounds: selectedRounds,
+    amountPreset,
+    dateSort,
+  });
+
+  const roundChoices = useMemo(() => buildDedupedRoundChoices(sourceRows), [sourceRows]);
+
+  const filtered = useMemo(
+    () =>
+      applyLatestFundingTableFilters(parentFiltered, {
+        query: searchQuery,
+        sectors: selectedSectors,
+        rounds: selectedRounds,
+        amountPreset,
+        customMinUsd,
+        customMaxUsd,
+        dateSort,
+      }),
+    [parentFiltered, searchQuery, selectedSectors, selectedRounds, amountPreset, customMinUsd, customMaxUsd, dateSort],
+  );
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedSectors([]);
+    setSelectedRounds([]);
+    setAmountPreset("all");
+    setCustomMinInput("");
+    setCustomMaxInput("");
+    setDateSort("newest");
+  };
 
   /** Deduplicated sector labels (clustered) from the live feed for the parent sector Select. */
   const availableSectors = useMemo(() => {
@@ -63,7 +119,7 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
   }, [dataSource, filtered.length, sourceRows.length, ingestEmpty, error]);
 
   return (
-    <div className={cn("overflow-hidden", PANEL)}>
+    <div className={PANEL}>
       {rpcDegraded ? (
         <div className="border-b border-zinc-800 bg-[#0f0f0f] px-4 py-2.5 text-center text-[11px] leading-relaxed text-[#b3b3b3]">
           Couldn&apos;t load live funding announcements (network or database error). Nothing below is substituted
@@ -71,27 +127,50 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
         </div>
       ) : null}
 
+      <LatestFundingFilterBar
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        sectorChoices={availableSectors}
+        selectedSectors={selectedSectors}
+        onSectorsChange={setSelectedSectors}
+        roundChoices={roundChoices}
+        selectedRounds={selectedRounds}
+        onRoundsChange={setSelectedRounds}
+        amountPreset={amountPreset}
+        onAmountPresetChange={setAmountPreset}
+        customMinInput={customMinInput}
+        customMaxInput={customMaxInput}
+        onCustomMinInputChange={setCustomMinInput}
+        onCustomMaxInputChange={setCustomMaxInput}
+        customMinUsd={customMinUsd}
+        customMaxUsd={customMaxUsd}
+        dateSort={dateSort}
+        onDateSortChange={setDateSort}
+        filtersAreDefault={filtersAreDefault}
+        onReset={resetFilters}
+      />
+
       {showSkeleton ? (
-        <FundingFeedSkeleton />
+        <div className="overflow-x-auto">
+          <FundingFeedSkeleton />
+        </div>
       ) : filtered.length === 0 ? (
         <FundingFeedEmptyState variant={emptyVariant} />
       ) : (
-        <>
-          <div className="hidden grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] gap-3 border-b border-zinc-800 bg-[#0a0a0a] px-4 py-2.5 text-2xs font-semibold uppercase tracking-wide text-[#b3b3b3] md:grid">
-            <span>Company</span>
-            <span>Round</span>
-            <span className="text-right">Amount</span>
-            <span>Announced</span>
-            <span>Sector</span>
-            <span>Lead</span>
-            <span>Co-investors</span>
-          </div>
-          <ul className="divide-y divide-zinc-800">
-            {filtered.map((row) => (
-              <FundingFeedRow key={row.id} row={row} />
-            ))}
-          </ul>
-        </>
+        <div className="overflow-x-auto">
+          <table className={LATEST_FUNDING_TABLE}>
+            <LatestFundingTableHeader />
+            <tbody>
+              {filtered.map((row) => (
+                <FundingFeedRow
+                  key={row.id}
+                  row={row}
+                  leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

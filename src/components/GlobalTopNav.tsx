@@ -186,19 +186,19 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   directory: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Overview", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
-    { id: "events", label: "Events" },
+    { id: "events", label: "Funding" },
   ]},
   connections: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Connection" },
   network: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Market" },
   groups: { section: "Community", label: "Groups", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
-    { id: "events", label: "Events" },
+    { id: "events", label: "Funding" },
   ]},
-  events: { section: "Community", label: "Events", siblings: [
+  events: { section: "Community", label: "Funding", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
-    { id: "events", label: "Events" },
+    { id: "events", label: "Funding" },
   ]},
   messages: { section: "Community", label: "Messages" },
   "market-intelligence": { section: "Activity", label: "Brief" },
@@ -231,6 +231,7 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         `Investors writing ${st} checks`,
       ];
     case "investor-funding":
+    case "events":
       return [
         `${s} startups that raised this month`,
         `Latest ${st} venture rounds`,
@@ -323,11 +324,13 @@ type SearchDropdownRow =
 
 type InvestorTypeaheadRow = Extract<SearchDropdownRow, { kind: "firm" } | { kind: "person" }>;
 
-/** Passed when user picks a firm or person in investor typeahead so the directory can scroll to the firm card. */
+/** Passed when user picks a firm or person in investor typeahead so the directory can open the firm card. */
 export type InvestorDirectoryPick = {
   vcFirmId: string;
   /** Applied to the investor grid text filter (firm name; for people, their fund name). */
   filterQuery: string;
+  /** When the pick is a partner/person row, open their profile instead of only the firm. */
+  personId?: string;
 };
 
 function buildInvestorDirectoryPick(
@@ -338,7 +341,7 @@ function buildInvestorDirectoryPick(
     return { vcFirmId: row.id, filterQuery: row.name };
   }
   const firmName = firmMap.get(row.firmId)?.name || row.subtitle || row.name;
-  return { vcFirmId: row.firmId, filterQuery: firmName };
+  return { vcFirmId: row.firmId, filterQuery: firmName, personId: row.id };
 }
 
 const MOST_RELATED_CAP = 5;
@@ -499,7 +502,7 @@ const MISSION_CONTROL_SEGMENTS: { id: ViewType; label: string }[] = [
 const COMMUNITY_SEGMENTS: { id: "network" | "groups" | "events"; label: string }[] = [
   { id: "network", label: "Overview" },
   { id: "groups", label: "Groups" },
-  { id: "events", label: "Events" },
+  { id: "events", label: "Funding" },
 ];
 
 /** Light purple focus ring on the active top-nav tab / segment (matches VEKTA accent, restrained). */
@@ -1011,16 +1014,21 @@ export function GlobalTopNav({
         const row = searchDropdownRows[highlightIdx];
         if (row?.kind === "ai") {
           onInvestorSuggestionSelect?.(row.suggestion);
+          setSearchOpen(false);
+          setHighlightIdx(0);
+          onOpenCommandPalette?.();
         } else if (row && (row.kind === "firm" || row.kind === "person")) {
           const pick = buildInvestorDirectoryPick(row, firmMap);
           onInvestorSearchQueryChange?.(pick.filterQuery);
           onInvestorDirectoryPick?.(pick);
+          setSearchOpen(false);
+          setHighlightIdx(0);
         } else if (q) {
           onInvestorSearchQueryChange?.(investorSearchQuery || "");
+          setSearchOpen(false);
+          setHighlightIdx(0);
+          onOpenCommandPalette?.();
         }
-        setSearchOpen(false);
-        setHighlightIdx(0);
-        onOpenCommandPalette?.();
       }
     };
     document.addEventListener("keydown", handler);
@@ -1202,6 +1210,7 @@ export function GlobalTopNav({
                                   <button
                                     key={`${section.title}-${row.kind}-${row.id}`}
                                     type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => handleTypeaheadPick(row)}
                                     onMouseEnter={() => setHighlightIdx(i)}
                                     className={cn(
@@ -1374,7 +1383,7 @@ export function GlobalTopNav({
                         ? "Overview"
                         : activeView === "groups"
                           ? "Groups"
-                          : "Events"}
+                          : "Funding"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
@@ -1398,7 +1407,7 @@ export function GlobalTopNav({
                     onClick={() => routeView("events")}
                     className={cn(activeView === "events" && "bg-accent/10 text-accent")}
                   >
-                    Events
+                    Funding
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

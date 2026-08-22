@@ -1,50 +1,63 @@
 import type { KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
-import { SourceOutletBadge } from "@/components/fresh-capital/SourceOutletBadge";
-import { normalizeWebsiteUrl, prettyWebsiteHost } from "@/lib/latestFundingDisplay";
-import { roundKindStageBucket, sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
+import { normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
+import { formatRoundKind, roundKindStageBucket, sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
 import { formatAnnouncedDate } from "@/lib/freshCapitalPublic";
-import { buildOutboundUrl } from "@/lib/outboundUrl";
+import type { MatchedVcFirm } from "@/lib/fundingFeedEntityMatch";
+import { buildOutboundUrl, isValidOutboundUrl } from "@/lib/outboundUrl";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 import { cn } from "@/lib/utils";
-import { CompanyRowMark } from "./CompanyRowMark";
+import { CompanyRowMark, EntityRowMark } from "./CompanyRowMark";
 
-/** Matches `ThemePills` on Fresh Funds for one sector label. */
-function SectorThemePill({ label }: { label: string }) {
-  const trimmed = label?.trim();
-  if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") return null;
+/** Shared table so header and body use one column layout. */
+export const LATEST_FUNDING_TABLE = "w-full min-w-[56rem] table-fixed border-collapse";
 
+const TH = "px-2 py-2.5 text-left font-semibold first:pl-4 last:pr-4";
+const TD = "px-2 py-3 align-middle first:pl-4 last:pr-4";
+
+export function LatestFundingTableHeader() {
   return (
-    <span
-      className="inline-block max-w-[12rem] truncate rounded-full border border-primary/45 bg-primary/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-primary"
-      title={trimmed}
-    >
-      {trimmed.toUpperCase()}
-    </span>
+    <thead>
+      <tr className="border-b border-zinc-800/60 bg-[#0a0a0a] text-2xs uppercase tracking-wide text-zinc-500">
+        <th className={cn(TH, "w-[22%]")}>Company</th>
+        <th className={cn(TH, "w-[12%]")}>Sector</th>
+        <th className={cn(TH, "w-[11%]")}>Round</th>
+        <th className={cn(TH, "w-[10%]")}>Amount</th>
+        <th className={cn(TH, "w-[18%]")}>Lead investor</th>
+        <th className={cn(TH, "w-[14%]")}>Date</th>
+        <th className={cn(TH, "w-[13%]")}>Source</th>
+      </tr>
+    </thead>
   );
 }
 
-function SectorThemePills({ labels }: { labels: string[] }) {
-  if (!labels.length) return null;
-  return (
-    <span className="flex min-w-0 flex-wrap gap-1.5">
-      {labels.slice(0, 3).map(label => (
-        <SectorThemePill key={label} label={label} />
-      ))}
-    </span>
-  );
-}
-
-/** Pill for the funding round stage — e.g. Series A, Pre-Seed. */
 function RoundKindPill({ label, title }: { label: string; title?: string }) {
   const trimmed = label?.trim();
-  if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") return null;
+  if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") {
+    return <span className="text-xs text-zinc-400">—</span>;
+  }
 
   return (
     <span
-      className="inline-block max-w-[10rem] truncate rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-2xs font-medium text-sky-300"
+      className="inline-block max-w-full truncate rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400"
       title={title ?? trimmed}
     >
       {trimmed}
+    </span>
+  );
+}
+
+function SectorCell({ labels }: { labels: string[] }) {
+  const primary = labels.find((label) => {
+    const t = label.trim();
+    return t && t !== "—" && t.toLowerCase() !== "unknown";
+  });
+  if (!primary) return <span className="text-xs font-medium text-zinc-400">—</span>;
+  return (
+    <span className="truncate text-xs font-medium text-zinc-400" title={labels.join(", ")}>
+      {primary}
     </span>
   );
 }
@@ -68,77 +81,126 @@ function prettyOutletFromSourceUrl(url: string): string | null {
 
 function RumorBadge() {
   return (
-    <span className="rounded-full border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200/90">
+    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-amber-200/80">
       Rumor
     </span>
   );
 }
 
-/** Same grid proportions as Fresh Funds desktop feed. */
-const DESKTOP_GRID =
-  "grid grid-cols-[1.05fr_0.95fr_0.7fr_0.75fr_0.8fr_0.8fr_1.15fr] items-center gap-3 px-4 py-3.5";
-
-function FundingDealMetaRow({
-  row,
+function SourceLink({
+  href,
+  label,
   stopRowOpen,
 }: {
-  row: RecentFundingRound;
+  href: string | null;
+  label: string;
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
-  const host = prettyWebsiteHost(row.websiteUrl)?.toLowerCase() ?? null;
-  const webOutboundHref = buildOutboundUrl(normalizeWebsiteUrl(row.websiteUrl), "company_website", "latest_funding", row.id);
-  const outlet = prettyOutletFromSourceUrl(row.sourceUrl);
-  const hasArticle = Boolean(row.sourceUrl?.trim());
-
-  const pieces = [
-    host && webOutboundHref ? (
-      <a
-        key="web"
-        href={webOutboundHref}
-        target="_blank"
-        rel="noopener"
-        className="text-inherit underline-offset-2 hover:text-[#eeeeee] hover:underline"
-        onClick={stopRowOpen}
-        onAuxClick={stopRowOpen}
-      >
-        {host}
-      </a>
-    ) : null,
-    <span key="badge">
-      <SourceOutletBadge hasArticle={hasArticle} outletLabel={outlet ?? "Source"} />
-    </span>,
-  ].filter(Boolean);
-
-  if (pieces.length === 0) return null;
-
+  if (!href) {
+    return <span className="text-xs text-zinc-400">—</span>;
+  }
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-[#b3b3b3]/90">
-      {pieces.map((piece, index) => (
-        <span key={index} className="inline-flex items-center gap-2">
-          {index > 0 ? <span className="text-zinc-600">·</span> : null}
-          {piece}
-        </span>
-      ))}
-    </div>
+    <a
+      href={href}
+      {...EXTERNAL_SOURCE_LINK_ATTRS}
+      title={label}
+      onClick={stopRowOpen}
+      onAuxClick={stopRowOpen}
+      className="inline-flex min-w-0 max-w-full items-center gap-0.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+    >
+      <span className="truncate">{label}</span>
+      <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden />
+    </a>
   );
 }
 
-export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
-  const displayDate = formatAnnouncedDate(row.announcedAt || null);
-  const co = row.coInvestors.filter(Boolean);
-  const coShown = co.slice(0, 2);
-  const coExtra = co.length > coShown.length ? co.length - coShown.length : 0;
-  const leadHref = buildOutboundUrl(normalizeWebsiteUrl(row.leadWebsiteUrl ?? undefined), "lead_investor", "latest_funding", row.id);
+function LeadInvestorCell({
+  row,
+  leadFirm,
+  leadHref,
+  stopRowOpen,
+}: {
+  row: RecentFundingRound;
+  leadFirm: MatchedVcFirm | null;
+  leadHref: string | null;
+  stopRowOpen: (e: { stopPropagation: () => void }) => void;
+}) {
+  const mark = (
+    <EntityRowMark
+      name={row.leadInvestor}
+      websiteUrl={leadFirm?.websiteUrl ?? row.leadWebsiteUrl}
+      logoUrl={leadFirm?.logoUrl}
+      resetKey={`${row.id}-lead`}
+    />
+  );
+  const name = <span className="min-w-0 truncate text-xs text-zinc-400">{row.leadInvestor}</span>;
+  const shellClass = "inline-flex min-w-0 max-w-full items-center gap-2";
+
+  if (leadFirm?.id) {
+    return (
+      <Link
+        to={`/firms/${leadFirm.id}`}
+        className={cn(shellClass, "hover:text-white")}
+        title={row.leadInvestor}
+        onClick={stopRowOpen}
+        onAuxClick={stopRowOpen}
+      >
+        {mark}
+        {name}
+      </Link>
+    );
+  }
+
+  if (leadHref) {
+    return (
+      <a
+        href={leadHref}
+        {...EXTERNAL_SOURCE_LINK_ATTRS}
+        className={cn(shellClass, "hover:text-zinc-200")}
+        title={row.leadInvestor}
+        onClick={stopRowOpen}
+        onAuxClick={stopRowOpen}
+      >
+        {mark}
+        {name}
+      </a>
+    );
+  }
+
+  return (
+    <span className={shellClass} title={row.leadInvestor}>
+      {mark}
+      {name}
+    </span>
+  );
+}
+
+export function FundingFeedRow({
+  row,
+  leadFirm = null,
+}: {
+  row: RecentFundingRound;
+  leadFirm?: MatchedVcFirm | null;
+}) {
+  const displayDate = formatAnnouncedDate(row.announcedAt || null) || "—";
+  const leadHref = buildOutboundUrl(
+    normalizeWebsiteUrl(leadFirm?.websiteUrl ?? row.leadWebsiteUrl ?? undefined),
+    "lead_investor",
+    "latest_funding",
+    row.id,
+  );
   const showRumorBadge = row.confirmationStatus === "rumor";
-  const hasArticle = Boolean(row.sourceUrl?.trim());
-  const sourceOutboundHref = buildOutboundUrl(row.sourceUrl, "funding_article", "latest_funding", row.id);
+  const sourceOutboundHref =
+    row.sourceUrl?.trim() && isValidOutboundUrl(row.sourceUrl.trim())
+      ? formatOutboundUrl(row.sourceUrl.trim())
+      : null;
 
   const openSource = () => {
     if (!sourceOutboundHref) return;
     window.open(sourceOutboundHref, "_blank", "noopener");
   };
 
-  const onRowKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const onRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>) => {
     if (!sourceOutboundHref) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -151,9 +213,9 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
   };
 
   const interactiveShell = cn(
-    "outline-none",
-    sourceOutboundHref &&
-      "cursor-pointer hover:bg-white/[0.02] focus-visible:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-zinc-600/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+    "transition-colors hover:bg-zinc-900/40",
+    "outline-none focus-visible:bg-zinc-900/50 focus-visible:ring-1 focus-visible:ring-zinc-700",
+    sourceOutboundHref && "cursor-pointer",
   );
 
   const roundBucket = roundKindStageBucket(row.roundKind);
@@ -162,129 +224,49 @@ export function FundingFeedRow({ row }: { row: RecentFundingRound }) {
       ? "Uncategorized stage label — select All stages to see every deal, including ones that don’t match Seed / Series A / Growth yet."
       : undefined;
 
-  const coSummary =
-    coShown.length > 0 ? `${coShown.join(", ")}${coExtra > 0 ? ` +${coExtra}` : ""}` : "—";
-  const hasRoundKind = Boolean(row.roundKind?.trim()) && row.roundKind.trim() !== "—" && row.roundKind.trim().toLowerCase() !== "unknown";
+  const outlet = prettyOutletFromSourceUrl(row.sourceUrl) ?? "Source";
   const sectorLabels = sectorLabelsForDisplay(row.sector);
-  const hasSector = sectorLabels.length > 0;
 
   return (
-    <li className="px-4 py-4 md:px-0 md:py-0">
-      <div
-        role={sourceOutboundHref ? "button" : undefined}
-        tabIndex={sourceOutboundHref ? 0 : undefined}
-        aria-label={
-          sourceOutboundHref
-            ? `Open funding article for ${row.companyName}`
-            : `Funding deal for ${row.companyName} (no public article URL)`
-        }
-        className={cn("hidden md:block", interactiveShell)}
-        onClick={sourceOutboundHref ? openSource : undefined}
-        onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
-      >
-        <div className={DESKTOP_GRID}>
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <CompanyRowMark row={row} />
-            <span className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="min-w-0 truncate font-medium text-[#eeeeee]">{row.companyName}</span>
-              {showRumorBadge ? <RumorBadge /> : null}
-            </span>
+    <tr
+      role={sourceOutboundHref ? "button" : undefined}
+      tabIndex={sourceOutboundHref ? 0 : undefined}
+      aria-label={
+        sourceOutboundHref
+          ? `Open funding article for ${row.companyName}`
+          : `Funding deal for ${row.companyName} (no public article URL)`
+      }
+      className={cn("border-b border-zinc-800/60 last:border-b-0", interactiveShell)}
+      onClick={sourceOutboundHref ? openSource : undefined}
+      onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
+    >
+      <td className={TD}>
+        <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+          <CompanyRowMark row={row} />
+          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+            <span className="min-w-0 truncate font-medium text-white">{row.companyName}</span>
+            {showRumorBadge ? <span className="shrink-0"><RumorBadge /></span> : null}
           </span>
-          <div className="min-w-0">
-            {hasRoundKind ? <RoundKindPill label={row.roundKind} title={roundKindTitle} /> : null}
-          </div>
-          <span className="text-right text-sm tabular-nums text-[#b3b3b3]">{row.amountLabel}</span>
-          <span className="text-sm text-[#b3b3b3]">{displayDate}</span>
-          <div className="min-w-0">
-            {hasSector ? <SectorThemePills labels={sectorLabels} /> : null}
-          </div>
-          <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={row.leadInvestor}>
-            {leadHref ? (
-              <a
-                href={leadHref}
-                target="_blank"
-                rel="noopener"
-                className="text-inherit underline-offset-2 hover:text-[#eeeeee] hover:underline"
-                onClick={stopRowOpen}
-                onAuxClick={stopRowOpen}
-              >
-                {row.leadInvestor}
-              </a>
-            ) : (
-              row.leadInvestor
-            )}
-          </span>
-          <span className="min-w-0 truncate text-sm text-[#b3b3b3]" title={co.length ? co.join(", ") : undefined}>
-            {coSummary}
-          </span>
-        </div>
-        <div className="border-t border-zinc-800 px-4 pb-3.5 pt-2">
-          <FundingDealMetaRow row={row} stopRowOpen={stopRowOpen} />
-        </div>
-      </div>
-
-      <div
-        role={sourceOutboundHref ? "button" : undefined}
-        tabIndex={sourceOutboundHref ? 0 : undefined}
-        aria-label={
-          sourceOutboundHref
-            ? `Open funding article for ${row.companyName}`
-            : `Funding deal for ${row.companyName} (no public article URL)`
-        }
-        className={cn("flex flex-col gap-2 md:hidden", interactiveShell)}
-        onClick={sourceOutboundHref ? openSource : undefined}
-        onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
-      >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="inline-flex min-w-0 items-center gap-2">
-            <CompanyRowMark row={row} />
-            <span className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="min-w-0 truncate font-medium text-[#eeeeee]">{row.companyName}</span>
-              {showRumorBadge ? <RumorBadge /> : null}
-            </span>
-          </span>
-          <span className="text-2xs tabular-nums text-[#b3b3b3]">{displayDate}</span>
-        </div>
-        <div className="min-w-0">
-          {hasRoundKind ? <RoundKindPill label={row.roundKind} title={roundKindTitle} /> : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
-          <span className="tabular-nums">{row.amountLabel}</span>
-          {hasSector ? <span className="text-zinc-600">·</span> : null}
-          {hasSector ? (
-            <span className="inline-flex items-center gap-2">
-              <span className="text-zinc-600">Sector</span>
-              <SectorThemePills labels={sectorLabels} />
-            </span>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-[#b3b3b3]">
-          <span className="truncate" title={row.leadInvestor}>
-            <span className="text-zinc-600">Lead · </span>
-            {leadHref ? (
-              <a
-                href={leadHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline-offset-2 hover:text-[#eeeeee] hover:underline"
-                onClick={stopRowOpen}
-                onAuxClick={stopRowOpen}
-              >
-                {row.leadInvestor}
-              </a>
-            ) : (
-              row.leadInvestor
-            )}
-          </span>
-          <span className="text-zinc-600">·</span>
-          <span className="min-w-0 truncate" title={co.length ? co.join(", ") : undefined}>
-            Co · {coSummary}
-          </span>
-        </div>
-        <div className="border-t border-zinc-800 pt-2">
-          <FundingDealMetaRow row={row} stopRowOpen={stopRowOpen} />
-        </div>
-      </div>
-    </li>
+        </span>
+      </td>
+      <td className={TD}>
+        <SectorCell labels={sectorLabels} />
+      </td>
+      <td className={TD}>
+        <RoundKindPill label={formatRoundKind(row.roundKind)} title={roundKindTitle} />
+      </td>
+      <td className={TD}>
+        <span className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-white">{row.amountLabel}</span>
+      </td>
+      <td className={TD}>
+        <LeadInvestorCell row={row} leadFirm={leadFirm} leadHref={leadHref} stopRowOpen={stopRowOpen} />
+      </td>
+      <td className={TD}>
+        <span className="whitespace-nowrap text-xs text-zinc-400">{displayDate}</span>
+      </td>
+      <td className={TD} onClick={stopRowOpen} onAuxClick={stopRowOpen}>
+        <SourceLink href={sourceOutboundHref} label={outlet} stopRowOpen={stopRowOpen} />
+      </td>
+    </tr>
   );
 }

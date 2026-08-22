@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatCanonicalHqLine, resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -26,14 +27,16 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 
 const ENRICHMENT_STATUSES = ["pending","in_progress","enriched","failed","skipped"];
 
-/** Display HQ when `startups` has no single `hq` column — prefers `location`, then structured fields. */
+/** Display HQ when `startups` has no single `hq` column — City, ST or City, Country. */
 function formatStartupHq(r: Pick<CompanyRow, "location" | "hq_city" | "hq_state" | "hq_country">): string {
-  const loc = typeof r.location === "string" ? r.location.trim() : "";
-  if (loc) return loc;
-  const parts = [r.hq_city, r.hq_state, r.hq_country].filter(
-    (x): x is string => typeof x === "string" && Boolean(x.trim()),
+  return (
+    resolveFirmDisplayLocation({
+      hq_city: r.hq_city,
+      hq_state: r.hq_state,
+      hq_country: r.hq_country,
+      legacyLocation: r.location,
+    }) ?? ""
   );
-  return parts.length ? parts.join(", ") : "";
 }
 const COMPANY_STAGES      = ["pre_seed","seed","series_a","series_b","series_c","growth","public","acquired","unknown"];
 const COMPANY_STATUSES    = ["active","stealth","acquired","shutdown","unknown"];
@@ -1109,7 +1112,7 @@ function OperatorsTab() {
         {!loading && rows.length === 0 && !error && <div className="flex items-center justify-center py-12 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>No operators found</div>}
         {!loading && rows.map(row => {
           const isSel = selected?.id === row.id;
-          const location = [row.city, row.state, row.country].filter(Boolean).join(", ");
+          const location = formatCanonicalHqLine(row.city, row.state, row.country) ?? "";
           return (
             <div key={row.id} onClick={() => setSelected(isSel ? null : row)}
               style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: isSel ? "rgba(46,230,166,0.06)" : undefined, transition: "background 0.15s" }}

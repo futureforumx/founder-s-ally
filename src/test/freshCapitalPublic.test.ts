@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   announcedDateForDisplay,
   announcementUrlForDisplay,
+  applyFirmRecordHydrationToFreshCapitalRow,
+  canonicalGeoTagsForDisplay,
   curatedFirmHqLineForDirectoryName,
   expandFreshCapitalRowsForDisplay,
   firmAumDisplayForInvestorPanel,
@@ -10,12 +12,14 @@ import {
   freshCapitalFirmLocationLineForDisplay,
   freshCapitalFirmWebsiteLinkSource,
   formatFundSizeUsd,
+  formatFundWatchSourceLabel,
   fundNameForDisplay,
   geographyFocusForDisplay,
   mergeSorohanLinkedinMay2026CuratedFreshCapitalRows,
   normalizeGeoFocusDisplayChip,
   parseFreshCapitalFundRow,
   sectorFocusForDisplay,
+  shortenFirmLocationLine,
   stageFocusForDisplay,
 } from "@/lib/freshCapitalPublic";
 
@@ -85,6 +89,15 @@ describe("geographyFocusForDisplay", () => {
       }),
     ).toEqual(["Europe"]);
   });
+
+  it("collapses US aliases on a fund row", () => {
+    expect(
+      geographyFocusForDisplay({
+        firm_name: "Example Ventures",
+        geography_focus: ["United States", "US", "U.S.", "Europe"],
+      }),
+    ).toEqual(["U.S.", "Europe"]);
+  });
 });
 
 describe("normalizeGeoFocusDisplayChip", () => {
@@ -95,15 +108,35 @@ describe("normalizeGeoFocusDisplayChip", () => {
     expect(normalizeGeoFocusDisplayChip("USA")).toBe("U.S.");
     expect(normalizeGeoFocusDisplayChip("  US  ")).toBe("U.S.");
     expect(normalizeGeoFocusDisplayChip("u.s")).toBe("U.S.");
+    expect(normalizeGeoFocusDisplayChip("the United States")).toBe("U.S.");
+    expect(normalizeGeoFocusDisplayChip("U. S. A.")).toBe("U.S.");
   });
 
   it('shortens "Global (…)" titles to Global', () => {
     expect(normalizeGeoFocusDisplayChip("Global (ex-China)")).toBe("Global");
+    expect(normalizeGeoFocusDisplayChip("worldwide")).toBe("Global");
   });
 
-  it("preserves non-US geo labels", () => {
+  it("maps other common geo aliases", () => {
+    expect(normalizeGeoFocusDisplayChip("United Kingdom")).toBe("UK");
+    expect(normalizeGeoFocusDisplayChip("EU")).toBe("Europe");
+    expect(normalizeGeoFocusDisplayChip("  Asia Pacific  ")).toBe("Asia-Pacific");
+    expect(normalizeGeoFocusDisplayChip("Latin America")).toBe("LatAm");
+  });
+
+  it("preserves unrelated geo labels with title case", () => {
     expect(normalizeGeoFocusDisplayChip("Europe")).toBe("Europe");
-    expect(normalizeGeoFocusDisplayChip("  Asia Pacific  ")).toBe("Asia Pacific");
+    expect(normalizeGeoFocusDisplayChip("israel")).toBe("Israel");
+  });
+});
+
+describe("canonicalGeoTagsForDisplay", () => {
+  it("collapses US / U.S. / United States into one chip", () => {
+    expect(canonicalGeoTagsForDisplay(["US", "U.S.", "United States", "Europe"])).toEqual(["U.S.", "Europe"]);
+  });
+
+  it("splits compound geo strings before collapsing", () => {
+    expect(canonicalGeoTagsForDisplay(["US / United States, UK"])).toEqual(["U.S.", "UK"]);
   });
 });
 
@@ -136,7 +169,7 @@ describe("Hummingbird Ventures display corrections", () => {
     ).toEqual(["Series B", "Series C+"]);
   });
 
-  it("shows March 16, 2026 for announced date on that vehicle", () => {
+  it("shows Mar 2026 for announced date on that vehicle", () => {
     expect(
       announcedDateForDisplay({
         ...rowBase,
@@ -144,7 +177,7 @@ describe("Hummingbird Ventures display corrections", () => {
         announced_date: "2026-03-01",
         close_date: null,
       }),
-    ).toBe("March 16, 2026");
+    ).toBe("Mar 2026");
   });
 
   it("uses curated theme pills for Growth Fund I", () => {
@@ -177,6 +210,21 @@ describe("Hummingbird Ventures display corrections", () => {
     ).toBe("London, U.K.");
   });
 
+  it("normalizes Fund Watch HQ to City, ST or City, Country", () => {
+    expect(
+      freshCapitalFirmLocationLineForDisplay({
+        firm_name: "Index Ventures",
+        firm_location: "San Francisco, CA, US",
+      }),
+    ).toBe("San Francisco, CA");
+    expect(
+      freshCapitalFirmLocationLineForDisplay({
+        firm_name: "Index Ventures",
+        firm_location: "London, England, United Kingdom",
+      }),
+    ).toBe("London, UK");
+  });
+
   it("curated firm HQ helper matches investor panel name variants", () => {
     expect(curatedFirmHqLineForDirectoryName(undefined, "Hummingbird Ventures")).toBe("London, U.K.");
     expect(curatedFirmHqLineForDirectoryName("HummingbirdVentures")).toBe("London, U.K.");
@@ -202,7 +250,18 @@ describe("Hummingbird Ventures display corrections", () => {
     ).toBe("https://kleinerperkins.com");
   });
 
-  it("shows March 24, 2026 as the announced date for Kleiner Perkins KP22", () => {
+  it("shows month and year only for Fund Watch announced dates", () => {
+    expect(
+      announcedDateForDisplay({
+        firm_name: "Example Ventures",
+        fund_name: "Fund I",
+        announced_date: "2026-10-01",
+        close_date: null,
+      }),
+    ).toBe("Oct 2026");
+  });
+
+  it("shows Mar 2026 as the announced date for Kleiner Perkins KP22", () => {
     expect(
       announcedDateForDisplay({
         firm_name: "Kleiner Perkins",
@@ -210,7 +269,7 @@ describe("Hummingbird Ventures display corrections", () => {
         announced_date: "2026-03-01",
         close_date: null,
       }),
-    ).toBe("March 24, 2026");
+    ).toBe("Mar 2026");
   });
 
   it("uses $1B firm AUM for Hummingbird meta row", () => {
@@ -280,6 +339,55 @@ describe("parseFreshCapitalFundRow", () => {
     expect(row?.firm_location).toBe("Menlo Park, CA");
     expect(row?.firm_website_url).toBe("https://sequoiacap.com");
     expect(row?.firm_domain).toBe("sequoiacap.com");
+  });
+
+  it("reads firm social URLs from snake_case RPC keys", () => {
+    const row = parseFreshCapitalFundRow({
+      vc_fund_id: "00000000-0000-4000-8000-000000000099",
+      firm_record_id: "00000000-0000-4000-8000-000000000088",
+      firm_name: "Index Ventures",
+      fund_name: "Index Ventures XII",
+      linkedin_url: "https://www.linkedin.com/company/index-ventures/",
+      x_url: "https://x.com/indexventures",
+      crunchbase_url: "https://www.crunchbase.com/organization/index-ventures",
+    });
+    expect(row?.firm_linkedin_url).toBe("https://www.linkedin.com/company/index-ventures/");
+    expect(row?.firm_x_url).toBe("https://x.com/indexventures");
+    expect(row?.firm_crunchbase_url).toBe("https://www.crunchbase.com/organization/index-ventures");
+  });
+});
+
+describe("applyFirmRecordHydrationToFreshCapitalRow", () => {
+  const base = parseFreshCapitalFundRow({
+    vc_fund_id: "00000000-0000-4000-8000-000000000099",
+    firm_record_id: "00000000-0000-4000-8000-000000000088",
+    firm_name: "Index Ventures",
+    fund_name: "Index Ventures XII",
+    firm_website_url: "https://www.indexventures.com",
+    firm_domain: "indexventures.com",
+  })!;
+
+  it("fills socials from firm_records even when the RPC already has a website", () => {
+    const hydrated = applyFirmRecordHydrationToFreshCapitalRow(base, {
+      id: base.firm_record_id,
+      website_url: "https://stale.indexventures.example",
+      linkedin_url: "https://www.linkedin.com/company/index-ventures/",
+      x_url: "https://x.com/indexventures",
+    });
+    expect(hydrated.firm_website_url).toBe("https://www.indexventures.com");
+    expect(hydrated.firm_linkedin_url).toBe("https://www.linkedin.com/company/index-ventures/");
+    expect(hydrated.firm_x_url).toBe("https://x.com/indexventures");
+  });
+
+  it("does not overwrite socials already present on the RPC row", () => {
+    const withRpcSocial = { ...base, firm_linkedin_url: "https://www.linkedin.com/company/index-ventures-rpc/" };
+    const hydrated = applyFirmRecordHydrationToFreshCapitalRow(withRpcSocial, {
+      id: base.firm_record_id,
+      linkedin_url: "https://www.linkedin.com/company/index-ventures-db/",
+      x_url: "https://x.com/indexventures",
+    });
+    expect(hydrated.firm_linkedin_url).toBe("https://www.linkedin.com/company/index-ventures-rpc/");
+    expect(hydrated.firm_x_url).toBe("https://x.com/indexventures");
   });
 });
 
@@ -544,7 +652,7 @@ describe("Lux Capital IX themes and AUM", () => {
         fund_name: "Lux Capital IX",
         sector_focus: ["AI"],
       }),
-    ).toEqual(["Defense", "Biotech", "Frontier Science", "Transportation", "Robotics", "AI/ML", "Data"]);
+    ).toEqual(["Defense", "Biotech", "Frontier Science", "Transportation", "Robotics", "AI", "Data"]);
   });
 
   it("uses $7B firm AUM when RPC omits aum", () => {
@@ -558,5 +666,82 @@ describe("Firm AUM display overrides", () => {
       freshCapitalFirmAumUsd({ firm_name: "Gradient Ventures", firm_aum_usd: null }),
     ).toBe(1_200_000_000);
     expect(formatFundSizeUsd(1_200_000_000)).toBe("$1.2B");
+  });
+});
+
+describe("formatFundSizeUsd", () => {
+  it("treats compact millions and full USD as $125M", () => {
+    expect(formatFundSizeUsd(125)).toBe("$125M");
+    expect(formatFundSizeUsd(125_000_000)).toBe("$125M");
+  });
+
+  it("returns null for missing or non-positive values", () => {
+    expect(formatFundSizeUsd(null)).toBeNull();
+    expect(formatFundSizeUsd(0)).toBeNull();
+  });
+});
+
+describe("shortenFirmLocationLine", () => {
+  it("abbreviates repeated state names and drops trailing US", () => {
+    expect(shortenFirmLocationLine("New York, New York")).toBe("New York, NY");
+    expect(shortenFirmLocationLine("New York, New York, US")).toBe("New York, NY");
+    expect(shortenFirmLocationLine("San Francisco, California")).toBe("San Francisco, CA");
+    expect(shortenFirmLocationLine("New York, NY, US")).toBe("New York, NY");
+  });
+
+  it("title-cases cities and infers state when missing", () => {
+    expect(shortenFirmLocationLine("burlingame")).toBe("Burlingame, CA");
+  });
+
+  it("expands city abbreviations to full names", () => {
+    expect(shortenFirmLocationLine("SF, CA")).toBe("San Francisco, CA");
+    expect(shortenFirmLocationLine("sf")).toBe("San Francisco, CA");
+    expect(shortenFirmLocationLine("S.F., CA")).toBe("San Francisco, CA");
+    expect(shortenFirmLocationLine("NYC, NY")).toBe("New York, NY");
+    expect(shortenFirmLocationLine("LA, CA")).toBe("Los Angeles, CA");
+    expect(shortenFirmLocationLine("Los Angeles, CA")).toBe("Los Angeles, CA");
+  });
+
+  it("keeps the first HQ and shortens England to UK", () => {
+    expect(shortenFirmLocationLine("London, England; San Francisco")).toBe("London, UK");
+  });
+});
+
+describe("sectorFocusForDisplay", () => {
+  it("title-cases each sector word and keeps known acronyms", () => {
+    expect(
+      sectorFocusForDisplay({
+        firm_name: "Example Ventures",
+        fund_name: "Fund I",
+        sector_focus: ["developer tools", "FINTECH", "enterprise saas", "ai/ml"],
+      }),
+    ).toEqual(["Developer Tools", "Fintech", "Enterprise SaaS"]);
+  });
+
+  it("collapses similar sector names onto one canonical chip", () => {
+    expect(
+      sectorFocusForDisplay({
+        firm_name: "Example Ventures",
+        fund_name: "Fund I",
+        sector_focus: ["Artificial Intelligence", "AI", "machine learning", "Fintech"],
+      }),
+    ).toEqual(["AI", "Fintech"]);
+  });
+});
+
+describe("formatFundWatchSourceLabel", () => {
+  it("uses publisher names for known hosts", () => {
+    expect(formatFundWatchSourceLabel("https://techcrunch.com/2026/08/12/fund/")).toBe("TechCrunch");
+    expect(formatFundWatchSourceLabel("https://www.globenewswire.com/news-release/x")).toBe("GlobeNewswire");
+  });
+
+  it("collapses author handles, firm sites, and personal hosts to Source", () => {
+    expect(formatFundWatchSourceLabel("https://michellevolz1.substack.com/p/foo", "Raise | Michellevolz1")).toBe(
+      "Source",
+    );
+    expect(formatFundWatchSourceLabel("https://tectonicdefense.medium.com/story", "Note | Tectonicdefense")).toBe(
+      "Source",
+    );
+    expect(formatFundWatchSourceLabel("https://www.indexventures.com/news/fund")).toBe("Source");
   });
 });

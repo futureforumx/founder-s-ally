@@ -76,6 +76,10 @@ const TRUSTED_STRUCTURED_FEED_KEYS = new Set([
   "VCSHEET_FUNDS",
   "EVERYTHING_STARTUPS_NEW_VC_FUNDS",
 ]);
+const LIVE_CURATED_STRUCTURED_FEED_KEYS = new Set([
+  "SHAI_GOLDMAN_NEW_FUNDS_SHEET",
+  "VCSHEET_FUNDS",
+]);
 const TRUSTED_SOURCE_FEED_KEYS = /TECHCRUNCH|ALLEYWATCH|GEEKWIRE|PRNEWSWIRE/;
 
 function sourceFeedKey(item: ExtractedFundAnnouncement): string {
@@ -94,6 +98,13 @@ export function isTrustedStructuredSource(item: ExtractedFundAnnouncement): bool
   if (key && TRUSTED_STRUCTURED_FEED_KEYS.has(key)) return true;
   if (item.metadata?.detection_mode !== "structured_source_listing") return false;
   return TRUSTED_STRUCTURED_PUBLISHER.test(item.sourcePublisher || "");
+}
+
+/** Active curated feeds that should promote into New Funds without an existing firm match. */
+export function isLiveCuratedStructuredSource(item: ExtractedFundAnnouncement): boolean {
+  const key = sourceFeedKey(item);
+  if (key && LIVE_CURATED_STRUCTURED_FEED_KEYS.has(key)) return true;
+  return /shai goldman/i.test(item.sourcePublisher || "") || /^vc sheet$/i.test(item.sourcePublisher || "");
 }
 
 function dateDiffDays(a: string, b: string): number {
@@ -127,10 +138,8 @@ export function computeCandidateClusterKey(item: ExtractedFundAnnouncement, firm
   const fundLabel = normalizedFundLabel(item) || "unknown-fund";
   return [
     firmRecordId || normalizeFirmName(item.firmName),
-    fundLabel,
-    sequence ?? "noseq",
+    sequence ?? fundLabel,
     item.vintageYear ?? "novintage",
-    guessCandidateEventType(item),
     monthBucket,
   ].join(":");
 }
@@ -178,6 +187,9 @@ export function scoreCandidateCapitalEvent(args: {
   if (trustedStructuredSource && args.firm && args.firmMatchConfidence >= 0.9) score += 0.18;
   if (trustedStructuredSource && (args.item.fundSize != null || args.item.targetSizeUsd != null || args.item.finalSizeUsd != null)) {
     score += 0.08;
+  }
+  if (isLiveCuratedStructuredSource(args.item) && !(args.firm && args.firmMatchConfidence >= 0.9)) {
+    score += 0.22;
   }
 
   if (!vehicleHeadline && CAPITAL_EVENT_KEYWORDS.negativePortfolio.test(text)) score += CAPITAL_EVENT_WEIGHTS.portfolioFinancingPenalty;

@@ -1,73 +1,20 @@
 import { format, parseISO } from "date-fns";
 import { ExternalLink } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useCompanyDirectory } from "@/hooks/useProfile";
-import { useVCDirectory, type VCFirm } from "@/hooks/useVCDirectory";
+import { useVCDirectory } from "@/hooks/useVCDirectory";
 import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
+import {
+  buildVcFirmMatchIndex,
+  resolveMatchedVcFirm,
+  type MatchedVcFirm,
+} from "@/lib/fundingFeedEntityMatch";
 import { type RecentFundingRound } from "@/lib/recentFundingSeed";
+import { sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
 import { cn } from "@/lib/utils";
-
-const normalizeFirmName = (name: string | null | undefined) =>
-  String(name ?? "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]/g, "");
-
-const getAliasKeys = (normalizedName: string) => {
-  const keys = [normalizedName];
-  if (normalizedName.includes("andreessenhorowitz")) keys.push("a16z");
-  if (normalizedName === "a16z") keys.push("andreessenhorowitz");
-  return keys;
-};
-
-/** Match seed labels like "Andreessen Horowitz" to directory names like "Andreessen Horowitz (a16z)". */
-function firmDisplayMatchKeys(displayName: string): string[] {
-  const variants = new Set<string>();
-  const addVariant = (s: string) => {
-    const t = s.trim();
-    if (!t) return;
-    variants.add(t);
-    const noParen = t.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
-    if (noParen && noParen !== t) variants.add(noParen);
-  };
-  addVariant(displayName);
-  const keys = new Set<string>();
-  for (const v of variants) {
-    const n = normalizeFirmName(v);
-    for (const k of getAliasKeys(n)) keys.add(k);
-  }
-  return [...keys];
-}
-
-function useVcFirmIdByMatchKey() {
-  const { firms: vcFirms } = useVCDirectory();
-  return useMemo(() => {
-    const m = new Map<string, string>();
-    const addFirm = (firm: VCFirm) => {
-      if (!firm?.name?.trim()) return;
-      for (const key of firmDisplayMatchKeys(firm.name)) {
-        m.set(key, firm.id);
-      }
-      for (const a of firm.aliases ?? []) {
-        for (const key of firmDisplayMatchKeys(a)) {
-          m.set(key, firm.id);
-        }
-      }
-    };
-    for (const firm of vcFirms) addFirm(firm);
-    return m;
-  }, [vcFirms]);
-}
-
-function resolveVcFirmId(leadName: string, vcFirmIdByKey: Map<string, string>): string | null {
-  for (const k of firmDisplayMatchKeys(leadName)) {
-    const id = vcFirmIdByKey.get(k);
-    if (id) return id;
-  }
-  return null;
-}
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 function normalizeOrgNameKey(name: string) {
   return String(name ?? "")
@@ -89,24 +36,30 @@ function websiteHost(raw: string | null | undefined): string | null {
   }
 }
 
-type OrgLookupMaps = { byName: Map<string, string>; byHost: Map<string, string> };
+type OrgMatch = { id: string; logoUrl: string | null; website: string | null };
+type OrgLookupMaps = { byName: Map<string, OrgMatch>; byHost: Map<string, OrgMatch> };
 
-function useOrganizationIdLookupMaps(): OrgLookupMaps {
+function useOrganizationLookupMaps(): OrgLookupMaps {
   const { companies } = useCompanyDirectory(8000);
   return useMemo(() => {
-    const byName = new Map<string, string>();
-    const byHost = new Map<string, string>();
+    const byName = new Map<string, OrgMatch>();
+    const byHost = new Map<string, OrgMatch>();
     for (const c of companies) {
+      const match: OrgMatch = {
+        id: c.id,
+        logoUrl: c.logo_url?.trim() || null,
+        website: c.website?.trim() || null,
+      };
       const nk = normalizeOrgNameKey(c.name);
-      if (nk) byName.set(nk, c.id);
+      if (nk) byName.set(nk, match);
       const h = websiteHost(c.website);
-      if (h) byHost.set(h, c.id);
+      if (h) byHost.set(h, match);
     }
     return { byName, byHost };
   }, [companies]);
 }
 
-function resolveOrganizationId(row: RecentFundingRound, maps: OrgLookupMaps): string | null {
+function resolveOrganization(row: RecentFundingRound, maps: OrgLookupMaps): OrgMatch | null {
   const nk = normalizeOrgNameKey(row.companyName);
   const fromName = nk ? maps.byName.get(nk) : null;
   if (fromName) return fromName;
@@ -118,6 +71,68 @@ function resolveOrganizationId(row: RecentFundingRound, maps: OrgLookupMaps): st
   return null;
 }
 
+function announcedLabel(row: RecentFundingRound): string {
+  try {
+    return format(parseISO(row.announcedAt), "MMM d, yyyy");
+  } catch {
+    return row.announcedAt || "—";
+  }
+}
+
+function LeadInvestorIdentity({
+  row,
+  leadFirm,
+  nameClass,
+}: {
+  row: RecentFundingRound;
+  leadFirm: MatchedVcFirm | null;
+  nameClass: string;
+}) {
+  const logo = (
+    <FirmLogo
+      firmName={row.leadInvestor}
+      logoUrl={leadFirm?.logoUrl}
+      websiteUrl={leadFirm?.websiteUrl ?? row.leadWebsiteUrl}
+      size="sm"
+      className="shrink-0"
+    />
+  );
+
+  const wrapLogo = (node: ReactNode) =>
+    leadFirm?.id ? (
+      <Link
+        to={`/firms/${leadFirm.id}`}
+        aria-label={`${row.leadInvestor} investor profile`}
+        className="shrink-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {node}
+      </Link>
+    ) : (
+      node
+    );
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {wrapLogo(logo)}
+      {leadFirm?.id ? (
+        <Link to={`/firms/${leadFirm.id}`} className={cn(nameClass, "min-w-0")}>
+          {row.leadInvestor}
+        </Link>
+      ) : row.leadWebsiteUrl ? (
+        <a
+          href={formatOutboundUrl(row.leadWebsiteUrl)}
+          {...EXTERNAL_SOURCE_LINK_ATTRS}
+          className={cn(nameClass, "min-w-0")}
+        >
+          {row.leadInvestor}
+        </a>
+      ) : (
+        <span className="text-sm text-foreground truncate">{row.leadInvestor}</span>
+      )}
+    </div>
+  );
+}
+
 const companyNameClass =
   "font-semibold text-sm text-foreground truncate hover:text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm min-w-0";
 
@@ -126,30 +141,28 @@ const linkLeadClass =
 
 function FundingRowDesktop({
   row,
-  vcFirmIdByKey,
-  organizationId,
+  leadFirm,
+  organization,
 }: {
   row: RecentFundingRound;
-  vcFirmIdByKey: Map<string, string>;
-  organizationId: string | null;
+  leadFirm: MatchedVcFirm | null;
+  organization: OrgMatch | null;
 }) {
-  const dateLabel = (() => {
-    try {
-      return format(parseISO(row.announcedAt), "MMM d, yyyy");
-    } catch {
-      return row.announcedAt;
-    }
-  })();
-
-  const leadFirmId = resolveVcFirmId(row.leadInvestor, vcFirmIdByKey);
+  const dateLabel = announcedLabel(row);
 
   return (
     <tr className="border-b border-border/50 last:border-0 hover:bg-muted/25 transition-colors">
-      <td className="py-3 pr-3 align-middle">
+      <td className="py-3 pr-3 pl-4 align-middle">
         <div className="flex items-center gap-3 min-w-0">
-          <FirmLogo firmName={row.companyName} websiteUrl={row.websiteUrl} size="sm" className="shrink-0 rounded-lg" />
-          {organizationId ? (
-            <Link to={`/companies/${organizationId}`} className={companyNameClass}>
+          <FirmLogo
+            firmName={row.companyName}
+            logoUrl={row.companyLogoUrl ?? organization?.logoUrl}
+            websiteUrl={row.websiteUrl || organization?.website}
+            size="sm"
+            className="shrink-0 rounded-lg"
+          />
+          {organization?.id ? (
+            <Link to={`/companies/${organization.id}`} className={companyNameClass}>
               {row.companyName}
             </Link>
           ) : (
@@ -160,32 +173,12 @@ function FundingRowDesktop({
         </div>
       </td>
       <td className="py-3 px-2 align-middle text-sm text-muted-foreground min-w-[88px] max-w-[200px]">
-        <span className="line-clamp-2">{row.sector}</span>
+        <span className="line-clamp-2">{sectorLabelsForDisplay(row.sector).join(", ") || "—"}</span>
       </td>
       <td className="py-3 px-2 align-middle whitespace-nowrap text-sm text-foreground">{row.roundKind}</td>
       <td className="py-3 px-2 align-middle whitespace-nowrap text-sm text-foreground tabular-nums">{row.amountLabel}</td>
       <td className="py-3 px-2 align-middle min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
-          {row.leadWebsiteUrl ? (
-            <FirmLogo firmName={row.leadInvestor} websiteUrl={row.leadWebsiteUrl} size="sm" className="shrink-0" />
-          ) : null}
-          {leadFirmId ? (
-            <Link to={`/firms/${leadFirmId}`} className={cn(linkLeadClass, "min-w-0")}>
-              {row.leadInvestor}
-            </Link>
-          ) : row.leadWebsiteUrl ? (
-            <a
-              href={row.leadWebsiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(linkLeadClass, "min-w-0")}
-            >
-              {row.leadInvestor}
-            </a>
-          ) : (
-            <span className="text-sm text-foreground truncate">{row.leadInvestor}</span>
-          )}
-        </div>
+        <LeadInvestorIdentity row={row} leadFirm={leadFirm} nameClass={linkLeadClass} />
       </td>
       <td className="py-3 px-2 align-middle text-sm text-muted-foreground min-w-[120px] max-w-[220px]">
         {row.coInvestors.length ? (
@@ -195,11 +188,10 @@ function FundingRowDesktop({
         )}
       </td>
       <td className="py-3 px-2 align-middle whitespace-nowrap text-sm text-muted-foreground tabular-nums">{dateLabel}</td>
-      <td className="py-3 pl-2 align-middle whitespace-nowrap text-right">
+      <td className="py-3 pl-2 pr-4 align-middle whitespace-nowrap text-right">
         <a
-          href={row.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={formatOutboundUrl(row.sourceUrl)}
+          {...EXTERNAL_SOURCE_LINK_ATTRS}
           className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
         >
           Source
@@ -212,31 +204,29 @@ function FundingRowDesktop({
 
 function FundingCardMobile({
   row,
-  vcFirmIdByKey,
-  organizationId,
+  leadFirm,
+  organization,
 }: {
   row: RecentFundingRound;
-  vcFirmIdByKey: Map<string, string>;
-  organizationId: string | null;
+  leadFirm: MatchedVcFirm | null;
+  organization: OrgMatch | null;
 }) {
-  const dateLabel = (() => {
-    try {
-      return format(parseISO(row.announcedAt), "MMM d, yyyy");
-    } catch {
-      return row.announcedAt;
-    }
-  })();
-
-  const leadFirmId = resolveVcFirmId(row.leadInvestor, vcFirmIdByKey);
+  const dateLabel = announcedLabel(row);
 
   return (
     <div className="rounded-xl border border-border/60 bg-card/80 p-4 space-y-3 shadow-sm">
       <div className="flex items-start gap-3">
-        <FirmLogo firmName={row.companyName} websiteUrl={row.websiteUrl} size="md" className="shrink-0 rounded-lg" />
+        <FirmLogo
+          firmName={row.companyName}
+          logoUrl={row.companyLogoUrl ?? organization?.logoUrl}
+          websiteUrl={row.websiteUrl || organization?.website}
+          size="md"
+          className="shrink-0 rounded-lg"
+        />
         <div className="min-w-0 flex-1">
-          {organizationId ? (
+          {organization?.id ? (
             <Link
-              to={`/companies/${organizationId}`}
+              to={`/companies/${organization.id}`}
               className="font-semibold text-foreground leading-tight hover:text-primary hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
             >
               {row.companyName}
@@ -248,7 +238,7 @@ function FundingCardMobile({
           )}
           <div className="mt-2">
             <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Sector</p>
-            <p className="text-sm text-foreground">{row.sector}</p>
+            <p className="text-sm text-foreground">{sectorLabelsForDisplay(row.sector).join(", ") || "—"}</p>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
             <div>
@@ -265,36 +255,20 @@ function FundingCardMobile({
       <div className="grid grid-cols-1 gap-2 text-sm border-t border-border/40 pt-3">
         <div>
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Lead investor</p>
-          <div className="flex items-center gap-2 min-w-0">
-            {row.leadWebsiteUrl ? (
-              <FirmLogo firmName={row.leadInvestor} websiteUrl={row.leadWebsiteUrl} size="sm" className="shrink-0" />
-            ) : null}
-            {leadFirmId ? (
-              <Link to={`/firms/${leadFirmId}`} className={cn(linkLeadClass, "text-left")}>
-                {row.leadInvestor}
-              </Link>
-            ) : row.leadWebsiteUrl ? (
-              <a href={row.leadWebsiteUrl} target="_blank" rel="noopener noreferrer" className={linkLeadClass}>
-                {row.leadInvestor}
-              </a>
-            ) : (
-              <span className="text-foreground">{row.leadInvestor}</span>
-            )}
-          </div>
+          <LeadInvestorIdentity row={row} leadFirm={leadFirm} nameClass={cn(linkLeadClass, "text-left")} />
         </div>
         <div>
           <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Co-investors</p>
           <p className="text-muted-foreground">{row.coInvestors.length ? row.coInvestors.join(", ") : "—"}</p>
         </div>
         <div>
-          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Date</p>
+          <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">Announced</p>
           <p className="text-muted-foreground tabular-nums">{dateLabel}</p>
         </div>
         <div className="flex items-center justify-between pt-1">
           <a
-            href={row.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={formatOutboundUrl(row.sourceUrl)}
+            {...EXTERNAL_SOURCE_LINK_ATTRS}
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
             Source
@@ -307,8 +281,9 @@ function FundingCardMobile({
 }
 
 export function RecentFundingFeed({ className }: { className?: string }) {
-  const vcFirmIdByKey = useVcFirmIdByMatchKey();
-  const orgMaps = useOrganizationIdLookupMaps();
+  const { firms } = useVCDirectory();
+  const leadFirmIndex = useMemo(() => buildVcFirmMatchIndex(firms), [firms]);
+  const orgMaps = useOrganizationLookupMaps();
   const { rows, isLoading, isFetching } = useRecentFundingFeed();
 
   return (
@@ -343,7 +318,7 @@ export function RecentFundingFeed({ className }: { className?: string }) {
                     <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Round size</th>
                     <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Lead investor</th>
                     <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Co-investors</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Date</th>
+                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Announced</th>
                     <th className="py-2.5 pl-2 pr-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold text-right">Source</th>
                   </tr>
                 </thead>
@@ -352,8 +327,8 @@ export function RecentFundingFeed({ className }: { className?: string }) {
                     <FundingRowDesktop
                       key={row.id}
                       row={row}
-                      vcFirmIdByKey={vcFirmIdByKey}
-                      organizationId={resolveOrganizationId(row, orgMaps)}
+                      leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
+                      organization={resolveOrganization(row, orgMaps)}
                     />
                   ))}
                 </tbody>
@@ -366,8 +341,8 @@ export function RecentFundingFeed({ className }: { className?: string }) {
               <FundingCardMobile
                 key={row.id}
                 row={row}
-                vcFirmIdByKey={vcFirmIdByKey}
-                organizationId={resolveOrganizationId(row, orgMaps)}
+                leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
+                organization={resolveOrganization(row, orgMaps)}
               />
             ))}
           </div>

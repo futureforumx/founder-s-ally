@@ -228,8 +228,7 @@ const FirmProfile = () => {
       hq_state: typeof firm.hq_state === "string" ? firm.hq_state : null,
       hq_country: typeof firm.hq_country === "string" ? firm.hq_country : null,
       legacyLocation: typeof firm.location === "string" ? firm.location : null,
-    }) ??
-    ([firm.hq_city, firm.hq_state, firm.hq_country].filter(Boolean).join(", ") || null);
+    });
   const funds = [...(firm.vc_funds ?? [])].sort((a, b) =>
     String(a.fund_name ?? "").localeCompare(String(b.fund_name ?? "")),
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isLiveCuratedStructuredSource,
   isTrustedSourceFeed,
   isTrustedStructuredSource,
   scoreCandidateCapitalEvent,
@@ -77,6 +78,25 @@ describe("trusted Fresh Capital sources", () => {
     expect(score).toBeGreaterThanOrEqual(0.9);
     expect(statusFromCandidateScore(score)).toBe("verified");
     expect(toCandidateDraft({ item, firm, firmMatchConfidence: 0.95 }).status).toBe("verified");
+  });
+
+  it("auto-verifies a new Shai Goldman fund even without an existing firm match", () => {
+    const item = announcement();
+    const score = scoreCandidateCapitalEvent({
+      item,
+      firm: null,
+      firmMatchConfidence: 0,
+    });
+    expect(score).toBeGreaterThanOrEqual(0.9);
+    expect(statusFromCandidateScore(score)).toBe("verified");
+    expect(toCandidateDraft({ item, firm: null, firmMatchConfidence: 0 }).status).toBe("verified");
+  });
+
+  it("recognizes Shai Goldman from publisher when metadata key is missing", () => {
+    const item = announcement({
+      metadata: { detection_mode: "structured_source_listing" },
+    });
+    expect(isLiveCuratedStructuredSource(item)).toBe(true);
   });
 
   it("still boosts Everything Startups leftovers as structured", () => {

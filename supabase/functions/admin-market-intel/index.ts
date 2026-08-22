@@ -1,13 +1,14 @@
 /**
  * admin-market-intel  v4
  *
- * GET  ?entity=companies|founders|operators|firms|firm-investors|people|organizations|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
+ * GET  ?entity=companies|founders|operators|firms|firm-investors|people|organizations|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fc-public-paths|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
  *   → { rows, total }
  * GET  ?entity=<table-backed>&id=<uuid>  → { row }  (full-row live editor)
  *   - firm-funds: **requires** ?firm_id=<firm_records.id> — only vc_funds for that firm (Firm Records admin).
  *   - fresh-funds: global Fund Watch list; optional ?firm_record_id=… to filter one firm.
  *   - fi-sources: Latest Funding ingestion source registry (editable via PATCH entity=fi-sources&id=). Alias: ?entity=fisources
  *   - fc-enrichment-settings: Singleton row for Fund Watch vs Latest Funding operator notes (PATCH without id). Aliases: fcenrichmentsettings, fc-enrichment
+ *   - fc-public-paths: Public URL aliases (e.g. /fresh-capital) → new_funds | latest_funding. GET list, POST create, PATCH destination, DELETE. Aliases: fcpublicpaths
  *   - tool-category-page: Editable Tools directory hero for one category slug (GET/PATCH ?slug=ai-agents|…). Aliases: toolcategorypage
  *   - fi-fetch-runs: Recent fi_fetch_runs (merged with source slug/name).
  *   - vc-fund-sync-runs: Recent vc_fund_sync_runs history.
@@ -17,10 +18,10 @@
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
  *
- * POST ?entity=fresh-funds|deals|firms  body: { … }  → { row }  (create)
+ * POST ?entity=fresh-funds|deals|firms|fi-sources|fc-public-paths  body: { … }  → { row }  (create)
  *   - firms: requires `firm_name`; optional `website_url`, `slug`, `legal_name`. New rows default to needs-review / not live.
  *
- * DELETE ?entity=fresh-funds|deals&id=<uuid>
+ * DELETE ?entity=fresh-funds|deals|fc-public-paths&id=<uuid>
  *   → { ok: true }   (fresh-funds: soft-delete vc_funds.deleted_at; deals: hard-delete fi_deals_canonical row)
  *
  * POST ?entity=fresh-funds|deals&id=<uuid>&action=delete  body: {} (optional)
@@ -279,6 +280,7 @@ const FC_ENRICHMENT_SETTINGS_PATCH_KEYS = new Set([
   "fund_watch_schedule_note",
   "latest_funding_schedule_note",
   "process_notes",
+  "disabled_source_keys",
 ]);
 
 /** Matches `TOOL_CATEGORY_SLUGS` in app — public /tools/:slug pages */
@@ -460,10 +462,41 @@ function normalizeAdminEntity(e: string): string {
     fcenrichmentsettings: "fc-enrichment-settings",
     fcenrichment: "fc-enrichment-settings",
     "fc-enrichment": "fc-enrichment-settings",
+    fcpublicpaths: "fc-public-paths",
+    "fresh-capital-public-paths": "fc-public-paths",
     toolcategorypages: "tool-category-page",
     toolcategorypage: "tool-category-page",
   };
   return aliases[e] ?? e;
+}
+
+/** Keep in sync with src/lib/freshCapitalPublicPaths.ts */
+const FC_PUBLIC_PATH_RESERVED = new Set([
+  "login", "register", "auth", "access", "referrals", "outbound", "welcome", "marketing",
+  "intelligence", "onboarding", "onboarding-preview", "admin", "firms", "companies", "tools",
+  "ai-agents", "api", "dashboard", "settings", "profile", "account", "invite", "invites",
+  "waitlist", "index", "home", "app", "brand", "assets", "static", "health", "webhook",
+  "webhooks", "tryvekta", "vekta",
+]);
+const FC_PUBLIC_PATH_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function normalizeFcPublicPathSlug(input: string): string | null {
+  const raw = input.trim();
+  if (!raw) return null;
+  let path = raw;
+  try {
+    if (/^https?:\/\//i.test(raw)) path = new URL(raw).pathname;
+  } catch {
+    return null;
+  }
+  path = (path.split("?")[0]?.split("#")[0] ?? path).replace(/^\/+/, "").replace(/\/+$/, "").toLowerCase();
+  if (!path || path.includes("/") || path.length > 64 || !FC_PUBLIC_PATH_SLUG_RE.test(path)) return null;
+  return path;
+}
+
+function parseFcPublicDestination(raw: unknown): "new_funds" | "latest_funding" | null {
+  if (raw === "new_funds" || raw === "latest_funding") return raw;
+  return null;
 }
 
 /** Soft-delete fund or hard-delete deal — shared by DELETE and POST ?action=delete */
@@ -485,6 +518,17 @@ async function adminDeleteResource(db: SupabaseClient, entity: string, id: strin
     const { data, error } = await db.from("fi_deals_canonical").delete().eq("id", id).select("id").maybeSingle();
     if (error) return err(error.message, 500);
     if (!data) return err("Deal not found", 404);
+    return json({ ok: true });
+  }
+  if (entity === "fc-public-paths") {
+    const { data, error } = await db
+      .from("fresh_capital_public_paths")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    if (error) return err(error.message, 500);
+    if (!data) return err("Path not found", 404);
     return json({ ok: true });
   }
   return err(`Delete not supported for entity: ${entity}`, 400);
@@ -681,6 +725,68 @@ Deno.serve(async (req) => {
       return json({ row: dealRow });
     }
 
+    if (entity === "fi-sources") {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      const urlRaw = typeof body.base_url === "string" ? body.base_url.trim() : "";
+      if (!name) return err("name is required", 400);
+      if (!urlRaw) return err("base_url is required", 400);
+      let baseUrl: string;
+      try {
+        const parsed = new URL(/^https?:\/\//i.test(urlRaw) ? urlRaw : `https://${urlRaw}`);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          return err("base_url must be http(s)", 400);
+        }
+        baseUrl = parsed.toString();
+      } catch {
+        return err("base_url is not a valid URL", 400);
+      }
+
+      const slugBase = name
+        .toLowerCase()
+        .replace(/['’]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 80) || "source";
+      const typeRaw = typeof body.source_type === "string" ? body.source_type.trim() : "news";
+      const sourceType = ["news", "curated_feed", "rumor_feed", "api"].includes(typeRaw) ? typeRaw : "news";
+      const pollRaw = body.poll_interval_minutes;
+      const poll =
+        typeof pollRaw === "number" && Number.isFinite(pollRaw) && pollRaw >= 1
+          ? Math.round(pollRaw)
+          : 60;
+
+      let slug = slugBase;
+      for (let i = 2; i < 50; i += 1) {
+        const { data: existing } = await db.from("fi_sources").select("id").eq("slug", slug).maybeSingle();
+        if (!existing) break;
+        slug = `${slugBase}_${i}`;
+      }
+
+      const insertRow: Record<string, unknown> = {
+        slug,
+        name,
+        base_url: baseUrl,
+        adapter_key: "rss",
+        source_type: sourceType,
+        credibility_score: 0.7,
+        active: true,
+        poll_interval_minutes: poll,
+        metadata: { created_via: "admin_market_intel_post" },
+      };
+
+      const { data: inserted, error: insErr } = await db
+        .from("fi_sources")
+        .insert(insertRow)
+        .select(FI_SOURCES_COLS)
+        .single();
+      if (insErr) {
+        const code = (insErr as { code?: string }).code;
+        if (code === "23505") return err("A source with this slug already exists.", 409);
+        return err(insErr.message, 500);
+      }
+      return json({ row: inserted });
+    }
+
     if (entity === "firms") {
       const firmName = typeof body.firm_name === "string" ? body.firm_name.trim() : "";
       if (!firmName) return err("firm_name is required", 400);
@@ -716,6 +822,30 @@ Deno.serve(async (req) => {
         if (code === "23505") {
           return err("A firm with this slug (or other unique field) already exists.", 409);
         }
+        return err(insErr.message, 500);
+      }
+      return json({ row: inserted });
+    }
+
+    if (entity === "fc-public-paths") {
+      const pathRaw =
+        typeof body.path === "string" ? body.path :
+        typeof body.path_slug === "string" ? body.path_slug :
+        "";
+      const slug = normalizeFcPublicPathSlug(pathRaw);
+      if (!slug) return err("Use a path like /fresh-capital (letters, numbers, and hyphens only).", 400);
+      if (FC_PUBLIC_PATH_RESERVED.has(slug)) return err(`/${slug} is already used by the app.`, 400);
+      const destination = parseFcPublicDestination(body.destination);
+      if (!destination) return err("destination must be new_funds or latest_funding", 400);
+
+      const { data: inserted, error: insErr } = await db
+        .from("fresh_capital_public_paths")
+        .insert({ path_slug: slug, destination })
+        .select("*")
+        .single();
+      if (insErr) {
+        const code = (insErr as { code?: string }).code;
+        if (code === "23505") return err(`/${slug} is already in use.`, 409);
         return err(insErr.message, 500);
       }
       return json({ row: inserted });
@@ -804,6 +934,22 @@ Deno.serve(async (req) => {
         .select("*")
         .single();
       if (error) return err(error.message, 500);
+      return json({ row: data });
+    }
+
+    if (entity === "fc-public-paths") {
+      if (!id) return err("Missing id");
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const destination = parseFcPublicDestination(body.destination);
+      if (!destination) return err("destination must be new_funds or latest_funding", 400);
+      const { data, error } = await db
+        .from("fresh_capital_public_paths")
+        .update({ destination, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select("*")
+        .maybeSingle();
+      if (error) return err(error.message, 500);
+      if (!data) return err("Path not found", 404);
       return json({ row: data });
     }
 
@@ -1204,6 +1350,15 @@ Deno.serve(async (req) => {
     const { data, error } = await db.from("fresh_capital_enrichment_settings").select("*").eq("id", "default").maybeSingle();
     if (error) return err(error.message, 500);
     return json({ row: data ?? null });
+  }
+
+  if (entity === "fc-public-paths") {
+    const { data, error } = await db
+      .from("fresh_capital_public_paths")
+      .select("*")
+      .order("path_slug", { ascending: true });
+    if (error) return err(error.message, 500);
+    return json({ rows: data ?? [], total: (data ?? []).length });
   }
 
   if (entity === "tool-category-page") {

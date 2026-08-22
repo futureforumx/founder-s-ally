@@ -6,6 +6,7 @@ import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/su
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobsTab } from "@/components/dashboard/founder-detail/JobsTab";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 
 type OrgRow = {
   id: string;
@@ -132,7 +133,7 @@ export default function OrganizationProfile() {
   }
 
   const org = query.data;
-  const location = [org.city, org.country].filter(Boolean).join(", ");
+  const location = formatCanonicalHqLine(org.city, null, org.country) ?? "";
 
   return (
     <div className="min-h-screen bg-background">

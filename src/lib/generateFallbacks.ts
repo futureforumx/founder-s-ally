@@ -1,4 +1,5 @@
 import { clampElevatorPitch } from "@/lib/clampElevatorPitch";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 import { safeTrim } from "@/lib/utils";
 
 /**
@@ -129,7 +130,7 @@ export function generateElevatorPitch(firm: FirmFields): string | null {
 
   const stages = (firm.stage_focus ?? []).filter(Boolean).slice(0, 3);
   const verticals = (firm.thesis_verticals ?? []).filter(Boolean).slice(0, 4);
-  const loc = [firm.hq_city, firm.hq_state, firm.hq_country].filter(Boolean).join(", ");
+  const loc = formatCanonicalHqLine(firm.hq_city, firm.hq_state, firm.hq_country) ?? "";
 
   if (stages.length === 0 && verticals.length === 0) return null;
 

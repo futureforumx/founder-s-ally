@@ -1,18 +1,16 @@
 # Daily funding / venture deal ingestion (Prisma → Postgres).
 #
-# Schedule: 4:00 AM America/Los_Angeles. GitHub `cron` is UTC-only; we trigger twice
-# (11:00 and 12:00 UTC) so one run lands at 04:00 local across PDT (UTC-7) and PST (UTC-8).
-# INGEST_REQUIRE_PACIFIC_HOUR + INGEST_PACIFIC_TARGET_HOUR=4 ensures only that window runs work.
+# Schedule: 11:00 UTC daily (4:00 AM PDT / 3:00 AM PST). Single cron — no Pacific-hour
+# guard and no second runner for DST.
 #
 # Secrets: DATABASE_URL (required). OPENAI_API_KEY (optional, improves extraction).
-# Optional repo variable: INGEST_SKIP_SOURCES (e.g. GEEKWIRE_FUNDINGS) for sources blocked from datacenter IPs.
+# Optional: INGEST_FETCH_PROXY_URL — Cloudflare Worker that allowlists geekwire.com.
 
 name: Funding ingest
 
 on:
   schedule:
     - cron: "0 11 * * *"
-    - cron: "0 12 * * *"
   workflow_dispatch:
 
 jobs:
@@ -22,6 +20,7 @@ jobs:
     env:
       INGEST_TRIGGER: github_actions
       INGEST_MAX_ARTICLES_PER_SOURCE: "40"
+      INGEST_STARTUPS_GALLERY_MAX: "500"
     steps:
       - name: Require DATABASE_URL secret
         env:
@@ -55,19 +54,22 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      - name: Run shared feeds
+        run: pnpm run ingest:shared-feeds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Ingest funding articles
         run: pnpm run funding:ingest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          INGEST_SKIP_SOURCES: ${{ vars.INGEST_SKIP_SOURCES }}
-          INGEST_REQUIRE_PACIFIC_HOUR: ${{ github.event_name == 'schedule' && '1' || '0' }}
-          INGEST_PACIFIC_TARGET_HOUR: "4"
-          INGEST_SKIP_PACIFIC_GUARD: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+          INGEST_FETCH_PROXY_URL: ${{ secrets.INGEST_FETCH_PROXY_URL }}
 
       - name: Market intel (link deals → entities + rollups)
         run: pnpm run intel:funding:pipeline
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

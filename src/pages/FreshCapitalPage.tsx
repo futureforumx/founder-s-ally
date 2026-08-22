@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FreshCapitalHero } from "@/components/fresh-capital/FreshCapitalHero";
 import { FreshCapitalLiveFeed } from "@/components/fresh-capital/FreshCapitalLiveFeed";
+import { RegisterModal } from "@/components/auth/RegisterModal";
+import { SubscribeModal } from "@/components/SubscribeModal";
 import {
   FreshCapitalConversion,
   FreshCapitalGatedPreview,
@@ -17,6 +19,8 @@ import {
 } from "@/lib/freshCapitalAnalytics";
 import { freshCapitalSignupHref } from "@/lib/freshCapitalConversion";
 import { FreshCapitalMisconfiguredError, type FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
+import { destinationToFeedTab, normalizePublicPathSlug } from "@/lib/freshCapitalPublicPaths";
+import { useFreshCapitalPublicDestination } from "@/hooks/useFreshCapitalPublicDestination";
 
 const FEED_ANCHOR = "fresh-capital-feed";
 const signupHref = freshCapitalSignupHref();
@@ -24,8 +28,15 @@ const signupHref = freshCapitalSignupHref();
 export default function FreshCapitalPage() {
   const [stage, setStage] = useState<FreshCapitalStageFilter>("all");
   const [sector, setSector] = useState<string | null>(null);
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
   const { data, isPending, isError, error } = useFreshCapitalPageData(stage, sector);
+  const catalogQuery = useFreshCapitalPageData("all", null);
   const pageViewSent = useRef(false);
+  const { pathname } = useLocation();
+  const pathSlug = normalizePublicPathSlug(pathname) ?? "fresh-capital";
+  const { data: pathDestination } = useFreshCapitalPublicDestination(pathSlug);
+  const initialMainTab = destinationToFeedTab(pathDestination ?? "new_funds");
 
   useEffect(() => {
     const prev = document.title;
@@ -47,10 +58,6 @@ export default function FreshCapitalPage() {
       misconfigured: misconfiguredPv,
     });
   }, [isPending, isError, error, data?.heatmapSource, data?.usingDemoData]);
-
-  const scrollToFeed = useCallback(() => {
-    document.getElementById(FEED_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
 
   const funds = data?.funds ?? [];
   const heatmapBuckets = data?.heatmapBuckets ?? [];
@@ -75,7 +82,12 @@ export default function FreshCapitalPage() {
 
   return (
     <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
-      <FreshCapitalHero onScrollToFeed={scrollToFeed} />
+      <FreshCapitalHero
+        fundsTracked={catalogQuery.data?.funds.length ?? 0}
+        onNotifyClick={() => setSubscribeOpen(true)}
+      />
+      <SubscribeModal open={subscribeOpen} onOpenChange={setSubscribeOpen} />
+      <RegisterModal open={registerOpen} onOpenChange={setRegisterOpen} />
 
       {demo ? (
         <div className="border-b border-amber-500/30 bg-amber-500/8 px-4 py-2 text-center text-xs text-amber-200 sm:px-6">
@@ -97,6 +109,9 @@ export default function FreshCapitalPage() {
         sectorChoices={sectorChoices}
         onSectorChange={onSectorChange}
         insightsHeatmapBuckets={heatmapBuckets}
+        initialMainTab={initialMainTab}
+        onNotifyClick={() => setSubscribeOpen(true)}
+        onUnlockClick={() => setRegisterOpen(true)}
       />
 
       <FreshCapitalWhyMatters />

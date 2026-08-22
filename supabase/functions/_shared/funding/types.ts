@@ -58,6 +58,20 @@ export interface ListingItem {
   snippet?: string;
   /** Whether this looks like a rumor (VC Stack-specific) */
   is_rumor?: boolean;
+  /**
+   * Structured deal fields already present on the listing page
+   * (e.g. startups.gallery Company / Amount / Round / Date / Lead).
+   * When set, the pipeline can emit a deal even if the press URL cannot be fetched.
+   */
+  presetDeal?: {
+    company_name: string;
+    amount_raw?: string | null;
+    round_type_raw?: string | null;
+    announced_date?: string | null;
+    lead_investor?: string | null;
+    company_website?: string | null;
+    company_logo_url?: string | null;
+  };
 }
 
 /**
@@ -104,6 +118,7 @@ export interface NormalizedDealCandidate {
   normalized_company_name: string;
   company_domain: string | null;
   company_website: string | null;
+  company_logo_url: string | null;
   company_location: string | null;
 
   // Sector

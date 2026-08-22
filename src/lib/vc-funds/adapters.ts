@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { CAPITAL_EVENT_KEYWORDS, CAPITAL_EVENT_SCAN_PATHS } from "./config";
 import { contentHash, extractFundSequenceNumber, normalizeFirmName, normalizeFundName } from "./normalize";
 import type { ExtractedFundAnnouncement, FirmRecordLookup, FundSyncRunOptions, VcFundSourceAdapter } from "./types";
-import { fetchAlleywatchFunding, fetchTechcrunchVenture } from "../../../scripts/funding-ingest/sources";
+import { fetchAlleywatchFunding, fetchAlleywatchFundingArchive, fetchTechcrunchVenture, fetchTechcrunchVentureArchive } from "../../../scripts/funding-ingest/sources";
+import { listCachedListingsOrFetch } from "../../../scripts/ingest-shared-feeds/cache";
 import { isLikelyVcFundVehicleHeadline, stripHtml } from "../../../scripts/funding-ingest/extract";
 
 type LinkCandidate = {
@@ -504,7 +505,8 @@ function parseMonthYearToIsoDate(text: string): string | null {
   if (!match) return null;
   const month = Number(match[1]);
   const year = Number(match[2]);
-  if (!Number.isFinite(month) || month < 1 || month > 12 || !Number.isFinite(year) || year < 1900) return null;
+  const maxYear = new Date().getUTCFullYear() + 2;
+  if (!Number.isFinite(month) || month < 1 || month > 12 || !Number.isFinite(year) || year < 1900 || year > maxYear) return null;
   return new Date(Date.UTC(year, month - 1, 1, 12, 0, 0)).toISOString();
 }
 
@@ -527,7 +529,8 @@ function parseFlexibleUsDateToIsoDate(text: string | null | undefined): string |
       day >= 1 &&
       day <= 31 &&
       Number.isFinite(year) &&
-      year >= 1900
+      year >= 1900 &&
+      year <= new Date().getUTCFullYear() + 2
     ) {
       return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).toISOString();
     }
@@ -565,6 +568,10 @@ function sourceLimit(options: FundSyncRunOptions, sourceKey: string, fallback: n
   }
   const envName = `VC_FUND_${sourceKey.replace(/[^A-Z0-9]+/gi, "_").toUpperCase()}_MAX`;
   return envNumber(envName) ?? fallback;
+}
+
+function isSourceFeedEnabled(options: FundSyncRunOptions, sourceKey: string): boolean {
+  return !options.disabledSourceKeys?.includes(sourceKey);
 }
 
 function inferEventTypeGuess(text: string): ExtractedFundAnnouncement["metadata"] {
@@ -958,7 +965,7 @@ async function fetchTechcrunchFundingTagListings(
   const found: FeedListing[] = [];
   const seen = new Set<string>();
 
-  for (let page = 1; page <= 12 && found.length < maxItems; page += 1) {
+  for (let page = 1; page <= (since ? 20 : 12) && found.length < maxItems; page += 1) {
     const url = page === 1 ? "https://techcrunch.com/tag/funding/" : `https://techcrunch.com/tag/funding/page/${page}/`;
     const html = await fetchHtml(url);
     if (!html) break;
@@ -1027,7 +1034,7 @@ async function fetchPrNewswireVentureListings(
   const found: FeedListing[] = [];
   const seen = new Set<string>();
 
-  for (let page = 1; page <= 8 && found.length < maxItems; page += 1) {
+  for (let page = 1; page <= (since ? 16 : 8) && found.length < maxItems; page += 1) {
     const url = page === 1
       ? "https://www.prnewswire.com/news-releases/financial-services-latest-news/venture-capital-list/"
       : `https://www.prnewswire.com/news-releases/financial-services-latest-news/venture-capital-list/?page=${page}`;
@@ -1240,12 +1247,42 @@ async function fetchSourceFeedListings(options: FundSyncRunOptions, log: (messag
   //   VCSTACK_FUNDING_ANNOUNCEMENTS    — fake #item-N anchor URLs, unreliable
   //   FOUNDERSUITE_NEW_VC_FUNDS_2025   — static one-off blog article, not a live feed
   const [techcrunch, alleywatch, techcrunchFunding, prNewswire, vcsheet, shaiSheet] = await Promise.all([
-    fetchTechcrunchVenture(since, sourceLimit(options, "TECHCRUNCH_VENTURE", Math.min(max, 400)), log).catch(() => []),
-    fetchAlleywatchFunding(since, sourceLimit(options, "ALLEYWATCH_FUNDING", Math.min(max, 300)), log).catch(() => []),
-    fetchTechcrunchFundingTagListings(since, sourceLimit(options, "TECHCRUNCH_FUNDING_TAG", Math.min(max, 300)), log).catch(() => []),
-    fetchPrNewswireVentureListings(since, sourceLimit(options, "PRNEWSWIRE_VENTURE_CAPITAL", Math.min(max, 250)), log).catch(() => []),
-    fetchVcsheetFundListings(since, sourceLimit(options, "VCSHEET_FUNDS", Math.min(max, 150)), log).catch(() => []),
-    fetchShaiGoldmanSheetListings(since, sourceLimit(options, "SHAI_GOLDMAN_NEW_FUNDS_SHEET", Math.min(max, 400)), log).catch(() => []),
+    isSourceFeedEnabled(options, "TECHCRUNCH_VENTURE")
+      ? (since
+          ? fetchTechcrunchVentureArchive(since, sourceLimit(options, "TECHCRUNCH_VENTURE", Math.min(max, 400)), log, 28)
+          : listCachedListingsOrFetch(
+              "TECHCRUNCH_VENTURE",
+              since,
+              sourceLimit(options, "TECHCRUNCH_VENTURE", Math.min(max, 400)),
+              log,
+              fetchTechcrunchVenture,
+            )
+        ).catch(() => [])
+      : Promise.resolve([]),
+    isSourceFeedEnabled(options, "ALLEYWATCH_FUNDING")
+      ? (since
+          ? fetchAlleywatchFundingArchive(since, sourceLimit(options, "ALLEYWATCH_FUNDING", Math.min(max, 300)), log, 24)
+          : listCachedListingsOrFetch(
+              "ALLEYWATCH_FUNDING",
+              since,
+              sourceLimit(options, "ALLEYWATCH_FUNDING", Math.min(max, 300)),
+              log,
+              fetchAlleywatchFunding,
+            )
+        ).catch(() => [])
+      : Promise.resolve([]),
+    isSourceFeedEnabled(options, "TECHCRUNCH_FUNDING_TAG")
+      ? fetchTechcrunchFundingTagListings(since, sourceLimit(options, "TECHCRUNCH_FUNDING_TAG", Math.min(max, 300)), log).catch(() => [])
+      : Promise.resolve([]),
+    isSourceFeedEnabled(options, "PRNEWSWIRE_VENTURE_CAPITAL")
+      ? fetchPrNewswireVentureListings(since, sourceLimit(options, "PRNEWSWIRE_VENTURE_CAPITAL", Math.min(max, 250)), log).catch(() => [])
+      : Promise.resolve([]),
+    isSourceFeedEnabled(options, "VCSHEET_FUNDS")
+      ? fetchVcsheetFundListings(since, sourceLimit(options, "VCSHEET_FUNDS", Math.min(max, 150)), log).catch(() => [])
+      : Promise.resolve([]),
+    isSourceFeedEnabled(options, "SHAI_GOLDMAN_NEW_FUNDS_SHEET")
+      ? fetchShaiGoldmanSheetListings(since, sourceLimit(options, "SHAI_GOLDMAN_NEW_FUNDS_SHEET", Math.min(max, 400)), log).catch(() => [])
+      : Promise.resolve([]),
   ]);
 
   const grouped = new Map<string, FeedListing[]>();
@@ -1306,6 +1343,7 @@ async function detectSourceFeedCandidates(firms: FirmRecordLookup[], options: Fu
   const found: ExtractedFundAnnouncement[] = [];
 
   for (const listing of listings) {
+    if (options.dateFrom && listing.publishedAt && listing.publishedAt < new Date(options.dateFrom)) continue;
     if (options.dateTo && listing.publishedAt && listing.publishedAt > new Date(options.dateTo)) continue;
     if (listing.sourceType === "structured_provider") {
       const parsed = parseStructuredSourceFeedArticle(listing);

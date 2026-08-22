@@ -11,6 +11,7 @@ import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase
 import { Constants } from "@/integrations/supabase/types";
 import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -902,7 +903,7 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
               <Sect title="Linked funds (vc_funds)" />
               <p className="text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
                 Fund vehicles linked to this firm record. To create or edit fields, use{" "}
-                <span className="font-medium text-white/55">Admin → Fresh Capital → Fund Watch</span>.
+                <span className="font-medium text-white/55">Admin → Fresh Capital → New Funds</span>.
               </p>
               {linkedLoading && (
                 <div className="flex items-center gap-2 py-8 text-[12px] text-white/45">
@@ -932,9 +933,8 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
                     <div className="flex flex-wrap items-center gap-2">
                       {fund.announcement_url ? (
                         <a
-                          href={fund.announcement_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href={formatOutboundUrl(fund.announcement_url, "fresh_funds")}
+                          {...EXTERNAL_SOURCE_LINK_ATTRS}
                           className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2.5 py-1 text-[11px] font-medium text-[#2EE6A6] transition-colors hover:bg-white/[0.06]"
                         >
                           Announcement <ExternalLink className="h-3 w-3" />

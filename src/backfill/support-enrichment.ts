@@ -13,6 +13,7 @@ import { normalizeProfile } from "./normalizers";
 import { classifyFirm, toClassificationInput } from "./parsers/firm-classification";
 import { formatCheckSize } from "./parsers/check-size-parser";
 import { parseGeo } from "./parsers/geo-parser";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 import { applyInvestmentIntelToProfile } from "./parsers/investment-intel";
 import { classifyUrl, extractDomain, normalizeUrl } from "./parsers/url-parser";
 import { baseConfidence } from "./scoring";
@@ -516,8 +517,7 @@ function flagMissingFacts(
 }
 
 function buildHqLine(city?: string | null, state?: string | null, country?: string | null): string | null {
-  const parts = [city, state, country].map((part) => (part ?? "").trim()).filter(Boolean);
-  return parts.length ? parts.join(", ") : null;
+  return formatCanonicalHqLine(city, state, country);
 }
 
 function flagHqConflicts(
