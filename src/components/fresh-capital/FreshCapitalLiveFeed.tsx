@@ -76,7 +76,7 @@ const FUND_WATCH_COLS = cn(
   "grid-cols-[minmax(0,1.45fr)_minmax(0,0.85fr)_minmax(0,0.5fr)_minmax(0,0.5fr)_minmax(0,0.65fr)_minmax(0,0.8fr)_minmax(0,0.55fr)]",
 );
 
-const FUND_WATCH_DESKTOP_GRID = cn("grid h-14 items-center gap-x-3 px-4 pr-10", FUND_WATCH_COLS);
+const FUND_WATCH_DESKTOP_GRID = cn("grid min-h-14 items-center gap-x-3 px-4 py-2.5 pr-10", FUND_WATCH_COLS);
 
 const FUND_WATCH_DESKTOP_HEADER_GRID = cn("grid items-center gap-x-3 px-4 py-2 pr-10", FUND_WATCH_COLS);
 
@@ -199,25 +199,26 @@ function firmRawWebsiteUrl(row: FreshCapitalFundRow): string | null {
 function FirmMetaRow({ row }: { row: FreshCapitalFundRow }) {
   const location = freshCapitalFirmLocationLineForDisplay(row);
   const aumText = formatFirmAumDisplay(row);
-  const pieces = [
-    location ? <span key="location">{location}</span> : null,
-    aumText ? (
-      <span key="aum" className="tabular-nums">
-        AUM {aumText}
-      </span>
-    ) : null,
-  ].filter(Boolean);
 
-  if (pieces.length === 0) return null;
+  if (!location && !aumText) return null;
 
   return (
-    <div className="flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-xs text-zinc-400">
-      {pieces.map((piece, index) => (
-        <span key={index} className="inline-flex min-w-0 items-center gap-1.5">
-          {index > 0 ? <span className="text-zinc-700">·</span> : null}
-          {piece}
+    <div className="flex min-w-0 items-center text-xs leading-4 text-zinc-400">
+      {location ? (
+        <span className="min-w-0 truncate" title={location}>
+          {location}
         </span>
-      ))}
+      ) : null}
+      {location && aumText ? (
+        <span className="mx-1.5 shrink-0 text-zinc-500" aria-hidden>
+          ·
+        </span>
+      ) : null}
+      {aumText ? (
+        <span className="shrink-0 tabular-nums" title={`AUM ${aumText}`}>
+          AUM {aumText}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -1110,8 +1111,8 @@ export function FreshCapitalLiveFeed({
                           <span title={fundDisplay} className="min-w-0 truncate text-xs font-medium text-zinc-400">
                             {fundDisplay || "—"}
                           </span>
-                          <span className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-white">{size}</span>
-                          <span className="whitespace-nowrap text-xs text-zinc-400">{announcedDateForDisplay(row) || "—"}</span>
+                          <span className="min-w-0 truncate font-mono text-sm font-semibold tabular-nums text-white">{size}</span>
+                          <span className="min-w-0 truncate text-xs text-zinc-400">{announcedDateForDisplay(row) || "—"}</span>
                           <span className="min-w-0 overflow-hidden">
                             <TagGroup items={stageFocusTags(row)} maxVisible={1} variant="stage" />
                           </span>

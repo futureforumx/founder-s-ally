@@ -1,11 +1,13 @@
 import type { KeyboardEvent } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronDown, MapPin } from "lucide-react";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
 import { normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
 import { formatRoundKind, roundKindStageBucket, sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
 import { formatAnnouncedDate } from "@/lib/freshCapitalPublic";
 import type { MatchedVcFirm } from "@/lib/fundingFeedEntityMatch";
+import { useFundingCompanySnapshot } from "@/hooks/useFundingCompanySnapshot";
 import { buildOutboundUrl, isValidOutboundUrl } from "@/lib/outboundUrl";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 import { cn } from "@/lib/utils";
@@ -182,6 +184,9 @@ export function FundingFeedRow({
   row: RecentFundingRound;
   leadFirm?: MatchedVcFirm | null;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const snapshotQuery = useFundingCompanySnapshot(expanded, row.companyName, row.websiteUrl);
+  const snapshot = snapshotQuery.data;
   const displayDate = formatAnnouncedDate(row.announcedAt || null) || "—";
   const leadHref = buildOutboundUrl(
     normalizeWebsiteUrl(leadFirm?.websiteUrl ?? row.leadWebsiteUrl ?? undefined),
@@ -195,16 +200,12 @@ export function FundingFeedRow({
       ? formatOutboundUrl(row.sourceUrl.trim())
       : null;
 
-  const openSource = () => {
-    if (!sourceOutboundHref) return;
-    window.open(sourceOutboundHref, "_blank", "noopener");
-  };
+  const toggleExpanded = () => setExpanded((open) => !open);
 
   const onRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>) => {
-    if (!sourceOutboundHref) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      openSource();
+      toggleExpanded();
     }
   };
 
@@ -213,9 +214,9 @@ export function FundingFeedRow({
   };
 
   const interactiveShell = cn(
-    "transition-colors hover:bg-zinc-900/40",
+    "cursor-pointer transition-colors hover:bg-zinc-900/40",
     "outline-none focus-visible:bg-zinc-900/50 focus-visible:ring-1 focus-visible:ring-zinc-700",
-    sourceOutboundHref && "cursor-pointer",
+    expanded && "bg-zinc-900/30",
   );
 
   const roundBucket = roundKindStageBucket(row.roundKind);
@@ -226,47 +227,102 @@ export function FundingFeedRow({
 
   const outlet = prettyOutletFromSourceUrl(row.sourceUrl) ?? "Source";
   const sectorLabels = sectorLabelsForDisplay(row.sector);
+  const hqLine = snapshot?.hqLine ?? null;
+  const description = snapshot?.description ?? null;
+  const expandedName = snapshot?.name || row.companyName;
+  const expandedRow: RecentFundingRound = {
+    ...row,
+    companyLogoUrl: snapshot?.logoUrl || row.companyLogoUrl,
+  };
 
   return (
-    <tr
-      role={sourceOutboundHref ? "button" : undefined}
-      tabIndex={sourceOutboundHref ? 0 : undefined}
-      aria-label={
-        sourceOutboundHref
-          ? `Open funding article for ${row.companyName}`
-          : `Funding deal for ${row.companyName} (no public article URL)`
-      }
-      className={cn("border-b border-zinc-800/60 last:border-b-0", interactiveShell)}
-      onClick={sourceOutboundHref ? openSource : undefined}
-      onKeyDown={sourceOutboundHref ? onRowKeyDown : undefined}
-    >
-      <td className={TD}>
-        <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
-          <CompanyRowMark row={row} />
-          <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-            <span className="min-w-0 truncate font-medium text-white">{row.companyName}</span>
-            {showRumorBadge ? <span className="shrink-0"><RumorBadge /></span> : null}
+    <>
+      <tr
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={`${expanded ? "Collapse" : "Expand"} details for ${row.companyName}`}
+        className={cn("border-b border-zinc-800/60", expanded ? "border-b-0" : "last:border-b-0", interactiveShell)}
+        onClick={toggleExpanded}
+        onKeyDown={onRowKeyDown}
+      >
+        <td className={TD}>
+          <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
+            <CompanyRowMark row={row} />
+            <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+              <span className="min-w-0 truncate font-medium text-white">{row.companyName}</span>
+              {showRumorBadge ? <span className="shrink-0"><RumorBadge /></span> : null}
+            </span>
+            <ChevronDown
+              className={cn(
+                "ml-auto h-3.5 w-3.5 shrink-0 text-zinc-600 transition-transform",
+                expanded && "rotate-180 text-zinc-400",
+              )}
+              aria-hidden
+            />
           </span>
-        </span>
-      </td>
-      <td className={TD}>
-        <SectorCell labels={sectorLabels} />
-      </td>
-      <td className={TD}>
-        <RoundKindPill label={formatRoundKind(row.roundKind)} title={roundKindTitle} />
-      </td>
-      <td className={TD}>
-        <span className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-white">{row.amountLabel}</span>
-      </td>
-      <td className={TD}>
-        <LeadInvestorCell row={row} leadFirm={leadFirm} leadHref={leadHref} stopRowOpen={stopRowOpen} />
-      </td>
-      <td className={TD}>
-        <span className="whitespace-nowrap text-xs text-zinc-400">{displayDate}</span>
-      </td>
-      <td className={TD} onClick={stopRowOpen} onAuxClick={stopRowOpen}>
-        <SourceLink href={sourceOutboundHref} label={outlet} stopRowOpen={stopRowOpen} />
-      </td>
-    </tr>
+        </td>
+        <td className={TD}>
+          <SectorCell labels={sectorLabels} />
+        </td>
+        <td className={TD}>
+          <RoundKindPill label={formatRoundKind(row.roundKind)} title={roundKindTitle} />
+        </td>
+        <td className={TD}>
+          <span className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-white">{row.amountLabel}</span>
+        </td>
+        <td className={TD}>
+          <LeadInvestorCell row={row} leadFirm={leadFirm} leadHref={leadHref} stopRowOpen={stopRowOpen} />
+        </td>
+        <td className={TD}>
+          <span className="whitespace-nowrap text-xs text-zinc-400">{displayDate}</span>
+        </td>
+        <td className={TD} onClick={stopRowOpen} onAuxClick={stopRowOpen}>
+          <SourceLink href={sourceOutboundHref} label={outlet} stopRowOpen={stopRowOpen} />
+        </td>
+      </tr>
+      {expanded ? (
+        <tr className="border-b border-zinc-800/60 bg-[#080808] last:border-b-0">
+          <td colSpan={7} className="px-4 pb-4 pt-1 first:pl-4 last:pr-4">
+            <div className="max-w-2xl rounded-xl border border-zinc-800/80 bg-black/40 px-4 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <CompanyRowMark row={expandedRow} size="md" />
+                <p className="min-w-0 truncate text-base font-semibold tracking-tight text-white">{expandedName}</p>
+              </div>
+              <dl className="mt-4 space-y-3">
+                <div>
+                  <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    <MapPin className="h-3 w-3" aria-hidden />
+                    HQ location
+                  </dt>
+                  <dd className="mt-1 text-sm text-zinc-300">
+                    {snapshotQuery.isFetching && !snapshot ? (
+                      <span className="inline-block h-3 w-36 animate-pulse rounded bg-zinc-800" />
+                    ) : (
+                      hqLine || "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Description</dt>
+                  <dd className="mt-1 text-sm leading-relaxed text-zinc-400">
+                    {snapshotQuery.isFetching && !snapshot ? (
+                      <span className="block space-y-1.5">
+                        <span className="block h-3 w-full max-w-md animate-pulse rounded bg-zinc-800" />
+                        <span className="block h-3 w-2/3 max-w-sm animate-pulse rounded bg-zinc-800" />
+                      </span>
+                    ) : description ? (
+                      <span className="line-clamp-6 whitespace-pre-wrap">{description}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </>
   );
 }

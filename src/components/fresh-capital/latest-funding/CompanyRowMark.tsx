@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import type { RecentFundingRound } from "@/lib/recentFundingSeed";
 import { prettyWebsiteHost } from "@/lib/latestFundingDisplay";
 import {
@@ -74,7 +75,16 @@ export function EntityRowMark({
   );
 }
 
-export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
+export function CompanyRowMark({
+  row,
+  size = "sm",
+}: {
+  row: RecentFundingRound;
+  size?: "sm" | "md";
+}) {
+  const box = size === "md" ? "h-10 w-10" : "h-6 w-6";
+  const letterClass = size === "md" ? "text-sm" : "text-[10px]";
+  const px = size === "md" ? 40 : 24;
   const candidates = useMemo(
     () =>
       buildCompanyMarkCandidateUrls({
@@ -96,7 +106,11 @@ export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
   if (!candidates.length || attempt >= candidates.length) {
     return (
       <span
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 font-semibold uppercase leading-none text-zinc-400",
+          box,
+          letterClass,
+        )}
         aria-hidden
       >
         {letter}
@@ -108,9 +122,9 @@ export function CompanyRowMark({ row }: { row: RecentFundingRound }) {
     <img
       src={currentSrc}
       alt=""
-      width={24}
-      height={24}
-      className="h-6 w-6 shrink-0 rounded-md bg-zinc-950 object-contain"
+      width={px}
+      height={px}
+      className={cn("shrink-0 rounded-md bg-zinc-950 object-contain", box)}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
