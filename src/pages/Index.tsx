@@ -58,6 +58,7 @@ type ViewType =
   | "investors"
   | "investor-search"
   | "investor-funding"
+  | "investor-trending"
   | "network-workspace"
   | "network"
   | "directory"
@@ -152,6 +153,7 @@ const Index = () => {
       if (view === "profile-workspace") return "settings";
       if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
       if (view === "investor-funding") return "investor-funding";
+      if (view === "investor-trending") return "investor-trending";
       if (view === "market-trending") return "market-trending";
       if (view === "resources") return "resources";
       if (view === "directory") return "directory";
@@ -213,6 +215,9 @@ const Index = () => {
     }
     if (v === "investor-funding") {
       setActiveView("investor-funding");
+    }
+    if (v === "investor-trending") {
+      setActiveView("investor-trending");
     }
     if (v === "market-trending") {
       setActiveView("market-trending");
@@ -440,7 +445,7 @@ const Index = () => {
   }, []);
 
   const shellStyle = {
-    "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "13rem",
+    "--app-sidebar-width": sidebarCollapsed ? "3.5rem" : "15rem",
   } as CSSProperties;
 
   return (
@@ -450,6 +455,11 @@ const Index = () => {
         onViewChange={setActiveView}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        workspaceName={companyData?.name}
+        workspaceLogoUrl={navLogoUrl}
+        userStage={companyData?.stage}
+        profileCompletion={profileCompletion}
+        personalCompletion={personalCompletion}
       />
       <main className="flex-1 overflow-y-auto relative">
         <GlobalTopNav
@@ -568,6 +578,10 @@ const Index = () => {
           ) : activeView === "investor-funding" ? (
             <DeferredSection label="Loading funding feed…">
               <RecentFundingFeed />
+            </DeferredSection>
+          ) : activeView === "investor-trending" ? (
+            <DeferredSection label="Loading trending startups…">
+              <MarketTrendingView />
             </DeferredSection>
           ) : activeView === "sector" ? (
             <div className="space-y-6">

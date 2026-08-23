@@ -64,7 +64,7 @@
     --sidebar-ring: 239 100% 68%;
 
     /* App shell: sidebar width (AppSidebar updates on collapse; GlobalTopNav offsets from this). */
-    --app-sidebar-width: 216px;
+    --app-sidebar-width: 240px;
 
     --heat-0: 220 10% 18%;
     --heat-1: 239 42% 36%;
@@ -842,4 +842,22 @@ video.auth-hero-native-video {
   .animate-cohort-spark-bar {
     animation: none;
   }
+}
+
+/* Ant Design horizontal Menu in the app top nav — pin line-height so flex parents cannot stretch items */
+.vekta-top-nav-menu.ant-menu,
+.vekta-top-nav-menu.ant-menu-horizontal {
+  line-height: 36px !important;
+  height: 36px !important;
+  min-width: 0;
+  border-bottom: none !important;
+  background: transparent !important;
+}
+
+.vekta-top-nav-menu.ant-menu-horizontal .ant-menu-item,
+.vekta-top-nav-menu.ant-menu-horizontal .ant-menu-overflow-item,
+.vekta-top-nav-menu.ant-menu-horizontal .ant-menu-submenu {
+  line-height: 36px !important;
+  height: 36px !important;
+  top: 0;
 }

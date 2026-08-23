@@ -9,7 +9,12 @@ const INVALID_WEBSITE_HOST_PATTERNS = [
   /unpkg/i,
   /cdnjs/i,
   /bootstrap/i,
+  /bootstrapcdn/i,
+  /stackpath/i,
+  /maxcdn/i,
   /gravatar/i,
+  /(?:^|\.)framer\.com$/i,
+  /(?:^|\.)webflow\.(?:com|io)$/i,
 ];
 
 const INVALID_WEBSITE_PATH_PATTERNS = [
@@ -55,6 +60,14 @@ export function prettyWebsiteHost(url: string | null | undefined): string | null
   } catch {
     return null;
   }
+}
+
+/** First usable company host — skips CDN / asset URLs scraped into website fields. */
+export function displayCompanyHost(
+  website: string | null | undefined,
+  domain: string | null | undefined,
+): string | null {
+  return prettyWebsiteHost(website) ?? prettyWebsiteHost(domain);
 }
 
 export function inferWebsiteUrlFromCompanyName(name: string | null | undefined): string | null {

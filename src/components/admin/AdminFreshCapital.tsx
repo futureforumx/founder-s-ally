@@ -20,11 +20,26 @@ import { toast } from "sonner";
 import { FreshCapitalEnrichmentAdmin } from "./FreshCapitalEnrichmentAdmin";
 import { FreshCapitalPublicPathsAdmin } from "./FreshCapitalPublicPathsAdmin";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
+import { displayCompanyHost } from "@/lib/latestFundingDisplay";
+import { canonicalSectorChoiceLabel, formatRoundKind } from "@/lib/latestFundingFilters";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 30;
-const COL = "2fr 1fr 1fr 1fr 1.5fr 0.7fr 0.6fr 0.6fr 0.5fr";
+/** minmax(0, …) so long company URLs cannot stretch the first columns. */
+const DEAL_COL =
+  "minmax(0, 1.55fr) minmax(0, 0.85fr) minmax(0, 0.75fr) minmax(0, 0.6fr) minmax(0, 1.15fr) 6.75rem 5rem 4.5rem 4rem";
+const DEAL_HEADERS: { label: string; align?: "left" | "center" }[] = [
+  { label: "Company" },
+  { label: "Sector" },
+  { label: "Round" },
+  { label: "Amount" },
+  { label: "Lead Investor" },
+  { label: "Date" },
+  { label: "Review", align: "center" },
+  { label: "Rumor", align: "center" },
+  { label: "Conf", align: "center" },
+];
 
 const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -1256,8 +1271,12 @@ function publicAmount(row: DealRow): string {
 const HDR: React.CSSProperties = {
   fontSize: 10, fontFamily: "monospace", letterSpacing: "0.15em",
   textTransform: "uppercase", color: "rgba(255,255,255,0.3)", padding: "6px 12px",
+  minWidth: 0, overflow: "hidden",
 };
-const CELL: React.CSSProperties = { padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.75)" };
+const CELL: React.CSSProperties = {
+  padding: "10px 12px", fontSize: 12, color: "rgba(255,255,255,0.75)",
+  minWidth: 0, overflow: "hidden",
+};
 
 // ── Add fund / add deal modals ─────────────────────────────────────────────────
 
@@ -1864,9 +1883,9 @@ function LatestFundingDealsAdmin() {
       {/* Table */}
       <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         {/* Header row */}
-        <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          {["Company","Sector","Round","Amount","Lead Investor","Date","Review","Rumor","Conf"].map(h => (
-            <div key={h} style={HDR}>{h}</div>
+        <div style={{ display: "grid", gridTemplateColumns: DEAL_COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          {DEAL_HEADERS.map(h => (
+            <div key={h.label} style={{ ...HDR, textAlign: h.align ?? "left" }}>{h.label}</div>
           ))}
         </div>
 
@@ -1884,12 +1903,15 @@ function LatestFundingDealsAdmin() {
 
         {!loading && rows.map(row => {
           const isSelected = selected?.id === row.id;
+          const companyHost = displayCompanyHost(row.company_website, row.company_domain);
+          const sector = firstText(row.sector_normalized, row.sector_raw);
+          const round = firstText(row.round_type_normalized, row.round_type_raw);
           return (
             <div
               key={row.id}
               onClick={() => setSelected(isSelected ? null : row)}
               style={{
-                display: "grid", gridTemplateColumns: COL,
+                display: "grid", gridTemplateColumns: DEAL_COL,
                 borderBottom: "1px solid rgba(255,255,255,0.04)",
                 cursor: "pointer",
                 background: isSelected ? "rgba(46,230,166,0.06)" : undefined,
@@ -1899,37 +1921,43 @@ function LatestFundingDealsAdmin() {
             >
               <div style={CELL}>
                 <div className="font-medium truncate">{row.company_name}</div>
-                {firstText(row.company_website, row.company_domain) && (
+                {companyHost && (
                   <div className="text-[10px] mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
-                    {firstText(row.company_website, row.company_domain)}
+                    {companyHost}
                   </div>
                 )}
               </div>
-              <div style={{ ...CELL, color: "rgba(255,255,255,0.5)" }}>{firstText(row.sector_normalized, row.sector_raw) ?? "—"}</div>
+              <div style={{ ...CELL, color: "rgba(255,255,255,0.5)" }} className="truncate">
+                {sector ? canonicalSectorChoiceLabel(sector) : "—"}
+              </div>
               <div style={CELL}>
-                {firstText(row.round_type_normalized, row.round_type_raw) ? (
-                  <span className="rounded px-1.5 py-0.5 text-[10px] font-mono"
+                {round ? (
+                  <span className="inline-block max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-medium"
                     style={{ background: "rgba(46,230,166,0.1)", color: "#2EE6A6" }}>
-                    {firstText(row.round_type_normalized, row.round_type_raw)}
+                    {formatRoundKind(round)}
                   </span>
                 ) : "—"}
               </div>
-              <div style={{ ...CELL, fontFamily: "monospace" }}>{publicAmount(row)}</div>
+              <div style={{ ...CELL, fontFamily: "monospace" }} className="whitespace-nowrap tabular-nums">
+                {publicAmount(row)}
+              </div>
               <div style={{ ...CELL, color: "rgba(255,255,255,0.6)" }} className="truncate">
                 {firstText(row.lead_investor, row.lead_investor_normalized) ?? "—"}
               </div>
-              <div style={{ ...CELL, color: "rgba(255,255,255,0.45)", fontSize: 11 }}>{fmtDate(row.announced_date)}</div>
-              <div style={CELL} className="flex items-center">
+              <div style={{ ...CELL, color: "rgba(255,255,255,0.45)", fontSize: 11 }} className="whitespace-nowrap">
+                {fmtDate(row.announced_date)}
+              </div>
+              <div style={{ ...CELL, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {row.needs_review
                   ? <Flag className="h-3.5 w-3.5" style={{ color: "#f59e0b" }} />
                   : <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.2)" }} />}
               </div>
-              <div style={CELL} className="flex items-center">
+              <div style={{ ...CELL, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {row.is_rumor
                   ? <AlertCircle className="h-3.5 w-3.5" style={{ color: "#f87171" }} />
                   : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>—</span>}
               </div>
-              <div style={{ ...CELL, fontFamily: "monospace", fontSize: 11 }}>
+              <div style={{ ...CELL, fontFamily: "monospace", fontSize: 11, textAlign: "center" }} className="tabular-nums">
                 {Math.round(row.confidence_score * 100)}%
               </div>
             </div>

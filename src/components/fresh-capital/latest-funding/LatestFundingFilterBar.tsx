@@ -55,6 +55,7 @@ type Props = {
   onDateSortChange: (next: LatestFundingDateSort) => void;
   filtersAreDefault: boolean;
   onReset: () => void;
+  className?: string;
 };
 
 function toggleValue(current: string[], value: string): string[] {
@@ -244,10 +245,11 @@ export function LatestFundingFilterBar({
   onDateSortChange,
   filtersAreDefault,
   onReset,
+  className,
 }: Props) {
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-b border-zinc-800/60 bg-[#0a0a0a] px-3 py-2"
+      className={cn("flex flex-wrap items-center gap-2 border-b border-zinc-800/60 bg-[#0a0a0a] px-3 py-2", className)}
       role="group"
       aria-label={groupAriaLabel}
     >

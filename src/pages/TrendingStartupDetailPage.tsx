@@ -7,7 +7,7 @@ import { TrajectoryCharts } from "@/components/trending-startups/TrajectoryChart
 import { Button } from "@/components/ui/button";
 import { StartupLogo } from "@/components/trending-startups/StartupLogo";
 import { useTrendingStartup } from "@/hooks/useTrendingStartups";
-import { formatStartupCategoryStageHq } from "@/lib/trendingStartups/display";
+import { compositeScoreTextClass, formatStartupCategoryStageHq } from "@/lib/trendingStartups/display";
 import { isEarlySpotter, toggleEarlySpotter } from "@/lib/trendingStartups/signup";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +106,9 @@ export default function TrendingStartupDetailPage() {
         <div className="flex items-center gap-3">
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-right">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Composite</p>
-            <p className="font-mono text-2xl font-semibold tabular-nums text-primary">{startup.compositeScore.toFixed(1)}</p>
+            <p className={cn("font-mono text-2xl font-semibold tabular-nums", compositeScoreTextClass(startup.compositeScore))}>
+              {startup.compositeScore.toFixed(1)}
+            </p>
           </div>
           <Button
             type="button"

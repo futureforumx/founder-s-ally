@@ -1,7 +1,8 @@
 import { format, parseISO } from "date-fns";
 import { ExternalLink } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { LatestFundingFilterBar } from "@/components/fresh-capital/latest-funding/LatestFundingFilterBar";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useCompanyDirectory } from "@/hooks/useProfile";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
@@ -12,7 +13,16 @@ import {
   type MatchedVcFirm,
 } from "@/lib/fundingFeedEntityMatch";
 import { type RecentFundingRound } from "@/lib/recentFundingSeed";
-import { sectorLabelsForDisplay } from "@/lib/latestFundingFilters";
+import {
+  applyLatestFundingTableFilters,
+  buildDedupedRoundChoices,
+  buildDedupedSectorChoices,
+  latestFundingFiltersAreDefault,
+  parseCustomAmountInput,
+  sectorLabelsForDisplay,
+  type LatestFundingAmountPreset,
+  type LatestFundingDateSort,
+} from "@/lib/latestFundingFilters";
 import { cn } from "@/lib/utils";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 
@@ -285,6 +295,82 @@ export function RecentFundingFeed({ className }: { className?: string }) {
   const leadFirmIndex = useMemo(() => buildVcFirmMatchIndex(firms), [firms]);
   const orgMaps = useOrganizationLookupMaps();
   const { rows, isLoading, isFetching } = useRecentFundingFeed();
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
+  const [selectedRounds, setSelectedRounds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [amountPreset, setAmountPreset] = useState<LatestFundingAmountPreset>("all");
+  const [customMinInput, setCustomMinInput] = useState("");
+  const [customMaxInput, setCustomMaxInput] = useState("");
+  const [dateSort, setDateSort] = useState<LatestFundingDateSort>("newest");
+
+  const customMinUsd = useMemo(() => parseCustomAmountInput(customMinInput), [customMinInput]);
+  const customMaxUsd = useMemo(() => parseCustomAmountInput(customMaxInput), [customMaxInput]);
+  const sectorChoices = useMemo(() => {
+    const raw: string[] = [];
+    for (const row of rows) {
+      const sector = row.sector?.trim();
+      if (sector && sector !== "Unknown") raw.push(sector);
+    }
+    return buildDedupedSectorChoices(raw);
+  }, [rows]);
+  const roundChoices = useMemo(() => buildDedupedRoundChoices(rows), [rows]);
+  const filtersAreDefault = latestFundingFiltersAreDefault({
+    query: searchQuery,
+    sectors: selectedSectors,
+    rounds: selectedRounds,
+    amountPreset,
+    dateSort,
+  });
+  const filtered = useMemo(
+    () =>
+      applyLatestFundingTableFilters(rows, {
+        query: searchQuery,
+        sectors: selectedSectors,
+        rounds: selectedRounds,
+        amountPreset,
+        customMinUsd,
+        customMaxUsd,
+        dateSort,
+      }),
+    [rows, searchQuery, selectedSectors, selectedRounds, amountPreset, customMinUsd, customMaxUsd, dateSort],
+  );
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSelectedSectors([]);
+    setSelectedRounds([]);
+    setAmountPreset("all");
+    setCustomMinInput("");
+    setCustomMaxInput("");
+    setDateSort("newest");
+  };
+
+  const filterBar = (
+    <LatestFundingFilterBar
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      sectorChoices={sectorChoices}
+      selectedSectors={selectedSectors}
+      onSectorsChange={setSelectedSectors}
+      roundChoices={roundChoices}
+      selectedRounds={selectedRounds}
+      onRoundsChange={setSelectedRounds}
+      amountPreset={amountPreset}
+      onAmountPresetChange={setAmountPreset}
+      customMinInput={customMinInput}
+      customMaxInput={customMaxInput}
+      onCustomMinInputChange={setCustomMinInput}
+      onCustomMaxInputChange={setCustomMaxInput}
+      customMinUsd={customMinUsd}
+      customMaxUsd={customMaxUsd}
+      dateSort={dateSort}
+      onDateSortChange={setDateSort}
+      filtersAreDefault={filtersAreDefault}
+      onReset={resetFilters}
+      groupAriaLabel="Filter recent funding"
+      className="border-border/60 bg-muted/20"
+    />
+  );
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -298,53 +384,75 @@ export function RecentFundingFeed({ className }: { className?: string }) {
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-10 text-center text-sm text-muted-foreground">
-          Loading latest funding rounds…
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card/50">
+          {filterBar}
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            Loading latest funding rounds…
+          </div>
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-12 text-center text-sm text-muted-foreground">
-          No rows to display.
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card/50">
+          {filterBar}
+          <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+            No rows to display.
+          </div>
         </div>
       ) : (
         <>
-          <div className="hidden md:block rounded-xl border border-border/60 bg-card/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border/60 bg-muted/30">
-                    <th className="py-2.5 pr-3 pl-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Company</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold min-w-[100px]">Sector</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Stage</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Round size</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Lead investor</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">Co-investors</th>
-                    <th className="py-2.5 px-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">Announced</th>
-                    <th className="py-2.5 pl-2 pr-4 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold text-right">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <FundingRowDesktop
-                      key={row.id}
-                      row={row}
-                      leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
-                      organization={resolveOrganization(row, orgMaps)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-card/50 md:block">
+            {filterBar}
+            {filtered.length === 0 ? (
+              <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+                No rounds match these filters.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1000px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/30">
+                      <th className="py-2.5 pr-3 pl-4 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Company</th>
+                      <th className="min-w-[100px] px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Sector</th>
+                      <th className="whitespace-nowrap px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Round</th>
+                      <th className="whitespace-nowrap px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Amount</th>
+                      <th className="px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Lead investor</th>
+                      <th className="px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Co-investors</th>
+                      <th className="whitespace-nowrap px-2 py-2.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Date</th>
+                      <th className="py-2.5 pl-2 pr-4 text-right text-[10px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((row) => (
+                      <FundingRowDesktop
+                        key={row.id}
+                        row={row}
+                        leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
+                        organization={resolveOrganization(row, orgMaps)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          <div className="md:hidden space-y-3">
-            {rows.map((row) => (
-              <FundingCardMobile
-                key={row.id}
-                row={row}
-                leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
-                organization={resolveOrganization(row, orgMaps)}
-              />
-            ))}
+          <div className="space-y-3 md:hidden">
+            <div className="overflow-hidden rounded-xl border border-border/60 bg-card/50">
+              {filterBar}
+            </div>
+            {filtered.length === 0 ? (
+              <div className="rounded-xl border border-border/60 bg-card/50 px-4 py-12 text-center text-sm text-muted-foreground">
+                No rounds match these filters.
+              </div>
+            ) : (
+              filtered.map((row) => (
+                <FundingCardMobile
+                  key={row.id}
+                  row={row}
+                  leadFirm={resolveMatchedVcFirm(row.leadInvestor, leadFirmIndex)}
+                  organization={resolveOrganization(row, orgMaps)}
+                />
+              ))
+            )}
           </div>
         </>
       )}

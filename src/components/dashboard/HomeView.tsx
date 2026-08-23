@@ -221,14 +221,17 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
   }, []);
 
   return (
-    <section className="relative isolate min-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-[#27272a] bg-[#030303] px-4 py-10 text-[#f2f2f2] sm:px-6 sm:py-14 lg:px-10">
-      <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(71,85,105,0.32)_0%,rgba(3,3,3,0)_58%)]" />
-      <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#40444c] to-transparent" />
+    <section className="relative isolate min-h-[calc(100vh-5rem)] overflow-hidden rounded-2xl border border-border bg-background px-4 py-10 text-foreground sm:px-6 sm:py-14 lg:px-10">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,hsl(var(--muted))_0%,transparent_58%)] opacity-90 dark:opacity-70"
+      />
+      <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center">
-        <div className="mb-6 flex items-center gap-2 rounded-md bg-[#111319]/70 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-[#9aa0aa] outline-none">
+        <div className="mb-6 flex items-center gap-2 rounded-md bg-muted/80 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-muted-foreground outline-none">
           <span
-            className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-command-desk-status-dot"
+            className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-success animate-command-desk-status-dot"
             aria-hidden
           />
           VEKTA COMMAND DESK
@@ -236,12 +239,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
 
         <div className="relative mb-8 flex items-center justify-center">
           <div
-            className="absolute h-28 w-28 rounded-full animate-home-vyta-mark-aura-pulse"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(148,163,184,0.28) 0%, rgba(100,116,139,0.12) 52%, transparent 82%)",
-              filter: "blur(20px)",
-            }}
+            className="absolute h-28 w-28 rounded-full animate-home-vyta-mark-aura-pulse bg-[radial-gradient(circle,hsl(var(--primary)/0.16)_0%,hsl(var(--muted)/0.55)_52%,transparent_82%)] blur-[20px] dark:bg-[radial-gradient(circle,rgba(148,163,184,0.28)_0%,rgba(100,116,139,0.12)_52%,transparent_82%)]"
             aria-hidden
           />
           <div className="relative z-10">
@@ -250,16 +248,16 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
         </div>
 
         <h1
-          className="text-center font-['Clash_Grotesk','Inter',ui-sans-serif,system-ui,sans-serif] text-[1.75rem] font-medium leading-[1.02] tracking-[-0.04em] text-[#ffffff] sm:text-[2.125rem] lg:text-[2.75rem]"
+          className="text-center font-['Clash_Grotesk','Inter',ui-sans-serif,system-ui,sans-serif] text-[1.75rem] font-medium leading-[1.02] tracking-[-0.04em] text-foreground sm:text-[2.125rem] lg:text-[2.75rem]"
         >
           {greeting}
         </h1>
-        <p className="mt-3 mb-10 max-w-2xl text-center text-sm text-[#8b919c] sm:text-base">{sub}</p>
+        <p className="mt-3 mb-10 max-w-2xl text-center text-sm text-muted-foreground sm:text-base">{sub}</p>
 
         <div
           className={cn(
-            "relative w-full max-w-3xl rounded-xl border bg-[#0f1115]/92 transition-colors duration-200",
-            focused ? "border-[#5a616d]" : "border-[#27272a]",
+            "relative w-full max-w-3xl rounded-xl border bg-card/90 transition-colors duration-200",
+            focused ? "border-ring/50" : "border-border",
           )}
         >
           <AnimatedPlaceholderInput
@@ -278,8 +276,8 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
             onBlur={() => setFocused(false)}
             onKeyDown={handleKeyDown}
             className={cn(
-              "w-full max-h-52 resize-none overflow-y-auto rounded-xl px-4 pt-4 pb-12 text-sm text-[#f3f4f6]",
-              "placeholder:text-[#8b919c] focus:outline-none",
+              "w-full max-h-52 resize-none overflow-y-auto rounded-xl px-4 pt-4 pb-12 text-sm text-foreground",
+              "placeholder:text-muted-foreground focus:outline-none",
             )}
             style={{ minHeight: "58px" }}
           />
@@ -287,7 +285,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
           <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-3">
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-[#2d313a] bg-[#131720] px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-[#b4bac4] transition-colors hover:border-[#464c56] hover:text-[#eceef2]"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-muted-foreground transition-colors hover:border-border hover:text-foreground"
             >
               <Zap className="h-3 w-3" />
               VEX
@@ -300,8 +298,8 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
                 query.trim()
-                  ? "border-[#606978] bg-[#e4e8ef] text-[#07090d] hover:bg-[#f0f3f8]"
-                  : "cursor-not-allowed border-[#27272a] bg-[#15171d] text-[#5d6470]",
+                  ? "border-foreground/20 bg-foreground text-background hover:bg-foreground/90"
+                  : "cursor-not-allowed border-border bg-muted text-muted-foreground/40",
               )}
             >
               <ArrowUp className="h-3.5 w-3.5" />
@@ -317,9 +315,9 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
             disabled={!suggestionsOverflow}
             onClick={() => scrollSuggestions(-300)}
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[#d1d5dc] shadow-[0_4px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition",
-              "hover:border-white/[0.18] hover:bg-white/[0.1] hover:text-[#f4f4f5]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition",
+              "hover:border-border hover:bg-muted hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               !suggestionsOverflow && "pointer-events-none opacity-25",
             )}
           >
@@ -415,7 +413,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
                     setQuery(prompt);
                     inputRef.current?.focus();
                   }}
-                  className="shrink-0 rounded-md border border-[#27272a] bg-[#0d0f13] px-3 py-1.5 text-left text-[11px] uppercase tracking-[0.28px] text-[#8f95a0] transition-colors hover:border-[#49505a] hover:text-[#e8eaee]"
+                  className="shrink-0 rounded-md border border-border bg-card px-3 py-1.5 text-left text-[11px] uppercase tracking-[0.28px] text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground"
                 >
                   {prompt}
                 </button>
@@ -430,9 +428,9 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
             disabled={!suggestionsOverflow}
             onClick={() => scrollSuggestions(300)}
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[#d1d5dc] shadow-[0_4px_24px_rgba(0,0,0,0.35)] backdrop-blur-md transition",
-              "hover:border-white/[0.18] hover:bg-white/[0.1] hover:text-[#f4f4f5]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition",
+              "hover:border-border hover:bg-muted hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               !suggestionsOverflow && "pointer-events-none opacity-25",
             )}
           >
@@ -442,8 +440,8 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
 
         <div className="mt-12 w-full max-w-5xl">
           <div className="mb-3 flex items-center justify-between px-1">
-            <p className="text-[11px] uppercase tracking-[0.35px] text-[#8f95a0]">What's changed</p>
-            <p className="text-[11px] uppercase tracking-[0.35px] text-[#656b76]">Since your last visit</p>
+            <p className="text-[11px] uppercase tracking-[0.35px] text-muted-foreground">What's changed</p>
+            <p className="text-[11px] uppercase tracking-[0.35px] text-muted-foreground/70">Since your last visit</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -451,28 +449,28 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
               const TrendIcon = trend === "down" ? ArrowDownRight : ArrowUpRight;
               const trendClass =
                 trend === "up"
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : trend === "down"
-                    ? "text-rose-400"
-                    : "text-[#9aa0aa]";
+                    ? "text-destructive"
+                    : "text-muted-foreground";
               return (
                 <button
                   key={view}
                   type="button"
                   onClick={() => onViewChange(view)}
-                  className="group relative flex flex-col overflow-hidden rounded-lg border border-[#27272a] bg-[#0b0d10] p-4 text-left transition-colors duration-200 hover:border-[#4e5661]"
+                  className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card p-4 text-left transition-colors duration-200 hover:border-border hover:bg-muted/40"
                   style={{
                     animation: "fade-in 380ms ease-out both",
                     animationDelay: `${idx * 70}ms`,
                   }}
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md border border-[#27272a] bg-[#111319]">
-                      <Icon className="h-4 w-4 text-[#b8bec9] transition-colors group-hover:text-[#ffffff]" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-muted">
+                      <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                     </span>
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium",
+                        "inline-flex items-center gap-1 rounded-full border border-border bg-muted/70 px-2 py-0.5 text-[11px] font-medium",
                         trendClass,
                       )}
                     >
@@ -481,10 +479,10 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-semibold leading-none tracking-[-0.02em] text-[#ffffff]">{metric}</span>
-                    <span className="text-[11px] uppercase tracking-[0.3px] text-[#949ba6]">{label}</span>
+                    <span className="text-2xl font-semibold leading-none tracking-[-0.02em] text-foreground">{metric}</span>
+                    <span className="text-[11px] uppercase tracking-[0.3px] text-muted-foreground">{label}</span>
                   </div>
-                  <p className="mt-2 text-xs leading-relaxed text-[#8d949f]">{description}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p>
                 </button>
               );
             })}

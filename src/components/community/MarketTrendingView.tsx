@@ -20,7 +20,7 @@ export function MarketTrendingView() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/50 shadow-sm">
         {isLoading && rows.length === 0 ? (
           <div className="px-4 py-16 text-center text-sm text-muted-foreground">Loading the daily board…</div>
         ) : rows.length === 0 ? (

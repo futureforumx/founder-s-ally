@@ -83,7 +83,7 @@ function viewContextNote(view: TopNavView) {
     return "Markets context: relative position and competitor pressure are folded into this score.";
   }
   if (
-    ["investors", "investor-search", "investor-funding", "directory", "connections", "network", "network-workspace", "market-trending"].includes(
+    ["investors", "investor-search", "investor-funding", "investor-trending", "directory", "connections", "network", "network-workspace", "market-trending"].includes(
       view,
     )
   ) {

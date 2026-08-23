@@ -13,3 +13,10 @@ export function requestAppNavigate(view: NavigateableAppView): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(VEKTA_APP_NAVIGATE_EVENT, { detail: { view } }));
 }
+
+export const VEKTA_OPEN_QUICK_ACTIONS_EVENT = "vekta:open-quick-actions";
+
+export function requestOpenQuickActions(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(VEKTA_OPEN_QUICK_ACTIONS_EVENT));
+}

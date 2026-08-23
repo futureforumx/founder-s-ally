@@ -4,19 +4,19 @@ import {
   useRef,
   useCallback,
   useMemo,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
+import { ConfigProvider, Menu, theme as antdTheme } from "antd";
+import type { MenuProps } from "antd";
 import {
-  Building2, Search, ChevronDown, ChevronRight, Zap, TrendingUp,
+  Building2, Search, ChevronDown, Zap, TrendingUp,
   Activity, Radio, Clock, Sparkles, ListFilter, Star, Flame, Users,
-  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff, CreditCard,
-  User, UserCircle, Settings2, SlidersHorizontal, LogOut, Sun, Moon,
+  X, Eye, Radar, Lock, CircleHelp, Cloud, CheckCircle2, WifiOff,
+  Sun, Moon,
   type LucideIcon,
 } from "lucide-react";
 import { useAutosaveStatus, type AutosaveStatus } from "@/hooks/useAutosave";
-import { useAuth } from "@/hooks/useAuth";
 import { cn, safeTrim } from "@/lib/utils";
 import {
   Tooltip,
@@ -24,12 +24,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { TopNavCompanyHealth } from "@/components/health/TopNavCompanyHealth";
@@ -40,9 +34,9 @@ import { isSupabaseConfigured, supabaseVcDirectory } from "@/integrations/supaba
 import { normalizeForFirmSearch, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmInvestors, rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import { FirmLogo } from "@/components/ui/firm-logo";
-import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 import { collapseStagesToRangePreferringSpecificOverEarly } from "@/lib/stageUtils";
 import { applyTheme, readStoredTheme, toggleTheme, type AppTheme } from "@/lib/theme";
+import { VEKTA_OPEN_QUICK_ACTIONS_EVENT } from "@/lib/appShellNavigate";
 
 type ViewType =
   | "home"
@@ -510,10 +504,6 @@ const MARKET_INTEL_SEGMENTS: { id: ViewType; label: string }[] = [
 
 const MARKET_INTEL_SEGMENT_IDS = new Set<ViewType>(MARKET_INTEL_SEGMENTS.map((s) => s.id));
 
-function pulseIntelActiveLabel(view: ViewType): string {
-  return MARKET_INTEL_SEGMENTS.find((s) => s.id === view)?.label ?? "Brief";
-}
-
 /** Raise (home `/`): top nav is Data Room only — Investor Match stays on sidebar Raise. */
 const RAISE_SEGMENTS: readonly { id: ViewType; label: string }[] = [
   { id: "market-data-room", label: "Data Room" },
@@ -534,150 +524,43 @@ const COMMUNITY_SEGMENTS: { id: "network" | "groups" | "events" | "market-trendi
   { id: "market-trending", label: "Trending" },
 ];
 
-/** Light purple focus ring on the active top-nav tab / segment (matches VEKTA accent, restrained). */
-const TOP_NAV_ACTIVE_OUTLINE =
-  "ring-1 ring-[#a667ff]/40 ring-offset-0 ring-offset-background dark:ring-[#b892f0]/45";
-
-/** Active tab label: foreground-first with a slight violet cast (not full accent saturation). */
-const TOP_NAV_TAB_TEXT_ACTIVE =
-  "text-[#3f3650] dark:text-[#ebe8f6]";
-
-/** Mobile section trigger — matches segmented control chrome (Network / directory pattern). */
-const TOP_NAV_MOBILE_SECTION_TRIGGER = cn(
-  "flex h-8 items-center gap-1.5 rounded-[9px] border border-border/35 bg-muted/35 px-2.5",
-  "text-[10px] font-semibold uppercase leading-none tracking-[0.08em] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
-  TOP_NAV_TAB_TEXT_ACTIVE,
-  "transition-[background-color,border-color,color,box-shadow] duration-150 ease-out",
-  "dark:border-white/[0.07] dark:bg-white/[0.04]",
-  "hover:bg-muted/50 dark:hover:bg-white/[0.07]",
-  TOP_NAV_ACTIVE_OUTLINE,
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-0",
-);
-
 /**
- * Shared top-nav segmented control (same instrument as Investor / Network directory).
- * Radiogroup + roving tabindex; keyboard arrows move selection.
+ * Horizontal Ant Design Menu — same instrument as https://ant.design/components/menu#menu-demo-horizontal
  */
-function TopNavSegmentedControl<T extends string>({
+function TopNavMenu<T extends string>({
   segments,
   activeId,
   onSelect,
   ariaLabel,
-  widthClassName,
-  density = "default",
-  labelTransform = "uppercase",
-  /** `hug`: natural-width segments that wrap inside the pill when space is tight (no horizontal scroll). `stretch`: equal flex columns (short labels). */
-  segmentLayout = "stretch",
+  allowOverflow = false,
+  appearance = "light",
 }: {
   segments: readonly { id: T; label: string }[];
   activeId: T;
   onSelect: (id: T) => void;
   ariaLabel: string;
-  widthClassName?: string;
-  density?: "default" | "compact";
-  labelTransform?: "uppercase" | "none";
-  segmentLayout?: "stretch" | "hug";
+  allowOverflow?: boolean;
+  appearance?: "light" | "dark";
 }) {
-  const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const selectedIndex = segments.findIndex((s) => s.id === activeId);
-  const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-
-  const focusIndex = useCallback((i: number) => {
-    const el = btnRefs.current[i];
-    if (el) queueMicrotask(() => el.focus());
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLDivElement>) => {
-      const len = segments.length;
-      let next = safeIndex;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-        e.preventDefault();
-        next = (safeIndex + 1) % len;
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-        e.preventDefault();
-        next = (safeIndex - 1 + len) % len;
-      } else if (e.key === "Home") {
-        e.preventDefault();
-        next = 0;
-      } else if (e.key === "End") {
-        e.preventDefault();
-        next = len - 1;
-      } else {
-        return;
-      }
-      const seg = segments[next];
-      if (seg) {
-        onSelect(seg.id);
-        focusIndex(next);
-      }
-    },
-    [focusIndex, onSelect, safeIndex, segments],
+  const items = useMemo<MenuProps["items"]>(
+    () => segments.map((seg) => ({ key: seg.id, label: seg.label })),
+    [segments],
   );
 
-  const densityCls =
-    density === "compact"
-      ? "px-1.5 py-1 text-[9px] leading-none tracking-[0.05em] sm:px-2 sm:text-[10px] sm:tracking-[0.06em]"
-      : "px-2 py-1 text-[10px] leading-none tracking-[0.08em]";
-
-  const labelCls = labelTransform === "uppercase" ? "font-medium uppercase" : "font-medium normal-case";
-
   return (
-    <div
-      role="radiogroup"
+    <Menu
+      mode="horizontal"
+      theme={appearance}
+      selectable
+      selectedKeys={[activeId]}
+      items={items}
+      onClick={({ key }) => onSelect(key as T)}
       aria-label={ariaLabel}
-      aria-orientation="horizontal"
-      onKeyDown={handleKeyDown}
-      className={cn(
-        "items-stretch rounded-[9px] border border-border/35",
-        "bg-muted/35 p-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
-        "dark:border-white/[0.07] dark:bg-white/[0.04] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
-        segmentLayout === "hug"
-          ? "flex min-h-8 w-full min-w-0 max-w-full flex-wrap content-start gap-y-0.5"
-          : cn("inline-flex h-8 shrink-0 flex-nowrap", widthClassName),
-      )}
-    >
-      {segments.map((seg, i) => {
-        const selected = activeId === seg.id;
-        return (
-          <button
-            key={seg.id}
-            ref={(el) => {
-              btnRefs.current[i] = el;
-            }}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onSelect(seg.id)}
-            title={seg.label}
-            className={cn(
-              "relative min-h-0 rounded-md text-center whitespace-nowrap",
-              segmentLayout === "hug" ? "shrink-0" : "min-w-0 flex-1",
-              densityCls,
-              labelCls,
-              "transition-[color,background-color,box-shadow,ring-color,transform] duration-150 ease-out",
-              "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55 focus-visible:ring-offset-0",
-              selected
-                ? cn(
-                    TOP_NAV_TAB_TEXT_ACTIVE,
-                    "shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.12)]",
-                    "bg-background/95 font-semibold",
-                    TOP_NAV_ACTIVE_OUTLINE,
-                    "dark:bg-white/[0.1] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)]",
-                  )
-                : cn(
-                    "text-muted-foreground/70 hover:bg-muted/45 hover:text-foreground/88",
-                    "dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80",
-                  ),
-            )}
-          >
-            {seg.label}
-          </button>
-        );
-      })}
-    </div>
+      disabledOverflow={!allowOverflow}
+      overflowedIndicator={<ChevronDown className="h-3.5 w-3.5" aria-hidden />}
+      className="vekta-top-nav-menu"
+      style={{ background: "transparent", borderBottom: "none", lineHeight: 36, minWidth: 0 }}
+    />
   );
 }
 
@@ -719,9 +602,33 @@ export function GlobalTopNav({
   const pulse = useRotatingPulse();
 
   const autosaveStatus = useAutosaveStatus();
-  const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const antdThemeConfig = useMemo(
+    () => ({
+      algorithm: theme === "light" ? antdTheme.defaultAlgorithm : antdTheme.darkAlgorithm,
+      token: {
+        colorPrimary: "#5B5CFF",
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+        borderRadius: 8,
+      },
+      components: {
+        Menu: {
+          itemBg: "transparent",
+          itemHoverBg: "transparent",
+          itemSelectedBg: "transparent",
+          itemSelectedColor: "#5B5CFF",
+          horizontalItemSelectedBg: "transparent",
+          horizontalItemSelectedColor: "#5B5CFF",
+          horizontalLineHeight: "36px",
+          itemPaddingInline: 14,
+          activeBarHeight: 2,
+        },
+      },
+    }),
+    [theme],
+  );
 
   const routeView = useCallback(
     (v: ViewType) => {
@@ -1020,6 +927,19 @@ export function GlobalTopNav({
     return () => document.removeEventListener("keydown", handler);
   }, [onOpenCommandPalette]);
 
+  useEffect(() => {
+    const handler = () => {
+      if (onOpenCommandPalette) {
+        onOpenCommandPalette();
+        return;
+      }
+      setSearchOpen(true);
+      setHighlightIdx(0);
+    };
+    window.addEventListener(VEKTA_OPEN_QUICK_ACTIONS_EVENT, handler);
+    return () => window.removeEventListener(VEKTA_OPEN_QUICK_ACTIONS_EVENT, handler);
+  }, [onOpenCommandPalette]);
+
   // Keyboard navigation for search dropdown (Esc, Enter, Arrow keys)
   useEffect(() => {
     if (!searchOpen) return;
@@ -1107,6 +1027,7 @@ export function GlobalTopNav({
   );
 
   return (
+    <ConfigProvider theme={antdThemeConfig}>
     <div
       className={cn(
         "fixed top-0 right-0 z-50 flex items-center justify-between gap-4 px-5 py-2",
@@ -1347,137 +1268,43 @@ export function GlobalTopNav({
           )}
         </div>
 
-        {/* ── Investor directory segmented control (All / Investors only — Market tab is separate) ── */}
-        {!searchOpen && ["investor-search", "investor-funding", "market-trending"].includes(activeView) && (
-          <>
-            <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
-              <TopNavSegmentedControl
-                segments={INVESTOR_DIRECTORY_SEGMENTS}
-                activeId={activeView as "investor-search" | "investor-funding" | "market-trending"}
-                onSelect={(v) => routeView(v)}
-                ariaLabel="Investor directory view"
-                widthClassName="w-[252px] sm:w-[270px]"
-              />
-            </div>
-
-            {/* Narrow screens: same IA, compact menu trigger aligned with segmented chrome */}
-            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10.5rem]")}>
-                    <span className="min-w-0 flex-1 truncate text-left uppercase">
-                      {activeView === "investor-search"
-                        ? "Investors"
-                        : activeView === "market-trending"
-                          ? "Trending"
-                          : "Funding"}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-36">
-                  <DropdownMenuItem
-                    onClick={() => routeView("investor-search")}
-                    className={cn(activeView === "investor-search" && "bg-accent/10 text-accent")}
-                  >
-                    Investors
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("investor-funding")}
-                    className={cn(activeView === "investor-funding" && "bg-accent/10 text-accent")}
-                  >
-                    Funding
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("market-trending")}
-                    className={cn(activeView === "market-trending" && "bg-accent/10 text-accent")}
-                  >
-                    Trending
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
+        {/* ── Investor directory (Ant Design Menu) ── */}
+        {!searchOpen && ["investor-search", "investor-funding", "investor-trending"].includes(activeView) && (
+          <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+            <TopNavMenu
+              appearance={theme}
+              segments={INVESTOR_DIRECTORY_SEGMENTS}
+              activeId={activeView as "investor-search" | "investor-funding" | "investor-trending"}
+              onSelect={(v) => routeView(v)}
+              ariaLabel="Investor directory view"
+            />
+          </div>
         )}
 
-        {/* ── Community (Network) — same segmented chrome as investor directory ── */}
-        {!searchOpen && ["network", "groups", "events", "directory"].includes(activeView) && (
-          <>
-            <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
-              <TopNavSegmentedControl
-                segments={COMMUNITY_SEGMENTS}
-                activeId={activeView === "directory" ? "network" : activeView}
-                onSelect={(id) => routeView(id)}
-                ariaLabel="Market view"
-                widthClassName="w-[252px] sm:w-[270px]"
-                labelTransform="none"
-              />
-            </div>
-            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10rem]")}>
-                    <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
-                      {activeView === "network" || activeView === "directory"
-                        ? "Overview"
-                        : activeView === "groups"
-                          ? "Groups"
-                          : "Funding"}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-40">
-                  <DropdownMenuItem
-                    onClick={() => routeView("network")}
-                    className={cn(
-                      (activeView === "network" || activeView === "directory") && "bg-accent/10 text-accent",
-                    )}
-                  >
-                    Overview
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("groups")}
-                    className={cn(activeView === "groups" && "bg-accent/10 text-accent")}
-                  >
-                    Groups
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("events")}
-                    className={cn(activeView === "events" && "bg-accent/10 text-accent")}
-                  >
-                    Funding
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
+        {/* ── Community (Network) — Ant Design Menu ── */}
+        {!searchOpen && ["network", "groups", "events", "directory", "market-trending"].includes(activeView) && (
+          <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+            <TopNavMenu
+              appearance={theme}
+              segments={COMMUNITY_SEGMENTS}
+              activeId={activeView === "directory" ? "network" : activeView}
+              onSelect={(id) => routeView(id)}
+              ariaLabel="Market view"
+            />
+          </div>
         )}
 
-        {/* ── Pulse (`/intelligence`) — Brief, Category, Funding, Regulatory, Customer, M&A ── */}
+        {/* ── Pulse (`/intelligence`) — Ant Design Menu ── */}
         {!searchOpen && location.pathname === "/intelligence" && (
-          <div className="shrink-0 pl-1.5 pr-1.5">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
-                  <span className="min-w-0 flex-1 truncate text-left text-[11px] font-semibold tracking-normal normal-case">
-                    {pulseIntelActiveLabel(marketIntelActiveId)}
-                  </span>
-                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44">
-                {MARKET_INTEL_SEGMENTS.map((seg) => (
-                  <DropdownMenuItem
-                    key={seg.id}
-                    onClick={() => routeView(seg.id)}
-                    className={cn(activeView === seg.id && "bg-accent/10 text-accent")}
-                  >
-                    {seg.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex h-9 min-w-0 max-w-full flex-1 items-center pl-2 pr-2">
+            <TopNavMenu
+              appearance={theme}
+              segments={MARKET_INTEL_SEGMENTS}
+              activeId={marketIntelActiveId}
+              onSelect={(id) => routeView(id)}
+              ariaLabel="Market intelligence view"
+              allowOverflow
+            />
           </div>
         )}
 
@@ -1485,104 +1312,30 @@ export function GlobalTopNav({
         {!searchOpen &&
           location.pathname === "/" &&
           (activeView === "market-investors" || activeView === "market-data-room") && (
-          <>
-            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
-              <TopNavSegmentedControl<ViewType>
-                segments={RAISE_SEGMENTS}
-                activeId={activeView}
-                onSelect={(id) => routeView(id)}
-                ariaLabel="Raise — Data Room"
-                widthClassName="min-w-[120px] w-auto"
-                labelTransform="none"
-              />
-            </div>
-            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
-              <button
-                type="button"
-                onClick={() => routeView("market-data-room")}
-                className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10rem]")}
-                aria-label="Open Data Room"
-                aria-current={activeView === "market-data-room" ? "page" : undefined}
-              >
-                <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
-                  Data Room
-                </span>
-              </button>
-            </div>
-          </>
+          <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+            <TopNavMenu
+              appearance={theme}
+              segments={RAISE_SEGMENTS}
+              activeId={activeView}
+              onSelect={(id) => routeView(id)}
+              ariaLabel="Raise — Data Room"
+            />
+          </div>
         )}
 
-        {/* ── Mission Control — segmented control (matches Network directory chrome) */}
+        {/* ── Mission Control — Ant Design Menu ── */}
         {!searchOpen &&
           ["dashboard", "industry", "competitive", "competitors", "sector"].includes(activeView) && (
-          <>
-            <div className="hidden min-w-0 max-w-full flex-1 shrink md:flex md:items-center md:pl-2 md:pr-2">
-              <TopNavSegmentedControl
-                segments={MISSION_CONTROL_SEGMENTS}
-                activeId={activeView}
-                onSelect={(id) => routeView(id as ViewType)}
-                ariaLabel="Mission control view"
-                density="compact"
-                labelTransform="none"
-                segmentLayout="hug"
-              />
-            </div>
-
-            <div className="md:hidden shrink-0 pl-1.5 pr-1.5">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[11rem]")}>
-                    <span className="min-w-0 flex-1 truncate text-left normal-case text-[11px] font-semibold tracking-normal">
-                      {activeView === "dashboard"
-                        ? "Company"
-                        : activeView === "industry"
-                          ? "Industry"
-                          : activeView === "competitive"
-                            ? "Competitive"
-                            : activeView === "competitors"
-                              ? "Competitors"
-                              : activeView === "sector"
-                                ? "Sector"
-                                : "Company"}
-                    </span>
-                    <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-40">
-                  <DropdownMenuItem
-                    onClick={() => routeView("dashboard")}
-                    className={cn(activeView === "dashboard" && "bg-accent/10 text-accent")}
-                  >
-                    Company
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("industry")}
-                    className={cn(activeView === "industry" && "bg-accent/10 text-accent")}
-                  >
-                    Industry
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("competitive")}
-                    className={cn(activeView === "competitive" && "bg-accent/10 text-accent")}
-                  >
-                    Competitive
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("competitors")}
-                    className={cn(activeView === "competitors" && "bg-accent/10 text-accent")}
-                  >
-                    Competitors
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => routeView("sector")}
-                    className={cn(activeView === "sector" && "bg-accent/10 text-accent")}
-                  >
-                    Sector
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </>
+          <div className="flex h-9 min-w-0 max-w-full flex-1 items-center pl-2 pr-2">
+            <TopNavMenu
+              appearance={theme}
+              segments={MISSION_CONTROL_SEGMENTS}
+              activeId={activeView}
+              onSelect={(id) => routeView(id as ViewType)}
+              ariaLabel="Mission control view"
+              allowOverflow
+            />
+          </div>
         )}
       </div>
 
@@ -1692,20 +1445,18 @@ export function GlobalTopNav({
               <button
                 type="button"
                 onClick={handleThemeToggle}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border/55 bg-muted/30 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground"
-                aria-label={theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
-                title={theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/55 bg-muted/30 text-muted-foreground/80 transition-colors hover:bg-muted/50 hover:text-foreground"
+                aria-label={theme === "dark" ? "Switch to light view" : "Switch to dark view"}
               >
                 {theme === "dark" ? (
                   <Sun className="h-3.5 w-3.5" />
                 ) : (
                   <Moon className="h-3.5 w-3.5" />
                 )}
-                <span className="hidden sm:inline">{theme === "dark" ? "Old View" : "Dark"}</span>
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {theme === "dark" ? "Switch to old light view" : "Switch to dark view"}
+              {theme === "dark" ? "Switch to light view" : "Switch to dark view"}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -1724,135 +1475,24 @@ export function GlobalTopNav({
           </Tooltip>
         </TooltipProvider>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted/40 transition-colors cursor-pointer shrink-0">
-            <div className="relative w-7 h-7 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-              <CompanySettingsLogo
-                companyName={companyName}
-                logoUrl={logoUrl}
-                websiteUrl={websiteUrl}
-                size={64}
-                hasProfile={hasProfile}
-                imgClassName="w-full h-full object-contain rounded-lg"
-                initialClassName="text-[10px] font-bold text-muted-foreground"
-                iconClassName="h-4 w-4 text-muted-foreground/40"
-              />
-            </div>
-            <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 p-0">
-            {/* Active Workspace Header */}
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="relative w-9 h-9 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
-                <CompanySettingsLogo
-                  companyName={companyName}
-                  logoUrl={logoUrl}
-                  websiteUrl={websiteUrl}
-                  size={64}
-                  hasProfile={hasProfile}
-                  imgClassName="w-full h-full object-contain rounded-lg"
-                  initialClassName="text-xs font-bold text-muted-foreground"
-                  iconClassName="h-4 w-4 text-muted-foreground/40"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {hasProfile ? companyName : "My Company"}
-                </p>
-                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground mt-0.5">
-                  {userStage || "Seed"}
-                </span>
-              </div>
-            </div>
-
-            {/* Combined Profile Strength */}
-            <button
-              onClick={() => {
-                const fromIntel = location.pathname === "/intelligence";
-                if (fromIntel) navigate("/");
-                const url = new URL(fromIntel ? `${window.location.origin}/` : window.location.href);
-                url.searchParams.set("view", "settings");
-                url.searchParams.set("tab", "account");
-                window.history.replaceState({}, "", url.toString());
-                onViewChange?.("settings" as ViewType);
-              }}
-              className="w-full px-4 py-2.5 flex items-center gap-2 hover:bg-muted/50 transition-colors cursor-pointer group"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-medium text-muted-foreground mb-1">
-                  Profile {Math.round((profileCompletion + personalCompletion) / 2)}% Complete
-                </p>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex">
-                  <div
-                    className="h-full rounded-l-full bg-accent/60 transition-all"
-                    style={{ width: `${personalCompletion / 2}%` }}
-                  />
-                  <div
-                    className="h-full rounded-r-full bg-accent transition-all"
-                    style={{ width: `${profileCompletion / 2}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-1">
-                  <span className="text-[9px] text-muted-foreground/50">Personal</span>
-                  <span className="text-[9px] text-muted-foreground/50">Company</span>
-                </div>
-              </div>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-            </button>
-
-            {/* Divider */}
-            <div className="border-b border-border/50" />
-
-            {/* Navigation Menu Items */}
-            <div className="p-1">
-              <DropdownMenuItem
-                onClick={() => {
-                  navigate({ pathname: "/", search: "?view=settings&tab=account" });
-                  onViewChange?.("settings" as ViewType);
-                }}
-                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer"
-              >
-                <UserCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
-                Profile &amp; Workspace
-              </DropdownMenuItem>
-              {([
-                { key: "personal", label: "Personal", icon: User, tab: "account" },
-                { key: "company", label: "Company", icon: Building2, tab: "company" },
-                { key: "network", label: NETWORK_SURFACE_DISPLAY_NAME, icon: Radio, tab: "network" },
-                { key: "preferences", label: "Preferences", icon: SlidersHorizontal, tab: "notifications" },
-                { key: "subscription", label: "Subscription", icon: CreditCard, tab: "subscription" },
-                { key: "acct", label: "Account", icon: Settings2, tab: "security" },
-              ] as const).map((item) => (
-                <DropdownMenuItem
-                  key={item.key}
-                  onClick={() => {
-                    const fromIntel = location.pathname === "/intelligence";
-                    if (fromIntel) navigate("/");
-                    const url = new URL(fromIntel ? `${window.location.origin}/` : window.location.href);
-                    url.searchParams.set("view", "settings");
-                    url.searchParams.set("tab", item.tab);
-                    window.history.replaceState({}, "", url.toString());
-                    onViewChange?.("settings" as ViewType);
-                  }}
-                  className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer"
-                >
-                  <item.icon className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  {item.label}
-                </DropdownMenuItem>
-              ))}
-              <div className="border-t border-border/50 my-1" />
-              <DropdownMenuItem
-                onClick={() => signOut()}
-                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-wide cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/5 transition-colors"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign Out
-              </DropdownMenuItem>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          type="button"
+          onClick={() => {
+            if (location.pathname !== "/" || location.search) navigate("/");
+            onViewChange?.("home");
+          }}
+          aria-label="Go to home"
+          className="flex shrink-0 cursor-pointer items-center rounded-xl px-1.5 py-1.5 transition-colors hover:bg-muted/40"
+        >
+          <img
+            src={theme === "dark" ? "/brand/vekta-nav-mark-dark.png" : "/brand/vekta-nav-mark-light.png"}
+            alt=""
+            className="h-7 w-7 shrink-0 rounded-lg object-cover"
+          />
+        </button>
       </div>
       </div>
     </div>
+    </ConfigProvider>
   );
 }
