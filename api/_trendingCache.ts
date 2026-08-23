@@ -144,16 +144,16 @@ export async function upsertTrendingCache(
   records: TrendingCacheRecord[],
 ): Promise<number> {
   const { error } = await client.from(TRENDING_CACHE_TABLE).upsert(records, { onConflict: "id" });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 
   const { data: existing, error: existingError } = await client.from(TRENDING_CACHE_TABLE).select("id");
-  if (existingError) throw existingError;
+  if (existingError) throw new Error(existingError.message);
 
   const keep = new Set(records.map((row) => row.id));
   const stale = (existing ?? []).map((row) => row.id).filter((id) => !keep.has(id));
   if (stale.length > 0) {
     const { error: deleteError } = await client.from(TRENDING_CACHE_TABLE).delete().in("id", stale);
-    if (deleteError) throw deleteError;
+    if (deleteError) throw new Error(deleteError.message);
   }
 
   return records.length;

@@ -46,13 +46,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { runTrendingLeaderboardPipeline } = await import("../_trendingIngest.js");
-    const result = await runTrendingLeaderboardPipeline(client);
+    const loaded = await import("../_trendingIngest.js");
+    if (typeof loaded.runTrendingLeaderboardPipeline !== "function") {
+      throw new Error(`ingest export missing: ${Object.keys(loaded).join(",")}`);
+    }
+    const result = await loaded.runTrendingLeaderboardPipeline(client);
     res.status(200).json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Leaderboard ingest failed";
-    const stack = error instanceof Error ? error.stack : undefined;
-    console.error("[update-leaderboard]", message, stack);
-    res.status(500).json({ error: message });
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : JSON.stringify(error);
+    console.error("[update-leaderboard]", message, error);
+    res.status(500).json({ error: message || "Leaderboard ingest failed" });
   }
 }
