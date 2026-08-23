@@ -1,8 +1,8 @@
-import { sanitizeRawSignals, shouldExcludeStartup } from "./antiGaming.js";
-import { applyEarlyStageSignalMask } from "./earlyStageGate.js";
-import { isSameStartupEntity, normalizeDomain } from "./entityResolution.js";
-import { TRENDING_SEED_STARTUPS } from "./mockSignals.js";
-import { gravityScore, normalizeScoresToHundred, relativeGrowthDeltas } from "./score.js";
+import { sanitizeRawSignals, shouldExcludeStartup } from "./_trendingAntiGaming.js";
+import { applyEarlyStageSignalMask } from "./_trendingGate.js";
+import { isSameStartupEntity, normalizeDomain } from "./_trendingEntity.js";
+import { TRENDING_SEED_STARTUPS } from "./_trendingSignals.js";
+import { gravityScore, normalizeScoresToHundred, relativeGrowthDeltas } from "./_trendingScore.js";
 import {
   GRAVITY_EXPONENT,
   GRAVITY_OFFSET_HOURS,
@@ -13,8 +13,8 @@ import {
   MAX_GITHUB_REPO_AGE_MONTHS,
   PLATFORM_WEIGHTS,
   PUBLIC_UNLOCKED_COUNT,
-} from "./constants.js";
-import type { RawStartupSignal, TrendingCatalogResponse, TrendingStartupRow } from "./types.js";
+} from "./_trendingConstants.js";
+import type { RawStartupSignal, TrendingCatalogResponse, TrendingStartupRow } from "./_trendingTypes.js";
 
 export const TRENDING_CATALOG_NOW = new Date("2026-08-22T19:00:00.000Z");
 

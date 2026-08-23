@@ -12,7 +12,7 @@ export {
   SENTIMENT_MULTIPLIER,
   TRENDING_PAGE_LIMIT,
   TRENDING_REVALIDATE_SECONDS,
-} from "./constants.js";
+} from "./_trendingConstants.js";
 
 import type {
   GRAVITY_EXPONENT,
@@ -25,7 +25,7 @@ import type {
   PLATFORM_WEIGHTS,
   PUBLIC_UNLOCKED_COUNT,
   SENTIMENT_MULTIPLIER,
-} from "./constants.js";
+} from "./_trendingConstants.js";
 
 export type SentimentTone = keyof typeof SENTIMENT_MULTIPLIER;
 export type SignalKey = keyof typeof PLATFORM_WEIGHTS;

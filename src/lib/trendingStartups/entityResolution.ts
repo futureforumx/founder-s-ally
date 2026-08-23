@@ -1,1 +1,1 @@
-export * from "../../../api/_trendingStartups/entityResolution";
+export * from "../../../api/_trendingEntity";

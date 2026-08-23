@@ -1,4 +1,4 @@
-export * from "../../../api/_trendingStartups/types";
+export * from "../../../api/_trendingTypes";
 export type {
   CatalystTeardown,
   CompetitorCell,
@@ -8,4 +8,4 @@ export type {
   SignalKey,
   TrendingCatalogResponse,
   TrendingStartupRow,
-} from "../../../api/_trendingStartups/types";
+} from "../../../api/_trendingTypes";

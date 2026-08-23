@@ -1,1 +1,1 @@
-export * from "../../../api/_trendingStartups/catalog";
+export * from "../../../api/_trendingCatalog";

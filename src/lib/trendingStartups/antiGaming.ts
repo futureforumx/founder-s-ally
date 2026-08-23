@@ -1,1 +1,1 @@
-export * from "../../../api/_trendingStartups/antiGaming";
+export * from "../../../api/_trendingAntiGaming";

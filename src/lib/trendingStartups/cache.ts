@@ -1,2 +1,2 @@
-export * from "../../../api/_trendingStartups/cache";
-export type { TrendingCacheRecord } from "../../../api/_trendingStartups/cache";
+export * from "../../../api/_trendingCache";
+export type { TrendingCacheRecord } from "../../../api/_trendingCache";

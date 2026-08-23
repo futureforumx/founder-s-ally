@@ -1,11 +1,11 @@
-import { normalizeBrand, normalizeDomain } from "./entityResolution.js";
+import { normalizeBrand, normalizeDomain } from "./_trendingEntity.js";
 import {
   MAX_DOMAIN_AGE_YEARS,
   MAX_EARLY_STAGE_EMPLOYEES,
   MAX_EARLY_STAGE_FUNDING_USD,
   MAX_GITHUB_REPO_AGE_MONTHS,
-} from "./constants.js";
-import type { RawStartupSignal, SignalBreakdown } from "./types.js";
+} from "./_trendingConstants.js";
+import type { RawStartupSignal, SignalBreakdown } from "./_trendingTypes.js";
 
 const MS_PER_DAY = 86_400_000;
 

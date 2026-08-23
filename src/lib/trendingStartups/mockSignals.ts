@@ -1,1 +1,1 @@
-export * from "../../../api/_trendingStartups/mockSignals";
+export * from "../../../api/_trendingSignals";

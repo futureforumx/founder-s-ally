@@ -1,1 +1,1 @@
-export * from "../../../api/_trendingStartups/earlyStageGate";
+export * from "../../../api/_trendingGate";

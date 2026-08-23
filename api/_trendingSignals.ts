@@ -1,4 +1,4 @@
-import type { CatalystTeardown, RawStartupSignal, SignalBreakdown } from "./types.js";
+import type { CatalystTeardown, RawStartupSignal, SignalBreakdown } from "./_trendingTypes.js";
 
 type SeedDraft = Omit<
   RawStartupSignal,

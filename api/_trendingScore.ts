@@ -4,8 +4,8 @@ import {
   GROWTH_DELTA_OFFSET,
   PLATFORM_WEIGHTS,
   SENTIMENT_MULTIPLIER,
-} from "./constants.js";
-import type { SentimentTone, SignalBreakdown, SignalKey } from "./types.js";
+} from "./_trendingConstants.js";
+import type { SentimentTone, SignalBreakdown, SignalKey } from "./_trendingTypes.js";
 
 const SIGNAL_KEYS = Object.keys(PLATFORM_WEIGHTS) as SignalKey[];
 
