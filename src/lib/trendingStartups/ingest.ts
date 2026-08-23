@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shouldExcludeStartup } from "./antiGaming";
-import { catalogToCacheRecords, revalidateTrendingStartupsPath, upsertTrendingCache } from "./cache";
-import { buildTrendingCatalog } from "./catalog";
-import { TRENDING_SEED_STARTUPS } from "./mockSignals";
+import { shouldExcludeStartup } from "./antiGaming.js";
+import { catalogToCacheRecords, revalidateTrendingStartupsPath, upsertTrendingCache } from "./cache.js";
+import { buildTrendingCatalog } from "./catalog.js";
+import { TRENDING_SEED_STARTUPS } from "./mockSignals.js";
 import type { RawStartupSignal, TrendingCatalogResponse } from "./types";
 
 export type RawMetricDelta = RawStartupSignal & {

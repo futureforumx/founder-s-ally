@@ -1,4 +1,4 @@
-import { passesEarlyStageGate } from "./earlyStageGate";
+import { passesEarlyStageGate } from "./earlyStageGate.js";
 import { MIN_ACCOUNT_AGE_DAYS, type RawStartupSignal, type SignalBreakdown } from "./types";
 
 const MS_PER_DAY = 86_400_000;

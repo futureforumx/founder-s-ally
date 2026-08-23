@@ -1,8 +1,8 @@
-import { sanitizeRawSignals, shouldExcludeStartup } from "./antiGaming";
-import { applyEarlyStageSignalMask } from "./earlyStageGate";
-import { isSameStartupEntity, normalizeDomain } from "./entityResolution";
-import { TRENDING_SEED_STARTUPS } from "./mockSignals";
-import { gravityScore, normalizeScoresToHundred, relativeGrowthDeltas } from "./score";
+import { sanitizeRawSignals, shouldExcludeStartup } from "./antiGaming.js";
+import { applyEarlyStageSignalMask } from "./earlyStageGate.js";
+import { isSameStartupEntity, normalizeDomain } from "./entityResolution.js";
+import { TRENDING_SEED_STARTUPS } from "./mockSignals.js";
+import { gravityScore, normalizeScoresToHundred, relativeGrowthDeltas } from "./score.js";
 import {
   GRAVITY_EXPONENT,
   GRAVITY_OFFSET_HOURS,

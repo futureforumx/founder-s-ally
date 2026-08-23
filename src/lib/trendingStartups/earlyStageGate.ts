@@ -1,4 +1,4 @@
-import { normalizeBrand, normalizeDomain } from "./entityResolution";
+import { normalizeBrand, normalizeDomain } from "./entityResolution.js";
 import {
   MAX_DOMAIN_AGE_YEARS,
   MAX_EARLY_STAGE_EMPLOYEES,

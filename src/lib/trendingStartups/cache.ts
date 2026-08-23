@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./catalog";
+import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./catalog.js";
 import {
   PUBLIC_UNLOCKED_COUNT,
   TRENDING_PAGE_LIMIT,
