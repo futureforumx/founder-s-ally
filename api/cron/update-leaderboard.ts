@@ -1,10 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSupabaseServiceClient } from "../_supabaseServiceClient.js";
-import { authorizeCronRequest, runTrendingLeaderboardPipeline } from "../_trendingIngest.js";
 
 /**
  * GET /api/cron/update-leaderboard
- * Vercel Cron analog of Next.js `app/api/cron/update-leaderboard/route.ts`.
  * Auth: Authorization: Bearer process.env.CRON_SECRET
  */
 
@@ -14,6 +12,15 @@ function setCors(res: VercelResponse): VercelResponse {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Cache-Control", "no-store");
   return res;
+}
+
+function authorizeCronRequest(
+  authorization: string | string[] | undefined,
+  secret = process.env.CRON_SECRET,
+): boolean {
+  if (!secret) return false;
+  const header = Array.isArray(authorization) ? authorization[0] : authorization;
+  return (header ?? "").trim() === `Bearer ${secret}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,10 +46,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { runTrendingLeaderboardPipeline } = await import("../_trendingIngest.js");
     const result = await runTrendingLeaderboardPipeline(client);
     res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Leaderboard ingest failed";
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[update-leaderboard]", message, stack);
     res.status(500).json({ error: message });
   }
 }
