@@ -6,7 +6,7 @@ import {
   MAX_GITHUB_REPO_AGE_MONTHS,
   type RawStartupSignal,
   type SignalBreakdown,
-} from "./types";
+} from "./types.js";
 
 const MS_PER_DAY = 86_400_000;
 

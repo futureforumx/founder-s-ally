@@ -7,7 +7,7 @@ import {
   type SentimentTone,
   type SignalBreakdown,
   type SignalKey,
-} from "./types";
+} from "./types.js";
 
 const SIGNAL_KEYS = Object.keys(PLATFORM_WEIGHTS) as SignalKey[];
 

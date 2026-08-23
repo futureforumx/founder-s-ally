@@ -6,7 +6,7 @@ import {
   TRENDING_REVALIDATE_SECONDS,
   type TrendingCatalogResponse,
   type TrendingStartupRow,
-} from "./types";
+} from "./types.js";
 
 export const TRENDING_CACHE_TABLE = "trending_cache";
 

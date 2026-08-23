@@ -16,7 +16,7 @@ import {
   type RawStartupSignal,
   type TrendingCatalogResponse,
   type TrendingStartupRow,
-} from "./types";
+} from "./types.js";
 
 export const TRENDING_CATALOG_NOW = new Date("2026-08-22T19:00:00.000Z");
 
