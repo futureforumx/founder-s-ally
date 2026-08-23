@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { Client } from "pg";
 import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./_trendingCatalog.js";
 import { PUBLIC_UNLOCKED_COUNT, TRENDING_PAGE_LIMIT, TRENDING_REVALIDATE_SECONDS } from "./_trendingConstants.js";
 import type { TrendingCatalogResponse, TrendingStartupRow } from "./_trendingTypes.js";
@@ -139,10 +140,67 @@ export async function readTrendingCache(
   return cacheRecordsToCatalog(data as TrendingCacheRecord[], data[0]?.updated_at);
 }
 
+function postgresUrl(): string | null {
+  return process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || null;
+}
+
+async function upsertTrendingCacheWithPostgres(records: TrendingCacheRecord[]): Promise<number> {
+  const client = new Client({
+    connectionString: postgresUrl()!,
+    ssl: { rejectUnauthorized: false },
+  });
+  await client.connect();
+  try {
+    await client.query("BEGIN");
+    for (const row of records) {
+      await client.query(
+        `INSERT INTO public.trending_cache
+          (id, rank, startup_name, domain, category, score, velocity_sparkline, why_trending, updated_at, payload)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::timestamptz, $10::jsonb)
+         ON CONFLICT (id) DO UPDATE SET
+          rank = EXCLUDED.rank,
+          startup_name = EXCLUDED.startup_name,
+          domain = EXCLUDED.domain,
+          category = EXCLUDED.category,
+          score = EXCLUDED.score,
+          velocity_sparkline = EXCLUDED.velocity_sparkline,
+          why_trending = EXCLUDED.why_trending,
+          updated_at = EXCLUDED.updated_at,
+          payload = EXCLUDED.payload`,
+        [
+          row.id,
+          row.rank,
+          row.startup_name,
+          row.domain,
+          row.category,
+          row.score,
+          JSON.stringify(row.velocity_sparkline),
+          row.why_trending,
+          row.updated_at,
+          JSON.stringify(row.payload),
+        ],
+      );
+    }
+    const ids = records.map((row) => row.id);
+    await client.query("DELETE FROM public.trending_cache WHERE NOT (id = ANY($1::text[]))", [ids]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
+  }
+  return records.length;
+}
+
 export async function upsertTrendingCache(
   client: SupabaseClient,
   records: TrendingCacheRecord[],
 ): Promise<number> {
+  if (postgresUrl()) {
+    return upsertTrendingCacheWithPostgres(records);
+  }
+
   const { error } = await client.from(TRENDING_CACHE_TABLE).upsert(records, { onConflict: "id" });
   if (error) throw new Error(error.message);
 
