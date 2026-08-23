@@ -141,13 +141,7 @@ export async function readTrendingCache(
 }
 
 function postgresUrl(): string | null {
-  return (
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    null
-  );
+  return process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || null;
 }
 
 function postgresClientConfig() {
