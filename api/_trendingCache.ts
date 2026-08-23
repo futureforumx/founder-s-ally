@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Client } from "pg";
 import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./_trendingCatalog.js";
 import { PUBLIC_UNLOCKED_COUNT, TRENDING_PAGE_LIMIT, TRENDING_REVALIDATE_SECONDS } from "./_trendingConstants.js";
 import type { TrendingCatalogResponse, TrendingStartupRow } from "./_trendingTypes.js";
@@ -140,86 +139,44 @@ export async function readTrendingCache(
   return cacheRecordsToCatalog(data as TrendingCacheRecord[], data[0]?.updated_at);
 }
 
-function postgresUrl(): string | null {
-  return process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || null;
-}
-
-function postgresClientConfig() {
-  const raw = postgresUrl()!;
-  const url = new URL(raw);
-  url.searchParams.delete("sslmode");
-  url.searchParams.delete("ssl");
-  return {
-    connectionString: url.toString(),
-    ssl: { rejectUnauthorized: false as const },
-  };
-}
-
-async function upsertTrendingCacheWithPostgres(records: TrendingCacheRecord[]): Promise<number> {
-  const client = new Client(postgresClientConfig());
-  await client.connect();
-  try {
-    await client.query("BEGIN");
-    for (const row of records) {
-      await client.query(
-        `INSERT INTO public.trending_cache
-          (id, rank, startup_name, domain, category, score, velocity_sparkline, why_trending, updated_at, payload)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::timestamptz, $10::jsonb)
-         ON CONFLICT (id) DO UPDATE SET
-          rank = EXCLUDED.rank,
-          startup_name = EXCLUDED.startup_name,
-          domain = EXCLUDED.domain,
-          category = EXCLUDED.category,
-          score = EXCLUDED.score,
-          velocity_sparkline = EXCLUDED.velocity_sparkline,
-          why_trending = EXCLUDED.why_trending,
-          updated_at = EXCLUDED.updated_at,
-          payload = EXCLUDED.payload`,
-        [
-          row.id,
-          row.rank,
-          row.startup_name,
-          row.domain,
-          row.category,
-          row.score,
-          JSON.stringify(row.velocity_sparkline),
-          row.why_trending,
-          row.updated_at,
-          JSON.stringify(row.payload),
-        ],
-      );
+async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
     }
-    const ids = records.map((row) => row.id);
-    await client.query("DELETE FROM public.trending_cache WHERE NOT (id = ANY($1::text[]))", [ids]);
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally {
-    await client.end();
   }
-  return records.length;
+  throw lastError ?? new Error("trending_cache write failed");
 }
 
 export async function upsertTrendingCache(
   client: SupabaseClient,
   records: TrendingCacheRecord[],
 ): Promise<number> {
-  if (postgresUrl()) {
-    return upsertTrendingCacheWithPostgres(records);
+  const chunkSize = 8;
+  for (let i = 0; i < records.length; i += chunkSize) {
+    const chunk = records.slice(i, i + chunkSize);
+    await withRetry(async () => {
+      const { error } = await client.from(TRENDING_CACHE_TABLE).upsert(chunk, { onConflict: "id" });
+      if (error) throw new Error(error.message);
+    });
   }
 
-  const { error } = await client.from(TRENDING_CACHE_TABLE).upsert(records, { onConflict: "id" });
-  if (error) throw new Error(error.message);
-
-  const { data: existing, error: existingError } = await client.from(TRENDING_CACHE_TABLE).select("id");
-  if (existingError) throw new Error(existingError.message);
-
+  const existing = await withRetry(async () => {
+    const { data, error } = await client.from(TRENDING_CACHE_TABLE).select("id");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
   const keep = new Set(records.map((row) => row.id));
-  const stale = (existing ?? []).map((row) => row.id).filter((id) => !keep.has(id));
+  const stale = existing.map((row) => row.id).filter((id) => !keep.has(id));
   if (stale.length > 0) {
-    const { error: deleteError } = await client.from(TRENDING_CACHE_TABLE).delete().in("id", stale);
-    if (deleteError) throw new Error(deleteError.message);
+    await withRetry(async () => {
+      const { error } = await client.from(TRENDING_CACHE_TABLE).delete().in("id", stale);
+      if (error) throw new Error(error.message);
+    });
   }
 
   return records.length;
