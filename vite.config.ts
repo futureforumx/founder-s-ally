@@ -28,6 +28,11 @@ import {
   uploadR2UserAsset,
 } from "./api/_r2UserAssets";
 import { readJsonBody } from "./api/_readJsonBody";
+import { getSupabaseServiceClient } from "./api/_supabaseServiceClient";
+import { readTrendingCache, trendingCacheControlHeader } from "./src/lib/trendingStartups/cache";
+import { emptyTrendingCatalog, findTrendingStartup } from "./src/lib/trendingStartups/catalog";
+import { authorizeCronRequest, runTrendingLeaderboardPipeline } from "./src/lib/trendingStartups/ingest";
+import { TRENDING_PAGE_LIMIT } from "./src/lib/trendingStartups/types";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -1063,6 +1068,88 @@ function r2UserAssetsDevPlugin() {
   };
 }
 
+function trendingStartupsDevPlugin() {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Content-Type": "application/json",
+  };
+
+  return {
+    name: "trending-startups-dev",
+    configureServer(server: any) {
+      server.middlewares.use("/api/cron/update-leaderboard", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "GET") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+        if (!authorizeCronRequest(req.headers.authorization)) {
+          res.writeHead(401, cors);
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+        const client = getSupabaseServiceClient();
+        if (!client) {
+          res.writeHead(503, cors);
+          res.end(JSON.stringify({ error: "Supabase service client is not configured" }));
+          return;
+        }
+        try {
+          const result = await runTrendingLeaderboardPipeline(client);
+          res.writeHead(200, { ...cors, "Cache-Control": "no-store" });
+          res.end(JSON.stringify(result));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Leaderboard ingest failed" }));
+        }
+      });
+
+      server.middlewares.use("/api/trending", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, cors);
+          res.end();
+          return;
+        }
+        if (req.method !== "GET") {
+          res.writeHead(405, cors);
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        const url = new URL(req.url ?? "/api/trending", "http://127.0.0.1");
+        const needle = url.searchParams.get("id")?.trim() || undefined;
+        const client = getSupabaseServiceClient();
+        const catalog = client
+          ? await readTrendingCache(client, needle ? { id: needle } : { limit: TRENDING_PAGE_LIMIT })
+          : emptyTrendingCatalog(new Date().toISOString());
+        const headers = { ...cors, "Cache-Control": trendingCacheControlHeader() };
+
+        if (needle) {
+          const startup = catalog.startups[0] ?? findTrendingStartup(needle, catalog);
+          if (!startup) {
+            res.writeHead(404, headers);
+            res.end(JSON.stringify({ error: "Startup not found", generatedAt: catalog.generatedAt }));
+            return;
+          }
+          res.writeHead(200, headers);
+          res.end(JSON.stringify({ ...catalog, startups: [startup] }));
+          return;
+        }
+
+        res.writeHead(200, headers);
+        res.end(JSON.stringify(catalog));
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
@@ -1091,6 +1178,7 @@ export default defineConfig(async ({ mode }) => {
     mode === "development" && ensureFirmElevatorPitchDevPlugin(),
     mode === "development" && personWebsiteProfileDevPlugin(),
     mode === "development" && r2UserAssetsDevPlugin(),
+    mode === "development" && trendingStartupsDevPlugin(),
   ].filter(Boolean);
   const enableHttps = process.env.DEV_HTTPS === "true";
   const devHost = process.env.DEV_HOST || "127.0.0.1";

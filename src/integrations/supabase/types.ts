@@ -8746,6 +8746,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trending_cache: {
+        Row: {
+          category: string
+          domain: string
+          id: string
+          payload: Json
+          rank: number
+          score: number
+          startup_name: string
+          updated_at: string
+          velocity_sparkline: Json
+          why_trending: string
+        }
+        Insert: {
+          category: string
+          domain: string
+          id: string
+          payload?: Json
+          rank: number
+          score: number
+          startup_name: string
+          updated_at?: string
+          velocity_sparkline?: Json
+          why_trending?: string
+        }
+        Update: {
+          category?: string
+          domain?: string
+          id?: string
+          payload?: Json
+          rank?: number
+          score?: number
+          startup_name?: string
+          updated_at?: string
+          velocity_sparkline?: Json
+          why_trending?: string
+        }
+        Relationships: []
+      }
       user_activity: {
         Row: {
           api_calls_count: number

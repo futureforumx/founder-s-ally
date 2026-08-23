@@ -30,14 +30,17 @@ export function PublicIntelMoreResources({ triggerLabel = "More resources" }: { 
         <ChevronDown className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.75} aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className={MENU}>
-        <DropdownMenuItem asChild className={ITEM} onSelect={(e) => e.preventDefault()}>
-          <Link to="/?view=resources">Fundraising best practices</Link>
+        <DropdownMenuItem asChild className={ITEM}>
+          <Link to="/fresh-capital">Fundraising best practices</Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className={ITEM} onSelect={(e) => e.preventDefault()}>
-          <Link to="/?view=investor-funding">Recent funding</Link>
+        <DropdownMenuItem asChild className={ITEM}>
+          <Link to="/fresh-capital?tab=latest_funding">Recent funding</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={ITEM}>
           <Link to="/trending-companies">Trending companies</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className={ITEM}>
+          <Link to="/trending-startups">Trending startups</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={ITEM}>
           <a href="/tools/ai-agents">Agent Library</a>

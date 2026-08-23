@@ -66,12 +66,14 @@ type ViewType =
   | "investors"
   | "investor-search"
   | "investor-funding"
+  | "investor-trending"
   | "network-workspace"
   | "network"
   | "directory"
   | "connections"
   | "messages"
   | "events"
+  | "market-trending"
   | "competitors"
   | "sector"
   | "groups"
@@ -155,16 +157,25 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   investors: { section: "Workspace", label: "MATCHES", siblings: [
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
+    { id: "investor-trending", label: "TRENDING" },
   ]},
   "investor-search": { section: "Research", label: "INVESTORS", siblings: [
     { id: "investors", label: "MATCHES" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
+    { id: "investor-trending", label: "TRENDING" },
   ]},
   "investor-funding": { section: "Research", label: "FUNDING", siblings: [
     { id: "investors", label: "MATCHES" },
     { id: "investor-search", label: "INVESTORS" },
     { id: "investor-funding", label: "FUNDING" },
+    { id: "investor-trending", label: "TRENDING" },
+  ]},
+  "investor-trending": { section: "Research", label: "TRENDING", siblings: [
+    { id: "investors", label: "MATCHES" },
+    { id: "investor-search", label: "INVESTORS" },
+    { id: "investor-funding", label: "FUNDING" },
+    { id: "investor-trending", label: "TRENDING" },
   ]},
   "network-workspace": { section: "Network", label: "Workspace" },
   targeting: {
@@ -187,6 +198,7 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Funding" },
+    { id: "market-trending", label: "Trending" },
   ]},
   connections: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Connection" },
   network: { section: NETWORK_SURFACE_DISPLAY_NAME, label: "Market" },
@@ -194,11 +206,19 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Funding" },
+    { id: "market-trending", label: "Trending" },
   ]},
   events: { section: "Community", label: "Funding", siblings: [
     { id: "network", label: "Market" },
     { id: "groups", label: "Groups" },
     { id: "events", label: "Funding" },
+    { id: "market-trending", label: "Trending" },
+  ]},
+  "market-trending": { section: "Research", label: "Trending", siblings: [
+    { id: "network", label: "Market" },
+    { id: "groups", label: "Groups" },
+    { id: "events", label: "Funding" },
+    { id: "market-trending", label: "Trending" },
   ]},
   messages: { section: "Community", label: "Messages" },
   "market-intelligence": { section: "Activity", label: "Brief" },
@@ -236,6 +256,13 @@ function getContextSuggestions(view: ViewType, sector?: string | null, stage?: s
         `${s} startups that raised this month`,
         `Latest ${st} venture rounds`,
         "Funds leading two deals in the same week",
+      ];
+    case "investor-trending":
+    case "market-trending":
+      return [
+        `${s} startups with the highest 24h velocity`,
+        "Who is trending before a priced round",
+        "Early-spotter names in my category",
       ];
     case "connections":
       return [
@@ -466,9 +493,10 @@ function useRotatingPulse(interval = 4000) {
   return PULSE_MESSAGES[idx];
 }
 
-const INVESTOR_DIRECTORY_SEGMENTS: { id: "investor-search" | "investor-funding"; label: string }[] = [
+const INVESTOR_DIRECTORY_SEGMENTS: { id: "investor-search" | "investor-funding" | "investor-trending"; label: string }[] = [
   { id: "investor-search", label: "Investors" },
   { id: "investor-funding", label: "Funding" },
+  { id: "investor-trending", label: "Trending" },
 ];
 
 const MARKET_INTEL_SEGMENTS: { id: ViewType; label: string }[] = [
@@ -499,10 +527,11 @@ const MISSION_CONTROL_SEGMENTS: { id: ViewType; label: string }[] = [
   { id: "sector", label: "Sector" },
 ];
 
-const COMMUNITY_SEGMENTS: { id: "network" | "groups" | "events"; label: string }[] = [
+const COMMUNITY_SEGMENTS: { id: "network" | "groups" | "events" | "market-trending"; label: string }[] = [
   { id: "network", label: "Overview" },
   { id: "groups", label: "Groups" },
   { id: "events", label: "Funding" },
+  { id: "market-trending", label: "Trending" },
 ];
 
 /** Light purple focus ring on the active top-nav tab / segment (matches VEKTA accent, restrained). */
@@ -698,7 +727,7 @@ export function GlobalTopNav({
     (v: ViewType) => {
       const resolved = v === "data-room" ? ("market-data-room" as ViewType) : v;
       const intel = MARKET_INTEL_SEGMENT_IDS.has(resolved);
-      if (resolved === "investor-search" || resolved === "investor-funding") {
+      if (resolved === "investor-search" || resolved === "investor-funding" || resolved === "investor-trending") {
         onInvestorSearchChipChange?.("all");
         onInvestorSearchQueryChange?.("");
       } else if (resolved === "directory") {
@@ -765,7 +794,7 @@ export function GlobalTopNav({
     if (investorSearchChip) setActiveChip(investorSearchChip);
   }, [searchOpen, investorSearchChip]);
 
-  const isInvestorArea = ["investors", "investor-search", "investor-funding"].includes(activeView);
+  const isInvestorArea = ["investors", "investor-search", "investor-funding", "investor-trending"].includes(activeView);
   const { firms: vcFirms, people: vcPeople, firmMap } = useVCDirectory();
   const { data: liveFirmRecords } = useInvestorDirectory();
 
@@ -1046,7 +1075,7 @@ export function GlobalTopNav({
   ]);
 
   const viewMeta = VIEW_META[activeView] || VIEW_META.dashboard;
-  const isCommunityArea = ["network", "groups", "events"].includes(activeView);
+  const isCommunityArea = ["network", "groups", "events", "directory", "market-trending"].includes(activeView);
 
   const marketIntelActiveId: ViewType =
     activeView && MARKET_INTEL_SEGMENT_IDS.has(activeView) ? activeView : "market-intelligence";
@@ -1319,15 +1348,15 @@ export function GlobalTopNav({
         </div>
 
         {/* ── Investor directory segmented control (All / Investors only — Market tab is separate) ── */}
-        {!searchOpen && ["investor-search", "investor-funding"].includes(activeView) && (
+        {!searchOpen && ["investor-search", "investor-funding", "market-trending"].includes(activeView) && (
           <>
             <div className="hidden md:flex shrink-0 items-center pl-2 pr-2">
               <TopNavSegmentedControl
                 segments={INVESTOR_DIRECTORY_SEGMENTS}
-                activeId={activeView as "investor-search" | "investor-funding"}
+                activeId={activeView as "investor-search" | "investor-funding" | "market-trending"}
                 onSelect={(v) => routeView(v)}
                 ariaLabel="Investor directory view"
-                widthClassName="w-[168px] sm:w-[180px]"
+                widthClassName="w-[252px] sm:w-[270px]"
               />
             </div>
 
@@ -1337,7 +1366,11 @@ export function GlobalTopNav({
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={cn(TOP_NAV_MOBILE_SECTION_TRIGGER, "max-w-[10.5rem]")}>
                     <span className="min-w-0 flex-1 truncate text-left uppercase">
-                      {activeView === "investor-search" ? "Investors" : "Funding"}
+                      {activeView === "investor-search"
+                        ? "Investors"
+                        : activeView === "market-trending"
+                          ? "Trending"
+                          : "Funding"}
                     </span>
                     <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
                   </button>
@@ -1353,7 +1386,13 @@ export function GlobalTopNav({
                     onClick={() => routeView("investor-funding")}
                     className={cn(activeView === "investor-funding" && "bg-accent/10 text-accent")}
                   >
-                    FUNDING
+                    Funding
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => routeView("market-trending")}
+                    className={cn(activeView === "market-trending" && "bg-accent/10 text-accent")}
+                  >
+                    Trending
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1369,8 +1408,8 @@ export function GlobalTopNav({
                 segments={COMMUNITY_SEGMENTS}
                 activeId={activeView === "directory" ? "network" : activeView}
                 onSelect={(id) => routeView(id)}
-                ariaLabel="Community view"
-                widthClassName="w-[248px] sm:w-[264px]"
+                ariaLabel="Market view"
+                widthClassName="w-[252px] sm:w-[270px]"
                 labelTransform="none"
               />
             </div>

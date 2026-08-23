@@ -235,6 +235,10 @@
   .font-manrope {
     font-family: "Manrope", "Inter", ui-sans-serif, system-ui, sans-serif;
   }
+
+  .font-satoshi {
+    font-family: "Satoshi", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 @keyframes pulse-glow-purple {

@@ -49,7 +49,7 @@ Sentry.init({
 const isPublicIntelPath =
   /^\/(fresh-capital|fund-watch|freshcapital|fundwatch|newfunds|trending-companies)(\/)?$/i.test(
     window.location.pathname,
-  );
+  ) || /^\/trending-startups(\/[^/]+)?\/?$/i.test(window.location.pathname);
 const isToolsPath = /^\/tools(\/.*)?$/i.test(window.location.pathname) || /^\/ai-agents(\/)?$/i.test(window.location.pathname);
 const hasAuthCode = new URLSearchParams(window.location.search).has("code");
 

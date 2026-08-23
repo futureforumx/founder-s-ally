@@ -46,6 +46,7 @@ type ViewType =
   | "connections"
   | "messages"
   | "events"
+  | "market-trending"
   | "competitors"
   | "sector"
   | "groups"
@@ -394,7 +395,11 @@ export function AppSidebar({
               <button
                 type="button"
                 onClick={() => goView("investor-search")}
-                className={navBtn(activeView === "investor-search")}
+                className={navBtn(
+                  activeView === "investor-search" ||
+                    activeView === "investor-funding" ||
+                    activeView === "market-trending",
+                )}
               >
                 <UserSearch className={iconCls} />
                 {!collapsed && "Investors"}
@@ -404,7 +409,12 @@ export function AppSidebar({
               <button
                 type="button"
                 onClick={() => goView("network")}
-                className={navBtn(activeView === "network")}
+                className={navBtn(
+                  activeView === "network" ||
+                    activeView === "groups" ||
+                    activeView === "events" ||
+                    activeView === "directory",
+                )}
               >
                 <Handshake className={iconCls} />
                 {!collapsed && "Market"}

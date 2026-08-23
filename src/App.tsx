@@ -27,6 +27,8 @@ const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const FreshCapitalAliasRoute = lazy(() => import("./pages/FreshCapitalAliasRoute.tsx"));
 const TrendingCompaniesPage = lazy(() => import("./pages/TrendingCompaniesPage.tsx"));
+const TrendingStartupsPage = lazy(() => import("./pages/TrendingStartupsPage.tsx"));
+const TrendingStartupDetailPage = lazy(() => import("./pages/TrendingStartupDetailPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
 
 const queryClient = new QueryClient({
@@ -421,6 +423,32 @@ const App = () => (
                   <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
                     <TrendingCompaniesPage />
                   </Suspense>
+                }
+              />
+              <Route
+                path="/trending-startups"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <TrendingStartupsPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/trending-startups/:id"
+                element={
+                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
+                    <TrendingStartupDetailPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/app/startups/:id"
+                element={
+                  <ProtectedRoute>
+                    <Suspense fallback={<RouteLoader fullscreen={false} label="Loading startup…" />}>
+                      <TrendingStartupDetailPage />
+                    </Suspense>
+                  </ProtectedRoute>
                 }
               />
               <Route

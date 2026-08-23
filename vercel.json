@@ -1,7 +1,16 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron/update-leaderboard",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "functions": {
     "api/firm-website-team.ts": {
       "maxDuration": 120
+    },
+    "api/cron/update-leaderboard.ts": {
+      "maxDuration": 60
     }
   },
   "redirects": [

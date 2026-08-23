@@ -15,6 +15,7 @@ const ConnectionsPage = lazy(() => import("@/components/ConnectionsPage").then((
 const SettingsPage = lazy(() => import("@/components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const GroupsView = lazy(() => import("@/components/community/GroupsView").then((module) => ({ default: module.GroupsView })));
 const MarketFundingView = lazy(() => import("@/components/community/MarketFundingView").then((module) => ({ default: module.MarketFundingView })));
+const MarketTrendingView = lazy(() => import("@/components/community/MarketTrendingView").then((module) => ({ default: module.MarketTrendingView })));
 const HelpCenter = lazy(() => import("@/components/HelpCenter").then((module) => ({ default: module.HelpCenter })));
 const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((module) => ({ default: module.DeckAuditView })));
 const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((module) => ({ default: module.CompetitiveBenchmarking })));
@@ -63,6 +64,7 @@ type ViewType =
   | "connections"
   | "messages"
   | "events"
+  | "market-trending"
   | "competitors"
   | "sector"
   | "groups"
@@ -150,6 +152,7 @@ const Index = () => {
       if (view === "profile-workspace") return "settings";
       if (view === "intelligence" || view === "market-intelligence") return "market-intelligence";
       if (view === "investor-funding") return "investor-funding";
+      if (view === "market-trending") return "market-trending";
       if (view === "resources") return "resources";
       if (view === "directory") return "directory";
       if (view === "targeting") return "targeting";
@@ -210,6 +213,9 @@ const Index = () => {
     }
     if (v === "investor-funding") {
       setActiveView("investor-funding");
+    }
+    if (v === "market-trending") {
+      setActiveView("market-trending");
     }
     if (v === "resources") {
       setActiveView("resources");
@@ -620,6 +626,10 @@ const Index = () => {
           ) : activeView === "events" ? (
             <DeferredSection label="Loading funding…">
               <MarketFundingView />
+            </DeferredSection>
+          ) : activeView === "market-trending" ? (
+            <DeferredSection label="Loading trending startups…">
+              <MarketTrendingView />
             </DeferredSection>
           ) : activeView === "audit" || activeView === "data-room" ? (
             <DeferredSection label="Loading deck tools…">

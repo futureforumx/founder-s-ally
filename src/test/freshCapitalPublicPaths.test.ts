@@ -4,6 +4,7 @@ import {
   isReservedAppPathSlug,
   normalizePublicPathSlug,
   parseFreshCapitalPublicDestination,
+  parsePublicIntelFeedTab,
   validateFreshCapitalPublicPathInput,
 } from "@/lib/freshCapitalPublicPaths";
 
@@ -19,6 +20,7 @@ describe("freshCapitalPublicPaths", () => {
     expect(normalizePublicPathSlug("/admin")).toBe("admin");
     expect(isReservedAppPathSlug("admin")).toBe(true);
     expect(isReservedAppPathSlug("trending-companies")).toBe(true);
+    expect(isReservedAppPathSlug("trending-startups")).toBe(true);
     expect(validateFreshCapitalPublicPathInput("/admin").error).toMatch(/already used/i);
     expect(normalizePublicPathSlug("not a path")).toBeNull();
     expect(normalizePublicPathSlug("")).toBeNull();
@@ -29,5 +31,9 @@ describe("freshCapitalPublicPaths", () => {
     expect(parseFreshCapitalPublicDestination("nope")).toBeNull();
     expect(destinationToFeedTab("new_funds")).toBe("fresh_funds");
     expect(destinationToFeedTab("latest_funding")).toBe("latest_funding");
+    expect(parsePublicIntelFeedTab("latest_funding")).toBe("latest_funding");
+    expect(parsePublicIntelFeedTab("latest-funding")).toBe("latest_funding");
+    expect(parsePublicIntelFeedTab("insights")).toBe("insights");
+    expect(parsePublicIntelFeedTab("resources")).toBeNull();
   });
 });

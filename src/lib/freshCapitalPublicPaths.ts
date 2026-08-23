@@ -34,6 +34,7 @@ export const RESERVED_APP_PATH_SLUGS = new Set([
   "firms",
   "companies",
   "trending-companies",
+  "trending-startups",
   "trending",
   "tools",
   "ai-agents",
@@ -103,6 +104,17 @@ export function destinationToFeedTab(
   destination: FreshCapitalPublicDestination,
 ): "fresh_funds" | "latest_funding" {
   return destination === "latest_funding" ? "latest_funding" : "fresh_funds";
+}
+
+export type PublicIntelFeedTab = "fresh_funds" | "latest_funding" | "insights";
+
+/** Deep-link `?tab=` on /fresh-capital so public menus stay on public pages. */
+export function parsePublicIntelFeedTab(raw: string | null | undefined): PublicIntelFeedTab | null {
+  const tab = raw?.trim().toLowerCase().replace(/-/g, "_");
+  if (tab === "latest_funding" || tab === "funding") return "latest_funding";
+  if (tab === "insights") return "insights";
+  if (tab === "fresh_funds" || tab === "new_funds") return "fresh_funds";
+  return null;
 }
 
 export function validateFreshCapitalPublicPathInput(input: string): {

@@ -46,6 +46,7 @@ export default {
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
         spaceGrotesk: ['"Space Grotesk"', "ui-sans-serif", "system-ui", "sans-serif"],
         manrope: ['"Manrope"', "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        satoshi: ['"Satoshi"', "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       fontSize: {
         "2xs": ["0.75rem", { lineHeight: "1rem", fontWeight: "500" }],      /* 12px */

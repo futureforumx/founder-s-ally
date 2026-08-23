@@ -28,6 +28,7 @@ export type TopNavView =
   | "connections"
   | "messages"
   | "events"
+  | "market-trending"
   | "competitors"
   | "sector"
   | "groups"

@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import FreshCapitalPage from "./FreshCapitalPage";
 import TrendingCompaniesPage from "./TrendingCompaniesPage";
+import TrendingStartupsPage from "./TrendingStartupsPage";
+import TrendingStartupDetailPage from "./TrendingStartupDetailPage";
 
 function EscapeToFullApp() {
   const { pathname, search, hash } = useLocation();
@@ -20,6 +22,8 @@ export default function PublicIntelApp() {
       <Route path="/fundwatch" element={<FreshCapitalPage />} />
       <Route path="/newfunds" element={<FreshCapitalPage />} />
       <Route path="/trending-companies" element={<TrendingCompaniesPage />} />
+      <Route path="/trending-startups" element={<TrendingStartupsPage />} />
+      <Route path="/trending-startups/:id" element={<TrendingStartupDetailPage />} />
       <Route path="*" element={<EscapeToFullApp />} />
     </Routes>
   );

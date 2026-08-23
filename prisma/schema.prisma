@@ -2067,3 +2067,24 @@ model ExtractionLog {
   @@index([level])
   @@map("extraction_logs")
 }
+
+// =============================================================================
+// TrendingCache — daily ISR/cron snapshot for /trending-startups
+// =============================================================================
+
+model TrendingCache {
+  id                String   @id
+  rank              Int
+  startupName       String   @map("startup_name")
+  domain            String
+  category          String
+  score             Float
+  velocitySparkline Json     @map("velocity_sparkline")
+  whyTrending       String   @map("why_trending")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Full TrendingStartupRow so page loads never recompute scores.
+  payload           Json     @default("{}")
+
+  @@index([rank])
+  @@map("trending_cache")
+}

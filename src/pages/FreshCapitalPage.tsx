@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { FreshCapitalHero } from "@/components/fresh-capital/FreshCapitalHero";
 import { FreshCapitalLiveFeed } from "@/components/fresh-capital/FreshCapitalLiveFeed";
 import { RegisterModal } from "@/components/auth/RegisterModal";
@@ -20,7 +20,7 @@ import {
 } from "@/lib/freshCapitalAnalytics";
 import { freshCapitalSignupHref } from "@/lib/freshCapitalConversion";
 import { FreshCapitalMisconfiguredError, type FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
-import { destinationToFeedTab, normalizePublicPathSlug } from "@/lib/freshCapitalPublicPaths";
+import { destinationToFeedTab, normalizePublicPathSlug, parsePublicIntelFeedTab } from "@/lib/freshCapitalPublicPaths";
 import { useFreshCapitalPublicDestination } from "@/hooks/useFreshCapitalPublicDestination";
 
 const FEED_ANCHOR = "fresh-capital-feed";
@@ -35,9 +35,11 @@ export default function FreshCapitalPage() {
   const catalogQuery = useFreshCapitalPageData("all", null);
   const pageViewSent = useRef(false);
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const pathSlug = normalizePublicPathSlug(pathname) ?? "fresh-capital";
   const { data: pathDestination } = useFreshCapitalPublicDestination(pathSlug);
-  const initialMainTab = destinationToFeedTab(pathDestination ?? "new_funds");
+  const initialMainTab =
+    parsePublicIntelFeedTab(searchParams.get("tab")) ?? destinationToFeedTab(pathDestination ?? "new_funds");
   const [mainTab, setMainTab] = useState<"fresh_funds" | "latest_funding" | "insights">(initialMainTab);
   const roundsQuery = useRecentFundingFeed({ limit: 200 });
 
