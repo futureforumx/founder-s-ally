@@ -1,3 +1,4 @@
+import https from "node:https";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./_trendingCatalog.js";
 import { PUBLIC_UNLOCKED_COUNT, TRENDING_PAGE_LIMIT, TRENDING_REVALIDATE_SECONDS } from "./_trendingConstants.js";
@@ -139,44 +140,61 @@ export async function readTrendingCache(
   return cacheRecordsToCatalog(data as TrendingCacheRecord[], data[0]?.updated_at);
 }
 
-async function withRetry<T>(operation: () => Promise<T>): Promise<T> {
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
-    }
-  }
-  throw lastError ?? new Error("trending_cache write failed");
+function supabaseRestConfig(): { origin: string; key: string } {
+  const origin = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!origin || !key) throw new Error("Supabase is not configured");
+  return { origin, key };
+}
+
+function restRequest(method: string, pathAndQuery: string, body?: unknown): Promise<{ status: number; text: string }> {
+  const { origin, key } = supabaseRestConfig();
+  const target = new URL(pathAndQuery, `${origin}/`);
+  const payload = body === undefined ? undefined : Buffer.from(JSON.stringify(body));
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port || 443,
+        path: `${target.pathname}${target.search}`,
+        method,
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal,resolution=merge-duplicates",
+          ...(payload ? { "Content-Length": String(payload.length) } : {}),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }));
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 export async function upsertTrendingCache(
-  client: SupabaseClient,
+  _client: SupabaseClient,
   records: TrendingCacheRecord[],
 ): Promise<number> {
-  const chunkSize = 8;
-  for (let i = 0; i < records.length; i += chunkSize) {
-    const chunk = records.slice(i, i + chunkSize);
-    await withRetry(async () => {
-      const { error } = await client.from(TRENDING_CACHE_TABLE).upsert(chunk, { onConflict: "id" });
-      if (error) throw new Error(error.message);
-    });
-  }
+  const upsert = await restRequest("POST", `/rest/v1/${TRENDING_CACHE_TABLE}?on_conflict=id`, records);
+  if (upsert.status >= 400) throw new Error(`upsert ${upsert.status}: ${upsert.text}`);
 
-  const existing = await withRetry(async () => {
-    const { data, error } = await client.from(TRENDING_CACHE_TABLE).select("id");
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
+  const listed = await restRequest("GET", `/rest/v1/${TRENDING_CACHE_TABLE}?select=id`);
+  if (listed.status >= 400) throw new Error(`select ${listed.status}: ${listed.text}`);
+  const existing = JSON.parse(listed.text || "[]") as Array<{ id: string }>;
   const keep = new Set(records.map((row) => row.id));
   const stale = existing.map((row) => row.id).filter((id) => !keep.has(id));
   if (stale.length > 0) {
-    await withRetry(async () => {
-      const { error } = await client.from(TRENDING_CACHE_TABLE).delete().in("id", stale);
-      if (error) throw new Error(error.message);
-    });
+    const filter = stale.map((id) => `"${id}"`).join(",");
+    const removed = await restRequest("DELETE", `/rest/v1/${TRENDING_CACHE_TABLE}?id=in.(${filter})`);
+    if (removed.status >= 400) throw new Error(`delete ${removed.status}: ${removed.text}`);
   }
 
   return records.length;
