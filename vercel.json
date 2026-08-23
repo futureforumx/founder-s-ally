@@ -10,8 +10,7 @@
       "maxDuration": 120
     },
     "api/cron/update-leaderboard.ts": {
-      "maxDuration": 60,
-      "includeFiles": "src/lib/trendingStartups/**"
+      "maxDuration": 60
     }
   },
   "redirects": [

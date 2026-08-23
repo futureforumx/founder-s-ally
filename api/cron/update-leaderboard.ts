@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSupabaseServiceClient } from "../_supabaseServiceClient.js";
-import { authorizeCronRequest, runTrendingLeaderboardPipeline } from "../../src/lib/trendingStartups/ingest.js";
+import { authorizeCronRequest, runTrendingLeaderboardPipeline } from "../_trendingStartups/ingest.js";
 
 /**
  * GET /api/cron/update-leaderboard

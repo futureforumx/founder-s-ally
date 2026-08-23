@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSupabaseServiceClient } from "./_supabaseServiceClient.js";
-import { readTrendingCache, trendingCacheControlHeader } from "../src/lib/trendingStartups/cache.js";
-import { emptyTrendingCatalog, findTrendingStartup } from "../src/lib/trendingStartups/catalog.js";
-import { TRENDING_PAGE_LIMIT } from "../src/lib/trendingStartups/types.js";
+import { readTrendingCache, trendingCacheControlHeader } from "../_trendingStartups/cache.js";
+import { emptyTrendingCatalog, findTrendingStartup } from "../_trendingStartups/catalog.js";
+import { TRENDING_PAGE_LIMIT } from "../_trendingStartups/constants.js";
 
 /** GET /api/trending — read-only `trending_cache`. No scoring or source APIs on page load. */
 
