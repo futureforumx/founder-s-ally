@@ -1,12 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emptyTrendingCatalog, trendingAlgorithmMeta } from "./catalog.js";
-import {
-  PUBLIC_UNLOCKED_COUNT,
-  TRENDING_PAGE_LIMIT,
-  TRENDING_REVALIDATE_SECONDS,
-  type TrendingCatalogResponse,
-  type TrendingStartupRow,
-} from "./types.js";
+import { PUBLIC_UNLOCKED_COUNT, TRENDING_PAGE_LIMIT, TRENDING_REVALIDATE_SECONDS } from "./constants.js";
+import type { TrendingCatalogResponse, TrendingStartupRow } from "./types.js";
 
 export const TRENDING_CACHE_TABLE = "trending_cache";
 

@@ -13,10 +13,8 @@ import {
   MAX_GITHUB_REPO_AGE_MONTHS,
   PLATFORM_WEIGHTS,
   PUBLIC_UNLOCKED_COUNT,
-  type RawStartupSignal,
-  type TrendingCatalogResponse,
-  type TrendingStartupRow,
-} from "./types.js";
+} from "./constants.js";
+import type { RawStartupSignal, TrendingCatalogResponse, TrendingStartupRow } from "./types.js";
 
 export const TRENDING_CATALOG_NOW = new Date("2026-08-22T19:00:00.000Z");
 

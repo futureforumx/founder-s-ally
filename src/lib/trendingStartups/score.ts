@@ -4,10 +4,8 @@ import {
   GROWTH_DELTA_OFFSET,
   PLATFORM_WEIGHTS,
   SENTIMENT_MULTIPLIER,
-  type SentimentTone,
-  type SignalBreakdown,
-  type SignalKey,
-} from "./types.js";
+} from "./constants.js";
+import type { SentimentTone, SignalBreakdown, SignalKey } from "./types.js";
 
 const SIGNAL_KEYS = Object.keys(PLATFORM_WEIGHTS) as SignalKey[];
 

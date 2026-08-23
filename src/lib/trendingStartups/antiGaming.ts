@@ -1,5 +1,6 @@
 import { passesEarlyStageGate } from "./earlyStageGate.js";
-import { MIN_ACCOUNT_AGE_DAYS, type RawStartupSignal, type SignalBreakdown } from "./types.js";
+import { MIN_ACCOUNT_AGE_DAYS } from "./constants.js";
+import type { RawStartupSignal, SignalBreakdown } from "./types.js";
 
 const MS_PER_DAY = 86_400_000;
 const DUPLICATE_IP_SHARE = 0.5;

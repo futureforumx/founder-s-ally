@@ -4,9 +4,8 @@ import {
   MAX_EARLY_STAGE_EMPLOYEES,
   MAX_EARLY_STAGE_FUNDING_USD,
   MAX_GITHUB_REPO_AGE_MONTHS,
-  type RawStartupSignal,
-  type SignalBreakdown,
-} from "./types.js";
+} from "./constants.js";
+import type { RawStartupSignal, SignalBreakdown } from "./types.js";
 
 const MS_PER_DAY = 86_400_000;
 
