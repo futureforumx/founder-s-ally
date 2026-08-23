@@ -141,14 +141,28 @@ export async function readTrendingCache(
 }
 
 function postgresUrl(): string | null {
-  return process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || null;
+  return (
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    null
+  );
+}
+
+function postgresClientConfig() {
+  const raw = postgresUrl()!;
+  const url = new URL(raw);
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("ssl");
+  return {
+    connectionString: url.toString(),
+    ssl: { rejectUnauthorized: false as const },
+  };
 }
 
 async function upsertTrendingCacheWithPostgres(records: TrendingCacheRecord[]): Promise<number> {
-  const client = new Client({
-    connectionString: postgresUrl()!,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = new Client(postgresClientConfig());
   await client.connect();
   try {
     await client.query("BEGIN");
