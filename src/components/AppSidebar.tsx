@@ -402,11 +402,12 @@ export function AppSidebar({
 
         <nav
           className={cn(
-            "flex min-h-0 flex-1 flex-col gap-0 overflow-hidden pt-4",
+            "flex min-h-0 flex-1 flex-col gap-0 overflow-hidden",
             collapsed ? "px-2" : "px-2.5",
           )}
         >
           <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <NavSectionLabel collapsed={collapsed}>Intelligence</NavSectionLabel>
           <div className={group}>
             {collapsed ? (
               <SidebarHint collapsed={collapsed} label="Pulse — market intelligence feed">
@@ -449,6 +450,30 @@ export function AppSidebar({
               >
                 <TrendingUp className={iconCls} />
                 {!collapsed && "Capital"}
+              </button>
+            </SidebarHint>
+          </div>
+
+          <NavSectionLabel collapsed={collapsed}>My Company</NavSectionLabel>
+          <div className={group}>
+            <SidebarHint collapsed={collapsed} label="Mission Control">
+              <button
+                type="button"
+                onClick={() => goView("dashboard")}
+                className={navBtn(missionControlActive)}
+              >
+                <Gauge className={iconCls} />
+                {!collapsed && "Mission Control"}
+              </button>
+            </SidebarHint>
+            <SidebarHint collapsed={collapsed} label="Data Room">
+              <button
+                type="button"
+                onClick={() => goView("data-hub")}
+                className={navBtn(activeView === "data-hub")}
+              >
+                <Database className={iconCls} />
+                {!collapsed && "Data Room"}
               </button>
             </SidebarHint>
           </div>
@@ -515,18 +540,6 @@ export function AppSidebar({
                 {!collapsed && "Directory"}
               </button>
             </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Data Room">
-              <button
-                type="button"
-                onClick={() => goView("data-hub")}
-                className={navBtn(activeView === "data-hub")}
-              >
-                <ToolGlyph tone="warning">
-                  <Database className={toolIconCls} />
-                </ToolGlyph>
-                {!collapsed && "Data Room"}
-              </button>
-            </SidebarHint>
           </div>
 
           <NavSectionLabel collapsed={collapsed}>Research</NavSectionLabel>
@@ -557,16 +570,6 @@ export function AppSidebar({
               >
                 <Handshake className={iconCls} />
                 {!collapsed && "Market"}
-              </button>
-            </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Mission Control">
-              <button
-                type="button"
-                onClick={() => goView("dashboard")}
-                className={navBtn(missionControlActive)}
-              >
-                <Gauge className={iconCls} />
-                {!collapsed && "Mission Control"}
               </button>
             </SidebarHint>
             <SidebarHint collapsed={collapsed} label="Investor matches">

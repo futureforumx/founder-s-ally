@@ -8,7 +8,7 @@ export function MarketFundingView() {
         <p className="mt-0.5 text-xs text-muted-foreground">Latest company raises and deal headlines</p>
       </div>
 
-      <LatestFundingFeed stage="all" sector={null} />
+      <LatestFundingFeed stage="all" sector={null} surface="app" />
     </div>
   );
 }

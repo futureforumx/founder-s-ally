@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { FundingFeedSurfaceProvider } from "@/components/fresh-capital/latest-funding/fundingFeedSurface";
 import { LatestFundingFilterBar } from "@/components/fresh-capital/latest-funding/LatestFundingFilterBar";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { useCompanyDirectory } from "@/hooks/useProfile";
@@ -373,6 +374,7 @@ export function RecentFundingFeed({ className }: { className?: string }) {
   );
 
   return (
+    <FundingFeedSurfaceProvider surface="app">
     <div className={cn("space-y-4", className)}>
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">Recent funding</h1>
@@ -461,5 +463,6 @@ export function RecentFundingFeed({ className }: { className?: string }) {
         Coverage is curated from public announcements for in-product context; verify terms in the original source before relying on it for decisions.
       </p>
     </div>
+    </FundingFeedSurfaceProvider>
   );
 }

@@ -8,6 +8,7 @@ import {
   shouldRejectLoadedMark,
 } from "@/lib/latestFundingMarks";
 import { sanitizeFirmLogoUrlForDisplay } from "@/lib/firmLogoUrl";
+import { useFundingFeedApp } from "./fundingFeedSurface";
 
 export function EntityRowMark({
   name,
@@ -39,6 +40,7 @@ export function EntityRowMark({
   const [attempt, setAttempt] = useState(0);
   const letter = (name?.trim().charAt(0) || "?").toUpperCase();
   const currentSrc = candidates[attempt] ?? null;
+  const app = useFundingFeedApp();
 
   useEffect(() => {
     setAttempt(0);
@@ -47,7 +49,10 @@ export function EntityRowMark({
   if (!candidates.length || attempt >= candidates.length) {
     return (
       <span
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 text-[10px] font-semibold uppercase leading-none text-zinc-400"
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border text-[10px] font-semibold uppercase leading-none",
+          app ? "border-border bg-muted text-foreground" : "border-zinc-700/80 bg-zinc-900 text-zinc-400",
+        )}
         aria-hidden
       >
         {letter}
@@ -61,7 +66,7 @@ export function EntityRowMark({
       alt=""
       width={24}
       height={24}
-      className="h-6 w-6 shrink-0 rounded-md bg-zinc-950 object-contain"
+      className={cn("h-6 w-6 shrink-0 rounded-md object-contain", app ? "bg-muted" : "bg-zinc-950")}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
@@ -98,6 +103,7 @@ export function CompanyRowMark({
   const [attempt, setAttempt] = useState(0);
   const letter = (row.companyName?.trim().charAt(0) || "?").toUpperCase();
   const currentSrc = candidates[attempt] ?? null;
+  const app = useFundingFeedApp();
 
   useEffect(() => {
     setAttempt(0);
@@ -107,7 +113,8 @@ export function CompanyRowMark({
     return (
       <span
         className={cn(
-          "flex shrink-0 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-900 font-semibold uppercase leading-none text-zinc-400",
+          "flex shrink-0 items-center justify-center rounded-md border font-semibold uppercase leading-none",
+          app ? "border-border bg-muted text-foreground" : "border-zinc-700/80 bg-zinc-900 text-zinc-400",
           box,
           letterClass,
         )}
@@ -124,7 +131,7 @@ export function CompanyRowMark({
       alt=""
       width={px}
       height={px}
-      className={cn("shrink-0 rounded-md bg-zinc-950 object-contain", box)}
+      className={cn("shrink-0 rounded-md object-contain", app ? "bg-muted" : "bg-zinc-950", box)}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"

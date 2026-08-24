@@ -2520,45 +2520,30 @@ function SecurityTab() {
   return <SecurityTabSupabase />;
 }
 
+const STRIPE_PRICING_TABLE_SCRIPT = "https://js.stripe.com/v3/pricing-table.js";
+const STRIPE_PRICING_TABLE_ID = "prctbl_1U6HBN0bjIxcsMKWAmUyDOKL";
+const STRIPE_PRICING_TABLE_KEY =
+  "pk_live_51TExQA0bjIxcsMKWRCaZxka6PmAt6s9Cb4lHXJcfEHYOnyiQISaN6Cx0PfTJOh8DnJLsr98HEK0PYCmnMcXemUow00hx57rbDP";
+
+function useStripePricingTableScript() {
+  useEffect(() => {
+    if (document.querySelector(`script[src="${STRIPE_PRICING_TABLE_SCRIPT}"]`)) return;
+    const script = document.createElement("script");
+    script.src = STRIPE_PRICING_TABLE_SCRIPT;
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+}
+
 // ── Subscription Tab ──
 function StripePricingTableEmbed({ userId, email }: { userId: string; email?: string }) {
-  const isUnsupportedLocalIp =
-    typeof window !== "undefined" &&
-    import.meta.env.DEV &&
-    (window.location.hostname === "127.0.0.1" || window.location.hostname === "0.0.0.0");
-
-  if (isUnsupportedLocalIp) {
-    const localhostUrl = new URL(window.location.href);
-    localhostUrl.hostname = "localhost";
-
-    return (
-      <div className="flex min-h-[320px] w-full flex-col items-center justify-center rounded-2xl border border-border/60 bg-card px-6 text-center shadow-sm">
-        <AlertTriangle className="mb-3 h-5 w-5 text-amber-500" />
-        <h3 className="text-sm font-semibold text-foreground">Stripe pricing needs a local domain</h3>
-        <p className="mt-2 max-w-md text-xs leading-relaxed text-muted-foreground">
-          Stripe does not render its pricing table on an IP-address origin. Open this page on localhost to preview it,
-          or use the deployed Vekta domain.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={() => window.location.assign(localhostUrl.toString())}
-        >
-          Open pricing on localhost
-          <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-        </Button>
-      </div>
-    );
-  }
+  useStripePricingTableScript();
 
   return (
     <div className="min-h-[520px] w-full overflow-hidden rounded-2xl border border-border/60 bg-card p-2 shadow-sm">
       {createElement("stripe-pricing-table", {
-        "pricing-table-id": "prctbl_1U6HBN0bjIxcsMKWAmUyDOKL",
-        "publishable-key":
-          "pk_live_51TExQA0bjIxcsMKWRCaZxka6PmAt6s9Cb4lHXJcfEHYOnyiQISaN6Cx0PfTJOh8DnJLsr98HEK0PYCmnMcXemUow00hx57rbDP",
+        "pricing-table-id": STRIPE_PRICING_TABLE_ID,
+        "publishable-key": STRIPE_PRICING_TABLE_KEY,
         "client-reference-id": userId,
         "customer-email": email,
       })}

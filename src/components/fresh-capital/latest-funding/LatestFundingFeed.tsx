@@ -17,22 +17,25 @@ import type { FreshCapitalStageFilter } from "@/lib/freshCapitalPublic";
 import { cn } from "@/lib/utils";
 
 import { FundingFeedEmptyState } from "./FundingFeedEmptyState";
+import { FundingFeedSurfaceProvider, type FundingFeedSurface } from "./fundingFeedSurface";
 import { LatestFundingFilterBar } from "./LatestFundingFilterBar";
 import { FundingFeedRow, LATEST_FUNDING_TABLE, LatestFundingTableHeader } from "./FundingFeedRow";
 import { FundingFeedSkeleton } from "./FundingFeedSkeleton";
 
-const PANEL = cn(
+const PUBLIC_PANEL = cn(
   "overflow-hidden rounded-2xl border border-zinc-800 bg-[#000000] shadow-lg shadow-black/50 backdrop-blur-sm",
 );
+const APP_PANEL = "overflow-hidden rounded-xl border border-border/60 bg-card/50";
 
 type Props = {
   stage: FreshCapitalStageFilter;
   sector: string | null;
   /** Called once (and on change) with the sorted unique non-empty sectors from the live feed. */
   onAvailableSectors?: (sectors: string[]) => void;
+  surface?: FundingFeedSurface;
 };
 
-export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) {
+export function LatestFundingFeed({ stage, sector, onAvailableSectors, surface = "public" }: Props) {
   const { rows: sourceRows, isLoading, error, ingestEmpty, dataSource } = useRecentFundingFeed({ limit: 200 });
   const { firms } = useVCDirectory();
   const leadFirmIndex = useMemo(() => buildVcFirmMatchIndex(firms), [firms]);
@@ -118,10 +121,20 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
     });
   }, [dataSource, filtered.length, sourceRows.length, ingestEmpty, error]);
 
+  const app = surface === "app";
+
   return (
-    <div className={PANEL}>
+    <FundingFeedSurfaceProvider surface={surface}>
+    <div className={app ? APP_PANEL : PUBLIC_PANEL}>
       {rpcDegraded ? (
-        <div className="border-b border-zinc-800 bg-[#0f0f0f] px-4 py-2.5 text-center text-[11px] leading-relaxed text-[#b3b3b3]">
+        <div
+          className={cn(
+            "border-b px-4 py-2.5 text-center text-[11px] leading-relaxed",
+            app
+              ? "border-border bg-muted/40 text-muted-foreground"
+              : "border-zinc-800 bg-[#0f0f0f] text-[#b3b3b3]",
+          )}
+        >
           Couldn&apos;t load live funding announcements (network or database error). Nothing below is substituted
           from demo data when your Supabase keys are configured.
         </div>
@@ -173,5 +186,6 @@ export function LatestFundingFeed({ stage, sector, onAvailableSectors }: Props) 
         </div>
       )}
     </div>
+    </FundingFeedSurfaceProvider>
   );
 }

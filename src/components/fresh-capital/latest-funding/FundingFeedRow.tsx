@@ -12,6 +12,7 @@ import { buildOutboundUrl, isValidOutboundUrl } from "@/lib/outboundUrl";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 import { cn } from "@/lib/utils";
 import { CompanyRowMark, EntityRowMark } from "./CompanyRowMark";
+import { useFundingFeedApp } from "./fundingFeedSurface";
 
 /** Shared table so header and body use one column layout. */
 export const LATEST_FUNDING_TABLE = "w-full min-w-0 table-fixed border-collapse";
@@ -20,9 +21,17 @@ const TH = "px-2 py-2.5 text-left font-semibold first:pl-4 last:pr-4";
 const TD = "px-2 py-3 align-middle first:pl-4 last:pr-4";
 
 export function LatestFundingTableHeader() {
+  const app = useFundingFeedApp();
   return (
     <thead>
-      <tr className="border-b border-zinc-800/60 bg-[#0a0a0a] text-2xs uppercase tracking-wide text-zinc-500">
+      <tr
+        className={cn(
+          "border-b text-2xs uppercase tracking-wide",
+          app
+            ? "border-border/60 bg-muted/30 font-mono text-muted-foreground"
+            : "border-zinc-800/60 bg-[#0a0a0a] text-zinc-500",
+        )}
+      >
         <th className={cn(TH, "w-[22%]")}>Company</th>
         <th className={cn(TH, "w-[12%]")}>Sector</th>
         <th className={cn(TH, "w-[11%]")}>Round</th>
@@ -36,14 +45,20 @@ export function LatestFundingTableHeader() {
 }
 
 function RoundKindPill({ label, title }: { label: string; title?: string }) {
+  const app = useFundingFeedApp();
   const trimmed = label?.trim();
   if (!trimmed || trimmed === "—" || trimmed.toLowerCase() === "unknown") {
-    return <span className="text-xs text-zinc-400">—</span>;
+    return <span className={cn("text-xs", app ? "text-muted-foreground" : "text-zinc-400")}>—</span>;
   }
 
   return (
     <span
-      className="inline-block max-w-full truncate rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400"
+      className={cn(
+        "inline-block max-w-full truncate rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        app
+          ? "border-primary/25 bg-primary/10 text-primary"
+          : "border-blue-500/20 bg-blue-500/10 text-blue-400",
+      )}
       title={title ?? trimmed}
     >
       {trimmed}
@@ -52,13 +67,14 @@ function RoundKindPill({ label, title }: { label: string; title?: string }) {
 }
 
 function SectorCell({ labels }: { labels: string[] }) {
+  const app = useFundingFeedApp();
   const primary = labels.find((label) => {
     const t = label.trim();
     return t && t !== "—" && t.toLowerCase() !== "unknown";
   });
-  if (!primary) return <span className="text-xs font-medium text-zinc-400">—</span>;
+  if (!primary) return <span className={cn("text-xs font-medium", app ? "text-muted-foreground" : "text-zinc-400")}>—</span>;
   return (
-    <span className="truncate text-xs font-medium text-zinc-400" title={labels.join(", ")}>
+    <span className={cn("truncate text-xs font-medium", app ? "text-foreground" : "text-zinc-400")} title={labels.join(", ")}>
       {primary}
     </span>
   );
@@ -82,8 +98,16 @@ function prettyOutletFromSourceUrl(url: string): string | null {
 }
 
 function RumorBadge() {
+  const app = useFundingFeedApp();
   return (
-    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-amber-200/80">
+    <span
+      className={cn(
+        "rounded-full border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide",
+        app
+          ? "border-warning/30 bg-warning/10 text-warning"
+          : "border-amber-500/30 bg-amber-500/10 text-amber-200/80",
+      )}
+    >
       Rumor
     </span>
   );
@@ -98,8 +122,9 @@ function SourceLink({
   label: string;
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
+  const app = useFundingFeedApp();
   if (!href) {
-    return <span className="text-xs text-zinc-400">—</span>;
+    return <span className={cn("text-xs", app ? "text-muted-foreground" : "text-zinc-400")}>—</span>;
   }
   return (
     <a
@@ -108,7 +133,10 @@ function SourceLink({
       title={label}
       onClick={stopRowOpen}
       onAuxClick={stopRowOpen}
-      className="inline-flex min-w-0 max-w-full items-center gap-0.5 text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+      className={cn(
+        "inline-flex min-w-0 max-w-full items-center gap-0.5 text-xs transition-colors",
+        app ? "text-muted-foreground hover:text-foreground" : "text-zinc-400 hover:text-zinc-200",
+      )}
     >
       <span className="truncate">{label}</span>
       <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden />
@@ -127,6 +155,7 @@ function LeadInvestorCell({
   leadHref: string | null;
   stopRowOpen: (e: { stopPropagation: () => void }) => void;
 }) {
+  const app = useFundingFeedApp();
   const mark = (
     <EntityRowMark
       name={row.leadInvestor}
@@ -135,14 +164,18 @@ function LeadInvestorCell({
       resetKey={`${row.id}-lead`}
     />
   );
-  const name = <span className="min-w-0 truncate text-xs text-zinc-400">{row.leadInvestor}</span>;
+  const name = (
+    <span className={cn("min-w-0 truncate text-xs", app ? "text-muted-foreground" : "text-zinc-400")}>
+      {row.leadInvestor}
+    </span>
+  );
   const shellClass = "inline-flex min-w-0 max-w-full items-center gap-2";
 
   if (leadFirm?.id) {
     return (
       <Link
         to={`/firms/${leadFirm.id}`}
-        className={cn(shellClass, "hover:text-white")}
+        className={cn(shellClass, app ? "hover:text-foreground" : "hover:text-white")}
         title={row.leadInvestor}
         onClick={stopRowOpen}
         onAuxClick={stopRowOpen}
@@ -158,7 +191,7 @@ function LeadInvestorCell({
       <a
         href={leadHref}
         {...EXTERNAL_SOURCE_LINK_ATTRS}
-        className={cn(shellClass, "hover:text-zinc-200")}
+        className={cn(shellClass, app ? "hover:text-foreground" : "hover:text-zinc-200")}
         title={row.leadInvestor}
         onClick={stopRowOpen}
         onAuxClick={stopRowOpen}
@@ -213,10 +246,20 @@ export function FundingFeedRow({
     e.stopPropagation();
   };
 
+  const app = useFundingFeedApp();
   const interactiveShell = cn(
-    "cursor-pointer transition-colors hover:bg-zinc-900/40",
-    "outline-none focus-visible:bg-zinc-900/50 focus-visible:ring-1 focus-visible:ring-zinc-700",
-    expanded && "bg-zinc-900/30",
+    "cursor-pointer transition-colors",
+    app
+      ? cn(
+          "hover:bg-muted/25",
+          "outline-none focus-visible:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring/40",
+          expanded && "bg-muted/30",
+        )
+      : cn(
+          "hover:bg-zinc-900/40",
+          "outline-none focus-visible:bg-zinc-900/50 focus-visible:ring-1 focus-visible:ring-zinc-700",
+          expanded && "bg-zinc-900/30",
+        ),
   );
 
   const roundBucket = roundKindStageBucket(row.roundKind);
@@ -242,7 +285,12 @@ export function FundingFeedRow({
         tabIndex={0}
         aria-expanded={expanded}
         aria-label={`${expanded ? "Collapse" : "Expand"} details for ${row.companyName}`}
-        className={cn("border-b border-zinc-800/60", expanded ? "border-b-0" : "last:border-b-0", interactiveShell)}
+        className={cn(
+          "border-b",
+          app ? "border-border/50" : "border-zinc-800/60",
+          expanded ? "border-b-0" : "last:border-b-0",
+          interactiveShell,
+        )}
         onClick={toggleExpanded}
         onKeyDown={onRowKeyDown}
       >
@@ -250,13 +298,14 @@ export function FundingFeedRow({
           <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
             <CompanyRowMark row={row} />
             <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-              <span className="min-w-0 truncate font-medium text-white">{row.companyName}</span>
+              <span className={cn("min-w-0 truncate font-medium", app ? "text-foreground" : "text-white")}>{row.companyName}</span>
               {showRumorBadge ? <span className="shrink-0"><RumorBadge /></span> : null}
             </span>
             <ChevronDown
               className={cn(
-                "ml-auto h-3.5 w-3.5 shrink-0 text-zinc-600 transition-transform",
-                expanded && "rotate-180 text-zinc-400",
+                "ml-auto h-3.5 w-3.5 shrink-0 transition-transform",
+                app ? "text-muted-foreground/50" : "text-zinc-600",
+                expanded && (app ? "rotate-180 text-muted-foreground" : "rotate-180 text-zinc-400"),
               )}
               aria-hidden
             />
@@ -269,47 +318,47 @@ export function FundingFeedRow({
           <RoundKindPill label={formatRoundKind(row.roundKind)} title={roundKindTitle} />
         </td>
         <td className={TD}>
-          <span className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-white">{row.amountLabel}</span>
+          <span className={cn("whitespace-nowrap font-mono text-sm font-semibold tabular-nums", app ? "text-foreground" : "text-white")}>{row.amountLabel}</span>
         </td>
         <td className={TD}>
           <LeadInvestorCell row={row} leadFirm={leadFirm} leadHref={leadHref} stopRowOpen={stopRowOpen} />
         </td>
         <td className={TD}>
-          <span className="whitespace-nowrap text-xs text-zinc-400">{displayDate}</span>
+          <span className={cn("whitespace-nowrap text-xs", app ? "text-muted-foreground" : "text-zinc-400")}>{displayDate}</span>
         </td>
         <td className={TD} onClick={stopRowOpen} onAuxClick={stopRowOpen}>
           <SourceLink href={sourceOutboundHref} label={outlet} stopRowOpen={stopRowOpen} />
         </td>
       </tr>
       {expanded ? (
-        <tr className="border-b border-zinc-800/60 bg-[#080808] last:border-b-0">
+        <tr className={cn("border-b last:border-b-0", app ? "border-border/50 bg-muted/20" : "border-zinc-800/60 bg-[#080808]")}>
           <td colSpan={7} className="px-4 pb-4 pt-1 first:pl-4 last:pr-4">
-            <div className="max-w-2xl rounded-xl border border-zinc-800/80 bg-black/40 px-4 py-4">
+            <div className={cn("max-w-2xl rounded-xl border px-4 py-4", app ? "border-border bg-card" : "border-zinc-800/80 bg-black/40")}>
               <div className="flex min-w-0 items-center gap-3">
                 <CompanyRowMark row={expandedRow} size="md" />
-                <p className="min-w-0 truncate text-base font-semibold tracking-tight text-white">{expandedName}</p>
+                <p className={cn("min-w-0 truncate text-base font-semibold tracking-tight", app ? "text-foreground" : "text-white")}>{expandedName}</p>
               </div>
               <dl className="mt-4 space-y-3">
                 <div>
-                  <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                  <dt className={cn("flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>
                     <MapPin className="h-3 w-3" aria-hidden />
                     HQ location
                   </dt>
-                  <dd className="mt-1 text-sm text-zinc-300">
+                  <dd className={cn("mt-1 text-sm", app ? "text-foreground" : "text-zinc-300")}>
                     {snapshotQuery.isFetching && !snapshot ? (
-                      <span className="inline-block h-3 w-36 animate-pulse rounded bg-zinc-800" />
+                      <span className={cn("inline-block h-3 w-36 animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
                     ) : (
                       hqLine || "—"
                     )}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Description</dt>
-                  <dd className="mt-1 text-sm leading-relaxed text-zinc-400">
+                  <dt className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>Description</dt>
+                  <dd className={cn("mt-1 text-sm leading-relaxed", app ? "text-muted-foreground" : "text-zinc-400")}>
                     {snapshotQuery.isFetching && !snapshot ? (
                       <span className="block space-y-1.5">
-                        <span className="block h-3 w-full max-w-md animate-pulse rounded bg-zinc-800" />
-                        <span className="block h-3 w-2/3 max-w-sm animate-pulse rounded bg-zinc-800" />
+                        <span className={cn("block h-3 w-full max-w-md animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
+                        <span className={cn("block h-3 w-2/3 max-w-sm animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
                       </span>
                     ) : description ? (
                       <span className="line-clamp-6 whitespace-pre-wrap">{description}</span>

@@ -20,14 +20,27 @@ import {
   type LatestFundingDateSort,
 } from "@/lib/latestFundingFilters";
 import { cn } from "@/lib/utils";
+import { useFundingFeedApp } from "./fundingFeedSurface";
 
-const CONTROL = cn(
-  "h-9 rounded-md border border-zinc-800 bg-zinc-900 text-xs text-zinc-200 shadow-none",
-  "hover:border-zinc-700 hover:bg-zinc-900",
-  "focus:border-zinc-700 focus-visible:border-zinc-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
-);
+function controlClass(app: boolean) {
+  return app
+    ? cn(
+        "h-9 rounded-md border border-border bg-background text-xs text-foreground shadow-none",
+        "hover:border-border hover:bg-muted/50",
+        "focus:border-ring/50 focus-visible:border-ring/50 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+      )
+    : cn(
+        "h-9 rounded-md border border-zinc-800 bg-zinc-900 text-xs text-zinc-200 shadow-none",
+        "hover:border-zinc-700 hover:bg-zinc-900",
+        "focus:border-zinc-700 focus-visible:border-zinc-700 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+      );
+}
 
-const MENU = "max-h-64 overflow-y-auto border-zinc-800 bg-zinc-900 text-zinc-200";
+function menuClass(app: boolean) {
+  return app
+    ? "max-h-64 overflow-y-auto border-border bg-popover text-popover-foreground"
+    : "max-h-64 overflow-y-auto border-zinc-800 bg-zinc-900 text-zinc-200";
+}
 
 type Props = {
   searchQuery: string;
@@ -63,9 +76,11 @@ function toggleValue(current: string[], value: string): string[] {
 }
 
 function TriggerLabel({ name, value }: { name: string; value: string }) {
+  const app = useFundingFeedApp();
   return (
     <span className="min-w-0 truncate">
-      <span className="text-zinc-500">{name}:</span> <span className="text-zinc-200">{value}</span>
+      <span className={app ? "text-muted-foreground" : "text-zinc-500"}>{name}:</span>{" "}
+      <span className={app ? "text-foreground" : "text-zinc-200"}>{value}</span>
     </span>
   );
 }
@@ -81,6 +96,7 @@ function MultiSelectFilter({
   selected: string[];
   onChange: (next: string[]) => void;
 }) {
+  const app = useFundingFeedApp();
   const summary =
     selected.length === 0 ? "All" : selected.length === 1 ? selected[0] : `${selected.length} selected`;
 
@@ -89,19 +105,24 @@ function MultiSelectFilter({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={cn(CONTROL, "inline-flex min-w-[8.5rem] items-center justify-between gap-2 px-2.5")}
+          className={cn(controlClass(app), "inline-flex min-w-[8.5rem] items-center justify-between gap-2 px-2.5")}
           aria-label={`Filter by ${label.toLowerCase()}`}
         >
           <TriggerLabel name={label} value={summary} />
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", app ? "text-muted-foreground" : "text-zinc-500")} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className={cn("w-56", MENU)}>
+      <DropdownMenuContent align="start" className={cn("w-56", menuClass(app))}>
         <DropdownMenuCheckboxItem
           checked={selected.length === 0}
           onCheckedChange={() => onChange([])}
           onSelect={(event) => event.preventDefault()}
-          className="text-xs text-zinc-200 focus:bg-zinc-800 focus:text-white"
+          className={cn(
+            "text-xs",
+            app
+              ? "text-foreground focus:bg-muted focus:text-foreground"
+              : "text-zinc-200 focus:bg-zinc-800 focus:text-white",
+          )}
         >
           All
         </DropdownMenuCheckboxItem>
@@ -111,7 +132,12 @@ function MultiSelectFilter({
             checked={selected.includes(choice)}
             onCheckedChange={() => onChange(toggleValue(selected, choice))}
             onSelect={(event) => event.preventDefault()}
-            className="text-xs text-zinc-200 focus:bg-zinc-800 focus:text-white"
+            className={cn(
+              "text-xs",
+              app
+                ? "text-foreground focus:bg-muted focus:text-foreground"
+                : "text-zinc-200 focus:bg-zinc-800 focus:text-white",
+            )}
           >
             {choice}
           </DropdownMenuCheckboxItem>
@@ -140,6 +166,7 @@ function AmountFilter({
   customMinUsd: number | null;
   customMaxUsd: number | null;
 }) {
+  const app = useFundingFeedApp();
   const [open, setOpen] = useState(false);
 
   const valueLabel = useMemo(() => {
@@ -160,16 +187,19 @@ function AmountFilter({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={cn(CONTROL, "inline-flex min-w-[9.5rem] items-center justify-between gap-2 px-2.5")}
+          className={cn(controlClass(app), "inline-flex min-w-[9.5rem] items-center justify-between gap-2 px-2.5")}
           aria-label="Filter by amount"
         >
           <TriggerLabel name="Amount" value={valueLabel} />
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", app ? "text-muted-foreground" : "text-zinc-500")} />
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-56 border-zinc-800 bg-zinc-900 p-1.5 text-zinc-200"
+        className={cn(
+          "w-56 p-1.5",
+          app ? "border-border bg-popover text-popover-foreground" : "border-zinc-800 bg-zinc-900 text-zinc-200",
+        )}
         sideOffset={6}
       >
         <div className="flex flex-col gap-0.5">
@@ -183,7 +213,13 @@ function AmountFilter({
               }}
               className={cn(
                 "rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                preset === item.id ? "bg-zinc-800 text-white" : "text-zinc-300 hover:bg-zinc-800/70 hover:text-white",
+                preset === item.id
+                  ? app
+                    ? "bg-muted text-foreground"
+                    : "bg-zinc-800 text-white"
+                  : app
+                    ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "text-zinc-300 hover:bg-zinc-800/70 hover:text-white",
               )}
             >
               {item.label}
@@ -191,25 +227,25 @@ function AmountFilter({
           ))}
         </div>
         {preset === "custom" ? (
-          <div className="mt-1.5 grid grid-cols-2 gap-1.5 border-t border-zinc-800 px-1 pb-1 pt-2">
+          <div className={cn("mt-1.5 grid grid-cols-2 gap-1.5 px-1 pb-1 pt-2", app ? "border-t border-border" : "border-t border-zinc-800")}>
             <label className="space-y-1">
-              <span className="block text-[10px] text-zinc-500">Min ($M)</span>
+              <span className={cn("block text-[10px]", app ? "text-muted-foreground" : "text-zinc-500")}>Min ($M)</span>
               <input
                 value={customMinInput}
                 onChange={(event) => onCustomMinInputChange(event.target.value)}
                 inputMode="decimal"
                 placeholder="0"
-                className={cn(CONTROL, "w-full px-2")}
+                className={cn(controlClass(app), "w-full px-2")}
               />
             </label>
             <label className="space-y-1">
-              <span className="block text-[10px] text-zinc-500">Max ($M)</span>
+              <span className={cn("block text-[10px]", app ? "text-muted-foreground" : "text-zinc-500")}>Max ($M)</span>
               <input
                 value={customMaxInput}
                 onChange={(event) => onCustomMaxInputChange(event.target.value)}
                 inputMode="decimal"
                 placeholder="Any"
-                className={cn(CONTROL, "w-full px-2")}
+                className={cn(controlClass(app), "w-full px-2")}
               />
             </label>
           </div>
@@ -247,20 +283,31 @@ export function LatestFundingFilterBar({
   onReset,
   className,
 }: Props) {
+  const app = useFundingFeedApp();
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-2 border-b border-zinc-800/60 bg-[#0a0a0a] px-3 py-2", className)}
+      className={cn(
+        "flex flex-wrap items-center gap-2 border-b px-3 py-2",
+        app ? "border-border/60 bg-muted/30" : "border-zinc-800/60 bg-[#0a0a0a]",
+        className,
+      )}
       role="group"
       aria-label={groupAriaLabel}
     >
-      <label className={cn(CONTROL, "relative flex min-w-[12rem] flex-1 items-center")}>
-        <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-zinc-500" aria-hidden />
+      <label className={cn(controlClass(app), "relative flex min-w-[12rem] flex-1 items-center")}>
+        <Search
+          className={cn("pointer-events-none absolute left-2.5 h-3.5 w-3.5", app ? "text-muted-foreground" : "text-zinc-500")}
+          aria-hidden
+        />
         <input
           value={searchQuery}
           onChange={(event) => onSearchQueryChange(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchAriaLabel}
-          className="h-full w-full rounded-md bg-transparent py-0 pl-8 pr-2.5 text-xs text-zinc-200 placeholder:text-zinc-500 outline-none"
+          className={cn(
+            "h-full w-full rounded-md bg-transparent py-0 pl-8 pr-2.5 text-xs outline-none",
+            app ? "text-foreground placeholder:text-muted-foreground" : "text-zinc-200 placeholder:text-zinc-500",
+          )}
         />
       </label>
 
@@ -296,11 +343,33 @@ export function LatestFundingFilterBar({
             : "Date sorted earliest first. Click to sort latest first."
         }
         title={dateSort === "newest" ? "Latest first" : "Earliest first"}
-        className={cn(CONTROL, "inline-flex w-9 items-center justify-center px-0")}
+        className={cn(controlClass(app), "inline-flex w-9 items-center justify-center px-0")}
       >
         <span className="flex flex-col items-center leading-none" aria-hidden>
-          <ChevronUp className={cn("h-3 w-3 -mb-0.5", dateSort === "oldest" ? "text-zinc-200" : "text-zinc-600")} />
-          <ChevronDown className={cn("h-3 w-3 -mt-0.5", dateSort === "newest" ? "text-zinc-200" : "text-zinc-600")} />
+          <ChevronUp
+            className={cn(
+              "h-3 w-3 -mb-0.5",
+              dateSort === "oldest"
+                ? app
+                  ? "text-foreground"
+                  : "text-zinc-200"
+                : app
+                  ? "text-muted-foreground/40"
+                  : "text-zinc-600",
+            )}
+          />
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 -mt-0.5",
+              dateSort === "newest"
+                ? app
+                  ? "text-foreground"
+                  : "text-zinc-200"
+                : app
+                  ? "text-muted-foreground/40"
+                  : "text-zinc-600",
+            )}
+          />
         </span>
       </button>
 
@@ -308,7 +377,10 @@ export function LatestFundingFilterBar({
         <button
           type="button"
           onClick={onReset}
-          className="shrink-0 text-xs text-zinc-400 transition-colors hover:text-white"
+          className={cn(
+            "shrink-0 text-xs transition-colors",
+            app ? "text-muted-foreground hover:text-foreground" : "text-zinc-400 hover:text-white",
+          )}
         >
           Reset
         </button>

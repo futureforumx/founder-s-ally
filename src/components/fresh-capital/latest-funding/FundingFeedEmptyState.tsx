@@ -1,3 +1,6 @@
+import { cn } from "@/lib/utils";
+import { useFundingFeedApp } from "./fundingFeedSurface";
+
 type Variant = "filter_mismatch" | "feed_empty" | "load_failed";
 
 const copy: Record<
@@ -23,10 +26,11 @@ const copy: Record<
 
 export function FundingFeedEmptyState({ variant = "filter_mismatch" }: { variant?: Variant }) {
   const { title, body } = copy[variant];
+  const app = useFundingFeedApp();
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center px-6 py-14 text-center">
-      <p className="text-sm font-medium text-[#eeeeee]">{title}</p>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-[#b3b3b3]">{body}</p>
+      <p className={cn("text-sm font-medium", app ? "text-foreground" : "text-[#eeeeee]")}>{title}</p>
+      <p className={cn("mt-2 max-w-md text-sm leading-relaxed", app ? "text-muted-foreground" : "text-[#b3b3b3]")}>{body}</p>
     </div>
   );
 }
