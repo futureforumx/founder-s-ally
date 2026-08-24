@@ -318,8 +318,8 @@ export function SettingsPage() {
         </div>
         {/* Sub-tabs (only when section has multiple tabs) */}
         {currentTabs.length > 1 && (
-          <div className="px-8">
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide rounded-full border border-border/60 bg-secondary/35 p-1 shadow-sm backdrop-blur-sm w-fit max-w-full">
+          <div className="px-8 pb-2">
+            <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
               {currentTabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -327,10 +327,10 @@ export function SettingsPage() {
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
-                      "inline-flex items-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] transition-all",
+                      "whitespace-nowrap py-0.5 text-[9px] font-mono uppercase tracking-wider transition-colors",
                       isActive
-                        ? "bg-card text-foreground shadow-sm ring-1 ring-border/60"
-                        : "text-muted-foreground hover:bg-card/50 hover:text-foreground"
+                        ? "text-foreground"
+                        : "text-muted-foreground/50 hover:text-muted-foreground"
                     )}
                   >
                     {tab.label}
