@@ -44,6 +44,7 @@ export function CompanySettingsLogo({
         src={currentSrc}
         alt={alt}
         className={imgClassName}
+        referrerPolicy="no-referrer"
         onError={() => setCandidateIndex((prev) => prev + 1)}
       />
     );

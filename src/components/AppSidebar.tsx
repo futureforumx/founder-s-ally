@@ -72,6 +72,7 @@ interface AppSidebarProps {
   onToggleCollapsed?: () => void;
   workspaceName?: string | null;
   workspaceLogoUrl?: string | null;
+  workspaceWebsiteUrl?: string | null;
   userStage?: string | null;
   profileCompletion?: number;
   personalCompletion?: number;
@@ -138,6 +139,7 @@ export function AppSidebar({
   onToggleCollapsed,
   workspaceName,
   workspaceLogoUrl,
+  workspaceWebsiteUrl,
   userStage,
   profileCompletion = 0,
   personalCompletion = 0,
@@ -302,17 +304,18 @@ export function AppSidebar({
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-[6px] ring-1 ring-white/10",
-                  workspaceLogoUrl ? "bg-white/[0.04]" : "bg-primary/20",
+                  workspaceLogoUrl || workspaceWebsiteUrl ? "bg-white/[0.04]" : "bg-primary/20",
                 )}
               >
-                {workspaceLogoUrl || workspaceName ? (
+                {workspaceLogoUrl || workspaceWebsiteUrl || workspaceName ? (
                   <CompanySettingsLogo
                     companyName={workspaceName}
                     logoUrl={workspaceLogoUrl}
+                    websiteUrl={workspaceWebsiteUrl}
                     hasProfile={!!workspaceName?.trim()}
                     size={24}
                     alt=""
-                    imgClassName="size-full object-cover"
+                    imgClassName="size-full object-contain"
                     initialClassName="text-[11px] font-semibold text-sidebar-foreground"
                     iconClassName="size-3.5 text-sidebar-foreground/70"
                   />
@@ -329,6 +332,7 @@ export function AppSidebar({
               <WorkspaceAccountMenu
                 companyName={workspaceName}
                 logoUrl={workspaceLogoUrl}
+                websiteUrl={workspaceWebsiteUrl}
                 hasProfile={!!workspaceName?.trim()}
                 userStage={userStage}
                 profileCompletion={profileCompletion}

@@ -3,6 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AppSidebar } from "@/components/AppSidebar";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { getCompletionPercent, EMPTY_FORM, sanitizeCompanyData } from "@/components/company-profile/types";
+import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
 import { safeTrim } from "@/lib/utils";
 import { SectorClassification } from "@/components/SectorTags";
 import { HomeView } from "@/components/dashboard/HomeView";
@@ -83,15 +84,22 @@ type ViewType =
 function getStoredCompanyLogoUrl(): string | null {
   try {
     const explicitLogoUrl = localStorage.getItem("company-logo-url");
-    if (explicitLogoUrl) return explicitLogoUrl;
-
     const savedProfile = localStorage.getItem("company-profile");
-    if (!savedProfile) return null;
+    const parsedProfile = savedProfile ? JSON.parse(savedProfile) : null;
+    const profileLogoUrl =
+      typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
+        ? parsedProfile.logo_url.trim()
+        : null;
+    const websiteUrl =
+      typeof parsedProfile?.website === "string" && parsedProfile.website.trim().length > 0
+        ? parsedProfile.website.trim()
+        : null;
 
-    const parsedProfile = JSON.parse(savedProfile);
-    return typeof parsedProfile?.logo_url === "string" && parsedProfile.logo_url.trim().length > 0
-      ? parsedProfile.logo_url.trim()
-      : null;
+    return getPrimaryCompanyLogoUrl({
+      logoUrl: explicitLogoUrl || profileLogoUrl,
+      websiteUrl,
+      size: 64,
+    });
   } catch {
     return null;
   }
@@ -280,11 +288,13 @@ const Index = () => {
     };
     window.addEventListener("storage", sync);
     window.addEventListener("company-logo-changed", sync);
+    window.addEventListener("company-profile-changed", sync);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("company-logo-changed", sync);
+      window.removeEventListener("company-profile-changed", sync);
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
     };
@@ -457,6 +467,7 @@ const Index = () => {
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         workspaceName={companyData?.name}
         workspaceLogoUrl={navLogoUrl}
+        workspaceWebsiteUrl={companyData?.website}
         userStage={companyData?.stage}
         profileCompletion={profileCompletion}
         personalCompletion={personalCompletion}
@@ -465,6 +476,7 @@ const Index = () => {
         <GlobalTopNav
           companyName={companyData?.name}
           logoUrl={navLogoUrl}
+          websiteUrl={companyData?.website}
           hasProfile={!!companyData?.name}
           lastSyncedAt={lastSyncedAt}
           syncFlash={syncFlash}
