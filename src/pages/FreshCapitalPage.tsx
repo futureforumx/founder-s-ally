@@ -48,6 +48,11 @@ export default function FreshCapitalPage() {
   }, [initialMainTab]);
 
   useEffect(() => {
+    if (mainTab !== "insights") return;
+    document.getElementById(FEED_ANCHOR)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [mainTab]);
+
+  useEffect(() => {
     const prev = document.title;
     document.title = "Fund Watch · Vekta";
     return () => {

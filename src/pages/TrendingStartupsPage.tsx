@@ -107,10 +107,6 @@ export default function TrendingStartupsPage() {
           <Link to="/fresh-capital" className="underline-offset-2 hover:underline">
             Fund Watch
           </Link>
-          {" · "}
-          <Link to="/trending-companies" className="underline-offset-2 hover:underline">
-            Trending companies
-          </Link>
         </p>
       </footer>
     </div>

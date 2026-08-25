@@ -26,7 +26,6 @@ const AccessRequest = lazy(() => import("./pages/AccessRequest.tsx"));
 const Referrals = lazy(() => import("./pages/Referrals.tsx"));
 const FreshCapitalPage = lazy(() => import("./pages/FreshCapitalPage.tsx"));
 const FreshCapitalAliasRoute = lazy(() => import("./pages/FreshCapitalAliasRoute.tsx"));
-const TrendingCompaniesPage = lazy(() => import("./pages/TrendingCompaniesPage.tsx"));
 const TrendingStartupsPage = lazy(() => import("./pages/TrendingStartupsPage.tsx"));
 const TrendingStartupDetailPage = lazy(() => import("./pages/TrendingStartupDetailPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
@@ -417,14 +416,7 @@ const App = () => (
                   </Suspense>
                 }
               />
-              <Route
-                path="/trending-companies"
-                element={
-                  <Suspense fallback={<RouteLoader fullscreen={false} label="Loading…" />}>
-                    <TrendingCompaniesPage />
-                  </Suspense>
-                }
-              />
+              <Route path="/trending-companies" element={<Navigate to="/fresh-capital?tab=latest_funding" replace />} />
               <Route
                 path="/trending-startups"
                 element={

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import FreshCapitalPage from "./FreshCapitalPage";
-import TrendingCompaniesPage from "./TrendingCompaniesPage";
 import TrendingStartupsPage from "./TrendingStartupsPage";
 import TrendingStartupDetailPage from "./TrendingStartupDetailPage";
 
@@ -21,7 +20,7 @@ export default function PublicIntelApp() {
       <Route path="/freshcapital" element={<FreshCapitalPage />} />
       <Route path="/fundwatch" element={<FreshCapitalPage />} />
       <Route path="/newfunds" element={<FreshCapitalPage />} />
-      <Route path="/trending-companies" element={<TrendingCompaniesPage />} />
+      <Route path="/trending-companies" element={<Navigate to="/fresh-capital?tab=latest_funding" replace />} />
       <Route path="/trending-startups" element={<TrendingStartupsPage />} />
       <Route path="/trending-startups/:id" element={<TrendingStartupDetailPage />} />
       <Route path="*" element={<EscapeToFullApp />} />

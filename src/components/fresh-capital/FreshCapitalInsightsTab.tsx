@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { HeatmapBucket } from "@/lib/freshCapitalPublic";
+import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
+import { InsightsFundingByMonthChart } from "@/components/fresh-capital/InsightsFundingByMonthChart";
 
 const CARD = cn(
   "rounded-2xl border border-zinc-800 bg-[#000000] shadow-lg shadow-black/50 backdrop-blur-sm",
@@ -17,6 +19,8 @@ type Props = {
 
 /** Sector concentration for the Fresh Capital feed — mirrors page heatmap data in the dark tab shell. */
 export function FreshCapitalInsightsTab({ buckets }: Props) {
+  const { rows } = useRecentFundingFeed({ limit: 200 });
+
   return (
     <>
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -24,12 +28,19 @@ export function FreshCapitalInsightsTab({ buckets }: Props) {
           <p className="text-2xs font-medium uppercase tracking-wider text-primary">Live intelligence</p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#eeeeee]">Insights</h2>
           <p className="mt-1 text-sm leading-relaxed text-[#b3b3b3] sm:text-base">
-            Where new fund announcements have clustered recently—by sector tag intensity in this cohort.
+            Disclosed company raises by month, then where new fund announcements have clustered by sector.
           </p>
         </div>
       </div>
 
+      <div className="mb-6">
+        <InsightsFundingByMonthChart rows={rows} />
+      </div>
+
       <div className={cn("overflow-hidden px-4 py-6 sm:px-6", CARD)}>
+        <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#b3b3b3]">
+          Fund announcement sectors
+        </p>
         {buckets.length === 0 ? (
           <p className="text-center text-sm text-[#b3b3b3]">
             Sector tags will appear here as coverage grows. Try another stage or sector filter on{" "}

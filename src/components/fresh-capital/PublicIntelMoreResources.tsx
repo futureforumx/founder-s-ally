@@ -37,13 +37,7 @@ export function PublicIntelMoreResources({ triggerLabel = "More resources" }: { 
           <Link to="/fresh-capital?tab=latest_funding">Recent funding</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={ITEM}>
-          <Link to="/trending-companies">Trending companies</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className={ITEM}>
           <Link to="/trending-startups">Trending startups</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className={ITEM}>
-          <a href="/tools/ai-agents">Agent Library</a>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
