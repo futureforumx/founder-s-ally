@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2 } from "lucide-react";
 import { buildCompanyLogoCandidates } from "@/lib/company-logo";
+import { isThirdPartyFaviconProxyUrl } from "@/lib/firmLogoUrl";
+import { safeTrim } from "@/lib/utils";
 
 type CompanySettingsLogoProps = {
   companyName?: string | null;
@@ -25,10 +27,15 @@ export function CompanySettingsLogo({
   initialClassName,
   iconClassName,
 }: CompanySettingsLogoProps) {
-  const candidates = useMemo(
-    () => buildCompanyLogoCandidates({ logoUrl, websiteUrl, size }),
-    [logoUrl, websiteUrl, size],
-  );
+  const candidates = useMemo(() => {
+    const built = buildCompanyLogoCandidates({ logoUrl, websiteUrl, size });
+    const raw = safeTrim(logoUrl);
+    // Keep an explicitly synced Google favicon so it is not dropped before site fallbacks.
+    if (raw && isThirdPartyFaviconProxyUrl(raw) && !built.includes(raw)) {
+      return [raw, ...built];
+    }
+    return built;
+  }, [logoUrl, websiteUrl, size]);
   const [candidateIndex, setCandidateIndex] = useState(0);
   const currentSrc = candidates[candidateIndex] ?? null;
   const initial = companyName?.trim().charAt(0).toUpperCase() || "?";

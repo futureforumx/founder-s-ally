@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardR
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { Building2, Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
+import { Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { AnalysisOverlay } from "./AnalysisOverlay";
@@ -28,7 +28,8 @@ import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
 import { SectorClassification } from "@/components/SectorTags";
-import { extractCompanyDomain, getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
+import { extractCompanyDomain } from "@/lib/company-logo";
+import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 import { Badge } from "@/components/ui/badge";
 import { ProfileField } from "./company-profile/ProfileField";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -81,14 +82,15 @@ function s2FaviconSrc(domain: string, size: number, cacheBust?: number): string 
   return cacheBust != null ? `${base}&v=${cacheBust}` : base;
 }
 
-function faviconSrc(domain: string): string {
-  return gstaticFaviconSrc(domain, 32);
-}
-
 /** Supabase bucket uploads — do not replace with auto-favicon when website changes. */
 function isCustomUploadedLogo(url: string | null): boolean {
   if (!url) return false;
   return url.includes("company-logos");
+}
+
+function isAutoFaviconLogo(url: string | null): boolean {
+  if (!url) return false;
+  return url.includes("gstatic.com/faviconV2") || url.includes("/s2/favicons");
 }
 
 function cleanDomainToName(domain: string): string {
@@ -402,8 +404,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const saved = localStorage.getItem("company-profile");
       if (saved) {
         const p = JSON.parse(saved);
-        const logo = getPrimaryCompanyLogoUrl({ websiteUrl: p.website ?? null, size: 32 });
-        if (logo) return logo;
+        const domain = extractDomain(p.website ?? "");
+        if (domain) return gstaticFaviconSrc(domain, 32);
       }
     } catch {}
     return null;
@@ -412,20 +414,24 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
 
   // Favicon + nav logo when website changes — gstatic faviconV2 primary, s2 fallback on img error only
   useEffect(() => {
-    const faviconCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 32 });
-    if (!faviconCandidate) {
+    const domain = extractDomain(form.website);
+    if (!domain) {
       setFaviconUrl(null);
       setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : null));
       return;
     }
-    setFaviconUrl(faviconCandidate);
+    const icon32 = gstaticFaviconSrc(domain, 32);
+    const icon128 = gstaticFaviconSrc(domain, 128);
+    setFaviconUrl(icon32);
 
     const t = window.setTimeout(() => {
-      const nextFaviconCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 32 });
-      const nextLogoCandidate = getPrimaryCompanyLogoUrl({ websiteUrl: form.website, size: 128 });
-      if (!nextFaviconCandidate || !nextLogoCandidate) return;
-      setFaviconUrl(nextFaviconCandidate);
-      setLogoUrl((prev) => (isCustomUploadedLogo(prev) ? prev : nextLogoCandidate));
+      setFaviconUrl(icon32);
+      setLogoUrl((prev) => {
+        if (isCustomUploadedLogo(prev)) return prev;
+        // Keep a synced Google favicon for this domain instead of replacing it with a 404 /favicon.ico.
+        if (prev && isAutoFaviconLogo(prev) && prev.includes(domain)) return prev;
+        return icon128;
+      });
     }, 300);
 
     return () => {
@@ -585,7 +591,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       try {
-        localStorage.setItem("company-profile", JSON.stringify(form));
+        localStorage.setItem("company-profile", JSON.stringify({ ...form, logo_url: logoUrl || null }));
         localStorage.setItem("company-profile-touched", JSON.stringify([...userTouched]));
         localStorage.setItem("company-verified-fields", JSON.stringify([...verifiedFields]));
         localStorage.setItem("company-metrics-unlocked", String(metricsUnlocked));
@@ -1793,6 +1799,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                 src={faviconUrl}
                                 alt=""
                                 className="h-4 w-4 rounded-sm object-contain bg-muted/30"
+                                referrerPolicy="no-referrer"
                                 onError={() => {
                                   const d = extractDomain(form.website);
                                   if (!d) {
@@ -1803,7 +1810,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                                     if (!prev) return null;
                                     if (prev.includes("gstatic.com")) return s2FaviconSrc(d, 32);
                                     if (prev.includes("/s2/favicons")) return null;
-                                    return null;
+                                    return gstaticFaviconSrc(d, 32);
                                   });
                                 }}
                               />
@@ -2024,36 +2031,18 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                         >
                           {uploadingLogo ? (
                             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                          ) : logoUrl ? (
-                            <img
-                              key={logoUrl}
-                              src={logoUrl}
-                              alt="Company logo"
-                              className="h-full w-full object-contain p-1.5"
-                              onError={() => {
-                                const d = extractDomain(form.website);
-                                if (!d || isCustomUploadedLogo(logoUrl)) return;
-                                setLogoUrl((prev) => {
-                                  if (!prev) return null;
-                                  if (prev.includes("gstatic.com")) return s2FaviconSrc(d, 128);
-                                  if (prev.includes("/s2/favicons")) return null;
-                                  return null;
-                                });
-                              }}
-                            />
                           ) : (
-                            (() => {
-                              const domain = extractDomain(form.website);
-                              const fallbackUrl = domain ? faviconSrc(domain) : null;
-                              return fallbackUrl ? (
-                                <img src={fallbackUrl} alt="Favicon" className="h-full w-full object-contain p-2 opacity-50 group-hover:opacity-70 transition-opacity" />
-                              ) : (
-                                <div className="flex flex-col items-center gap-1 text-muted-foreground/50">
-                                  <Building2 className="h-6 w-6" />
-                                  <span className="text-[8px] font-medium uppercase tracking-wide">Logo</span>
-                                </div>
-                              );
-                            })()
+                            <CompanySettingsLogo
+                              companyName={form.name}
+                              logoUrl={logoUrl}
+                              websiteUrl={form.website}
+                              size={128}
+                              hasProfile={!!form.name.trim() || !!logoUrl || !!extractDomain(form.website)}
+                              alt="Company logo"
+                              imgClassName="h-full w-full object-contain p-1.5"
+                              initialClassName="text-lg font-semibold text-muted-foreground"
+                              iconClassName="h-6 w-6 text-muted-foreground/50"
+                            />
                           )}
                           {/* Hover edit overlay */}
                           <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
