@@ -24,6 +24,7 @@ import {
 } from "./matching";
 import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
+import { getSourcePriority } from "./sourcePriority";
 import {
   DEAL_MATCH_WINDOW_DAYS,
   fundAnnouncementQualityTier,

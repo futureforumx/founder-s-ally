@@ -87,7 +87,11 @@ export function resolveIngestFetchUrl(url: string, proxyEnv = process.env.INGEST
 }
 
 async function fetchText(url: string, log: (s: string) => void): Promise<string> {
-  const requestUrl = resolveIngestFetchUrl(url);
+  let requestUrl = resolveIngestFetchUrl(url);
+  if (!URL.canParse(requestUrl)) {
+    log(`[ingest-fetch] invalid proxy URL for ${url} — fetching source directly`);
+    requestUrl = url;
+  }
   return withBackoff(
     `GET:${url.slice(0, 60)}`,
     async () => {
@@ -362,7 +366,18 @@ export async function fetchGeekwireFundings(since: Date | null, maxItems: number
   return out;
 }
 
-function listingItemsFromGalleryNewsRows(
+/** When CMS ids were never persisted, look back this far so same-day / missed rows still ingest. */
+export const GALLERY_EMPTY_CURSOR_LOOKBACK_DAYS = 14;
+
+function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+function addUtcDays(d: Date, days: number): Date {
+  return new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+export function listingItemsFromGalleryNewsRows(
   rows: StartupsGalleryNewsRow[],
   opts: { since: Date | null; maxItems: number; seenCmsIds?: Set<string> },
 ): ListingItem[] {
@@ -371,14 +386,31 @@ function listingItemsFromGalleryNewsRows(
   const seen = new Set<string>();
   const seenCms = opts.seenCmsIds ?? new Set<string>();
   const useIdCursor = seenCms.size > 0;
+  const sinceStart = opts.since ? startOfUtcDay(opts.since) : null;
+  const sinceFloor =
+    sinceStart == null
+      ? null
+      : useIdCursor
+        ? sinceStart
+        : addUtcDays(sinceStart, -GALLERY_EMPTY_CURSOR_LOOKBACK_DAYS);
 
-  for (const row of rows) {
+  const sorted = [...rows].sort((a, b) => {
+    const at = a.announcedAtIso ? Date.parse(a.announcedAtIso) : 0;
+    const bt = b.announcedAtIso ? Date.parse(b.announcedAtIso) : 0;
+    const aOk = Number.isFinite(at) ? at : 0;
+    const bOk = Number.isFinite(bt) ? bt : 0;
+    return bOk - aOk;
+  });
+
+  for (const row of sorted) {
     if (out.length >= opts.maxItems) break;
     if (row.cmsId && seenCms.has(row.cmsId)) continue;
 
     const publishedAt = row.announcedAtIso ? new Date(row.announcedAtIso) : null;
     const validPublishedAt = publishedAt && !Number.isNaN(publishedAt.getTime()) ? publishedAt : null;
-    if (!useIdCursor && opts.since && validPublishedAt && validPublishedAt <= opts.since) continue;
+    // Inclusive of the checkpoint calendar day so date-only CMS timestamps (midnight UTC)
+    // are not skipped after last_article_published_at is set to that same midnight.
+    if (sinceFloor && validPublishedAt && validPublishedAt < sinceFloor) continue;
 
     const articleUrl = canonicalizeArticleUrl(startupsGalleryArticleUrl(row));
     if (seen.has(articleUrl)) continue;
