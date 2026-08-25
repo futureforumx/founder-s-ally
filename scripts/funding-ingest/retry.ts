@@ -1,3 +1,8 @@
+export function isNonRetryableIngestError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Failed to parse URL/i.test(msg) || /HTTP 40[134]\b/.test(msg);
+}
+
 export async function withBackoff<T>(
   label: string,
   fn: () => Promise<T>,
@@ -13,7 +18,7 @@ export async function withBackoff<T>(
       return await fn();
     } catch (e) {
       lastErr = e;
-      if (attempt === retries) break;
+      if (attempt === retries || isNonRetryableIngestError(e)) break;
       const delay = Math.min(maxMs, baseMs * 2 ** attempt);
       const msg = e instanceof Error ? e.message : String(e);
       log(`[retry:${label}] attempt ${attempt + 1}/${retries + 1} failed (${msg}); sleeping ${delay}ms`);

@@ -57,8 +57,30 @@ const BROWSER_HEADERS: Record<string, string> = {
   "Accept-Language": "en-US,en;q=0.9",
 };
 
+/** Strip quotes, markdown links, and control chars from INGEST_FETCH_PROXY_URL. */
+export function sanitizeIngestProxyOrigin(proxyEnv: string | undefined | null): string | null {
+  let raw = (proxyEnv ?? "").trim().replace(/[\u0000-\u001F]+/g, "");
+  if (!raw) return null;
+  raw = raw.replace(/^['"]+|['"]+$/g, "");
+  const markdown = raw.match(/^\[[^\]]*]\((https?:\/\/[^)\s]+)\)$/i);
+  if (markdown?.[1]) raw = markdown[1];
+  else if (raw.startsWith("[")) {
+    const embedded = raw.match(/https?:\/\/[^\s)\]]+/i);
+    if (embedded?.[0]) raw = embedded[0];
+  }
+  raw = raw.replace(/\/+$/, "");
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "");
+    return `${parsed.origin}${path}`;
+  } catch {
+    return null;
+  }
+}
+
 export function resolveIngestFetchUrl(url: string, proxyEnv = process.env.INGEST_FETCH_PROXY_URL): string {
-  const proxy = (proxyEnv || "").trim().replace(/\/$/, "");
+  const proxy = sanitizeIngestProxyOrigin(proxyEnv);
   if (!proxy) return url;
   if (!/geekwire\.com/i.test(url)) return url;
   return `${proxy}?url=${encodeURIComponent(url)}`;

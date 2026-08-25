@@ -113,6 +113,7 @@
     "funding:ingest:smoke": "tsx scripts/funding-ingest/smoke-test.ts",
     "funding:ingest:samples": "tsx scripts/funding-ingest/print-recent-deals.ts",
     "intel:funding:pipeline": "tsx scripts/funding-intel/run-pipeline.ts",
+    "trending:leaderboard": "tsx scripts/trending-leaderboard/run.ts",
     "supabase:functions": "bash scripts/deploy-supabase-edge-functions.sh",
     "headshots:update": "tsx scripts/update-headshots.ts",
     "headshots:dry-run": "DRY_RUN=true tsx scripts/update-headshots.ts",

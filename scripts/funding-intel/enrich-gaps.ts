@@ -105,30 +105,52 @@ async function enrichLinkedStartupLogos(): Promise<{ scanned: number; updated: n
 }
 
 async function enrichLinkedVcFirmLogos(): Promise<{ scanned: number; updated: number }> {
-  const links = await prisma.fundingDealInvestorLink.findMany({
-    where: { vc_firm_id: { not: null }, vc_firm: { logo_url: null } },
-    select: {
-      vc_firm: { select: { id: true, firm_name: true, website_url: true, logo_url: true } },
-    },
-    take: LOGO_LIMIT,
-  });
-  const seen = new Set<string>();
-  let updated = 0;
-  let scanned = 0;
-  for (const link of links) {
-    const firm = link.vc_firm;
-    if (!firm || seen.has(firm.id) || !isMissingLogoUrl(firm.logo_url)) continue;
-    seen.add(firm.id);
-    scanned += 1;
-    const domain = resolveLogoDomain({ name: firm.firm_name, websiteUrl: firm.website_url });
-    if (!domain) continue;
-    const logoUrl = getLogoUrl(domain);
-    if (!logoUrl) continue;
-    updated += 1;
-    if (DRY) continue;
-    await prisma.vCFirm.update({ where: { id: firm.id }, data: { logo_url: logoUrl } });
+  // Investor links store firm_records.id (text). vc_firms.id is uuid, so Prisma's
+  // relation join throws `operator does not exist: uuid = text`.
+  try {
+    if (!(await firmRecordsTableExists())) {
+      log("firm_records table not present — skip linked-investor logo backfill");
+      return { scanned: 0, updated: 0 };
+    }
+    const rows = await prisma.$queryRaw<FirmRecordLogoRow[]>`
+      SELECT DISTINCT ON (f.id)
+        f.id::text AS id,
+        f.firm_name,
+        f.website_url,
+        f.domain,
+        f.logo_url
+      FROM funding_deal_investor_links fdil
+      INNER JOIN firm_records f ON f.id::text = fdil.vc_firm_id
+      WHERE fdil.vc_firm_id IS NOT NULL
+        AND f.deleted_at IS NULL
+        AND (f.logo_url IS NULL OR btrim(f.logo_url) = '')
+      ORDER BY f.id
+      LIMIT ${LOGO_LIMIT}
+    `;
+    let updated = 0;
+    for (const row of rows) {
+      const domain = resolveLogoDomain({
+        name: row.firm_name,
+        websiteUrl: row.website_url,
+        domain: row.domain,
+      });
+      if (!domain) continue;
+      const logoUrl = getLogoUrl(domain);
+      if (!logoUrl) continue;
+      updated += 1;
+      if (DRY) continue;
+      await prisma.$executeRaw`
+        UPDATE firm_records
+        SET logo_url = ${logoUrl}, updated_at = NOW()
+        WHERE id::text = ${row.id}
+          AND (logo_url IS NULL OR btrim(logo_url) = '')
+      `;
+    }
+    return { scanned: rows.length, updated };
+  } catch (err) {
+    log(`linked-investor logo backfill skipped: ${err instanceof Error ? err.message : String(err)}`);
+    return { scanned: 0, updated: 0 };
   }
-  return { scanned, updated };
 }
 
 type FirmRecordLogoRow = {
@@ -197,7 +219,7 @@ async function main() {
   const startups = await enrichLinkedStartupLogos();
   log(`startup logos scanned=${startups.scanned} updated=${startups.updated}`);
   const vcFirms = await enrichLinkedVcFirmLogos();
-  log(`vc_firms logos scanned=${vcFirms.scanned} updated=${vcFirms.updated}`);
+  log(`linked-firm logos scanned=${vcFirms.scanned} updated=${vcFirms.updated}`);
   const directory = await enrichFirmRecordLogos();
   log(`firm_records logos scanned=${directory.scanned} updated=${directory.updated}`);
 }

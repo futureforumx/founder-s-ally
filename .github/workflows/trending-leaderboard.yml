@@ -1,0 +1,39 @@
+# Daily /trending-startups leaderboard refresh (Prisma-free; writes public.trending_cache).
+#
+# Vercel also pings GET /api/cron/update-leaderboard at 00:00 UTC, but that path
+# 401s unless CRON_SECRET is set. This job runs the same pipeline directly.
+#
+# Secrets: VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+
+name: Trending leaderboard
+
+on:
+  schedule:
+    - cron: "15 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Refresh trending_cache
+        run: pnpm run trending:leaderboard
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
