@@ -63,6 +63,7 @@ export function deriveFirmCapitalState(
   const freshWindow = options.freshCapitalWindowDays ?? 365;
   const hasFreshCapital = ageDays <= freshWindow;
   const likelyActivelyDeploying =
+    fund.isNewFundSignal ||
     Boolean(window.start && window.end && today >= window.start && today <= window.end) ||
     fund.status === "inferred_active";
 

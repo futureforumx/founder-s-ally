@@ -25,6 +25,7 @@ import {
 import { stripRedundantFirmPrefixFromFundName } from "@/lib/fundNameNormalizer";
 import { buildFundNormalizedKey, contentHash, inferFundStatus, inferFundType, normalizeBrandCore, normalizeFirmName, normalizeFundName } from "./normalize";
 import { getSourcePriority } from "./sourcePriority";
+import { buildFirmRecordBackfillPatch, collectIncomingFirmIdentity, type FirmIdentityRow } from "./firmBackfill";
 import {
   DEAL_MATCH_WINDOW_DAYS,
   fundAnnouncementQualityTier,
@@ -1209,7 +1210,9 @@ export class FundSyncService {
     const emittedSignals = await this.emitSignals(firm.id, fundId, signals, candidate.id);
 
     await this.markCandidatePromoted(candidate.id, fundId);
+    await this.backfillMissingFirmIdentity(firm.id, grouped, canonical);
     await this.refreshFirmDerivations(firm.id, 365);
+    await this.markFirmActivelyDeploying(firm.id);
     await this.refreshInvestorRankingInputs(firm.id);
     await this.mirrorLegacyFundRecord(firm, canonical, fundId);
 
@@ -1380,7 +1383,7 @@ export class FundSyncService {
       isNewFundSignal: true,
       activeDeploymentWindowStart: capitalWindow.start,
       activeDeploymentWindowEnd: capitalWindow.end,
-      likelyActivelyDeploying: null,
+      likelyActivelyDeploying: true,
       stageFocus: normalizeArray(grouped.flatMap((item) => item.stageFocus || [])),
       sectorFocus: normalizeArray(grouped.flatMap((item) => item.sectorFocus || [])),
       geographyFocus: normalizeArray(grouped.flatMap((item) => item.geographyFocus || [])),
@@ -2400,6 +2403,50 @@ export class FundSyncService {
     }).select("id").single();
     if (error) throw new Error(`Failed to ensure intelligence entity: ${error.message}`);
     return data.id as string;
+  }
+
+  private async backfillMissingFirmIdentity(
+    firmRecordId: string,
+    grouped: ExtractedFundAnnouncement[],
+    fund: CanonicalFundDraft,
+  ): Promise<void> {
+    const { data, error } = await this.supabase
+      .from("firm_records")
+      .select(
+        "id, website_url, domain, logo_url, hq_city, hq_state, hq_country, location, canonical_hq_locked, linkedin_url, x_url, stage_focus, thesis_verticals, geo_focus, description, tagline",
+      )
+      .eq("id", firmRecordId)
+      .maybeSingle();
+    if (error) {
+      console.warn(`[vc-fund:promote] firm identity load failed ${firmRecordId}: ${error.message}`);
+      return;
+    }
+    const patch = buildFirmRecordBackfillPatch((data ?? {}) as FirmIdentityRow, collectIncomingFirmIdentity(grouped, fund));
+    if (!patch) return;
+    const { error: updateError } = await this.supabase
+      .from("firm_records")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", firmRecordId)
+      .is("deleted_at", null);
+    if (updateError) {
+      console.warn(`[vc-fund:promote] firm identity backfill failed ${firmRecordId}: ${updateError.message}`);
+    }
+  }
+
+  private async markFirmActivelyDeploying(firmRecordId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("firm_records")
+      .update({
+        likely_actively_deploying: true,
+        is_actively_deploying: true,
+        has_fresh_capital: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", firmRecordId)
+      .is("deleted_at", null);
+    if (error) {
+      console.warn(`[vc-fund:promote] actively deploying stamp failed ${firmRecordId}: ${error.message}`);
+    }
   }
 
   private async refreshFirmDerivations(firmRecordId: string | null, windowDays: number): Promise<number> {
