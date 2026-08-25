@@ -60,6 +60,29 @@ describe("listingItemsFromGalleryNewsRows", () => {
     expect(items).toEqual([]);
   });
 
+  it("copies gallery HQ, sector, and description onto the listing preset", () => {
+    const items = listingItemsFromGalleryNewsRows(
+      [
+        row({
+          companyName: "Helcim",
+          cmsId: "helcim",
+          announcedAtIso: "2026-08-21T00:00:00.000Z",
+          sector: "Fintech",
+          hqLine: "Calgary, Canada",
+          description:
+            "Helcim is a payments company that lets businesses accept credit cards with ease. Discover better payments for your business in Canada & the US.",
+        }),
+      ],
+      { since: null, maxItems: 50 },
+    );
+    expect(items[0]?.presetDeal).toMatchObject({
+      company_name: "Helcim",
+      sector_raw: "Fintech",
+      company_hq: "Calgary, Canada",
+    });
+    expect(items[0]?.presetDeal?.deal_summary).toMatch(/payments company/i);
+  });
+
   it("returns newest rows first", () => {
     const items = listingItemsFromGalleryNewsRows(
       [

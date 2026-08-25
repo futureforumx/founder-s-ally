@@ -1,3 +1,4 @@
+import { inferHqFromFundingCopy, sanitizeCompanyDescription, sanitizeFundingHq } from "../../src/lib/galleryCompanyProfile";
 import { normalizeCompanyName, normalizeInvestorName, normalizeRound, parseMoneyToUsdMinorUnits } from "./normalize.js";
 import type { ExtractedDeal } from "./types.js";
 
@@ -199,7 +200,7 @@ export function extractDeterministic(title: string, bodyHtml: string): Extracted
   const lead_investors = led ? splitInvestors(led[1]!) : [];
   const participating_investors = participation ? splitInvestors(participation[1]!) : [];
 
-  const hq =
+  const hqRaw =
     body.match(/(?:based|headquartered)\s+in\s+([^.\n]+)/i)?.[1]?.trim() ||
     body.match(/HQ(?:\s+is)?\s+([^.\n]+)/i)?.[1]?.trim() ||
     null;
@@ -230,12 +231,12 @@ export function extractDeterministic(title: string, bodyHtml: string): Extracted
   if (company_website) confidence += 0.05;
   confidence = Math.min(0.95, confidence);
 
-  const deal_summary = body.slice(0, 600) || null;
+  const deal_summary = sanitizeCompanyDescription(body.slice(0, 600));
 
   return {
     company_name,
     company_website,
-    company_hq: hq,
+    company_hq: sanitizeFundingHq(hqRaw) ?? inferHqFromFundingCopy(company_name, `${title} ${body.slice(0, 400)}`),
     round_type_raw,
     round_type_normalized,
     amount_raw,

@@ -25,6 +25,9 @@ export type ListingItem = {
     lead_investor: string | null;
     company_website?: string | null;
     company_logo_url?: string | null;
+    company_hq?: string | null;
+    sector_raw?: string | null;
+    deal_summary?: string | null;
   } | null;
   /** Stable CMS / listing id used for incremental checkpoints (startups.gallery). */
   externalId?: string | null;

@@ -24,6 +24,16 @@ import { canonicalizeArticleUrl } from "./url.js";
 import type { ListingItem } from "./types.js";
 import { withBackoff } from "./retry.js";
 import { firstPartyWebsiteFromUrl } from "../../src/lib/latestFundingMarks";
+import {
+  findGalleryCompanyEntry,
+  galleryProfileIsIncomplete,
+  pickGalleryCompanyProfile,
+} from "../../src/lib/galleryCompanyProfile";
+import { fetchGalleryCompanyProfileFromPages } from "../lib/galleryCompanyPage";
+import {
+  fetchStartupsGallerySearchIndex,
+  splitInvestorsAndCompanies,
+} from "../lib/startupsGalleryIndex";
 
 /** Public listing / category pages (used as `listing_url` + discovery). */
 export const LISTING_PAGE_URLS: Record<FundingIngestSourceKey, string> = {
@@ -432,6 +442,9 @@ export function listingItemsFromGalleryNewsRows(
         lead_investor: row.leadInvestor,
         company_website: firstPartyWebsiteFromUrl(row.sourceUrl),
         company_logo_url: row.logoUrl,
+        company_hq: row.hqLine ?? null,
+        sector_raw: row.sector ?? null,
+        deal_summary: row.description ?? null,
       },
     });
   }
@@ -529,6 +542,75 @@ async function fetchStartupsGalleryFromCms(
   return rows;
 }
 
+function attachGalleryCompanyProfiles(
+  rows: StartupsGalleryNewsRow[],
+  companies: Map<string, { path: string; entry: import("../lib/startupsGalleryIndex").GalleryIndexEntry }>,
+): StartupsGalleryNewsRow[] {
+  return rows.map((row) => {
+    const match = findGalleryCompanyEntry(companies, row.companyName, row.companySlug);
+    const profile = pickGalleryCompanyProfile(match?.entry);
+    return {
+      ...row,
+      sector: profile.sector ?? row.sector ?? null,
+      hqLine: profile.hqLine ?? row.hqLine ?? null,
+      description: profile.description ?? row.description ?? null,
+    };
+  });
+}
+
+async function fillMissingGalleryProfilesFromPages(
+  items: ListingItem[],
+  log: (s: string) => void,
+): Promise<ListingItem[]> {
+  let fetched = 0;
+  const out: ListingItem[] = [];
+  for (const item of items) {
+    const preset = item.presetDeal;
+    if (!preset?.company_name) {
+      out.push(item);
+      continue;
+    }
+    const incomplete = galleryProfileIsIncomplete({
+      sector: preset.sector_raw ?? null,
+      hqLine: preset.company_hq ?? null,
+      description: preset.deal_summary ?? null,
+    });
+    if (!incomplete || fetched >= 20) {
+      out.push(item);
+      continue;
+    }
+    fetched += 1;
+    const slug = item.articleUrl.match(/startups\.gallery\/companies\/([^/?#]+)/i)?.[1]
+      ?? preset.company_name;
+    const profile = await fetchGalleryCompanyProfileFromPages(preset.company_name, slug);
+    out.push({
+      ...item,
+      presetDeal: {
+        ...preset,
+        sector_raw: preset.sector_raw ?? profile.sector,
+        company_hq: preset.company_hq ?? profile.hqLine,
+        deal_summary: preset.deal_summary ?? profile.description,
+      },
+    });
+  }
+  if (fetched > 0) log(`[startups.gallery] company page profiles ${fetched}`);
+  return out;
+}
+
+async function loadGalleryCompanyProfiles(
+  log: (s: string) => void,
+): Promise<Map<string, { path: string; entry: import("../lib/startupsGalleryIndex").GalleryIndexEntry }>> {
+  try {
+    const index = await fetchStartupsGallerySearchIndex();
+    const { companies } = splitInvestorsAndCompanies(index);
+    log(`[startups.gallery] company profiles ${companies.size}`);
+    return companies;
+  } catch (e) {
+    log(`[startups.gallery] company profile index failed: ${e instanceof Error ? e.message : String(e)}`);
+    return new Map();
+  }
+}
+
 export type GalleryFetchOptions = {
   seenCmsIds?: string[];
 };
@@ -546,13 +628,19 @@ export async function fetchStartupsGalleryNews(
   const hub = LISTING_PAGE_URLS.STARTUPS_GALLERY_NEWS;
   const html = await fetchText(hub, log);
   const seenCmsIds = new Set((options.seenCmsIds ?? []).filter(Boolean));
+  const companies = await loadGalleryCompanyProfiles(log);
 
   try {
     const cmsRows = await fetchStartupsGalleryFromCms(html, log);
     if (cmsRows && cmsRows.length > 0) {
-      const items = listingItemsFromGalleryNewsRows(cmsRows, { since, maxItems, seenCmsIds });
-      log(`[startups.gallery] CMS listings ${items.length} (seen=${seenCmsIds.size}, max=${maxItems})`);
-      return items;
+      const items = listingItemsFromGalleryNewsRows(attachGalleryCompanyProfiles(cmsRows, companies), {
+        since,
+        maxItems,
+        seenCmsIds,
+      });
+      const filled = await fillMissingGalleryProfilesFromPages(items, log);
+      log(`[startups.gallery] CMS listings ${filled.length} (seen=${seenCmsIds.size}, max=${maxItems})`);
+      return filled;
     }
   } catch (e) {
     log(`[startups.gallery] CMS fetch failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -564,7 +652,22 @@ export async function fetchStartupsGalleryNews(
     log("[startups.gallery] row parser found nothing — falling back to link-only parsing");
     out = parseStartupsGalleryNewsLinks(html, since, maxItems);
   }
-  return out;
+  if (companies.size === 0) return out;
+  return out.map((item) => {
+    const name = item.presetDeal?.company_name || item.title;
+    const match = findGalleryCompanyEntry(companies, name);
+    const profile = pickGalleryCompanyProfile(match?.entry);
+    if (!item.presetDeal) return item;
+    return {
+      ...item,
+      presetDeal: {
+        ...item.presetDeal,
+        company_hq: profile.hqLine ?? item.presetDeal.company_hq ?? null,
+        sector_raw: profile.sector ?? item.presetDeal.sector_raw ?? null,
+        deal_summary: profile.description ?? item.presetDeal.deal_summary ?? null,
+      },
+    };
+  });
 }
 
 /** Legacy fallback: company-page links only (no amount/round/investor/source), used if row parsing finds nothing. */

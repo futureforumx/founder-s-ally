@@ -10797,6 +10797,8 @@ export type Database = {
           announced_at: string
           co_investors: string[]
           company_logo_url: string
+          company_hq: string | null
+          description: string | null
           company_name: string
           confidence_score: number
           confirmation_status: string

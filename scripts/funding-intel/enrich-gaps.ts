@@ -11,6 +11,20 @@ import {
   resolveLogoDomain,
 } from "../../src/lib/enrichment/logos";
 import { classifyDealSector, isMissingSector } from "../../src/lib/enrichment/sectors";
+import { isLikelyFundingCompanyName } from "../../src/lib/latestFundingDisplay";
+import {
+  findGalleryCompanyEntry,
+  galleryProfileIsIncomplete,
+  gallerySlugFromUrl,
+  inferHqFromFundingCopy,
+  isUsableCompanyDescription,
+  mergeGalleryCompanyProfile,
+  pickGalleryCompanyProfile,
+  sanitizeCompanyDescription,
+  sanitizeFundingHq,
+} from "../../src/lib/galleryCompanyProfile";
+import { fetchGalleryCompanyProfileFromPages } from "../lib/galleryCompanyPage";
+import { fetchStartupsGallerySearchIndex, splitInvestorsAndCompanies } from "../lib/startupsGalleryIndex";
 
 const prisma = getPipelinePrisma();
 const DRY = process.env.INTEL_DRY_RUN === "1";
@@ -20,6 +34,89 @@ const ALLOW_OPENAI = Boolean(process.env.OPENAI_API_KEY) && process.env.INTEL_DI
 
 function log(msg: string) {
   console.log(`[intel:enrich] ${new Date().toISOString()} ${msg}`);
+}
+
+async function enrichDealProfilesFromGallery(): Promise<{ scanned: number; updated: number }> {
+  let companies: ReturnType<typeof splitInvestorsAndCompanies>["companies"];
+  try {
+    const index = await fetchStartupsGallerySearchIndex();
+    companies = splitInvestorsAndCompanies(index).companies;
+  } catch (err) {
+    log(`gallery profile index skipped: ${err instanceof Error ? err.message : String(err)}`);
+    return { scanned: 0, updated: 0 };
+  }
+
+  const deals = await prisma.fundingDeal.findMany({
+    where: { duplicate_of_deal_id: null },
+    select: {
+      id: true,
+      company_name: true,
+      sector_raw: true,
+      sector_normalized: true,
+      company_hq: true,
+      deal_summary: true,
+      source_article: { select: { source_key: true, article_url: true, title: true } },
+    },
+    orderBy: { created_at: "desc" },
+    take: DEAL_LIMIT,
+  });
+
+  const PAGE_FETCH_LIMIT = Math.max(0, parseInt(process.env.INTEL_GALLERY_PAGE_LIMIT || "80", 10));
+  let pageFetches = 0;
+  let updated = 0;
+  for (const deal of deals) {
+    if (!isLikelyFundingCompanyName(deal.company_name)) continue;
+    const gallerySlug = gallerySlugFromUrl(deal.source_article?.article_url);
+    const gallerySourced = deal.source_article?.source_key === "STARTUPS_GALLERY_NEWS" || Boolean(gallerySlug);
+    const match = gallerySourced
+      ? findGalleryCompanyEntry(companies, deal.company_name, gallerySlug)
+      : gallerySlug
+        ? findGalleryCompanyEntry(companies, deal.company_name, gallerySlug)
+        : null;
+    let profile = pickGalleryCompanyProfile(match?.entry);
+    const dealMissingProfile =
+      (isMissingSector(deal.sector_normalized) && isMissingSector(deal.sector_raw)) ||
+      !sanitizeFundingHq(deal.company_hq) ||
+      !isUsableCompanyDescription(deal.deal_summary);
+    const needsPage = galleryProfileIsIncomplete(profile) && dealMissingProfile && (gallerySourced || Boolean(gallerySlug));
+    if (needsPage && pageFetches < PAGE_FETCH_LIMIT) {
+      pageFetches += 1;
+      const fromPage = await fetchGalleryCompanyProfileFromPages(deal.company_name, gallerySlug ?? match?.path);
+      profile = mergeGalleryCompanyProfile(profile, fromPage);
+    }
+    const inferredHq = inferHqFromFundingCopy(deal.company_name, deal.source_article?.title);
+    const nextSector = profile.sector;
+    const nextHq = profile.hqLine ?? sanitizeFundingHq(deal.company_hq) ?? inferredHq;
+    const nextSummary = profile.description ?? (isUsableCompanyDescription(deal.deal_summary) ? sanitizeCompanyDescription(deal.deal_summary) : null);
+    const patch: {
+      sector_raw?: string;
+      sector_normalized?: string;
+      company_hq?: string | null;
+      deal_summary?: string | null;
+    } = {};
+
+    if (isMissingSector(deal.sector_normalized) && isMissingSector(deal.sector_raw) && nextSector) {
+      patch.sector_raw = nextSector;
+      patch.sector_normalized = nextSector.toLowerCase();
+    }
+    const currentHq = sanitizeFundingHq(deal.company_hq);
+    if (nextHq && currentHq !== nextHq) {
+      patch.company_hq = nextHq;
+    } else if (!currentHq && deal.company_hq) {
+      patch.company_hq = null;
+    }
+    if (nextSummary && deal.deal_summary !== nextSummary && !isUsableCompanyDescription(deal.deal_summary)) {
+      patch.deal_summary = nextSummary;
+    }
+    if (Object.keys(patch).length === 0) continue;
+    updated += 1;
+    if (DRY) {
+      log(`would profile ${deal.company_name}: ${JSON.stringify(patch)}`);
+      continue;
+    }
+    await prisma.fundingDeal.update({ where: { id: deal.id }, data: patch });
+  }
+  return { scanned: deals.length, updated };
 }
 
 async function enrichDealSectors(): Promise<{ scanned: number; updated: number }> {
@@ -214,6 +311,8 @@ async function enrichFirmRecordLogos(): Promise<{ scanned: number; updated: numb
 
 async function main() {
   log(`start dry=${DRY} openai=${ALLOW_OPENAI} dealLimit=${DEAL_LIMIT} logoLimit=${LOGO_LIMIT}`);
+  const profiles = await enrichDealProfilesFromGallery();
+  log(`gallery profiles scanned=${profiles.scanned} updated=${profiles.updated}`);
   const sectors = await enrichDealSectors();
   log(`sectors scanned=${sectors.scanned} updated=${sectors.updated}`);
   const startups = await enrichLinkedStartupLogos();

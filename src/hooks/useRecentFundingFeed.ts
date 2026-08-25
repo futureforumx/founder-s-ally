@@ -8,6 +8,7 @@ import {
 import { roundKindStageBucket, formatRoundKind } from "@/lib/latestFundingFilters";
 import { inferWebsiteUrlFromCompanyName, isLikelyFundingCompanyName, normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
 import { firstPartyWebsiteFromUrl } from "@/lib/latestFundingMarks";
+import { sanitizeCompanyDescription, sanitizeFundingHq } from "@/lib/galleryCompanyProfile";
 import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
 
 type RpcRow = {
@@ -28,6 +29,8 @@ type RpcRow = {
   confidence_score?: number | null;
   rumor_status?: string | null;
   confirmation_status?: string | null;
+  company_hq?: string | null;
+  description?: string | null;
 };
 
 /** Match RPC / ingest cleanup — belt-and-suspenders if DB function is stale. */
@@ -64,6 +67,9 @@ function mapRow(r: RpcRow): RecentFundingRound {
     websiteUrl,
     companyLogoUrl: (r.company_logo_url && String(r.company_logo_url).trim()) || null,
     sector: r.sector,
+    /** Feed RPC fields — expanded rows should not wait on an organizations match. */
+    hqLine: sanitizeFundingHq(r.company_hq),
+    description: sanitizeCompanyDescription(r.description),
     roundKind: formatRoundKind(r.round_kind),
     amountLabel: r.amount_label,
     announcedAt: r.announced_at,
@@ -124,6 +130,8 @@ function mergeRecentFundingRows(primary: RecentFundingRound[], fallback: RecentF
       websiteUrl: row.websiteUrl?.trim() ? row.websiteUrl : existing.websiteUrl,
       companyLogoUrl: row.companyLogoUrl?.trim() ? row.companyLogoUrl : existing.companyLogoUrl,
       companyGallerySlug: row.companyGallerySlug?.trim() ? row.companyGallerySlug : existing.companyGallerySlug,
+      hqLine: row.hqLine?.trim() ? row.hqLine : existing.hqLine,
+      description: row.description?.trim() ? row.description : existing.description,
       sourceUrl: row.sourceUrl?.trim() ? row.sourceUrl : existing.sourceUrl,
       leadWebsiteUrl: row.leadWebsiteUrl?.trim() ? row.leadWebsiteUrl : existing.leadWebsiteUrl,
       coInvestors:

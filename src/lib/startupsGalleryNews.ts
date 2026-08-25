@@ -27,6 +27,9 @@ export type StartupsGalleryNewsRow = {
   sourceUrl: string | null;
   logoUrl: string | null;
   cmsId?: string | null;
+  sector?: string | null;
+  hqLine?: string | null;
+  description?: string | null;
 };
 
 export function decodeHtmlEntities(s: string): string {

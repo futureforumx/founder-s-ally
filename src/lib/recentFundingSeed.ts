@@ -13,6 +13,10 @@ export type RecentFundingRound = {
   companyLogoUrl?: string | null;
   /** Industry / vertical (e.g. DevTools, Fintech). */
   sector: string;
+  /** City / country line from ingest when no organization snapshot exists. */
+  hqLine?: string | null;
+  /** Company bio from ingest / gallery when no organization snapshot exists. */
+  description?: string | null;
   roundKind: string;
   amountLabel: string;
   announcedAt: string;

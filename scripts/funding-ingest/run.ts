@@ -33,6 +33,11 @@ import {
   fetchArticleHtml,
 } from "./sources.js";
 import type { ExtractedDeal, ListingItem, RunSummary } from "./types.js";
+import {
+  inferHqFromFundingCopy,
+  sanitizeCompanyDescription,
+  sanitizeFundingHq,
+} from "../../src/lib/galleryCompanyProfile";
 
 const prisma = getPipelinePrisma();
 
@@ -77,6 +82,16 @@ function applyListingPreset(ex: ExtractedDeal, item: ListingItem): ExtractedDeal
     ...ex,
     company_name: preset.company_name ?? ex.company_name,
     company_website: preset.company_website ?? ex.company_website,
+    company_hq:
+      sanitizeFundingHq(preset.company_hq)
+      ?? sanitizeFundingHq(ex.company_hq)
+      ?? inferHqFromFundingCopy(preset.company_name ?? ex.company_name, item.title),
+    sector_raw: preset.sector_raw ?? ex.sector_raw,
+    sector_normalized: preset.sector_raw ? normalizeSector(preset.sector_raw) ?? ex.sector_normalized : ex.sector_normalized,
+    deal_summary:
+      sanitizeCompanyDescription(preset.deal_summary)
+      ?? sanitizeCompanyDescription(ex.deal_summary)
+      ?? null,
     round_type_raw: preset.round_type_raw ?? ex.round_type_raw,
     amount_raw: preset.amount_raw ?? ex.amount_raw,
     amount_minor_units: presetMoney.amount_minor_units ?? ex.amount_minor_units,
@@ -302,9 +317,9 @@ async function main() {
           }
 
           ex.round_type_normalized = normalizeRound(ex.round_type_raw);
-          const inferredSector = inferSectorFromDealCopy(item.title, plain);
-          if (inferredSector) {
-            ex.sector_raw = inferredSector;
+          if (!ex.sector_raw) {
+            const inferredSector = inferSectorFromDealCopy(item.title, plain);
+            if (inferredSector) ex.sector_raw = inferredSector;
           }
           ex.sector_normalized = normalizeSector(ex.sector_raw) ?? ex.sector_normalized;
 

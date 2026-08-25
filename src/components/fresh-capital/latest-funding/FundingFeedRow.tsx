@@ -271,8 +271,8 @@ export function FundingFeedRow({
 
   const outlet = prettyOutletFromSourceUrl(row.sourceUrl) ?? "Source";
   const sectorLabels = sectorLabelsForDisplay(row.sector);
-  const hqLine = snapshot?.hqLine ?? null;
-  const description = snapshot?.description ?? null;
+  const hqLine = row.hqLine?.trim() || snapshot?.hqLine?.trim() || null;
+  const description = row.description?.trim() || snapshot?.description?.trim() || null;
   const expandedName = snapshot?.name || row.companyName;
   const expandedRow: RecentFundingRound = {
     ...row,
@@ -346,7 +346,7 @@ export function FundingFeedRow({
                     HQ location
                   </dt>
                   <dd className={cn("mt-1 text-sm", app ? "text-foreground" : "text-zinc-300")}>
-                    {snapshotQuery.isFetching && !snapshot ? (
+                    {snapshotQuery.isFetching && !hqLine ? (
                       <span className={cn("inline-block h-3 w-36 animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
                     ) : (
                       hqLine || "—"
@@ -356,7 +356,7 @@ export function FundingFeedRow({
                 <div>
                   <dt className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>Description</dt>
                   <dd className={cn("mt-1 text-sm leading-relaxed", app ? "text-muted-foreground" : "text-zinc-400")}>
-                    {snapshotQuery.isFetching && !snapshot ? (
+                    {snapshotQuery.isFetching && !description ? (
                       <span className="block space-y-1.5">
                         <span className={cn("block h-3 w-full max-w-md animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
                         <span className={cn("block h-3 w-2/3 max-w-sm animate-pulse rounded", app ? "bg-muted" : "bg-zinc-800")} />
