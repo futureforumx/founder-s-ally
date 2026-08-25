@@ -72,10 +72,29 @@ export function displayCompanyHost(
 
 export function inferWebsiteUrlFromCompanyName(name: string | null | undefined): string | null {
   const trimmed = name?.trim();
-  if (!trimmed) return null;
+  if (!trimmed || !isLikelyFundingCompanyName(trimmed)) return null;
 
   const domainMatch = trimmed.match(/\b([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:ai|app|co|com|dev|fm|health|io|net|org|so))\b/i);
   if (!domainMatch) return null;
 
   return normalizeWebsiteUrl(domainMatch[1].toLowerCase());
+}
+
+/** Drop roundup headlines, podcast titles, and other non-company ingest rows. */
+export function isLikelyFundingCompanyName(name: string | null | undefined): boolean {
+  const trimmed = name?.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 72) return false;
+  if (/[?]/.test(trimmed)) return false;
+  if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(trimmed)) return false;
+  if (
+    /\b(funding report|raises |raised |investigation|what does this mean|guide to|chides|kicks off|spook other|board seats|daily funding|weekly notable|largest global startup)\b/i.test(
+      trimmed,
+    )
+  ) {
+    return false;
+  }
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 8) return false;
+  return true;
 }

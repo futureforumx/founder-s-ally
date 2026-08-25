@@ -31,7 +31,7 @@ export function PublicIntelMoreResources({ triggerLabel = "More resources" }: { 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className={MENU}>
         <DropdownMenuItem asChild className={ITEM}>
-          <Link to="/fresh-capital">Fundraising best practices</Link>
+          <Link to="/fresh-capital">Fund Watch</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className={ITEM}>
           <Link to="/fresh-capital?tab=latest_funding">Recent funding</Link>

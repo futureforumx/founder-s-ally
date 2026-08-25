@@ -57,6 +57,8 @@ export type RawStartupSignal = {
   twitter: string | null;
   linkedin: string | null;
   github: string | null;
+  /** When false, website / social URLs are demo placeholders and must not be linked. */
+  profilesVerified?: boolean;
   accountCreatedAt: string;
   hoursElapsed: number;
   sentiment: SentimentTone;
@@ -102,6 +104,7 @@ export type TrendingStartupRow = {
   twitter: string | null;
   linkedin: string | null;
   github: string | null;
+  profilesVerified?: boolean;
   teardown: CatalystTeardown;
   locked: boolean;
 };

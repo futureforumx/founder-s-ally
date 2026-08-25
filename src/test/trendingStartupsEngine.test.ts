@@ -117,6 +117,7 @@ describe("trending startups engine", () => {
     expect(catalog.startups.filter((row) => row.locked).length).toBeGreaterThan(0);
     expect(catalog.startups[0]!.compositeScore).toBeGreaterThanOrEqual(catalog.startups.at(-1)!.compositeScore);
     expect(catalog.startups.every((row) => row.fundingStage && row.hqLocation)).toBe(true);
+    expect(catalog.startups.every((row) => !row.github && !row.twitter && !row.linkedin && !row.profilesVerified)).toBe(true);
 
     const loudIncumbent = sampleRow({
       id: "loud-volume",

@@ -9,7 +9,12 @@ import { StartupLogo } from "@/components/trending-startups/StartupLogo";
 import { useTrendingStartup } from "@/hooks/useTrendingStartups";
 import { compositeScoreTextClass, formatStartupCategoryStageHq } from "@/lib/trendingStartups/display";
 import { isEarlySpotter, toggleEarlySpotter } from "@/lib/trendingStartups/signup";
+import { safeHttpHref } from "@/lib/safeHttpHref";
 import { cn } from "@/lib/utils";
+
+function profileHref(url: string | null | undefined, verified: boolean | undefined): string | null {
+  return verified ? safeHttpHref(url) : null;
+}
 
 export default function TrendingStartupDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +54,11 @@ export default function TrendingStartupDetailPage() {
     );
   }
 
+  const websiteHref = profileHref(startup.website, startup.profilesVerified);
+  const twitterHref = profileHref(startup.twitter, startup.profilesVerified);
+  const linkedinHref = profileHref(startup.linkedin, startup.profilesVerified);
+  const githubHref = profileHref(startup.github, startup.profilesVerified);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/80">
@@ -77,26 +87,32 @@ export default function TrendingStartupDetailPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">{startup.name}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{formatStartupCategoryStageHq(startup)}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
-              <a
-                href={startup.website}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-foreground hover:bg-muted/50"
-              >
-                {startup.domain} <ExternalLinkIcon className="h-3 w-3" />
-              </a>
-              {startup.twitter ? (
-                <a href={startup.twitter} target="_blank" rel="noreferrer" className="rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
+              {websiteHref ? (
+                <a
+                  href={websiteHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-foreground hover:bg-muted/50"
+                >
+                  {startup.domain} <ExternalLinkIcon className="h-3 w-3" />
+                </a>
+              ) : (
+                <span className="inline-flex items-center rounded-full border border-border px-2.5 py-1 text-muted-foreground">
+                  {startup.domain}
+                </span>
+              )}
+              {twitterHref ? (
+                <a href={twitterHref} target="_blank" rel="noreferrer" className="rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
                   X
                 </a>
               ) : null}
-              {startup.linkedin ? (
-                <a href={startup.linkedin} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
+              {linkedinHref ? (
+                <a href={linkedinHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
                   <LinkedInLogoIcon className="h-3 w-3" /> LinkedIn
                 </a>
               ) : null}
-              {startup.github ? (
-                <a href={startup.github} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
+              {githubHref ? (
+                <a href={githubHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 hover:bg-muted/50">
                   <GitHubLogoIcon className="h-3 w-3" /> GitHub
                 </a>
               ) : null}

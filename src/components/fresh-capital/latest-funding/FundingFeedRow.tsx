@@ -88,8 +88,9 @@ function prettyOutletFromSourceUrl(url: string): string | null {
     const host = hostname.replace(/^www\./i, "");
     if (!host) return null;
     if (host === "tech.eu") return "Tech EU";
+    const skip = new Set(["www", "app", "news", "blog", "m", "www2", "go"]);
     const segments = host.split(".").filter(Boolean);
-    const raw = segments[0];
+    const raw = skip.has(segments[0] ?? "") ? segments[1] : segments[0];
     if (!raw) return null;
     return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   } catch {
@@ -171,11 +172,11 @@ function LeadInvestorCell({
   );
   const shellClass = "inline-flex min-w-0 max-w-full items-center gap-2";
 
-  if (leadFirm?.id) {
+  if (app && leadFirm?.id) {
     return (
       <Link
         to={`/firms/${leadFirm.id}`}
-        className={cn(shellClass, app ? "hover:text-foreground" : "hover:text-white")}
+        className={cn(shellClass, "hover:text-foreground")}
         title={row.leadInvestor}
         onClick={stopRowOpen}
         onAuxClick={stopRowOpen}

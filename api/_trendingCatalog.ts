@@ -114,9 +114,10 @@ export function buildTrendingCatalog(
     velocity30d: item.row.velocity30d,
     velocity90d: item.row.velocity90d,
     catalyst: item.row.catalyst,
-    twitter: item.row.twitter,
-    linkedin: item.row.linkedin,
-    github: item.row.github,
+    twitter: item.row.profilesVerified ? item.row.twitter : null,
+    linkedin: item.row.profilesVerified ? item.row.linkedin : null,
+    github: item.row.profilesVerified ? item.row.github : null,
+    profilesVerified: Boolean(item.row.profilesVerified),
     teardown: item.row.teardown,
     locked: index >= PUBLIC_UNLOCKED_COUNT,
   }));

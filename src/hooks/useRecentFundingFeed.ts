@@ -6,7 +6,7 @@ import {
   supabaseVcDirectory,
 } from "@/integrations/supabase/client";
 import { roundKindStageBucket, formatRoundKind } from "@/lib/latestFundingFilters";
-import { inferWebsiteUrlFromCompanyName, normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
+import { inferWebsiteUrlFromCompanyName, isLikelyFundingCompanyName, normalizeWebsiteUrl } from "@/lib/latestFundingDisplay";
 import { firstPartyWebsiteFromUrl } from "@/lib/latestFundingMarks";
 import { RECENT_FUNDING_ROUNDS, type RecentFundingRound } from "@/lib/recentFundingSeed";
 
@@ -136,9 +136,9 @@ function mergeRecentFundingRows(primary: RecentFundingRound[], fallback: RecentF
   return [...merged.values()].sort((a, b) => announcedAtTs(b.announcedAt) - announcedAtTs(a.announcedAt));
 }
 
-/** Drop stub rows; deals without article URLs are kept and shown as non-clickable in the UI. */
+/** Drop stub rows and ingest headlines that are not company names. */
 function isRenderableDeal(r: RecentFundingRound): boolean {
-  return Boolean(String(r.id ?? "").trim()) && Boolean(String(r.companyName ?? "").trim());
+  return Boolean(String(r.id ?? "").trim()) && isLikelyFundingCompanyName(r.companyName);
 }
 
 /**

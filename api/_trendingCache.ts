@@ -88,6 +88,7 @@ function slimToStartupRow(record: TrendingCacheRecord): TrendingStartupRow {
     github: null,
     teardown: { marketDrivers: [], techStack: [], competitors: [] },
     locked: record.rank > PUBLIC_UNLOCKED_COUNT,
+    profilesVerified: false,
   };
 }
 
@@ -103,6 +104,10 @@ export function cacheRecordsToCatalog(
           ...record.payload,
           rank: record.rank,
           locked: record.rank > PUBLIC_UNLOCKED_COUNT,
+          profilesVerified: Boolean(record.payload.profilesVerified),
+          twitter: record.payload.profilesVerified ? record.payload.twitter : null,
+          linkedin: record.payload.profilesVerified ? record.payload.linkedin : null,
+          github: record.payload.profilesVerified ? record.payload.github : null,
         };
       }
       return slimToStartupRow(record);

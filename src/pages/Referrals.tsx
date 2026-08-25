@@ -91,7 +91,7 @@ export default function Referrals() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" sideOffset={6} className={REFERRALS_RESOURCES_MENU}>
               <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM}>
-                <Link to="/fresh-capital">Fundraising best practices</Link>
+                <Link to="/fresh-capital">Fund Watch</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className={REFERRALS_RESOURCES_ITEM}>
                 <Link to="/fresh-capital?tab=latest_funding">Recent funding</Link>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isLikelyFundingCompanyName } from "@/lib/latestFundingDisplay";
 import {
   buildCompanyMarkCandidateUrls,
   firstPartyHostFromUrl,
@@ -58,5 +59,17 @@ describe("buildCompanyMarkCandidateUrls", () => {
     });
     expect(urls[0]).toBe("https://img.logo.dev/convex.dev?size=64&format=png&fallback=404");
     expect(urls).not.toContain("https://www.google.com/s2/favicons?domain=convex.dev&sz=32");
+  });
+});
+
+describe("isLikelyFundingCompanyName", () => {
+  it("keeps real company names and drops article headlines", () => {
+    expect(isLikelyFundingCompanyName("Aligned Marketplace")).toBe(true);
+    expect(isLikelyFundingCompanyName("Rillet")).toBe(true);
+    expect(isLikelyFundingCompanyName("Will the DOJ’s investigation into a16z spook other VCs?")).toBe(false);
+    expect(isLikelyFundingCompanyName("The AlleyWatch Startup Daily Funding Report: 8/19/2026")).toBe(false);
+    expect(isLikelyFundingCompanyName("How AI accounting startup Rillet raised $100M and became a unicorn in 48 hours")).toBe(
+      false,
+    );
   });
 });
