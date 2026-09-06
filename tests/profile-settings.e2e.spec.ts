@@ -1,7 +1,16 @@
 import { test, expect } from "../playwright-fixture";
 
+async function signInWithMockPassword(page: import("@playwright/test").Page) {
+  await page.goto("/login");
+  await page.locator("#email").fill("founder@vekta.so");
+  await page.locator("#password").fill("password");
+  await page.getByRole("button", { name: /^sign in$/i }).click();
+  await page.waitForURL((url) => url.pathname === "/" || url.search.includes("view="), { timeout: 15_000 });
+}
+
 test.describe("Profile settings fields", () => {
   test("validates required fields and allows confirming profile details", async ({ page }) => {
+    await signInWithMockPassword(page);
     await page.goto("/?view=settings&tab=account");
 
     const onboardingModal = page.getByText("Welcome to Vekta. Let's sync your company.");
@@ -50,5 +59,28 @@ test.describe("Profile settings fields", () => {
 
     await personalCard.getByRole("button", { name: "Confirm Details" }).click();
     await expect(page.getByText("Profile details confirmed")).toBeVisible();
+  });
+
+  test("company settings omits pitch deck and one-pager fields", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "company-profile",
+        JSON.stringify({ name: "Track3D", website: "https://track3d.ai" }),
+      );
+    });
+    await signInWithMockPassword(page);
+    await page.goto("/?view=settings&tab=company");
+
+    const onboardingModal = page.getByText("Welcome to Vekta. Let's sync your company.");
+    if (await onboardingModal.isVisible()) {
+      await page.getByRole("button", { name: "Skip for now" }).click();
+    }
+
+    await expect(page.getByText("Company Name *")).toBeVisible();
+    await expect(page.getByText("Website URL")).toBeVisible();
+    await expect(page.getByText("Pitch Deck (PDF)")).toHaveCount(0);
+    await expect(page.getByText("One-pager (link)")).toHaveCount(0);
+    await expect(page.locator('[data-field="pitch-deck"]')).toHaveCount(0);
+    await expect(page.locator('[data-field="one-pager-url"]')).toHaveCount(0);
   });
 });

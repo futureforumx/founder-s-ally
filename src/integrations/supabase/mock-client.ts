@@ -4,6 +4,74 @@
  * without a real Supabase backend.
  */
 
+export const MOCK_AUTH_SESSION_KEY = "vekta-mock-auth-session";
+
+export type MockAuthListener = (event: string, session: MockAuthSession | null) => void;
+
+export type MockAuthUser = {
+  id: string;
+  email: string;
+  user_metadata: { full_name: string; first_name: string; last_name: string };
+};
+
+export type MockAuthSession = {
+  access_token: string;
+  refresh_token: string;
+  user: MockAuthUser;
+};
+
+function createMockUser(email = "founder@vekta.so"): MockAuthUser {
+  const normalized = email.trim().toLowerCase() || "founder@vekta.so";
+  return {
+    id: "mock-user-id",
+    email: normalized,
+    user_metadata: {
+      full_name: "Alex Founder",
+      first_name: "Alex",
+      last_name: "Founder",
+    },
+  };
+}
+
+export function createMockAuthSession(email?: string): MockAuthSession {
+  return {
+    access_token: "mock-access-token",
+    refresh_token: "mock-refresh-token",
+    user: createMockUser(email),
+  };
+}
+
+export function readMockAuthSession(): MockAuthSession | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(MOCK_AUTH_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MockAuthSession;
+    if (!parsed?.user?.id || !parsed.access_token) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writeMockAuthSession(session: MockAuthSession | null): void {
+  if (typeof localStorage === "undefined") return;
+  if (session) localStorage.setItem(MOCK_AUTH_SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(MOCK_AUTH_SESSION_KEY);
+}
+
+const mockAuthListeners = new Set<MockAuthListener>();
+
+function emitMockAuth(event: string, session: MockAuthSession | null) {
+  for (const listener of mockAuthListeners) listener(event, session);
+}
+
+function persistAndEmit(event: string, session: MockAuthSession | null) {
+  writeMockAuthSession(session);
+  emitMockAuth(event, session);
+  return { data: { session, user: session?.user ?? null }, error: null };
+}
+
 class MockSupabaseClient {
   private getStorageKey(table: string) {
     return `mock-supabase-${table}`;
@@ -22,28 +90,26 @@ class MockSupabaseClient {
     localStorage.setItem(this.getStorageKey(table), JSON.stringify(data));
   }
 
-  // Auth mock
   auth = {
-    onAuthStateChange: (cb: any) => {
-      // Mock "eventUAL" callback in next tick
-      setTimeout(() => cb("SIGNED_IN", { user: { id: "mock-user-id", email: "founder@vekta.so" } }), 100);
-      return { data: { subscription: { unsubscribe: () => {} } } };
+    onAuthStateChange: (cb: MockAuthListener) => {
+      mockAuthListeners.add(cb);
+      return { data: { subscription: { unsubscribe: () => mockAuthListeners.delete(cb) } } };
     },
-    getUser: async () => ({ data: { user: { id: "mock-user-id", email: "founder@vekta.so" } }, error: null }),
-    signOut: async () => ({ error: null }),
-    getSession: async () => ({ data: { session: null }, error: null }),
-    signInWithOtp: async () => ({ data: {}, error: null }),
-    verifyOtp: async () => ({
-      data: {
-        session: {
-          access_token: "mock-access-token",
-          refresh_token: "mock-refresh-token",
-          user: { id: "mock-user-id", email: "founder@vekta.so" },
-        },
-        user: { id: "mock-user-id", email: "founder@vekta.so" },
-      },
-      error: null,
-    }),
+    getUser: async () => ({ data: { user: readMockAuthSession()?.user ?? null }, error: null }),
+    getSession: async () => ({ data: { session: readMockAuthSession() }, error: null }),
+    signOut: async () => persistAndEmit("SIGNED_OUT", null),
+    signInWithPassword: async ({ email }: { email?: string }) =>
+      persistAndEmit("SIGNED_IN", createMockAuthSession(email)),
+    signInWithOtp: async ({ email }: { email?: string } = {}) => {
+      writeMockAuthSession(createMockAuthSession(email));
+      return { data: {}, error: null };
+    },
+    verifyOtp: async ({ email }: { email?: string } = {}) =>
+      persistAndEmit("SIGNED_IN", createMockAuthSession(email)),
+    signInWithOAuth: async () => persistAndEmit("SIGNED_IN", createMockAuthSession()),
+    linkIdentity: async () => ({ data: null, error: null }),
+    resetPasswordForEmail: async () => ({ data: {}, error: null }),
+    setSession: async () => persistAndEmit("SIGNED_IN", readMockAuthSession() ?? createMockAuthSession()),
   };
 
   // Functions mock
