@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldFallbackLoginOtpToSupabase } from "@/lib/loginOtpFallback";
+import {
+  loginEmailCodeFailureMessage,
+  shouldFallbackLoginOtpToSupabase,
+} from "@/lib/loginOtpFallback";
 
 describe("shouldFallbackLoginOtpToSupabase", () => {
   it("falls back on custom-function outages so sign-in code can still send", () => {
@@ -13,6 +16,15 @@ describe("shouldFallbackLoginOtpToSupabase", () => {
     expect(shouldFallbackLoginOtpToSupabase(400, "Enter a valid email address.")).toBe(false);
     expect(shouldFallbackLoginOtpToSupabase(400, "We couldn't send a sign-in code for that email.")).toBe(
       false,
+    );
+  });
+
+  it("rewrites mailer failures into an actionable login message", () => {
+    expect(loginEmailCodeFailureMessage(new Error("Error sending confirmation email"))).toBe(
+      "Could not send a sign-in code. Use your password or continue with Google.",
+    );
+    expect(loginEmailCodeFailureMessage(new Error("Enter your email address."))).toBe(
+      "Enter your email address.",
     );
   });
 });

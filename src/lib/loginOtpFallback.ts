@@ -5,3 +5,12 @@ export function shouldFallbackLoginOtpToSupabase(status: number, message: string
     message,
   );
 }
+
+/** When both mailers fail, tell the user to use password or OAuth instead of a raw provider error. */
+export function loginEmailCodeFailureMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/confirmation email|error sending|failed to send|rate limit/i.test(message)) {
+    return "Could not send a sign-in code. Use your password or continue with Google.";
+  }
+  return message || "Could not start sign-in. Please try again.";
+}
