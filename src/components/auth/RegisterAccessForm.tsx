@@ -1,6 +1,6 @@
 import { useState, type ElementType, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Mail, Shield, User } from "lucide-react";
+import { Loader2, Lock, Mail, Shield, User } from "lucide-react";
 import { GoogleGlyph, LinkedInGlyph } from "@/components/auth/oauthGlyphs";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
 import { saveRegistrationPrefill } from "@/lib/registrationPrefill";
@@ -42,12 +42,14 @@ export function RegisterAccessForm({
   onClearExternalError,
   onSignInClick,
 }: RegisterAccessFormProps) {
-  const { isConfigured, signInWithOAuth } = useAuth();
+  const { isConfigured, signInWithOAuth, signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
@@ -85,10 +87,19 @@ export function RegisterAccessForm({
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (password.length < 8) {
+      setLocalError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setLocalError("Passwords do not match.");
+      return;
+    }
     clearErrors();
     setSubmitting(true);
     try {
       saveRegistrationPrefill({ firstName, lastName, email });
+      await signUp({ email, password, firstName, lastName });
       const signupResult = await waitlistSignup({
         email,
         name: `${firstName.trim()} ${lastName.trim()}`.trim(),
@@ -210,6 +221,46 @@ export function RegisterAccessForm({
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@company.com"
               className={inputClassName}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 text-left">
+          <label htmlFor={`${idPrefix}-password`} className={labelClassName}>
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <input
+              id={`${idPrefix}-password`}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Password"
+              className={inputClassName}
+              minLength={8}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2 text-left">
+          <label htmlFor={`${idPrefix}-confirm-password`} className={labelClassName}>
+            Confirm password
+          </label>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+            <input
+              id={`${idPrefix}-confirm-password`}
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Confirm password"
+              className={inputClassName}
+              minLength={8}
               required
             />
           </div>

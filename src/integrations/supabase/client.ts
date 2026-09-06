@@ -2,9 +2,16 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { mockSupabase } from "./mock-client";
+import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const resolvedSupabase = resolveBrowserSupabaseConfig(import.meta.env.MODE, {
+  VITE_DEMO_MODE: import.meta.env.VITE_DEMO_MODE,
+  VITE_USE_MOCK_SUPABASE: import.meta.env.VITE_USE_MOCK_SUPABASE,
+  VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+});
+const SUPABASE_URL = resolvedSupabase.url || undefined;
+const SUPABASE_PUBLISHABLE_KEY = resolvedSupabase.publishableKey || undefined;
 const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
 /** True when the real Supabase client is used (not the local mock). */
