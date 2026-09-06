@@ -2084,10 +2084,14 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                     </div>{/* end logo + stage row */}
 
                     <div className="space-y-2" data-field="sector-tags">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <label
+                        htmlFor="company-sector-search"
+                        className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2"
+                      >
                         Sector {renderFieldBadge("sector")}
                       </label>
                       <SectorChipGrid
+                        sectorInputId="company-sector-search"
                         value={{
                           primary_sector: form.sector || null,
                           secondary_sectors: form.subsectors || [],
