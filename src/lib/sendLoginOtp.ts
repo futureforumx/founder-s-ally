@@ -1,3 +1,4 @@
+import { shouldFallbackLoginOtpToSupabase } from "@/lib/loginOtpFallback";
 import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
 
 function browserSupabase() {
@@ -112,7 +113,9 @@ export async function sendLoginOtp(email: string): Promise<void> {
       typeof (parsed as { error: unknown }).error === "string"
         ? (parsed as { error: string }).error
         : `Could not send sign-in code (HTTP ${response.status}).`;
-    throw new LoginOtpError(message);
+    throw new LoginOtpError(message, {
+      fallbackToSupabaseOtp: shouldFallbackLoginOtpToSupabase(response.status, message),
+    });
   }
 
   if (
@@ -122,6 +125,9 @@ export async function sendLoginOtp(email: string): Promise<void> {
     "error" in parsed &&
     typeof (parsed as { error: unknown }).error === "string"
   ) {
-    throw new LoginOtpError((parsed as { error: string }).error);
+    const message = (parsed as { error: string }).error;
+    throw new LoginOtpError(message, {
+      fallbackToSupabaseOtp: shouldFallbackLoginOtpToSupabase(response.status, message),
+    });
   }
 }
