@@ -137,17 +137,6 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     }
   }, [uploadDeck]);
 
-  // Auto-run audit if a pending deck was queued from Mission Control
-  useEffect(() => {
-    try {
-      const pending = sessionStorage.getItem("pending-deck-audit");
-      if (pending && pending.length >= 50) {
-        sessionStorage.removeItem("pending-deck-audit");
-        handleUpload(pending);
-      }
-    } catch {}
-  }, [handleUpload]);
-
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
   /** Called from the import modal — kicks off the audit for the newly imported deck */

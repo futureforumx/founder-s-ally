@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState, type DragEvent } from "react";
+import { useCallback, useState, type DragEvent } from "react";
 import { GripVertical, Sparkles, Pencil, X } from "lucide-react";
-import { SECTOR_OPTIONS, BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
+import { BUSINESS_MODEL_OPTIONS, TARGET_CUSTOMER_OPTIONS } from "@/constants/taxonomy";
+import { SectorMultiSelect } from "@/components/company-profile/SectorMultiSelect";
 
 // ── Types ──
 
@@ -20,6 +21,8 @@ interface SectorChipGridProps {
   aiSuggestedModels?: string[];
   aiSuggestedCustomers?: string[];
   approved?: boolean;
+  /** Links the caller's `SECTOR` label to the search input. */
+  sectorInputId?: string;
   className?: string;
 }
 
@@ -292,96 +295,33 @@ export function SectorChipGrid({
   aiSuggestedModels = [],
   aiSuggestedCustomers = [],
   approved = false,
+  sectorInputId,
   className,
 }: SectorChipGridProps) {
   const { primary_sector, secondary_sectors } = value;
-  const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSectorClick = useCallback(
-    (sector: string) => {
-      if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
-      singleClickTimerRef.current = setTimeout(() => {
-        singleClickTimerRef.current = null;
-
-        // Deselect primary → promote first secondary
-        if (sector === primary_sector) {
-          const [promoted, ...rest] = secondary_sectors;
-          onChange({ primary_sector: promoted ?? null, secondary_sectors: rest });
-          return;
-        }
-        // Deselect secondary
-        if (secondary_sectors.includes(sector)) {
-          onChange({ primary_sector, secondary_sectors: secondary_sectors.filter((s) => s !== sector) });
-          return;
-        }
-        // Single click adds secondary only (primary is set via double-click)
-        const totalSelected = (primary_sector ? 1 : 0) + secondary_sectors.length;
-        if (totalSelected < 3) {
-          onChange({ primary_sector, secondary_sectors: [...secondary_sectors, sector] });
-        }
-      }, 200);
-    },
-    [primary_sector, secondary_sectors, onChange]
+  const ranked = [primary_sector, ...secondary_sectors].filter((sector): sector is string =>
+    Boolean(sector),
   );
 
-  const handleSectorDoubleClick = useCallback(
-    (sector: string) => {
-      if (singleClickTimerRef.current) {
-        clearTimeout(singleClickTimerRef.current);
-        singleClickTimerRef.current = null;
-      }
-      if (sector === primary_sector) return;
-
-      let nextSecondary = secondary_sectors.filter((s) => s !== sector);
-      if (primary_sector) {
-        if (!nextSecondary.includes(primary_sector)) {
-          nextSecondary = [primary_sector, ...nextSecondary];
-        }
-        nextSecondary = nextSecondary.slice(0, 2);
-      }
-
-      onChange({ primary_sector: sector, secondary_sectors: nextSecondary });
+  const handleRankedChange = useCallback(
+    (next: string[]) => {
+      onChange({ primary_sector: next[0] ?? null, secondary_sectors: next.slice(1, 3) });
     },
-    [primary_sector, secondary_sectors, onChange]
+    [onChange],
   );
-
-  const totalSelected = (primary_sector ? 1 : 0) + secondary_sectors.length;
-  const maxReached = totalSelected >= 3;
-  const hasAiSuggestions = aiSuggestedSectors.length > 0;
 
   return (
     <div className={`space-y-6 ${className ?? ""}`}>
-      {/* Sector Grid */}
-      <div className="space-y-2">
-        {hasAiSuggestions && (
-          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-accent" />
-            Pre-selected based on your description — adjust freely.
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1.5">
-          {SECTOR_OPTIONS.map((opt) => {
-            const isPrimary = opt.label === primary_sector;
-            const isSecondary = secondary_sectors.includes(opt.label);
-            const isSelected = isPrimary || isSecondary;
-            const isDisabled = maxReached && !isSelected;
-            const isAi = aiSuggestedSectors.includes(opt.label);
-
-            return (
-              <Chip
-                key={opt.label}
-                label={opt.label}
-                state={isPrimary ? "primary" : isSecondary ? "secondary" : "unselected"}
-                badge={isPrimary ? "P" : isSecondary ? "S" : undefined}
-                aiSuggested={isAi && isSelected}
-                aiApproved={isSelected ? approved : undefined}
-                onClick={() => handleSectorClick(opt.label)}
-                onDoubleClick={() => handleSectorDoubleClick(opt.label)}
-                disabled={isDisabled}
-              />
-            );
-          })}
-        </div>
+      {/* Sector search + selection */}
+      <div className="space-y-3">
+        <SectorMultiSelect
+          inputId={sectorInputId}
+          value={ranked}
+          onChange={handleRankedChange}
+          aiSuggested={aiSuggestedSectors}
+          approved={approved}
+        />
         <SectorAlignmentSlots
           primary={primary_sector}
           secondary={secondary_sectors}

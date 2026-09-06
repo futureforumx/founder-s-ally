@@ -21,7 +21,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `VITE_DEMO_MODE=true npm run dev -- --host 127.0.0.1 --port ${port}`,
+    // DEV_PORT keeps this server on its own dep optimizer cache, so it cannot invalidate
+    // the hashes a dev server on another port is still serving to open browser tabs.
+    command: `DEV_PORT=${port} VITE_DEMO_MODE=true npm run dev -- --host 127.0.0.1`,
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: true,
     timeout: 120_000,

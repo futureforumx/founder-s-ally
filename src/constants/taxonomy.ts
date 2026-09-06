@@ -11,6 +11,8 @@ export interface TaxonomyOption {
 
 export interface SectorOption extends TaxonomyOption {
   default_subsectors: string[];
+  /** Surfaced as a quick-pick suggestion before the user searches. */
+  popular?: boolean;
 }
 
 // ── Stage Options (strict chronological order — do NOT sort) ──
@@ -31,30 +33,35 @@ export const SECTOR_OPTIONS: SectorOption[] = [
     description: "Financial services, payments, banking, and insurance technology",
     search_tags: ["fintech", "finance", "payments", "banking", "insurance", "insurtech", "crypto", "blockchain", "lending", "neobank", "wealthtech", "regtech", "compliance", "kyc"],
     default_subsectors: ["Embedded Finance", "Payments Infrastructure", "Insurtech", "WealthTech", "RegTech", "Lending & Credit"],
+    popular: true,
   },
   {
     label: "Enterprise Software & SaaS",
     description: "Horizontal & vertical B2B software",
     search_tags: ["saas", "software", "enterprise", "b2b", "devtools", "open source", "hr", "hrtech", "legaltech", "crm", "erp", "cloud", "workflow", "productivity"],
     default_subsectors: ["Vertical SaaS", "Horizontal SaaS", "DevTools & Open Source", "HRTech", "LegalTech", "Workflow Automation"],
+    popular: true,
   },
   {
     label: "AI, Data & Analytics",
     description: "AI/ML models, agents, data infrastructure, and analytics",
     search_tags: ["ai", "artificial intelligence", "machine learning", "ml", "llm", "gpt", "agent", "copilot", "neural", "generative", "computer vision", "nlp", "deep learning", "data", "analytics", "big data"],
     default_subsectors: ["Vertical AI Agents", "LLMOps & Infrastructure", "Computer Vision", "Generative Media", "AI Safety & Governance", "Data Infrastructure"],
+    popular: true,
   },
   {
     label: "HealthTech, Biotech & Life Sciences",
     description: "Healthcare, pharma, biotech, and life sciences",
     search_tags: ["health", "healthcare", "biotech", "medtech", "telehealth", "pharma", "biopharma", "genomics", "longevity", "neurotech", "medical", "clinical", "diagnostics", "digital health", "life sciences"],
     default_subsectors: ["Digital Health", "MedTech", "Biopharma", "Genomics", "Neurotech", "Longevity"],
+    popular: true,
   },
   {
     label: "Consumer, E‑commerce & CPG",
     description: "Consumer products, e-commerce, D2C, and social",
     search_tags: ["consumer", "retail", "ecommerce", "e-commerce", "d2c", "dtc", "cpg", "consumer packaged goods", "social commerce", "subscription", "marketplace"],
     default_subsectors: ["E-commerce Infrastructure", "Social Commerce", "D2C Brands", "Subscription Commerce", "Consumer Marketplace"],
+    popular: true,
   },
   {
     label: "Climate, Energy & Sustainability",
@@ -117,6 +124,9 @@ export const SECTOR_OPTIONS: SectorOption[] = [
     default_subsectors: ["Sales Enablement", "Marketing Automation", "Retail Analytics", "Attribution & Measurement", "Commerce Infrastructure"],
   },
 ];
+
+/** Quick-pick sectors offered before the user searches. */
+export const SUGGESTED_SECTOR_OPTIONS: SectorOption[] = SECTOR_OPTIONS.filter((opt) => opt.popular);
 
 // ── Geography Options (canonical regions — mirrors the region tags produced by
 // src/backfill/parsers/geo-parser.ts, which is what populates geo_focus /
