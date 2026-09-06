@@ -8,6 +8,7 @@ import { cn, safeTrim } from "@/lib/utils";
 import type { AumBand } from "@prisma/client";
 import { resolveAumBandFromUsd } from "@/lib/aumBand";
 import { formatStageForDisplay } from "@/lib/stageUtils";
+import { canonicalizeDirectoryFirmTypeKey, directoryFirmTypeBadgeLabel } from "@/lib/directoryFirmType";
 
 export type InvestorPreviewModel = {
   name: string;
@@ -141,6 +142,11 @@ export function InvestorPreviewRow({
   const intelScore = model._fundingIntelActivity ?? null;
   const aumBand = model._aumBand ?? investorAumBandLabel(model._aum);
   const compact = density === "compact";
+  const firmTypePill = model._focusPill
+    ? model._focusPill
+    : canonicalizeDirectoryFirmTypeKey(model._firmType)
+      ? directoryFirmTypeBadgeLabel(model._firmType)
+      : String(model._firmType ?? "VC FIRM").toUpperCase();
 
   return (
     <button
@@ -287,9 +293,9 @@ export function InvestorPreviewRow({
                 <Badge
                   variant="outline"
                   className="h-4 min-h-4 border-zinc-400/45 bg-transparent px-1 py-0 text-[7px] font-light uppercase tracking-[0.08em] text-zinc-600 dark:border-zinc-500/55 dark:text-zinc-300"
-                  aria-label={`Investment focus: ${model._focusPill ?? model._firmType ?? "INSTITUTIONAL"}`}
+                  aria-label={`Investment focus: ${firmTypePill}`}
                 >
-                  {model._focusPill ?? String(model._firmType ?? "INSTITUTIONAL").toUpperCase()}
+                  {firmTypePill}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-[240px] p-2 text-[10px]">

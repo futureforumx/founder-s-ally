@@ -3,7 +3,7 @@ import {
   STRATEGY_CLASSIFICATION_LABELS,
   isFirmStrategyClassification,
 } from "@/lib/firmStrategyClassifications";
-import { formatFirmTypeLabel } from "@/lib/firmTypeLabels";
+import { directoryFirmTypeBadgeLabel } from "@/lib/directoryFirmType";
 
 /** Order: more distinctive / user-facing signals first (excluding per-case geo + vertical handling). */
 const STRATEGY_PILL_PRIORITY: readonly FirmStrategyClassification[] = [
@@ -186,10 +186,10 @@ export function computeInvestorFocusBadge(input: InvestorFocusBadgeInput): Inves
   }
 
   const fb = input.fallbackFirmTypeKey ?? "INSTITUTIONAL";
-  const human = formatFirmTypeLabel(fb) || "Institutional";
+  const pill = directoryFirmTypeBadgeLabel(fb);
   return {
-    pill: human.toUpperCase(),
-    tooltip: `No structured thesis tags yet — defaulting to firm structure (${human}).`,
+    pill,
+    tooltip: `No structured thesis tags yet — defaulting to firm structure (${pill}).`,
   };
 }
 
