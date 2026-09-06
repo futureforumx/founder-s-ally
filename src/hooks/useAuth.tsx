@@ -3,7 +3,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
-import { loginEmailCodeFailureMessage } from "@/lib/loginOtpFallback";
 import { LoginOtpError, sendLoginOtp } from "@/lib/sendLoginOtp";
 import { signupWithOtp } from "@/lib/signupWithOtp";
 
@@ -279,7 +278,11 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Supabase Auth is not responding. Please try signing in again in a few minutes.");
     }
 
-    throw new Error(loginEmailCodeFailureMessage(fallbackError));
+    if (fallbackError instanceof Error) {
+      throw fallbackError;
+    }
+
+    throw new Error("Could not start sign-in. Please try again.");
   }, []);
 
   const signInWithPassword = useCallback(async (email: string, password: string) => {

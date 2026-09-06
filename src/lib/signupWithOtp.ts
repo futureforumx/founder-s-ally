@@ -1,3 +1,4 @@
+import { loginOtpRedirectTo } from "@/lib/loginOtpRedirect";
 import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
 
 export interface SignupWithOtpInput {
@@ -63,7 +64,7 @@ export async function signupWithOtp(input: SignupWithOtpInput): Promise<SignupWi
       lastName: input.lastName,
       resend: Boolean(input.resend),
       token: input.token,
-      redirectTo: typeof window === "undefined" ? undefined : `${window.location.origin}/auth`,
+      redirectTo: typeof window === "undefined" ? undefined : loginOtpRedirectTo(window.location.origin),
     }),
   });
 

@@ -1,4 +1,4 @@
-import { shouldFallbackLoginOtpToSupabase } from "@/lib/loginOtpFallback";
+import { loginOtpRedirectTo } from "@/lib/loginOtpRedirect";
 import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
 
 function browserSupabase() {
@@ -32,8 +32,8 @@ function bearerToken(): string {
 }
 
 function authRedirectUrl(): string {
-  if (typeof window === "undefined") return "";
-  return `${window.location.origin}/auth`;
+  if (typeof window === "undefined") return loginOtpRedirectTo();
+  return loginOtpRedirectTo(window.location.origin);
 }
 
 const OTP_REQUEST_TIMEOUT_MS = 30_000;
@@ -113,9 +113,7 @@ export async function sendLoginOtp(email: string): Promise<void> {
       typeof (parsed as { error: unknown }).error === "string"
         ? (parsed as { error: string }).error
         : `Could not send sign-in code (HTTP ${response.status}).`;
-    throw new LoginOtpError(message, {
-      fallbackToSupabaseOtp: shouldFallbackLoginOtpToSupabase(response.status, message),
-    });
+    throw new LoginOtpError(message);
   }
 
   if (
@@ -125,9 +123,6 @@ export async function sendLoginOtp(email: string): Promise<void> {
     "error" in parsed &&
     typeof (parsed as { error: unknown }).error === "string"
   ) {
-    const message = (parsed as { error: string }).error;
-    throw new LoginOtpError(message, {
-      fallbackToSupabaseOtp: shouldFallbackLoginOtpToSupabase(response.status, message),
-    });
+    throw new LoginOtpError((parsed as { error: string }).error);
   }
 }
