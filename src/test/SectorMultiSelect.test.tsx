@@ -89,6 +89,14 @@ describe("SectorMultiSelect", () => {
     expect(screen.getByRole("button", { name: "Remove Fintech" })).toBeInTheDocument();
   });
 
+  it("hands the row over to the chips once a sector is selected", () => {
+    render(<Harness initial={["Fintech"]} />);
+
+    expect(screen.queryByText("Suggested")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Fintech" }));
+    expect(screen.getByText("Suggested")).toBeInTheDocument();
+  });
+
   it("keeps multiple sectors as removable chips", () => {
     render(<Harness initial={["Fintech", "Cybersecurity & Privacy"]} />);
 

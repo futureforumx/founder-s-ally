@@ -172,16 +172,14 @@ export function SectorMultiSelect({
     }
   };
 
-  const suggestions = useMemo(
-    () =>
-      SUGGESTED_SECTOR_OPTIONS.filter((opt) => !value.includes(opt.label)).slice(0, SUGGESTION_COUNT),
-    [value],
-  );
-  const showSuggestions = !trimmed && !capReached && suggestions.length > 0;
+  const suggestions = SUGGESTED_SECTOR_OPTIONS.slice(0, SUGGESTION_COUNT);
+  // Quick picks are a cold-start affordance: once something is chosen the chip row takes over,
+  // so the control never spends two rows on selection state.
+  const showSuggestions = !trimmed && value.length === 0;
   const hasAiSuggestions = aiSuggested.length > 0;
 
   return (
-    <div ref={containerRef} className={cn("space-y-2", className)}>
+    <div ref={containerRef} className={cn("space-y-1.5", className)}>
       {hasAiSuggestions && (
         <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
           <Sparkles className="h-3 w-3 text-accent" aria-hidden />
@@ -237,7 +235,7 @@ export function SectorMultiSelect({
         </div>
 
         {listOpen && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border/70 bg-popover/95 shadow-lg shadow-black/30 backdrop-blur-sm animate-in fade-in-0 slide-in-from-top-1 duration-150">
+          <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border/70 bg-popover shadow-lg shadow-black/30 animate-in fade-in-0 slide-in-from-top-1 duration-150">
             <div id={listboxId} role="listbox" aria-label="Sectors" className="max-h-56 overflow-y-auto p-1">
               {rows.length === 0 ? (
                 <p className="px-2.5 py-2 text-xs text-muted-foreground">No sector matches “{trimmed}”.</p>
@@ -295,11 +293,11 @@ export function SectorMultiSelect({
       </div>
 
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <ul aria-label="Selected sectors" className="flex flex-wrap gap-1.5">
           {value.map((sector) => {
             const isAiPending = aiSuggested.includes(sector) && !approved;
             return (
-              <span
+              <li
                 key={sector}
                 className={cn(
                   "inline-flex items-center gap-1 rounded-md border py-0.5 pl-2 pr-1 text-xs font-medium",
@@ -320,10 +318,10 @@ export function SectorMultiSelect({
                 >
                   <X className="h-3 w-3" aria-hidden />
                 </button>
-              </span>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
 
       {showSuggestions && (
