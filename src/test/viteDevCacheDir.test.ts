@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 
 type ViteConfigFactory = (env: {
@@ -40,5 +41,10 @@ describe("dev server dep cache", () => {
   it("leaves the build cache at the default location", async () => {
     const config = await resolveConfig({ command: "build", mode: "production" });
     expect(config.cacheDir).toBeUndefined();
+  });
+
+  it("starts the Playwright dev server on its own cache dir", async () => {
+    const source = await readFile(new URL("../../playwright.config.ts", import.meta.url), "utf8");
+    expect(source).toMatch(/command: `DEV_PORT=\$\{port\}/);
   });
 });
