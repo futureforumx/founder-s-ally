@@ -2,11 +2,10 @@ import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardR
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { Globe, Upload, FileText, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
+import { Globe, AlertCircle, Loader2, Check, Camera, MapPin, Users, TrendingUp, DollarSign, Target, Briefcase, AlertTriangle, CheckCircle2, RefreshCw, RotateCcw, Pencil, Twitter, Linkedin, Instagram, ChevronDown, X, Info, Scale, Sparkles } from "lucide-react";
 import { formatSocialUrl } from "@/lib/socialFormat";
 import { MorphingUrlInput } from "@/components/ui/morphing-url-input";
 import { AnalysisOverlay } from "./AnalysisOverlay";
-import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { InsightIcon } from "./company-profile/InsightIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,12 +17,6 @@ import {
 } from "@/integrations/supabase/client";
 import { uploadR2UserAsset } from "@/lib/r2UserAssets";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { inspectPdf } from "@/lib/pdfInspector";
-import { withTimeout } from "@/lib/withTimeout";
-
-// pdf.js's worker handshake can hang forever with no error in some environments; never wait past this.
-const PDF_TEXT_FALLBACK_TIMEOUT_MS = 12000;
 import { getClerkSessionToken } from "@/lib/clerkSessionForEdge";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncReviewModal, type SyncField } from "@/components/settings/SyncReviewModal";
@@ -51,10 +44,8 @@ import {
 
 export type { CompanyData, AnalysisResult, ConfidenceLevel, MetricWithConfidence } from "./company-profile/types";
 
-type AnalyzeStepKey = "scraping" | "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
-const MAX_ANALYZE_DECK_TEXT_CHARS = 40000;
+type AnalyzeStepKey = "analyzing" | "deepSearch" | "verifying" | "mapping" | "";
 const STEP_LABELS: Record<AnalyzeStepKey, string> = {
-  scraping: "Parsing Deck Structure...",
   analyzing: "Cross-referencing with live market data...",
   deepSearch: "Running Deep Search for recent filings...",
   verifying: "Verifying Headquarters via recent filings...",
@@ -453,8 +444,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     try { return localStorage.getItem("company-profile-confirmed") === "true"; } catch { return false; }
   });
 
-  const [deckFile, setDeckFile] = useState<File | null>(null);
-  const [deckText, setDeckText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const outputSectionsRef = useRef<HTMLDivElement>(null);
@@ -480,24 +469,22 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const [websiteMarkdown, setWebsiteMarkdown] = useState("");
   const [sectorClassification, setSectorClassification] = useState<SectorClassification | null>(null);
   const [isReclassifying, setIsReclassifying] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track last-analyzed data sources for smart button state
-  const [lastAnalyzedInputs, setLastAnalyzedInputs] = useState<{ url: string; hasDeck: boolean } | null>(() => {
+  const [lastAnalyzedInputs, setLastAnalyzedInputs] = useState<{ url: string } | null>(() => {
     try {
       const saved = localStorage.getItem("company-last-analyzed-inputs");
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
   const [fieldsEditedSinceAnalysis, setFieldsEditedSinceAnalysis] = useState(false);
-  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || (!!deckText) !== lastAnalyzedInputs.hasDeck || fieldsEditedSinceAnalysis;
+  const dataSourcesChanged = !lastAnalyzedInputs || form.website !== lastAnalyzedInputs.url || fieldsEditedSinceAnalysis;
 
   const [metricsUnlocked, setMetricsUnlocked] = useState(() => {
     try { return localStorage.getItem("company-metrics-unlocked") === "true"; } catch { return false; }
   });
-  const [scanningMetrics, setScanningMetrics] = useState(false);
   const [aiCompetitors, setAiCompetitors] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("company-ai-competitors");
@@ -730,7 +717,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const { field } = (e as CustomEvent).detail || {};
       if (!field) return;
       const fieldSectionMap: Record<string, string> = {
-        "pitch-deck": "overview", "website-url": "overview", "sector-tags": "overview",
+        "website-url": "overview", "sector-tags": "overview",
         "ltv-cac": "metrics", "mrr": "metrics", "executive-summary": "overview",
         ...Object.fromEntries(Object.entries(fieldToSection)),
       };
@@ -877,67 +864,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       setSocialEnrichState(prev => ({ ...prev, [platform]: "idle" }));
     }
   }, [form.socialTwitter, form.socialLinkedin, form.description, form.hqLocation, form.website, form.totalHeadcount]);
-
-  const handleFileSelect = useCallback(async (file: File) => {
-    const name = file.name.toLowerCase();
-    if (!name.endsWith(".pdf") && !name.endsWith(".txt")) { setError("Please upload a PDF or TXT file."); return; }
-    if (file.size > 50 * 1024 * 1024) { setError("File too large. Maximum 50 MB."); return; }
-    setError(null);
-    setDeckFile(file);
-    if (analysisComplete) setHasNewInputs(true);
-    try {
-      if (name.endsWith(".txt")) { const txt = await file.text(); setDeckText(txt); try { sessionStorage.setItem("pending-deck-audit", txt); } catch {} }
-      else {
-        // Assess + parse with Firecrawl's pdf-inspector (runs locally in-browser, no worker
-        // needed — reliable where raw pdf.js's worker handshake can silently hang forever).
-        let extractedText = "";
-        try {
-          extractedText = (await inspectPdf(file)).markdown;
-        } catch (err) {
-          console.warn("pdf-inspector failed, falling back to pdf.js text extraction:", err);
-        }
-
-        if (!extractedText) {
-          const pdfjsLib = await import("pdfjs-dist/build/pdf.mjs");
-          pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-          const pdf = await withTimeout(
-            pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise,
-            PDF_TEXT_FALLBACK_TIMEOUT_MS,
-            "Timed out reading this PDF."
-          );
-          const pages: string[] = [];
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            pages.push(`[Slide ${String(i).padStart(2, "0")}]\n${content.items.map((item: any) => ("str" in item ? item.str : "")).join(" ")}`);
-          }
-          extractedText = pages.join("\n\n");
-        }
-
-        setDeckText(extractedText);
-        try { sessionStorage.setItem("pending-deck-audit", extractedText); } catch {}
-      }
-      setMetricsUnlocked(true);
-      setScanningMetrics(true);
-      setTimeout(() => setScanningMetrics(false), 2500);
-    } catch { setError("Failed to read file. Try a different format."); }
-  }, [analysisComplete]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFileSelect(file);
-  }, [handleFileSelect]);
-
-  // Pitch deck versioning
-  const { activeDeck, uploadDeck } = usePitchDecks();
-  const [showReplaceDeck, setShowReplaceDeck] = useState(false);
-
-  const handleFileSelectAndVersion = useCallback(async (file: File) => {
-    await uploadDeck(file);
-    setShowReplaceDeck(false);
-    handleFileSelect(file);
-  }, [uploadDeck, handleFileSelect]);
 
   const applyAiData = (aiExtracted: AnalysisResult["aiExtracted"], sectorMapping?: AnalysisResult["sectorMapping"]) => {
     if (!aiExtracted) return;
@@ -1106,7 +1032,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const handleAnalyze = async () => {
     if (isEditing) { setError("Please finish editing fields before running analysis."); return; }
     if (!form.name.trim()) { setError("Company name is required."); return; }
-    if (!form.website.trim() && !deckText) { setError("Provide a website URL or upload a pitch deck."); return; }
+    if (!form.website.trim()) { setError("Provide a website URL to analyze."); return; }
 
     setIsAnalyzing(true);
     setShowAnalysisOverlay(true);
@@ -1116,7 +1042,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     let scrapedMarkdown = "";
 
     try {
-      if (deckText) { setAnalyzeStep("scraping"); await new Promise(r => setTimeout(r, 800)); }
       if (form.website.trim()) {
         setAnalyzeStep("analyzing");
         const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-website", { body: { url: form.website.trim() } });
@@ -1175,9 +1100,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       } catch (deepErr) { console.warn("Deep search failed (non-blocking):", deepErr); }
 
       setAnalyzeStep("verifying");
-      const safeDeckText = deckText ? deckText.slice(0, MAX_ANALYZE_DECK_TEXT_CHARS) : "";
       const { data: analysisData, error: analysisError } = await supabase.functions.invoke("analyze-company", {
-        body: { websiteText: scrapedMarkdown, deckText: safeDeckText, companyName: form.name, stage: form.stage, sector: form.sector },
+        body: { websiteText: scrapedMarkdown, companyName: form.name, stage: form.stage, sector: form.sector },
       });
       if (analysisError) throw new Error(analysisError.message || "Analysis failed");
       if (analysisData?.error) throw new Error(analysisData.error);
@@ -1189,11 +1113,10 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       for (const field of fieldKeys) {
         const sources: string[] = [];
         const aiVal = analysisData.aiExtracted?.[field];
-        if (deckText && aiVal) sources.push("deck");
         if (scrapedMarkdown && aiVal) sources.push("website");
         if (aiVal) sources.push("realtime");
-        if (sources.length >= 3) verification[field] = { sources, status: "verified" };
-        else if (sources.length === 1 && sources[0] === "deck") verification[field] = { sources, status: "deck-only" };
+        // Verified means corroborated by more than the model's own reading.
+        if (sources.length >= 2) verification[field] = { sources, status: "verified" };
         else if (sources.length >= 1) verification[field] = { sources, status: "predictive" };
       }
 
@@ -1208,7 +1131,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       const isTransportError = /failed to send a request to the edge function/i.test(rawMessage);
       setError(
         isTransportError
-          ? "Deck payload was too large for analysis. We trimmed the upload for processing; please try again."
+          ? "We couldn't reach the analysis service. Please try again."
           : rawMessage,
       );
     } finally {
@@ -1291,9 +1214,8 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
       }
     }
 
-    setScanningMetrics(false);
     setAnalysisComplete(true);
-    const analyzedInputs = { url: form.website, hasDeck: !!deckText };
+    const analyzedInputs = { url: form.website };
     setLastAnalyzedInputs(analyzedInputs);
     try { localStorage.setItem("company-last-analyzed-inputs", JSON.stringify(analyzedInputs)); } catch {}
     setMetricsUnlocked(true);
@@ -1303,15 +1225,12 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     setFieldsEditedSinceAnalysis(false);
     enterReviewMode("overview");
 
-    const deckInvestors = analysisData.extractedInvestors || [];
-    const seenNames = new Set(deckInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
-    const mergedInvestors = [...deckInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
+    const analysisInvestors = analysisData.extractedInvestors || [];
+    const seenNames = new Set(analysisInvestors.map((i: any) => i.investorName?.toLowerCase().trim()));
+    const mergedInvestors = [...analysisInvestors, ...deepSearchInvestors.filter((i: any) => !seenNames.has(i.investorName?.toLowerCase().trim()))];
     const finalResult = { ...analysisData, extractedInvestors: mergedInvestors, sourceVerification: verification };
     onAnalysis?.(finalResult as AnalysisResult);
     try { localStorage.setItem("company-analysis", JSON.stringify(finalResult)); } catch {}
-    if (deckText) {
-      try { sessionStorage.setItem("pending-deck-audit", deckText); } catch {}
-    }
     onWalkthroughComplete?.();
 
     setAnalysisReviewApplying(false);
@@ -1350,7 +1269,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
     });
   };
 
-  const canAnalyze = Boolean(form.name.trim() && (form.website.trim() || deckText) && !isEditing);
+  const canAnalyze = Boolean(form.name.trim() && form.website.trim() && !isEditing);
 
   useImperativeHandle(ref, () => ({
     triggerAnalysis: handleAnalyzeClick,
@@ -1783,7 +1702,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="px-6 pb-6 space-y-6">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
                       <div className="min-w-0 space-y-1" data-field="company-name">
                         <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company Name *</label>
                         <input type="text" value={form.name} onChange={e => update("name", e.target.value)}
@@ -1919,85 +1838,6 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0 flex flex-col gap-1" data-field="pitch-deck">
-                        <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                          <FileText className="h-3 w-3" /> Pitch Deck (PDF)
-                        </label>
-                        {activeDeck && !showReplaceDeck ? (
-                          <div className="flex min-h-[100px] w-full flex-1 flex-wrap items-center gap-3 border border-border bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-all hover:border-accent/40 rounded-xl group">
-                            <div className="flex min-w-[9rem] flex-1 items-center gap-3 overflow-hidden">
-                              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted/50 border border-border flex items-center justify-center text-muted-foreground">
-                                <FileText className="h-5 w-5" />
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <p className="text-sm font-semibold text-foreground truncate">{activeDeck.file_name}</p>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-                                  <span>Active</span>
-                                  {activeDeck.file_size_bytes && (
-                                    <>
-                                      <span className="text-border">•</span>
-                                      <span className="whitespace-nowrap">{activeDeck.file_size_bytes >= 1024 * 1024
-                                        ? `${(activeDeck.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
-                                        : `${(activeDeck.file_size_bytes / 1024).toFixed(0)} KB`
-                                      }</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setShowReplaceDeck(true)}
-                              className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md bg-muted/50 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" /> Replace
-                            </button>
-                          </div>
-                        ) : (
-                          <div onDragOver={e => e.preventDefault()} onDrop={handleDrop}
-                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-3 py-3 transition-colors flex-1 min-h-[100px] ${
-                              scanningMetrics ? "border-accent/60 bg-accent/5" : "border-border bg-muted/30 hover:border-accent/40"
-                            }`}>
-                            {scanningMetrics ? (
-                              <Loader2 className="h-5 w-5 text-accent animate-spin mb-2" />
-                            ) : (
-                              <Upload className="h-5 w-5 text-muted-foreground mb-2" />
-                            )}
-                            <span className={`text-xs text-center px-1 ${scanningMetrics ? "text-accent font-medium" : "text-muted-foreground"}`}>
-                              {scanningMetrics ? "Analyzing Deck..." : deckFile ? deckFile.name : "Drop PDF or browse"}
-                            </span>
-                            {deckFile && deckText && !scanningMetrics && <span className="text-[10px] text-success font-mono mt-1">✓ Extracted</span>}
-                            <input ref={fileInputRef} type="file" accept=".pdf,.txt" className="hidden"
-                              onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelectAndVersion(f); }} />
-                            <button type="button" onClick={() => fileInputRef.current?.click()}
-                              className="rounded-md bg-muted px-3 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted/80 mt-2">Browse</button>
-                            {showReplaceDeck && activeDeck && (
-                              <button type="button" onClick={() => setShowReplaceDeck(false)} className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors">Cancel</button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="min-w-0 space-y-1" data-field="one-pager-url">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                        <FileText className="h-3 w-3" /> One-pager (link)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="url"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        value={form.onePagerUrl}
-                        disabled={isAnalyzing}
-                        onChange={(e) => update("onePagerUrl", e.target.value)}
-                        placeholder="https://…"
-                        maxLength={2048}
-                        className={inputCls("onePagerUrl")}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Optional. Shown under Company Health → Data with your latest pitch deck.
-                      </p>
                     </div>
                     {parentCompanyData && (
                       <div className="rounded-lg border border-accent/15 bg-accent/[0.03] p-2.5">

@@ -214,7 +214,7 @@ function DocumentsBlock({
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-foreground">Latest pitch deck</p>
                 <p className="text-[11px] leading-snug text-muted-foreground">
-                  Upload a PDF under <span className="font-medium text-foreground">Settings → Company</span> to set your
+                  Upload a PDF under <span className="font-medium text-foreground">Raise → Data Room</span> to set your
                   active deck.
                 </p>
               </div>
@@ -247,9 +247,7 @@ function DocumentsBlock({
               <SourceGlyph iconUrl={null} label="One-pager" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-foreground">One-pager</p>
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  Add a link under <span className="font-medium text-foreground">Settings → Company</span> (One-pager).
-                </p>
+                <p className="text-[11px] leading-snug text-muted-foreground">No one-pager linked yet.</p>
               </div>
             </div>
           )}

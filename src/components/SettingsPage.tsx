@@ -224,16 +224,6 @@ export function SettingsPage() {
     if (formSnapshot.ltv && formSnapshot.cac) fields.push("ltv-cac");
     if (formSnapshot.currentARR) fields.push("mrr");
     if (formSnapshot.description) fields.push("executive-summary");
-    // Check if a pitch deck exists
-    try {
-      const deckActive = localStorage.getItem("company-profile");
-      if (deckActive) {
-        const parsed = JSON.parse(deckActive);
-        // If analysis was completed, deck was likely uploaded
-        const analysisRaw = localStorage.getItem("company-analysis");
-        if (analysisRaw) fields.push("pitch-deck");
-      }
-    } catch {}
     return fields;
   }, [formSnapshot]);
 
