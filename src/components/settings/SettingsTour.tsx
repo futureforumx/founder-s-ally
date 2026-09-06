@@ -64,15 +64,15 @@ const TOUR_STEPS: TourStep[] = [
   {
     selector: '[data-tour="company"]',
     title: "Company",
-    description: "Now let's set up your company profile — metrics, pitch deck, and sector information for investor matching.",
+    description: "Now let's set up your company profile — metrics, stage, and sector information for investor matching.",
     sectionId: "company-sec",
     placement: "bottom",
     isIntro: true,
   },
   {
     selector: '[data-tour="company"]',
-    title: "Company Data & Pitch Decks",
-    description: "Upload your pitch deck, set your stage and sector, and add financial metrics. The more you fill in, the better your matches.",
+    title: "Company Data",
+    description: "Set your stage and sector, and add financial metrics. The more you fill in, the better your matches.",
     sectionId: "company-sec",
     placement: "bottom",
   },
