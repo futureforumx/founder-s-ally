@@ -19,15 +19,22 @@ describe("localSupabaseDefaults", () => {
     ).toBe(true);
   });
 
-  it("does not override production builds, demo mode, or an explicit env", () => {
+  it("does not override production builds, mock supabase, or an explicit env", () => {
     expect(shouldUseLocalSupabaseDefaults("production", { VITE_SUPABASE_URL: "" })).toBe(false);
+    expect(
+      shouldUseLocalSupabaseDefaults("development", {
+        VITE_USE_MOCK_SUPABASE: "true",
+        VITE_SUPABASE_URL: "",
+        VITE_SUPABASE_PUBLISHABLE_KEY: "",
+      }),
+    ).toBe(false);
     expect(
       shouldUseLocalSupabaseDefaults("development", {
         VITE_DEMO_MODE: "true",
         VITE_SUPABASE_URL: "",
         VITE_SUPABASE_PUBLISHABLE_KEY: "",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldUseLocalSupabaseDefaults("development", {
         VITE_SUPABASE_URL: "https://example.supabase.co",

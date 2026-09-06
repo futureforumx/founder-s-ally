@@ -6,6 +6,7 @@ import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
 
 const resolvedSupabase = resolveBrowserSupabaseConfig(import.meta.env.MODE, {
   VITE_DEMO_MODE: import.meta.env.VITE_DEMO_MODE,
+  VITE_USE_MOCK_SUPABASE: import.meta.env.VITE_USE_MOCK_SUPABASE,
   VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
   VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
 });

@@ -4,7 +4,8 @@
  * can talk to the same Supabase project as production.
  *
  * This is the publishable (anon) key, not the service role.
- * Playwright demo mode must not use these — keep `VITE_DEMO_MODE=true` there.
+ * `VITE_DEMO_MODE` only changes product demo behavior. It must not hide login.
+ * Use `VITE_USE_MOCK_SUPABASE=true` when tests should skip the live project.
  */
 export const LOCAL_DEV_SUPABASE_URL = "https://zmnlsdohtwztneamvwaq.supabase.co";
 export const LOCAL_DEV_SUPABASE_PUBLISHABLE_KEY = "sb_publishable__qp4VF-DRoI3pbvYUOZSVg_saGEPQMI";
@@ -15,6 +16,7 @@ export type LocalSupabaseEnv = {
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   VITE_SUPABASE_PROJECT_ID?: string;
   VITE_DEMO_MODE?: string;
+  VITE_USE_MOCK_SUPABASE?: string;
 };
 
 function isBlank(value: string | undefined): boolean {
@@ -24,10 +26,13 @@ function isBlank(value: string | undefined): boolean {
 /** True when local login should fall back to the production public project. */
 export function shouldUseLocalSupabaseDefaults(
   mode: string,
-  env: Pick<LocalSupabaseEnv, "VITE_DEMO_MODE" | "VITE_SUPABASE_URL" | "VITE_SUPABASE_PUBLISHABLE_KEY">,
+  env: Pick<
+    LocalSupabaseEnv,
+    "VITE_DEMO_MODE" | "VITE_USE_MOCK_SUPABASE" | "VITE_SUPABASE_URL" | "VITE_SUPABASE_PUBLISHABLE_KEY"
+  >,
 ): boolean {
   if (mode !== "development") return false;
-  if (env.VITE_DEMO_MODE === "true") return false;
+  if (env.VITE_USE_MOCK_SUPABASE === "true") return false;
   return isBlank(env.VITE_SUPABASE_URL) || isBlank(env.VITE_SUPABASE_PUBLISHABLE_KEY);
 }
 

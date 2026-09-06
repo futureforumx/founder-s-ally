@@ -17,6 +17,8 @@ interface ImportMetaEnv {
   readonly VITE_CLERK_PUBLISHABLE_KEY_PREVIEW?: string;
   readonly VITE_AUTH_PROVIDER?: string;
   readonly VITE_DEMO_MODE?: string;
+  /** When `"true"`, skip the local-dev Supabase public-key fallback (Playwright mock client). */
+  readonly VITE_USE_MOCK_SUPABASE?: string;
   /** Mixpanel project token (browser; safe to expose) */
   readonly VITE_MIXPANEL_TOKEN?: string;
   /** Set to `false` to disable Sentry init and the Sentry error boundary wrapper. */
