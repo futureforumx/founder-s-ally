@@ -33,6 +33,7 @@ import { readTrendingCache, trendingCacheControlHeader } from "./src/lib/trendin
 import { emptyTrendingCatalog, findTrendingStartup } from "./src/lib/trendingStartups/catalog";
 import { authorizeCronRequest, runTrendingLeaderboardPipeline } from "./src/lib/trendingStartups/ingest";
 import { TRENDING_PAGE_LIMIT } from "./src/lib/trendingStartups/types";
+import { applyLocalSupabaseDefaults } from "./src/lib/localSupabaseDefaults";
 
 /**
  * Vite dev-server plugin: intercepts POST /api/save-profile so `npm run dev`
@@ -1198,11 +1199,29 @@ export default defineConfig(async ({ mode }) => {
     process.env.VITE_AUTH_PROVIDER ||
     "supabase";
 
+  // Local `pnpm dev` without a copied `.env` still needs the same public Supabase
+  // project as vekta.so, or /login renders "Authentication temporarily unavailable".
+  applyLocalSupabaseDefaults(mode, env);
+  if (env.VITE_SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
+    process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL;
+  }
+  if (env.VITE_SUPABASE_PUBLISHABLE_KEY && !process.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY = env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  }
+  if (env.VITE_SUPABASE_PROJECT_ID && !process.env.VITE_SUPABASE_PROJECT_ID) {
+    process.env.VITE_SUPABASE_PROJECT_ID = env.VITE_SUPABASE_PROJECT_ID;
+  }
+
   return {
     /** Expose Vercel's deployment kind at build time (production | preview | development). */
     define: {
       "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(vercelEnv),
       "import.meta.env.VITE_AUTH_PROVIDER": JSON.stringify(authProvider),
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(env.VITE_SUPABASE_URL ?? ""),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
+        env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "",
+      ),
+      "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(env.VITE_SUPABASE_PROJECT_ID ?? ""),
     },
     server: {
       // Use an explicit localhost host so VS Code browser previews have a stable URL on macOS.

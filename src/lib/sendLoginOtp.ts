@@ -1,11 +1,19 @@
+import { resolveBrowserSupabaseConfig } from "@/lib/localSupabaseDefaults";
+
+function browserSupabase() {
+  return resolveBrowserSupabaseConfig(import.meta.env.MODE, {
+    VITE_DEMO_MODE: import.meta.env.VITE_DEMO_MODE,
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  });
+}
+
 function publishableKey(): string {
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  return typeof key === "string" ? key.trim() : "";
+  return browserSupabase().publishableKey;
 }
 
 function supabaseOrigin(): string {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  return typeof url === "string" ? url.replace(/\/$/, "") : "";
+  return browserSupabase().url;
 }
 
 function isLikelyJwt(token: string): boolean {
