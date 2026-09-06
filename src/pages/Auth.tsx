@@ -325,6 +325,27 @@ export default function Auth() {
                   />
                 </div>
               </div>
+
+              {!useEmailCode && (
+                <div className="space-y-2 text-left">
+                  <label htmlFor="password" className={labelClassName}>
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Password"
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
             </form>
 
             {otpSent && useEmailCode && (
@@ -411,25 +432,7 @@ export default function Auth() {
 
             <div className="mt-4 space-y-4">
               {!useEmailCode && (
-                <div className="space-y-2 text-left">
-                  <label htmlFor="password" className={labelClassName}>
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      id="password"
-                      type="password"
-                      autoComplete="current-password"
-                      form="signin-form"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Password"
-                      className={inputClassName}
-                      required
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -469,7 +472,6 @@ export default function Auth() {
                     >
                       {resettingPassword ? "Sending..." : "Forgot password?"}
                     </button>
-                  </div>
                 </div>
               )}
 
