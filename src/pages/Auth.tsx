@@ -529,8 +529,10 @@ export default function Auth() {
           />
         </div>
 
-        <div className="scrollbar-hide mx-auto flex w-full max-w-sm flex-1 flex-col justify-center overflow-y-auto py-2">
-          {formPanel}
+        <div className="scrollbar-hide mx-auto flex w-full max-w-sm flex-1 flex-col overflow-y-auto py-2">
+          <div className="my-auto w-full">
+            {formPanel}
+          </div>
         </div>
 
         <footer className="mx-auto mt-10 w-full max-w-sm text-center text-[10px] text-zinc-700">
