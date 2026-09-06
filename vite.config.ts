@@ -1151,7 +1151,7 @@ function trendingStartupsDevPlugin() {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ command, mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
   const env = loadEnv(mode, process.cwd(), "");
   // Dev API middleware (`/api/firm-website-team`, etc.) reads `process.env` — merge loaded files
@@ -1199,6 +1199,14 @@ export default defineConfig(async ({ mode }) => {
     "supabase";
 
   return {
+    /**
+     * Dep pre-bundling is scoped per dev port. Two dev servers on one checkout otherwise
+     * share `node_modules/.vite/deps`, and whichever optimizes last rewrites the `?v=`
+     * hashes the other server is still handing out — its clients then fail every dynamic
+     * import ("Failed to fetch dynamically imported module") until they are restarted.
+     */
+    cacheDir:
+      command === "serve" ? path.resolve(__dirname, `node_modules/.vite/dev-${devPort}`) : undefined,
     /** Expose Vercel's deployment kind at build time (production | preview | development). */
     define: {
       "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(vercelEnv),
@@ -1208,7 +1216,9 @@ export default defineConfig(async ({ mode }) => {
       // Use an explicit localhost host so VS Code browser previews have a stable URL on macOS.
       host: devHost,
       port: devPort,
-      strictPort: false,
+      // Falling back to a neighbouring port would give this server the cache dir of the
+      // server already on DEV_PORT. Fail instead, and pass DEV_PORT to run a second one.
+      strictPort: true,
       open: false,
       hmr: {
         overlay: false,
