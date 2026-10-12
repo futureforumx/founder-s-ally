@@ -13,6 +13,8 @@ import {
   useUpdateTargetStage,
   useOrgSearch,
   PIPELINE_STAGES,
+  INTRO_ROUTES,
+  INTRO_OUTCOMES,
   type InvestorTarget,
   type PipelineStage,
 } from "@/hooks/useInvestorTargets";
@@ -209,6 +211,8 @@ function TargetRow({
   onSelect: (t: InvestorTarget) => void;
 }) {
   const { mutate: updateStage } = useUpdateTargetStage();
+  const routeLabel = INTRO_ROUTES.find((route) => route.value === target.intro_route)?.label;
+  const outcomeLabel = INTRO_OUTCOMES.find((outcome) => outcome.value === target.intro_outcome)?.label;
 
   return (
     <div
@@ -229,8 +233,11 @@ function TargetRow({
         <p className="truncate text-sm font-medium text-foreground">
           {target.org_name ?? target.organization_id.slice(0, 8)}
         </p>
-        {target.org_domain && (
-          <p className="truncate text-[10px] text-muted-foreground">{target.org_domain}</p>
+        {target.org_domain && <p className="truncate text-[10px] text-muted-foreground">{target.org_domain}</p>}
+        {(routeLabel || outcomeLabel) && (
+          <p className="truncate text-[10px] text-muted-foreground">
+            {routeLabel ?? "Approach not selected"}{outcomeLabel ? ` · ${outcomeLabel}` : ""}
+          </p>
         )}
       </div>
 

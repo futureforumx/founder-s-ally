@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "decision-maker-outreach": {
+      "source": "paulklayvc/skills",
+      "sourceType": "github",
+      "skillPath": "decision-maker-outreach/SKILL.md",
+      "computedHash": "2ff7e8608d937cb262583c55e65447970b0237380c4fe6418e9a207a15f58a04"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
@@ -13,6 +19,12 @@
       "skillPath": "skills/install-anti-slop/SKILL.md",
       "computedHash": "b903a7ac2c823d473a4b0046834fccbab0bc75ee4fda8be4f81efa895d475b01"
     },
+    "investor-warm-intros": {
+      "source": "paulklayvc/skills",
+      "sourceType": "github",
+      "skillPath": "investor-warm-intros/SKILL.md",
+      "computedHash": "9eff52cd0c5d68983533a860db4e95a51e083f8d8446f172711a7d8be21c4d99"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
@@ -24,6 +36,12 @@
       "sourceType": "github",
       "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
       "computedHash": "0d2c4857a7d6fdcd3fbc46e458fa4c497f029cab89a01548b3defce203003932"
+    },
+    "high-leverage-job-hunt": {
+      "source": "paulklayvc/skills",
+      "sourceType": "github",
+      "skillPath": "high-leverage-job-hunt/SKILL.md",
+      "computedHash": "9311f352ab6c28b8c2351c191d1869773dbac172507744e4a381ba8cf8861848"
     }
   }
 }

@@ -31,6 +31,8 @@ interface TaxonomyComboboxProps<T extends TaxonomyOption = TaxonomyOption> {
   className?: string;
   /** Optional icon component to render at left */
   icon?: React.ReactNode;
+  /** `plain` is a text trigger (no field chrome) for type-led surfaces like Overview. */
+  variant?: "field" | "plain";
 }
 
 export function TaxonomyCombobox<T extends TaxonomyOption>({
@@ -43,7 +45,9 @@ export function TaxonomyCombobox<T extends TaxonomyOption>({
   isAiApproved = false,
   className,
   icon,
+  variant = "field",
 }: TaxonomyComboboxProps<T>) {
+  const isPlain = variant === "plain";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [focusIdx, setFocusIdx] = useState(-1);
@@ -119,13 +123,13 @@ export function TaxonomyCombobox<T extends TaxonomyOption>({
   const displayValue = open ? query : value;
 
   return (
-    <div ref={containerRef} className={`relative ${className || ""}`}>
+    <div ref={containerRef} className={`relative ${isPlain ? "inline-block max-w-full" : ""} ${className || ""}`}>
       <div className="relative">
-        {icon ? (
+        {!isPlain && (icon ? (
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">{icon}</span>
         ) : (
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
-        )}
+        ))}
         <input
           ref={inputRef}
           type="text"
@@ -135,26 +139,30 @@ export function TaxonomyCombobox<T extends TaxonomyOption>({
           onChange={e => { setQuery(e.target.value); setOpen(true); setFocusIdx(-1); }}
           onKeyDown={handleKeyDown}
           autoComplete="off"
-          className={`w-full h-9 rounded-lg border pl-8 pr-16 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all ${
-            value && isAiApproved
-              ? "border-ai-approved/40 bg-ai-approved/10"
-              : value && !isAiApproved
-                ? "border-ai-pending/50 bg-ai-pending/15 animate-[ai-pulse_2s_ease-in-out_infinite]"
-                : "border-input bg-background"
-          }`}
+          className={
+            isPlain
+              ? "w-auto min-w-[3.5rem] max-w-[16rem] bg-transparent py-0 pr-5 text-sm font-medium leading-5 text-foreground placeholder:text-muted-foreground/50 focus:outline-none [field-sizing:content]"
+              : `w-full h-9 rounded-lg border pl-8 pr-16 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all ${
+                  value && isAiApproved
+                    ? "border-ai-approved/40 bg-ai-approved/10"
+                    : value && !isAiApproved
+                      ? "border-ai-pending/50 bg-ai-pending/15 animate-[ai-pulse_2s_ease-in-out_infinite]"
+                      : "border-input bg-background"
+                }`
+          }
         />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {value && (
+        <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 ${isPlain ? "right-0" : "right-2"}`}>
+          {value && !isPlain && (
             <button type="button" onClick={clear} className="rounded-full p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
               <X className="h-3 w-3" />
             </button>
           )}
-          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          <ChevronDown className={`${isPlain ? "h-3 w-3" : "h-3.5 w-3.5"} text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
         </div>
       </div>
 
       {open && totalItems > 0 && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover shadow-lg max-h-52 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className={`absolute z-50 mt-1 rounded-lg border border-border bg-popover shadow-lg max-h-52 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150 ${isPlain ? "w-max min-w-[220px]" : "w-full"}`}>
           {/* Create custom option */}
           {showCustom && (
             <button

@@ -7,8 +7,7 @@ import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
 
 import { format } from "date-fns";
 
-import { AuditControlBar } from "./deck-audit/AuditControlBar";
-import { resolveCompanyGeo } from "@/lib/resolveCompanyGeo";
+import { companyGeoFromProfile } from "@/lib/resolveCompanyGeo";
 import { storedCompanyProfileOrEmpty } from "@/hooks/useStoredCompanyProfile";
 import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
@@ -187,7 +186,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   };
 
   const companyProfile = storedCompanyProfileOrEmpty();
-  const profileGeo = resolveCompanyGeo(companyProfile.hqLocation);
+  const profileGeo = companyGeoFromProfile(companyProfile);
 
   // ── Processing State (shown regardless of active tab) ──
   if (state === "processing") {
@@ -203,12 +202,6 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   if (activeSection === "files") {
     return (
       <div className="space-y-8">
-        <AuditControlBar
-          initialProfile={companyProfile.stage || result?.metadata.target_investor}
-          initialBenchmark={companyProfile.sector || result?.metadata.benchmark_cohort}
-          initialGeo={profileGeo}
-        />
-
         {state === "upload" ? (
           <div className="flex flex-col items-center justify-center min-h-[40vh]">
             <div className="w-full max-w-xl">

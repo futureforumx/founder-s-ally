@@ -25,7 +25,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorDetailPanel } from "@/components/dashboard/InvestorDetailPanel";
 import type { InvestorEntry } from "@/components/dashboard/investor-detail/types";
 import { useVCDirectory, type VCFirm } from "@/hooks/useVCDirectory";
-import { resolveCompanyGeo } from "@/lib/resolveCompanyGeo";
+import { companyGeoFromProfile } from "@/lib/resolveCompanyGeo";
 import type { CompanyData } from "@/components/company-profile/types";
 import {
   buildCompetitorDummySnapshot,
@@ -651,14 +651,16 @@ export function MarketPanel({ profile }: MarketPanelProps) {
   const sector = profile?.sector?.trim() || "";
   const stage = profile?.stage?.trim() || "";
   const subsectors = profile?.subsectors?.filter((s) => s.trim()) ?? [];
-  const geo = resolveCompanyGeo(profile?.hqLocation);
+  const industry = profile?.industry?.trim() || "";
+  const focusTags = [industry, ...subsectors.filter((s) => s !== industry)].filter(Boolean);
+  const geo = companyGeoFromProfile(profile);
   const [lane, setLane] = useState<MarketLaneId>("capital");
   const [openInvestor, setOpenInvestor] = useState<RankedInvestorRow | null>(null);
   const { getPartnersForFirm } = useVCDirectory();
 
   const snapshot = useMemo(
-    () => buildMarketDummySnapshot(sector, stage, subsectors),
-    [sector, stage, subsectors.join("|")],
+    () => buildMarketDummySnapshot(sector, stage, focusTags),
+    [sector, stage, focusTags.join("|")],
   );
   const competitors = useMemo(
     () => buildCompetitorDummySnapshot(sector, profile?.competitors ?? []),
@@ -686,9 +688,9 @@ export function MarketPanel({ profile }: MarketPanelProps) {
           </span>
         </div>
 
-        {subsectors.length > 0 ? (
+        {focusTags.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {subsectors.map((tag) => (
+            {focusTags.map((tag) => (
               <span
                 key={tag}
                 className="rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground"

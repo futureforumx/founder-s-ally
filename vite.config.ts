@@ -28,6 +28,7 @@ import {
   uploadR2UserAsset,
 } from "./api/_r2UserAssets";
 import { readJsonBody } from "./api/_readJsonBody";
+import { clientIpFromHeaders, resolveDeckShareView } from "./api/_deckShareViewLogic";
 import { getSupabaseServiceClient } from "./api/_supabaseServiceClient";
 import { readTrendingCache, trendingCacheControlHeader } from "./src/lib/trendingStartups/cache";
 import { emptyTrendingCatalog, findTrendingStartup } from "./src/lib/trendingStartups/catalog";
@@ -1062,6 +1063,27 @@ function r2UserAssetsDevPlugin() {
         } catch (error) {
           res.writeHead(500, cors);
           res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to delete R2 object" }));
+        }
+      });
+
+      // Public: the share token is the only credential.
+      server.middlewares.use("/api/deck-share-view", async (req: any, res: any) => {
+        if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+        if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
+
+        try {
+          const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
+          const result = await resolveDeckShareView({
+            token: typeof body.token === "string" ? body.token : "",
+            userAgent: req.headers["user-agent"] ?? null,
+            referrer: typeof body.referrer === "string" ? body.referrer : null,
+            ip: clientIpFromHeaders(req.headers["x-forwarded-for"], req.socket?.remoteAddress ?? null),
+          });
+          res.writeHead(result.status, cors);
+          res.end(JSON.stringify(result.body));
+        } catch (error) {
+          res.writeHead(500, cors);
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to open share link" }));
         }
       });
     },

@@ -103,6 +103,7 @@ export interface InvestorEntry {
   model: string; // check size range
   initial: string;
   matchReason: string | null;
+  matchScore?: number | null;
   category: "investor";
   partners?: PartnerPerson[];
   logo_url?: string | null;

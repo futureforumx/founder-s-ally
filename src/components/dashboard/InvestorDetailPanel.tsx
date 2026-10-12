@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { InvestorActivity } from "./investor-detail/InvestorActivity";
 import { ThesisTabContent } from "./investor-detail/ThesisTabContent";
-import { MatchScoreDropdown } from "./investor-detail/InvestorAIInsight";
 import { InvestorPartnersTab } from "./investor-detail/InvestorPartnersTab";
 import { ConnectionsTab } from "./investor-detail/ConnectionsTab";
 import { FeedbackTab } from "./investor-detail/FeedbackTab";
@@ -718,7 +717,7 @@ export function InvestorDetailPanel({
     };
   }, [firmWebsiteUrl, liveLoading, liveProfile?.partners]);
 
-  const matchScore = effectiveInvestor?.matchReason ? 92 : Math.floor(Math.random() * 30) + 55;
+  const matchScore = effectiveInvestor?.matchScore ?? null;
 
   const founderReputationScore =
     liveProfile?.source === "live" ? liveProfile.founder_reputation_score ?? undefined : undefined;
@@ -1611,10 +1610,10 @@ export function InvestorDetailPanel({
                   <div className="ml-auto w-fit max-w-full shrink-0">
                     <ScoreTilesRow
                       matchScore={matchScore}
+                      matchReason={effectiveInvestor?.matchReason}
                       firmName={heroName}
-                      companyContext={companyData}
-                      investorContext={investorContext}
                       founderReputationScore={founderReputationScore}
+                      lastUpdated={liveProfile?.last_enriched_at}
                       activeTileId={activeScoreTile}
                       onActiveTileChange={setActiveScoreTile}
                       showBreakdown={false}
@@ -1681,10 +1680,10 @@ export function InvestorDetailPanel({
                 <div className="relative z-10 px-8 pb-2">
                   <ScoreTilesRow
                     matchScore={matchScore}
+                    matchReason={effectiveInvestor?.matchReason}
                     firmName={heroName}
-                    companyContext={companyData}
-                    investorContext={investorContext}
                     founderReputationScore={founderReputationScore}
+                    lastUpdated={liveProfile?.last_enriched_at}
                     activeTileId={activeScoreTile}
                     onActiveTileChange={setActiveScoreTile}
                     showTiles={false}
@@ -1840,7 +1839,6 @@ export function InvestorDetailPanel({
                       <motion.div key="connections" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <ConnectionsTab
                           investorName={effectiveInvestor.name}
-                          currentUserId={session?.user?.id}
                           investorId={databaseFirmId || null}
                           isAdmin={isAdmin}
                           location={connectLocation || null}

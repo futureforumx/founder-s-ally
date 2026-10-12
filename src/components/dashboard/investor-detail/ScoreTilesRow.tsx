@@ -1,288 +1,39 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { useMatchBreakdown, getMatchFitNote } from "./InvestorAIInsight";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Subscore {
-  label: string;
-  value: number; // 0–100
-  note?: string;
-}
-
-type TileId = "match" | "founderSentiment" | "founderReputation" | "activity";
-
+type TileId = "match" | "founderReputation";
 export type { TileId };
 
-interface TileConfig {
+interface ScoreTile {
   id: TileId;
-  shortLabel: string;
-  displayLabel: string;
+  label: string;
   value: number;
-  definition: string;
-  subscores: Subscore[];
-}
-
-interface CompanyContext {
-  name?: string;
-  sector?: string;
-  stage?: string;
-  model?: string;
-  description?: string;
-}
-
-interface InvestorContext {
-  name: string;
-  description?: string;
-  stage?: string;
-  sector?: string;
-  checkSize?: string;
-  recentDeals?: string;
-  currentThesis?: string;
-  geography?: string;
-  source?: string;
+  detail: string;
 }
 
 export interface ScoreTilesRowProps {
-  matchScore: number;
+  matchScore: number | null;
+  matchReason?: string | null;
   firmName?: string;
-  companyContext?: CompanyContext | null;
-  investorContext?: InvestorContext | null;
-  founderSentimentScore?: number;
-  founderReputationScore?: number;
-  activityScore?: number;
-  lastUpdated?: string;
-  confidenceScore?: number;
+  founderReputationScore?: number | null;
+  lastUpdated?: string | null;
   activeTileId?: TileId | null;
   onActiveTileChange?: (tileId: TileId | null) => void;
   showTiles?: boolean;
   showBreakdown?: boolean;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getCaption(score: number): string {
-  if (score >= 85) return "High";
-  if (score >= 70) return "Good";
-  if (score >= 55) return "Medium";
-  return "Low";
+function colorFor(value: number): string {
+  return value >= 80 ? "text-success" : value >= 60 ? "text-warning" : "text-muted-foreground";
 }
-
-/** Activity is expressed as deployment intensity, not quality — Low / Moderate / High. */
-function getActivityCaption(score: number): string {
-  if (score >= 70) return "High";
-  if (score >= 40) return "Moderate";
-  return "Low";
-}
-
-type SubscoreTier = "high" | "good" | "medium" | "low";
-
-function tierForSubscore(score: number): SubscoreTier {
-  if (score >= 85) return "high";
-  if (score >= 70) return "good";
-  if (score >= 55) return "medium";
-  return "low";
-}
-
-/** Notes for founder-sentiment rows — always aligned to the numeric score. */
-function founderSentimentNote(
-  row: "overall" | "workAgain" | "hardTimes" | "communication",
-  score: number
-): string {
-  const t = tierForSubscore(score);
-  const m: Record<typeof row, Record<SubscoreTier, string>> = {
-    overall: {
-      high: "Consistently praised overall experience",
-      good: "Generally positive experiences reported",
-      medium: "Mixed experiences across founders",
-      low: "Frequent concerns about the partnership",
-    },
-    workAgain: {
-      high: "Most would partner again enthusiastically",
-      good: "Majority likely to work together again",
-      medium: "Split on whether they’d repeat",
-      low: "Many would not choose to work again",
-    },
-    hardTimes: {
-      high: "Stands out for support in hard moments",
-      good: "Reasonable support when things get tough",
-      medium: "Uneven support through downturns",
-      low: "Often absent or unhelpful in crises",
-    },
-    communication: {
-      high: "Clear, frequent, respectful communication",
-      good: "Solid communication with occasional gaps",
-      medium: "Inconsistent clarity or responsiveness",
-      low: "Communication is a common pain point",
-    },
-  };
-  return m[row][t];
-}
-
-function founderReputationNote(
-  row: "responsiveness" | "friendliness" | "followThrough" | "valueAdd",
-  score: number
-): string {
-  const t = tierForSubscore(score);
-  const m: Record<typeof row, Record<SubscoreTier, string>> = {
-    responsiveness: {
-      high: "Fast, reliable responses to founders",
-      good: "Usually reachable within a reasonable window",
-      medium: "Slow or uneven response patterns",
-      low: "Often hard to reach or unresponsive",
-    },
-    friendliness: {
-      high: "Widely seen as founder-aligned and fair",
-      good: "Generally constructive working style",
-      medium: "Perceived as transactional or distant",
-      low: "Often described as difficult or adversarial",
-    },
-    followThrough: {
-      high: "Commitments and promises reliably kept",
-      good: "Mostly follows through; rare misses",
-      medium: "Mixed track record on commitments",
-      low: "Frequent gaps between say and do",
-    },
-    valueAdd: {
-      high: "Strong operator and network leverage",
-      good: "Helpful introductions and light support",
-      medium: "Limited hands-on value beyond capital",
-      low: "Little perceived help beyond the check",
-    },
-  };
-  return m[row][t];
-}
-
-function activityNote(
-  row: "pace" | "recency" | "frequency" | "dryPowder",
-  score: number
-): string {
-  const t = tierForSubscore(score);
-  const m: Record<typeof row, Record<SubscoreTier, string>> = {
-    pace: {
-      high: "Deploying at a rapid clip right now",
-      good: "Steady, healthy deal cadence",
-      medium: "Occasional deals; slower cadence",
-      low: "Very few new deals lately",
-    },
-    recency: {
-      high: "Multiple rounds in the last quarter",
-      good: "Active within the last few months",
-      medium: "Last deal was a while ago",
-      low: "No recent deals on record",
-    },
-    frequency: {
-      high: "Writing new checks frequently",
-      good: "Regular check-writing pattern",
-      medium: "Infrequent check writing",
-      low: "Rarely writing new checks",
-    },
-    dryPowder: {
-      high: "Fresh fund with capital to deploy",
-      good: "Ample dry powder available",
-      medium: "Limited remaining dry powder",
-      low: "Likely near end of fund cycle",
-    },
-  };
-  return m[row][t];
-}
-
-// Returns color tokens for a given tone.
-// `subtleCls` is used on inactive tiles so the score reads quieter than the big MATCH pill.
-type ScoreTone = "success" | "warning" | "destructive";
-
-function tokensForTone(tone: ScoreTone) {
-  if (tone === "success")
-    return {
-      valueCls: "text-success",
-      subtleCls: "text-success/70",
-      activeTintBg: "bg-success/[0.05]",
-      activeBorder: "border-success/25",
-      barCls: "bg-success",
-    };
-  if (tone === "warning")
-    return {
-      valueCls: "text-warning",
-      subtleCls: "text-warning/70",
-      activeTintBg: "bg-warning/[0.05]",
-      activeBorder: "border-warning/25",
-      barCls: "bg-warning",
-    };
-  return {
-    valueCls: "text-destructive",
-    subtleCls: "text-destructive/70",
-    activeTintBg: "bg-destructive/[0.05]",
-    activeBorder: "border-destructive/25",
-    barCls: "bg-destructive",
-  };
-}
-
-function colorTokens(score: number) {
-  if (score >= 85) return tokensForTone("success");
-  if (score >= 65) return tokensForTone("warning");
-  return tokensForTone("destructive");
-}
-
-/** Activity tiers mirror the Low / Moderate / High caption: more deployment reads greener. */
-function activityColorTokens(score: number) {
-  if (score >= 70) return tokensForTone("success");
-  if (score >= 40) return tokensForTone("warning");
-  return tokensForTone("destructive");
-}
-
-// ─── Subscore row ─────────────────────────────────────────────────────────────
-// Layout: Label | bar track | score | note
-// Each bar color is keyed to its own value, matching major score color logic.
-
-function SubscoreRow({ sub }: { sub: Subscore }) {
-  const barCls = colorTokens(sub.value).barCls;
-  return (
-    <div className="flex items-center gap-3">
-      {/* Label */}
-      <span className="text-[11px] text-foreground/70 w-32 shrink-0 leading-snug">
-        {sub.label}
-      </span>
-
-      {/* Bar track */}
-      <div className="flex-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
-        <motion.div
-          className={`h-full rounded-full ${barCls}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${sub.value}%` }}
-          transition={{ duration: 0.32, ease: "easeOut" }}
-        />
-      </div>
-
-      {/* Score number */}
-      <span className="text-[11px] font-semibold text-foreground/70 w-6 text-right tabular-nums shrink-0">
-        {sub.value}
-      </span>
-
-      {/* Optional note */}
-      {sub.note ? (
-        <span className="text-[10px] text-muted-foreground/50 w-40 text-right shrink-0 leading-snug truncate">
-          {sub.note}
-        </span>
-      ) : (
-        <span className="w-40 shrink-0" />
-      )}
-    </div>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
 
 export function ScoreTilesRow({
   matchScore,
+  matchReason,
   firmName = "",
-  companyContext,
-  investorContext,
-  founderSentimentScore = 74,
-  founderReputationScore = 68,
-  activityScore = 84,
+  founderReputationScore,
   lastUpdated,
-  confidenceScore = 87,
   activeTileId,
   onActiveTileChange,
   showTiles = true,
@@ -290,227 +41,88 @@ export function ScoreTilesRow({
 }: ScoreTilesRowProps) {
   const [internalActiveTile, setInternalActiveTile] = useState<TileId | null>(null);
   const activeTile = activeTileId !== undefined ? activeTileId : internalActiveTile;
-
   const setActiveTile = (next: TileId | null) => {
-    if (onActiveTileChange) {
-      onActiveTileChange(next);
-      return;
-    }
-    setInternalActiveTile(next);
+    onActiveTileChange ? onActiveTileChange(next) : setInternalActiveTile(next);
   };
 
   useEffect(() => {
-    setActiveTile(null);
-  }, [firmName]);
+    if (onActiveTileChange) onActiveTileChange(null);
+    else setInternalActiveTile(null);
+  }, [firmName, onActiveTileChange]);
 
-  // Shared with the big Match pill — sessionStorage caches so no duplicate calls.
-  const { items: matchItems } = useMatchBreakdown(
-    firmName,
-    companyContext,
-    investorContext,
-    matchScore,
-  );
+  const tiles = useMemo<ScoreTile[]>(() => {
+    const available: ScoreTile[] = [];
+    if (matchScore !== null && Number.isFinite(matchScore)) {
+      available.push({
+        id: "match",
+        label: "Company fit",
+        value: Math.max(0, Math.min(100, Math.round(matchScore))),
+        detail: matchReason?.trim() || "The matching rules did not return an explanation for this result.",
+      });
+    }
+    if (founderReputationScore !== null && founderReputationScore !== undefined && Number.isFinite(founderReputationScore)) {
+      available.push({
+        id: "founderReputation",
+        label: "Founder reputation",
+        value: Math.max(0, Math.min(100, Math.round(founderReputationScore))),
+        detail: "Firm-level founder reputation score from the investor profile.",
+      });
+    }
+    return available;
+  }, [founderReputationScore, matchReason, matchScore]);
 
-  const computedMatchScore = useMemo(() => {
-    if (!matchItems.length) return matchScore;
-    return Math.round(
-      matchItems.reduce((s, i) => s + i.score, 0) / matchItems.length,
-    );
-  }, [matchItems, matchScore]);
-
-  const tiles: TileConfig[] = [
-    {
-      id: "match",
-      shortLabel: "MATCH",
-      displayLabel: "Match",
-      value: computedMatchScore,
-      definition:
-        "How well this investor matches your stage, sector, geography, and check size.",
-      subscores: matchItems.length
-        ? matchItems.map((item) => ({
-            label:
-              item.category.charAt(0).toUpperCase() +
-              item.category.slice(1) +
-              " fit",
-            value: item.score,
-            note: getMatchFitNote(item.category, item.score),
-          }))
-        : [
-            { label: "Sector fit", value: 88, note: getMatchFitNote("sector", 88) },
-            { label: "Stage fit", value: 95, note: getMatchFitNote("stage", 95) },
-            { label: "Geography fit", value: 78, note: getMatchFitNote("geography", 78) },
-            { label: "Profile fit", value: 82, note: getMatchFitNote("profile", 82) },
-          ],
-    },
-    {
-      id: "founderSentiment",
-      shortLabel: "SENTIMENT",
-      displayLabel: "Founder Sentiment",
-      value: founderSentimentScore,
-      definition:
-        "How positively founders in our network talk about working with this investor.",
-      subscores: [
-        { label: "Overall experience", value: 76, note: founderSentimentNote("overall", 76) },
-        { label: "Work with again", value: 72, note: founderSentimentNote("workAgain", 72) },
-        { label: "Hard times support", value: 68, note: founderSentimentNote("hardTimes", 68) },
-        { label: "Communication", value: 80, note: founderSentimentNote("communication", 80) },
-      ],
-    },
-    {
-      id: "founderReputation",
-      shortLabel: "REPUTATION",
-      displayLabel: "Founder Reputation",
-      value: founderReputationScore,
-      definition:
-        "Reputation of this investor among founders more broadly, beyond your immediate network.",
-      subscores: [
-        { label: "Responsiveness", value: 70, note: founderReputationNote("responsiveness", 70) },
-        { label: "Founder friendliness", value: 65, note: founderReputationNote("friendliness", 65) },
-        { label: "Follow-through", value: 72, note: founderReputationNote("followThrough", 72) },
-        { label: "Value-add", value: 66, note: founderReputationNote("valueAdd", 66) },
-      ],
-    },
-    {
-      id: "activity",
-      shortLabel: "ACTIVITY",
-      displayLabel: "Investing Activity",
-      value: activityScore,
-      definition:
-        "How actively this firm is deploying capital right now — recent deal pace, check frequency, and remaining dry powder.",
-      subscores: [
-        { label: "Deal pace", value: 86, note: activityNote("pace", 86) },
-        { label: "Recent rounds", value: 82, note: activityNote("recency", 82) },
-        { label: "Check frequency", value: 80, note: activityNote("frequency", 80) },
-        { label: "Dry powder", value: 84, note: activityNote("dryPowder", 84) },
-      ],
-    },
-  ];
-
-  const formattedDate =
-    lastUpdated ??
-    new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-  const handleTileClick = (id: TileId) =>
-    setActiveTile((prev) => (prev === id ? null : id));
-
-  const activeTileConfig = activeTile
-    ? tiles.find((t) => t.id === activeTile)
-    : null;
+  const activeTileConfig = tiles.find((tile) => tile.id === activeTile) ?? null;
 
   return (
     <div className="w-full min-w-0">
-      {/* ── Tile strip ─────────────────────────────────────────────────────── */}
-      {showTiles && <div className="flex w-fit max-w-full gap-2 ml-auto">
-        {tiles.map((tile) => {
-          const isActive = activeTile === tile.id;
-          const isActivity = tile.id === "activity";
-          const colors = isActivity ? activityColorTokens(tile.value) : colorTokens(tile.value);
-          const caption = isActivity ? getActivityCaption(tile.value) : getCaption(tile.value);
-
-          return (
+      {showTiles && (
+        <div className="flex w-fit max-w-full gap-2 ml-auto">
+          {tiles.map((tile) => (
             <button
               key={tile.id}
-              onClick={() => handleTileClick(tile.id)}
-              aria-expanded={isActive}
-              className={[
-                "group relative overflow-hidden rounded-xl px-2.5 py-2 min-w-[82px]",
-                "flex flex-col items-start",
-                "backdrop-blur-[28px] border transition-all duration-200 select-none cursor-pointer",
-                isActive
-                  ? `${colors.activeTintBg} ${colors.activeBorder} shadow-lg`
-                  : "bg-white/50 dark:bg-white/[0.07] border-white/25 dark:border-white/[0.12] hover:bg-white/60 dark:hover:bg-white/[0.11] hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]",
-              ].join(" ")}
+              type="button"
+              onClick={() => setActiveTile(activeTile === tile.id ? null : tile.id)}
+              aria-expanded={activeTile === tile.id}
+              className="min-w-[92px] rounded-xl border border-border/70 bg-card/80 px-3 py-2 text-left transition-colors hover:bg-secondary/70"
             >
-              {/* Top specular highlight — simulates glass edge catching light */}
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
-
-              {/* Label row with colored accent dot */}
-              <div className="flex items-center gap-1 mb-1.5">
-                <span className={["w-1.5 h-1.5 rounded-full shrink-0", colors.barCls].join(" ")} />
-                <span className="text-[8px] tracking-[0.05em] uppercase font-semibold text-foreground/55 leading-none">
-                  {tile.shortLabel}
-                </span>
-              </div>
-
-              {/* Score — neutral color, weight carries the hierarchy */}
-              <div className="relative mb-0.5">
-                <span className="text-[23px] font-bold leading-none tabular-nums text-foreground">
-                  {tile.value}
-                </span>
-                {/* Soft color bloom behind number */}
-                <div className={["absolute inset-0 blur-2xl opacity-25 rounded-full scale-[2]", colors.barCls].join(" ")} />
-              </div>
-
-              {/* Caption */}
-              <span className="text-[9px] text-foreground/40 leading-none mb-1.5">
-                {caption}
-              </span>
-
-              {/* Colored progress pill */}
-              <div className="h-0.5 w-full rounded-full bg-black/[0.06] dark:bg-white/10">
-                <motion.div
-                  className={`h-0.5 rounded-full ${colors.barCls} opacity-75`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${tile.value}%` }}
-                  transition={{ duration: 0.55, ease: "easeOut" }}
-                />
-              </div>
-
-              {/* Shimmer sweep */}
-              <div className="absolute bottom-0 left-0 h-[2px] w-full overflow-hidden">
-                <div className={["h-full w-1/3 animate-shimmer opacity-50", colors.barCls].join(" ")} />
-              </div>
+              <span className="block text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">{tile.label}</span>
+              <span className={`mt-1 block text-2xl font-bold tabular-nums ${colorFor(tile.value)}`}>{tile.value}</span>
+              <span className="text-[9px] text-muted-foreground">profile score</span>
+              <ChevronDown className={`mt-1 h-3 w-3 text-muted-foreground transition-transform ${activeTile === tile.id ? "rotate-180" : ""}`} />
             </button>
-          );
-        })}
-      </div>}
+          ))}
+          {tiles.length === 0 && (
+            <p className="max-w-40 py-2 text-right text-[10px] leading-relaxed text-muted-foreground">
+              No company-specific match score is available.
+            </p>
+          )}
+        </div>
+      )}
 
-      {/* ── Breakdown panel ────────────────────────────────────────────────── */}
-      {showBreakdown && <AnimatePresence mode="wait">
-        {activeTileConfig && (
-          <motion.div
-            key={activeTileConfig.id}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden w-full"
-          >
-            {(() => {
-              const colors = colorTokens(activeTileConfig.value);
-              return (
-                <div className="mt-2 rounded-[10px] bg-secondary/30 dark:bg-secondary/20 border border-border/50 px-4 pt-3 pb-2.5 w-full">
-                  {/* Panel header */}
-                  <p className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground/60 mb-2">
-                    {activeTileConfig.displayLabel} — score breakdown
+      {showBreakdown && (
+        <AnimatePresence mode="wait">
+          {activeTileConfig && (
+            <motion.div
+              key={activeTileConfig.id}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="overflow-hidden w-full"
+            >
+              <div className="mt-2 rounded-xl border border-border/60 bg-secondary/30 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Why this score</p>
+                <p className="mt-1 text-xs leading-relaxed text-foreground/80">{activeTileConfig.detail}</p>
+                {lastUpdated && (
+                  <p className="mt-2 border-t border-border/40 pt-2 text-[9px] text-muted-foreground">
+                    Investor profile last enriched {new Date(lastUpdated).toLocaleDateString()}.
                   </p>
-
-                  {/* Definition */}
-                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed mb-3">
-                    {activeTileConfig.definition}
-                  </p>
-
-                  {/* Subscores — each bar uses value-based color tiers */}
-                  <div className="space-y-2.5">
-                    {activeTileConfig.subscores.map((sub) => (
-                      <SubscoreRow key={sub.label} sub={sub} />
-                    ))}
-                  </div>
-
-                  {/* Footer */}
-                  <p className="mt-3 text-[9px] text-muted-foreground/35 border-t border-border/20 pt-1.5">
-                    Updated {formattedDate} · Confidence {confidenceScore}%
-                  </p>
-                </div>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>}
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }

@@ -46,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { NETWORK_SURFACE_DISPLAY_NAME } from "@/lib/networkNavVariant";
 import { listedInvestmentCount, recentDealCount, resolveActivelyDeploying, deployingNameKey } from "@/lib/activelyDeploying";
 import { cn } from "@/lib/utils";
 import { resolveAumBandFromUsd, AUM_BAND_LABELS, AUM_BAND_RANGES } from "@/lib/aumBand";
@@ -3641,7 +3640,7 @@ export function CommunityView({
         {variant !== "investor-search" && !isOperatorHubLayout && (
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              {NETWORK_SURFACE_DISPLAY_NAME}
+              Founders & Operators
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">Discover and connect with founders building the future</p>
           </div>

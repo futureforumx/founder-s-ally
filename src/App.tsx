@@ -29,6 +29,7 @@ const FreshCapitalAliasRoute = lazy(() => import("./pages/FreshCapitalAliasRoute
 const TrendingStartupsPage = lazy(() => import("./pages/TrendingStartupsPage.tsx"));
 const TrendingStartupDetailPage = lazy(() => import("./pages/TrendingStartupDetailPage.tsx"));
 const OutboundPage = lazy(() => import("./pages/OutboundPage.tsx"));
+const DeckSharePage = lazy(() => import("./pages/DeckSharePage.tsx"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -448,6 +449,14 @@ const App = () => (
                 element={
                   <Suspense fallback={null}>
                     <OutboundPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/share/:token"
+                element={
+                  <Suspense fallback={<RouteLoader label="Opening shared deck…" />}>
+                    <DeckSharePage />
                   </Suspense>
                 }
               />

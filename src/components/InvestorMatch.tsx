@@ -3,9 +3,8 @@ import { SectorClassification } from "@/components/SectorTags";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CompanyData, AnalysisResult } from "@/components/CompanyProfile";
-import { Lock, SlidersHorizontal } from "lucide-react";
+import { Lock } from "lucide-react";
 import { IntelligenceCards } from "@/components/investor-match/IntelligenceCards";
-import { PersonalizeWeightsSidebar, type WeightConfig } from "@/components/investor-match/PersonalizeWeightsSidebar";
 
 import { UpdatesTab } from "@/components/investor-match/UpdatesTab";
 import { MatchesTab } from "@/components/investor-match/MatchesTab";
@@ -213,8 +212,6 @@ export function InvestorMatch({
   const [pendingVcReviewContext, setPendingVcReviewContext] = useState<VcReviewOpenDetail | null>(null);
   const [openReviewFromBootstrap, setOpenReviewFromBootstrap] = useState(false);
   const bootstrapHandledRef = useRef<string | null>(null);
-  const [weightsOpen, setWeightsOpen] = useState(false);
-  const [weights, setWeights] = useState<WeightConfig>({ fit: 50, sentiment: 50, responsiveness: 50, activity: 50 });
 
   const {
     savedFirmIds,
@@ -415,15 +412,7 @@ export function InvestorMatch({
             AI-driven investor discovery based on your profile and current cap table.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeightsOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Tune
-          </button>
-          <TimeRangeControl value={timeRange} onChange={setTimeRange} />
-        </div>
+        <TimeRangeControl value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* Intelligence Cards */}
@@ -466,7 +455,6 @@ export function InvestorMatch({
           enrichingKeys={enrichingKeys}
           savedFirmIds={savedFirmIds}
           collaborativeRecs={collaborativeRecs.data || []}
-          weights={weights}
           companySector={sectorClassification?.primary_sector || companyData?.sector}
           companyStage={companyData?.stage}
           onSave={(firmId) => recordInteraction.mutate({ firmId, action: "saved" })}
@@ -482,6 +470,7 @@ export function InvestorMatch({
               model: `${formatCheckSize(inv.min_check_size)}–${formatCheckSize(inv.max_check_size)}`,
               initial: inv.firm_name.charAt(0).toUpperCase(),
               matchReason: inv.reasoning,
+              matchScore: inv.score,
               category: "investor" as const,
               investorDatabaseId: inv.id,
               websiteUrl: inv.website_url ?? null,
@@ -507,13 +496,6 @@ export function InvestorMatch({
         reviewPersonIdHint={pendingVcReviewContext?.vcPersonId ?? null}
         openReviewModalOnMount={openReviewFromBootstrap}
         onReviewBootstrapConsumed={() => setOpenReviewFromBootstrap(false)}
-      />
-
-      <PersonalizeWeightsSidebar
-        open={weightsOpen}
-        onClose={() => setWeightsOpen(false)}
-        weights={weights}
-        onChange={setWeights}
       />
     </div>
   );

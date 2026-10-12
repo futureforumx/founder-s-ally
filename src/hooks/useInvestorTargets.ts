@@ -8,6 +8,33 @@ import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 // ---------------------------------------------------------------------------
 
 export type PipelineStage = "researching" | "reaching_out" | "met" | "passed" | "committed";
+export type InvestorIntroRoute = "ask_intro" | "direct_outreach" | "portfolio_help" | "thesis_content" | "advice";
+export type InvestorIntroOutcome =
+  | "intro_requested"
+  | "connected"
+  | "meeting_booked"
+  | "declined"
+  | "no_response"
+  | "passed"
+  | "committed";
+
+export const INTRO_ROUTES: { value: InvestorIntroRoute; label: string }[] = [
+  { value: "ask_intro", label: "Ask for a warm intro" },
+  { value: "direct_outreach", label: "Reach out directly" },
+  { value: "portfolio_help", label: "Help a portfolio company" },
+  { value: "thesis_content", label: "Share thesis-relevant work" },
+  { value: "advice", label: "Ask for advice" },
+];
+
+export const INTRO_OUTCOMES: { value: InvestorIntroOutcome; label: string }[] = [
+  { value: "intro_requested", label: "Intro requested" },
+  { value: "connected", label: "Connected" },
+  { value: "meeting_booked", label: "Meeting booked" },
+  { value: "declined", label: "Declined" },
+  { value: "no_response", label: "No response" },
+  { value: "passed", label: "Passed" },
+  { value: "committed", label: "Committed" },
+];
 
 export const PIPELINE_STAGES: { value: PipelineStage; label: string }[] = [
   { value: "researching", label: "Researching" },
@@ -94,14 +121,24 @@ export function useAddInvestorTarget() {
       organizationId: string;
       pipelineStage: PipelineStage;
     }) => {
+      const { data: existing, error: lookupError } = await supabase
+        .from("context_entity_notes")
+        .select("id")
+        .eq("owner_context_id", ownerContextId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      if (existing?.id) return existing.id;
+
       const row: TablesInsert<"context_entity_notes"> = {
         owner_context_id: ownerContextId,
         subject_type: "organization",
         organization_id: organizationId,
         pipeline_stage: pipelineStage,
       };
-      const { error } = await supabase.from("context_entity_notes").insert(row);
+      const { data, error } = await supabase.from("context_entity_notes").insert(row).select("id").single();
       if (error) throw new Error(error.message);
+      return data.id;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TARGETS_QUERY_KEY] });
@@ -123,6 +160,43 @@ export function useUpdateTargetStage() {
         .update({ pipeline_stage: stage })
         .eq("id", id);
       if (error) throw new Error(`useUpdateTargetStage: ${error.message}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [TARGETS_QUERY_KEY] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateInvestorIntro — persist the chosen route and latest outcome.
+// ---------------------------------------------------------------------------
+
+export function useUpdateInvestorIntro() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ownerContextId,
+      targetId,
+      route,
+      outcome,
+    }: {
+      ownerContextId: string;
+      targetId: string;
+      route: InvestorIntroRoute;
+      outcome: InvestorIntroOutcome | null;
+    }) => {
+      if (!isOwnerContextUuid(ownerContextId)) {
+        throw new Error("A workspace context is required to track this approach.");
+      }
+
+      const { error } = await supabase
+        .from("context_entity_notes")
+        .update({ intro_route: route, intro_outcome: outcome })
+        .eq("id", targetId)
+        .eq("owner_context_id", ownerContextId);
+
+      if (error) throw new Error(`useUpdateInvestorIntro: ${error.message}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TARGETS_QUERY_KEY] });

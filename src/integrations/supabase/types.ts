@@ -884,6 +884,8 @@ export type Database = {
           custom_tags: string[] | null
           fit_score: number | null
           id: string
+          intro_outcome: string | null
+          intro_route: string | null
           notes: string | null
           organization_id: string | null
           owner_context_id: string
@@ -897,6 +899,8 @@ export type Database = {
           custom_tags?: string[] | null
           fit_score?: number | null
           id?: string
+          intro_outcome?: string | null
+          intro_route?: string | null
           notes?: string | null
           organization_id?: string | null
           owner_context_id: string
@@ -910,6 +914,8 @@ export type Database = {
           custom_tags?: string[] | null
           fit_score?: number | null
           id?: string
+          intro_outcome?: string | null
+          intro_route?: string | null
           notes?: string | null
           organization_id?: string | null
           owner_context_id?: string

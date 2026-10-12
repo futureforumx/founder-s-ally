@@ -1,14 +1,21 @@
 import { useState } from "react";
-import { Share2, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeckAuditView } from "./DeckAuditView";
+import { CompanyPanel } from "./data-room/CompanyPanel";
 import { MetricsPanel } from "./data-room/MetricsPanel";
 import { AssessmentBenchmarkBar } from "./data-room/AssessmentBenchmarkBar";
 import { MarketPanel } from "./data-room/MarketPanel";
+import { SharePanel } from "./data-room/SharePanel";
+import { BestMatchesPanel } from "./data-room/BestMatchesPanel";
+import { RecentActivityPanel } from "./data-room/RecentActivityPanel";
 import { useStoredCompanyProfile } from "@/hooks/useStoredCompanyProfile";
+import { useCompanyProfileFields } from "@/hooks/useCompanyProfileFields";
+import { companyGeoFromProfile } from "@/lib/resolveCompanyGeo";
 import type { AuditResult } from "./deck-audit/types";
 
 const DATA_ROOM_TABS = [
+  { id: "overview" as const, label: "Overview" },
   { id: "files" as const, label: "Files" },
   { id: "metrics" as const, label: "Metrics" },
   { id: "assessment" as const, label: "Assessment" },
@@ -33,7 +40,7 @@ function ComingSoonPanel({
   title,
   description,
 }: {
-  icon: typeof Share2;
+  icon: typeof BarChart3;
   title: string;
   description: string;
 }) {
@@ -49,13 +56,19 @@ function ComingSoonPanel({
 }
 
 export function DataHubPage() {
-  const [activeTab, setActiveTab] = useState<DataRoomTabId>("files");
+  const [activeTab, setActiveTab] = useState<DataRoomTabId>("overview");
   const companyProfile = useStoredCompanyProfile();
   const auditResult = activeTab === "assessment" ? readDeckAuditResult() : null;
+  // The raw stored fields, so Best Matches tracks the Company Details card even
+  // before a company name has been saved.
+  const { profile } = useCompanyProfileFields();
 
   return (
-    <div className={cn("mx-auto w-full px-4 py-8 sm:px-6 lg:px-8", activeTab === "market" ? "max-w-6xl" : "max-w-5xl")}>
-      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
+    <div className={cn(
+      "mx-auto w-full px-4 py-8 sm:px-6 lg:px-8",
+      activeTab === "overview" ? "max-w-[1312px]" : activeTab === "market" ? "max-w-6xl" : "max-w-5xl",
+    )}>
+      <div className="flex flex-wrap items-center gap-1 border-b border-border pb-4">
         {DATA_ROOM_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -64,10 +77,10 @@ export function DataHubPage() {
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest rounded-md transition-all",
+                "rounded-md px-3 py-1.5 font-spaceGrotesk text-[11px] uppercase tracking-[0.14em] transition-colors",
                 isActive
-                  ? "bg-accent/10 text-accent font-bold"
-                  : "text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30",
+                  ? "bg-primary/10 font-bold text-primary"
+                  : "font-medium text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -84,17 +97,36 @@ export function DataHubPage() {
         />
       )}
 
-      <div className={cn(activeTab === "assessment" || activeTab === "market" ? "mt-5" : "mt-8")}>
-        {activeTab === "metrics" ? (
+      <div className={cn(
+        activeTab === "assessment" || activeTab === "market"
+          ? "mt-5"
+          : activeTab === "overview"
+            ? "mt-9"
+            : "mt-8",
+      )}>
+        {activeTab === "overview" ? (
+          <div className="space-y-9">
+            <CompanyPanel />
+            <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-2 lg:gap-16">
+              <BestMatchesPanel
+                company={{
+                  stage: profile.stage,
+                  sector: profile.sector,
+                  industry: profile.industry,
+                  businessModel: profile.businessModel,
+                  targetCustomer: profile.targetCustomer,
+                  geo: companyGeoFromProfile(profile),
+                }}
+              />
+              <RecentActivityPanel />
+            </div>
+          </div>
+        ) : activeTab === "metrics" ? (
           <MetricsPanel />
         ) : activeTab === "market" ? (
           <MarketPanel profile={companyProfile} />
         ) : activeTab === "share" ? (
-          <ComingSoonPanel
-            icon={Share2}
-            title="Sharing is coming soon"
-            description="You'll be able to share your pitch deck and assessment with investors directly from here."
-          />
+          <SharePanel />
         ) : activeTab === "analytics" ? (
           <ComingSoonPanel
             icon={BarChart3}

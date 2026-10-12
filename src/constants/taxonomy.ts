@@ -16,6 +16,7 @@ export interface SectorOption extends TaxonomyOption {
 // ── Stage Options (strict chronological order — do NOT sort) ──
 
 export const STAGE_OPTIONS: TaxonomyOption[] = [
+  { label: "Accelerator", description: "In or out of an accelerator / studio program", search_tags: ["accelerator", "incubator", "studio", "yc", "techstars", "cohort", "demo day"] },
   { label: "Pre-Seed", description: "Idea stage, no product yet", search_tags: ["idea", "concept", "pre-seed", "preseed", "friends and family", "f&f", "bootstrapping"] },
   { label: "Seed", description: "MVP built, early traction", search_tags: ["seed", "mvp", "early", "angel", "pre-revenue", "pilot", "beta"] },
   { label: "Series A", description: "Product-market fit, scaling GTM", search_tags: ["series a", "growth", "pmf", "product market fit", "scaling", "gtm"] },
@@ -135,7 +136,7 @@ export const GEO_OPTIONS: TaxonomyOption[] = [
 // ── Business Model Options ──
 
 export const BUSINESS_MODEL_OPTIONS: TaxonomyOption[] = [
-  { label: "B2B SaaS", description: "Recurring subscription software", search_tags: ["saas", "subscription", "cloud", "software", "recurring revenue", "mrr", "arr"] },
+  { label: "SaaS", description: "Recurring subscription software", search_tags: ["saas", "b2b saas", "subscription", "cloud", "software", "recurring revenue", "mrr", "arr"] },
   { label: "Marketplace", description: "Two-sided platform connecting buyers & sellers", search_tags: ["marketplace", "platform", "two-sided", "network effect", "supply demand", "matching"] },
   { label: "E-Commerce", description: "Direct online retail or D2C", search_tags: ["ecommerce", "e-commerce", "d2c", "dtc", "online store", "retail", "shop", "cart"] },
   { label: "Hardware", description: "Physical product or device", search_tags: ["hardware", "device", "iot", "sensor", "wearable", "physical product", "embedded", "gadget"] },
@@ -144,14 +145,15 @@ export const BUSINESS_MODEL_OPTIONS: TaxonomyOption[] = [
   { label: "Usage-Based", description: "Pay-per-use or consumption pricing", search_tags: ["usage", "consumption", "metered", "pay per use", "api calls", "credits", "utility"] },
   { label: "Licensing", description: "One-time or recurring license fees", search_tags: ["license", "licensing", "perpetual", "seat license", "enterprise license"] },
   { label: "Advertising", description: "Revenue from ads and sponsorships", search_tags: ["advertising", "ads", "ad-supported", "cpm", "cpc", "sponsorship", "media"] },
-  { label: "Transaction Fee", description: "Revenue from per-transaction commissions", search_tags: ["transaction", "commission", "take rate", "payment processing", "interchange", "fee per transaction"] },
+  { label: "Transaction/Fintech", description: "Revenue from per-transaction commissions", search_tags: ["transaction", "transaction fee", "fintech", "commission", "take rate", "payment processing", "interchange", "fee per transaction"] },
 ];
 
 // ── Target Customer Options ──
 
 export const TARGET_CUSTOMER_OPTIONS: TaxonomyOption[] = [
   { label: "B2B", description: "Selling to other businesses", search_tags: ["b2b", "business to business", "enterprise sales", "corporate", "company"] },
-  { label: "B2C", description: "Selling directly to consumers", search_tags: ["b2c", "consumer", "direct to consumer", "retail", "end user", "individual"] },
+  { label: "B2C", description: "Selling directly to consumers", search_tags: ["b2c", "consumer", "retail", "end user", "individual"] },
+  { label: "D2C", description: "Owning the whole channel to the consumer", search_tags: ["d2c", "dtc", "direct to consumer", "own channel", "no intermediary", "brand"] },
   { label: "B2B2C", description: "Reaching consumers through business partners", search_tags: ["b2b2c", "channel", "partner", "distribution", "embedded", "white label"] },
   { label: "SMB", description: "Small & medium businesses", search_tags: ["smb", "small business", "medium business", "sme", "local business", "self-serve"] },
   { label: "Enterprise", description: "Large corporations (500+ employees)", search_tags: ["enterprise", "large company", "fortune 500", "global", "multi-national", "complex sale"] },

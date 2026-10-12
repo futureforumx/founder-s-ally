@@ -1,5 +1,17 @@
 import { GEO_OPTIONS } from "@/constants/taxonomy";
 
+/**
+ * Canonical region for a company profile: the region the founder picked in the
+ * Data Room, falling back to one inferred from their HQ text.
+ */
+export function companyGeoFromProfile(
+  profile?: { geo?: string | null; hqLocation?: string | null } | null,
+): string {
+  const explicit = (profile?.geo ?? "").trim();
+  if (explicit) return explicit;
+  return resolveCompanyGeo(profile?.hqLocation);
+}
+
 /** Map HQ city/country text to a canonical geo region label. */
 export function resolveCompanyGeo(hqLocation?: string | null): string {
   const loc = (hqLocation ?? "").trim().toLowerCase();

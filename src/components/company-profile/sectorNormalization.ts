@@ -128,12 +128,13 @@ const SECTOR_ALIASES: Record<string, string> = {
   "sales enablement": "Marketing, Sales & Retail Infrastructure",
 };
 
-// Business model normalization: AI might return "SaaS" → we need "B2B SaaS"
+// Business model normalization: maps AI output and previously stored labels
+// (e.g. the older "B2B SaaS" / "Transaction Fee") onto the canonical labels.
 const BIZ_MODEL_ALIASES: Record<string, string> = {
   ...Object.fromEntries(BUSINESS_MODEL_OPTIONS.map(o => [o.label.toLowerCase(), o.label])),
-  "saas": "B2B SaaS",
-  "b2b saas": "B2B SaaS",
-  "subscription": "B2B SaaS",
+  "saas": "SaaS",
+  "b2b saas": "SaaS",
+  "subscription": "SaaS",
   "platform": "Marketplace",
   "two-sided": "Marketplace",
   "d2c": "E-Commerce",
@@ -152,8 +153,10 @@ const BIZ_MODEL_ALIASES: Record<string, string> = {
   "perpetual": "Licensing",
   "ads": "Advertising",
   "ad-supported": "Advertising",
-  "commission": "Transaction Fee",
-  "take rate": "Transaction Fee",
+  "commission": "Transaction/Fintech",
+  "take rate": "Transaction/Fintech",
+  "transaction fee": "Transaction/Fintech",
+  "fintech": "Transaction/Fintech",
 };
 
 // Target customer normalization
@@ -162,7 +165,8 @@ const TARGET_ALIASES: Record<string, string> = {
   "business to business": "B2B",
   "business": "B2B",
   "consumer": "B2C",
-  "direct to consumer": "B2C",
+  "direct to consumer": "D2C",
+  "dtc": "D2C",
   "small business": "SMB",
   "medium business": "SMB",
   "sme": "SMB",

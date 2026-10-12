@@ -2,6 +2,9 @@
   "plugins": {
     "functions": {
       "enabled": true
+    },
+    "paper-desktop": {
+      "enabled": true
     }
   }
 }

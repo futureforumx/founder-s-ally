@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Target } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCompanyGeo } from "@/lib/resolveCompanyGeo";
+import { companyGeoFromProfile } from "@/lib/resolveCompanyGeo";
 import type { CompanyData } from "@/components/company-profile/types";
 import type { AuditResult } from "@/components/deck-audit/types";
 
@@ -57,7 +57,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 export function AssessmentBenchmarkBar({ profile, auditResult, className }: AssessmentBenchmarkBarProps) {
   const sector = profile?.sector?.trim() || "";
   const stage = profile?.stage?.trim() || "Not set";
-  const geo = resolveCompanyGeo(profile?.hqLocation);
+  const geo = companyGeoFromProfile(profile);
 
   const summary = useMemo(
     () => competitiveSummary(auditResult, sector, stage === "Not set" ? "" : stage, geo),

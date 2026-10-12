@@ -25,6 +25,9 @@ export interface CompanyData {
   stage: string;
   sector: string;
   subsectors: string[];
+  /** Single industry within `sector`, or "" for the whole sector. Distinct from
+   *  `subsectors`, which investor matching reads as secondary sectors. */
+  industry: string;
   description: string;
   website: string;
   teamSize: string;
@@ -32,6 +35,8 @@ export interface CompanyData {
   businessModel: string[];
   targetCustomer: string[];
   hqLocation: string;
+  /** Canonical GEO_OPTIONS region. Overrides the region inferred from hqLocation. */
+  geo: string;
   competitors: string[];
   uniqueValueProp: string;
   currentARR: string;
@@ -144,8 +149,8 @@ export interface AnalysisResult {
 }
 
 export const EMPTY_FORM: CompanyData = {
-  name: "", stage: "", sector: "", subsectors: [], description: "", website: "", teamSize: "",
-  businessModel: [], targetCustomer: [], hqLocation: "", competitors: [],
+  name: "", stage: "", sector: "", subsectors: [], industry: "", description: "", website: "", teamSize: "",
+  businessModel: [], targetCustomer: [], hqLocation: "", geo: "", competitors: [],
   uniqueValueProp: "", currentARR: "", yoyGrowth: "", momGrowth: "", totalHeadcount: "",
   socialTwitter: "", socialLinkedin: "", socialInstagram: "",
   onePagerUrl: "",
@@ -157,12 +162,14 @@ const COMPANY_DATA_KEYS = new Set<string>([
   "stage",
   "sector",
   "subsectors",
+  "industry",
   "description",
   "website",
   "teamSize",
   "businessModel",
   "targetCustomer",
   "hqLocation",
+  "geo",
   "competitors",
   "uniqueValueProp",
   "currentARR",
@@ -204,12 +211,14 @@ export function sanitizeCompanyData(raw: unknown): CompanyData | null {
     stage: str(p.stage),
     sector: str(p.sector),
     subsectors: strArray(p.subsectors),
+    industry: str(p.industry),
     description: str(p.description),
     website: str(p.website),
     teamSize: str(p.teamSize),
     businessModel: strArray(p.businessModel),
     targetCustomer: strArray(p.targetCustomer),
     hqLocation: str(p.hqLocation),
+    geo: str(p.geo),
     competitors: strArray(p.competitors),
     uniqueValueProp: str(p.uniqueValueProp),
     currentARR: str(p.currentARR),
