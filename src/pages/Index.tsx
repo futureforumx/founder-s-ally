@@ -18,7 +18,6 @@ const GroupsView = lazy(() => import("@/components/community/GroupsView").then((
 const MarketFundingView = lazy(() => import("@/components/community/MarketFundingView").then((module) => ({ default: module.MarketFundingView })));
 const MarketTrendingView = lazy(() => import("@/components/community/MarketTrendingView").then((module) => ({ default: module.MarketTrendingView })));
 const HelpCenter = lazy(() => import("@/components/HelpCenter").then((module) => ({ default: module.HelpCenter })));
-const DeckAuditView = lazy(() => import("@/components/DeckAuditView").then((module) => ({ default: module.DeckAuditView })));
 const CompetitiveBenchmarking = lazy(() => import("@/components/CompetitiveBenchmarking").then((module) => ({ default: module.CompetitiveBenchmarking })));
 const InvestorMatch = lazy(() => import("@/components/InvestorMatch").then((module) => ({ default: module.InvestorMatch })));
 const CompetitorsView = lazy(() => import("@/components/CompetitorsView").then((module) => ({ default: module.CompetitorsView })));
@@ -657,10 +656,6 @@ const Index = () => {
             <DeferredSection label="Loading trending startups…">
               <MarketTrendingView />
             </DeferredSection>
-          ) : activeView === "audit" || activeView === "data-room" ? (
-            <DeferredSection label="Loading deck tools…">
-              <DeckAuditView />
-            </DeferredSection>
           ) : activeView === "resources" ? (
             <DeferredSection label="Loading help center…">
               <HelpCenter />
@@ -679,9 +674,13 @@ const Index = () => {
             <DeferredSection label="Loading integrations…">
               <IntegrationsPage />
             </DeferredSection>
-          ) : activeView === "data-hub" || activeView === "market-data-room" ? (
+          ) : activeView === "data-hub" ||
+            activeView === "market-data-room" ||
+            activeView === "data-room" ||
+            activeView === "audit" ? (
             <DeferredSection label="Loading data hub…">
-              <DataHubPage />
+              {/* "Deck Audit" is still a My Company nav entry; the report lives on the Assessment tab now. */}
+              <DataHubPage initialTab={activeView === "audit" ? "assessment" : "overview"} />
             </DeferredSection>
           ) : activeView === "settings" ? (
             <DeferredSection label="Loading settings…">

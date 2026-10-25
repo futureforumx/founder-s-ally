@@ -55,8 +55,13 @@ function ComingSoonPanel({
   );
 }
 
-export function DataHubPage() {
-  const [activeTab, setActiveTab] = useState<DataRoomTabId>("overview");
+interface DataHubPageProps {
+  /** Tab to open on. Entry points that used to lead to the standalone deck audit pass "assessment". */
+  initialTab?: DataRoomTabId;
+}
+
+export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
+  const [activeTab, setActiveTab] = useState<DataRoomTabId>(initialTab);
   const companyProfile = useStoredCompanyProfile();
   const auditResult = activeTab === "assessment" ? readDeckAuditResult() : null;
   // The raw stored fields, so Best Matches tracks the Company Details card even

@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GrowthMetrics } from "../components/company-profile/GrowthMetrics";
 
+const ARR_PLACEHOLDER = "e.g. 1.2m or 1,200,000";
+const YOY_PLACEHOLDER = "e.g. 150";
+const HEADCOUNT_PLACEHOLDER = "Required for analysis...";
+
 describe("GrowthMetrics Smart Inputs", () => {
   const defaultProps = {
     currentARR: "",
@@ -13,15 +17,15 @@ describe("GrowthMetrics Smart Inputs", () => {
 
   it("renders all three input fields when expanded", () => {
     render(<GrowthMetrics {...defaultProps} />);
-    expect(screen.getByPlaceholderText("e.g. 1.2m or 1,200,000")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("e.g. 150")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("e.g. 25")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(ARR_PLACEHOLDER)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(YOY_PLACEHOLDER)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(HEADCOUNT_PLACEHOLDER)).toBeInTheDocument();
   });
 
   it("ARR: formats 300m to 300,000,000 and shows error for exceeding $200M limit", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const arrInput = screen.getByPlaceholderText("e.g. 1.2m or 1,200,000");
+    const arrInput = screen.getByPlaceholderText(ARR_PLACEHOLDER);
     
     fireEvent.focus(arrInput);
     fireEvent.change(arrInput, { target: { value: "300m" } });
@@ -34,7 +38,7 @@ describe("GrowthMetrics Smart Inputs", () => {
   it("YoY Growth: caps 600k at 500,000 and shows error", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const yoyInput = screen.getByPlaceholderText("e.g. 150");
+    const yoyInput = screen.getByPlaceholderText(YOY_PLACEHOLDER);
 
     fireEvent.focus(yoyInput);
     fireEvent.change(yoyInput, { target: { value: "600k" } });
@@ -46,7 +50,7 @@ describe("GrowthMetrics Smart Inputs", () => {
   it("Headcount: caps 200k at 100,000 and shows error", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const headcountInput = screen.getByPlaceholderText("e.g. 25");
+    const headcountInput = screen.getByPlaceholderText(HEADCOUNT_PLACEHOLDER);
 
     fireEvent.focus(headcountInput);
     fireEvent.change(headcountInput, { target: { value: "200k" } });
@@ -58,7 +62,7 @@ describe("GrowthMetrics Smart Inputs", () => {
   it("ARR: formats 1.2m correctly to 1,200,000 (within limit)", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const arrInput = screen.getByPlaceholderText("e.g. 1.2m or 1,200,000");
+    const arrInput = screen.getByPlaceholderText(ARR_PLACEHOLDER);
 
     fireEvent.focus(arrInput);
     fireEvent.change(arrInput, { target: { value: "1.2m" } });
@@ -70,7 +74,7 @@ describe("GrowthMetrics Smart Inputs", () => {
   it("strips non-numeric chars from headcount input", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const headcountInput = screen.getByPlaceholderText("e.g. 25");
+    const headcountInput = screen.getByPlaceholderText(HEADCOUNT_PLACEHOLDER);
 
     fireEvent.focus(headcountInput);
     fireEvent.change(headcountInput, { target: { value: "30abc" } });
@@ -84,7 +88,7 @@ describe("GrowthMetrics Smart Inputs", () => {
   it("shows inline error message when ARR exceeds limit", () => {
     const onChange = vi.fn();
     render(<GrowthMetrics {...defaultProps} onChange={onChange} />);
-    const arrInput = screen.getByPlaceholderText("e.g. 1.2m or 1,200,000");
+    const arrInput = screen.getByPlaceholderText(ARR_PLACEHOLDER);
 
     fireEvent.focus(arrInput);
     fireEvent.change(arrInput, { target: { value: "300m" } });

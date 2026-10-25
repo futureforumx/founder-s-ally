@@ -1028,7 +1028,11 @@ export function shortenFirmLocationLine(raw: string | null | undefined): string 
     return city;
   }
 
-  return titled.join(", ") || null;
+  // A region and its country can shorten to the same token ("London, England,
+  // United Kingdom" → London, UK, UK), so collapse the repeat.
+  const deduped = titled.filter((part, index) => part.toLowerCase() !== titled[index - 1]?.toLowerCase());
+
+  return deduped.join(", ") || null;
 }
 
 const FUND_WATCH_SOURCE_BY_HOST: Record<string, string> = {
