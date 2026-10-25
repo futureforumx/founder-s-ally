@@ -17,7 +17,7 @@ interface AdminOverviewProps {
 export function AdminOverview({ onNavigate }: AdminOverviewProps) {
   return (
     <div className="space-y-8">
-      <AdminStickyHeader>
+      <AdminStickyHeader collapsible={false}>
         <h1 className="text-xl font-bold text-white/90">Platform Intelligence</h1>
       </AdminStickyHeader>
 

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { isRateLimited } from "@/lib/rateLimit";
 import { trackMixpanelEvent } from "@/lib/mixpanel";
+import { trackProductSearch } from "@/lib/productSearchAnalytics";
 import { useAuth } from "@/hooks/useAuth";
 
 export type EntityScope = "founders" | "investors" | "companies" | "operators" | "all";
@@ -13,6 +14,10 @@ export interface SearchResult {
   subtitle: string;
   category: "founder" | "investor" | "company" | "operator";
   matchReason: string;
+  matchScore?: number;
+  firmId?: string | null;
+  logoUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 interface SearchOmnibarProps {
@@ -137,10 +142,11 @@ export const SearchOmnibar = forwardRef<HTMLDivElement, SearchOmnibarProps>(func
           setAiResults([]);
         } else if (data?.results) {
           setAiResults(data.results);
-          trackMixpanelEvent("Search", {
-            search_query: value.trim(),
-            results_count: Array.isArray(data.results) ? data.results.length : 0,
-            ...(user?.id ? { user_id: user.id } : {}),
+          trackProductSearch({
+            source: "omnibar",
+            query: value.trim(),
+            userId: user?.id,
+            resultsCount: Array.isArray(data.results) ? data.results.length : 0,
           });
         } else if (data?.error) {
           if (data.error.includes("Rate limit")) {

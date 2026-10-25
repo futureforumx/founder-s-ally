@@ -12,6 +12,12 @@ export interface PrivacySettings {
 
 export interface OnboardingData {
   wizardState?: Partial<OnboardingState>;
+  startedAt?: string;
+  completedAt?: string;
+  lastStep?: number;
+  lastStepAt?: string;
+  stepEnteredAt?: Record<string, string>;
+  stepDurationsMs?: Record<string, number>;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -21,6 +27,15 @@ export interface OnboardingData {
   tiktokUrl?: string;
   requestedCompanyId?: string;
   requestedCompanyName?: string;
+  companyLogoUrl?: string;
+  deckFileName?: string;
+  deckFileUrl?: string;
+  recurringRevenuePeriod?: "mrr" | "arr";
+  recurringRevenue?: string;
+  burnRate?: string;
+  cac?: string;
+  ltv?: string;
+  headcount?: string;
   stage?: string;
   sectors?: string[];
   revenueBand?: string;

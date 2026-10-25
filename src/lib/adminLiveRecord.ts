@@ -1,4 +1,5 @@
 import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
 export type AdminLiveRecordEntity =
   | "firms"
@@ -64,7 +65,7 @@ export function adminLiveRecordLabel(entity: AdminLiveRecordEntity): string {
     case "firms":
       return "Firm";
     case "firm-investors":
-      return "Investor";
+      return "Person";
     case "operators":
       return "Operator";
     case "people":
@@ -86,9 +87,11 @@ async function adminHeaders(): Promise<Record<string, string>> {
   return h;
 }
 
-const ENTITY_TABLE: Record<AdminLiveRecordEntity, string> = {
+type AdminQueryableEntity = keyof Database["public"]["Tables"] | keyof Database["public"]["Views"];
+
+const ENTITY_TABLE: Record<AdminLiveRecordEntity, AdminQueryableEntity> = {
   firms: "firm_records",
-  "firm-investors": "firm_investors",
+  "firm-investors": "firm_people",
   operators: "operator_profiles",
   people: "people",
   organizations: "organizations",
@@ -109,7 +112,7 @@ export async function fetchAdminLiveRecord(
   }
 
   const table = ENTITY_TABLE[entity];
-  const { data, error } = await (supabase as any).from(table).select("*").eq("id", id).maybeSingle();
+  const { data, error } = await supabase.from(table).select("*").eq("id", id).maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: "Record not found." };
   return { row: data as Record<string, unknown> };

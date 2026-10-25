@@ -37,6 +37,7 @@ import { FirmLogo } from "@/components/ui/firm-logo";
 import { collapseStagesToRangePreferringSpecificOverEarly } from "@/lib/stageUtils";
 import { applyTheme, readStoredTheme, toggleTheme, type AppTheme } from "@/lib/theme";
 import { VEKTA_OPEN_QUICK_ACTIONS_EVENT } from "@/lib/appShellNavigate";
+import { trackProductSearch } from "@/lib/productSearchAnalytics";
 
 type ViewType =
   | "home"
@@ -596,6 +597,7 @@ export function GlobalTopNav({
   });
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const lastTrackedSearch = useRef("");
   const [activeChip, setActiveChip] = useState("all");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -910,6 +912,16 @@ export function GlobalTopNav({
     setHighlightIdx(0);
   }, [investorSearchTrim, searchOpen]);
 
+  useEffect(() => {
+    if (!searchOpen || investorSearchTrim.length < 2) return;
+    const timer = window.setTimeout(() => {
+      if (lastTrackedSearch.current === investorSearchTrim) return;
+      lastTrackedSearch.current = investorSearchTrim;
+      trackProductSearch({ source: "omnibar", query: investorSearchTrim });
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [investorSearchTrim, searchOpen]);
+
   // Cmd+K shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1009,6 +1021,8 @@ export function GlobalTopNav({
     (suggestion: string) => {
       setSearchOpen(false);
       setHighlightIdx(0);
+      lastTrackedSearch.current = suggestion.trim();
+      trackProductSearch({ source: "omnibar", query: suggestion });
       onInvestorSuggestionSelect?.(suggestion);
       onOpenCommandPalette?.();
     },

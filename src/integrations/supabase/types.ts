@@ -6877,6 +6877,30 @@ export type Database = {
         }
         Relationships: []
       }
+      product_searches: {
+        Row: {
+          created_at: string
+          id: string
+          query: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          query?: string | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          query?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       owner_contexts: {
         Row: {
           created_at: string
@@ -9977,6 +10001,10 @@ export type Database = {
       }
     }
     Views: {
+      firm_people: {
+        Row: Database["public"]["Tables"]["firm_investors"]["Row"]
+        Relationships: []
+      }
       investor_directory_safe: {
         Row: {
           aliases: string[] | null

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Mail,
+  Loader2,
   MapPin,
   Linkedin,
   Twitter,
@@ -110,6 +111,7 @@ export function ConnectionsTab({
   crunchbaseUrl,
 }: ConnectionsTabProps) {
   const [websiteContact, setWebsiteContact] = useState<WebsiteContactLookup | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const missingContactFields =
@@ -121,11 +123,13 @@ export function ConnectionsTab({
       !safeTrim(youtubeUrl);
     if (!safeTrim(websiteUrl) || !missingContactFields) {
       setWebsiteContact(null);
+      setLoading(false);
       return;
     }
 
     let cancelled = false;
     async function fetchWebsiteContact() {
+      setLoading(true);
       try {
         const res = await fetch("/api/firm-website-contact", {
           method: "POST",
@@ -146,6 +150,8 @@ export function ConnectionsTab({
         }
       } catch {
         if (!cancelled) setWebsiteContact(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 

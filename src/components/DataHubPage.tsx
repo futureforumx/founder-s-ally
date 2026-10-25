@@ -71,7 +71,11 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
   return (
     <div className={cn(
       "mx-auto w-full px-4 py-8 sm:px-6 lg:px-8",
-      activeTab === "overview" || activeTab === "files" ? "max-w-[1312px]" : activeTab === "market" ? "max-w-6xl" : "max-w-5xl",
+      activeTab === "overview" || activeTab === "files"
+        ? "max-w-[1312px]"
+        : activeTab === "market" || activeTab === "metrics"
+          ? "max-w-6xl"
+          : "max-w-5xl",
     )}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border pb-4">
         {DATA_ROOM_TABS.map((tab) => {
@@ -127,7 +131,11 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
             </div>
           </div>
         ) : activeTab === "metrics" ? (
-          <MetricsPanel />
+          <MetricsPanel
+            onReupload={() => setActiveTab("files")}
+            onSkip={() => setActiveTab("overview")}
+            onConfirm={() => setActiveTab("overview")}
+          />
         ) : activeTab === "market" ? (
           <MarketPanel profile={companyProfile} />
         ) : activeTab === "share" ? (

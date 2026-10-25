@@ -106,3 +106,11 @@ export function formatRatio(ratio: number | null): string {
   if (ratio === null) return "—";
   return `${(Math.round(ratio * 10) / 10).toFixed(1)}x`;
 }
+
+/** DAU / MAU as a percentage of monthly users who show up daily. */
+export function computeStickiness(dau: string, mau: string): number | null {
+  const daily = parseSmartNumber(dau);
+  const monthly = parseSmartNumber(mau);
+  if (!daily || !monthly) return null;
+  return (daily / monthly) * 100;
+}

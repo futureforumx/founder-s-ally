@@ -230,6 +230,15 @@ function parseDirectoryHeadcount(raw: string | null | undefined): number | null 
   return Math.max(...nums);
 }
 
+function formatSectorClassification(value: string | null | undefined): string {
+  switch (safeTrim(value).toLowerCase()) {
+    case "generalist": return "Generalist";
+    case "sector_focused": return "Sector focused";
+    case "multi_sector": return "Multi-sector";
+    default: return safeTrim(value) || "—";
+  }
+}
+
 /** Prefer Supabase `firm_records` + relations over `investor-enrich` (Exa/Gemini) when the row is rich enough. */
 function enrichResultFromDbInvestorProfile(
   profile: InvestorProfile | null,
@@ -554,7 +563,7 @@ export function InvestorDetailPanel({
     };
   }, [preferredLiveFirmRecordId, liveProfile?.id, liveProfile?.firm_name, investor?.name, vcFirm?.name]);
   const fallbackFirmInvestorsQuery = useQuery<VCPerson[]>({
-    queryKey: ["fallback-firm-investors-by-name", safeLower(investor?.name || vcFirm?.name || "")],
+    queryKey: ["fallback-firm-people-by-name", safeLower(investor?.name || vcFirm?.name || "")],
     enabled: Boolean(investor?.name || vcFirm?.name),
     staleTime: 60_000,
     queryFn: async () => {
@@ -581,8 +590,8 @@ export function InvestorDetailPanel({
       const matchedFirm = firms.find((f) => liveFirmRowMatchesDirectorySelection(f.firm_name, targetName)) ?? firms[0];
       if (!matchedFirm?.id) return [];
       const { data: rows, error: rowError } = await supabase
-        .from("firm_investors")
-        .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
+        .from("firm_people")
+        .select("id, full_name, first_name, last_name, title, is_active, avatar_url, headshot_url, email, linkedin_url, x_url, website_url, bio, city, state, country")
         .eq("firm_id", matchedFirm.id)
         .is("deleted_at", null)
         .order("full_name");
@@ -594,6 +603,8 @@ export function InvestorDetailPanel({
             {
               ...(row as InvestorPartner),
               full_name: safeTrim(row.full_name),
+              profile_image_url: row.avatar_url ?? row.headshot_url ?? null,
+              avatar_url: row.avatar_url ?? row.headshot_url ?? null,
             },
             matchedFirm.id,
             heroName || matchedFirm.firm_name,
@@ -1386,12 +1397,9 @@ export function InvestorDetailPanel({
     : enrichedData?.profile?.lastVerified
       ? new Date(enrichedData.profile.lastVerified)
       : null;
-  const heroSectorFocus =
-    liveProfile?.firm_type ??
-    liveProfile?.lead_or_follow ??
-    vcFirm?.sectors?.join(", ") ??
-    effectiveInvestor?.sector ??
-    "-";
+  const heroSectorFocus = formatSectorClassification(
+    liveProfile?.sector_classification ?? dealSizeProfile?.sector_classification ?? effectiveInvestor?.sectorClassification,
+  );
   const heroStageFocus = useMemo(
     () =>
       resolveInvestorHeroStageFocus({
@@ -1811,7 +1819,7 @@ export function InvestorDetailPanel({
                       </motion.div>
                     )}
 
-                    {activeTab === "Investors" && (
+                    {activeTab === "People" && (
                       <motion.div key="partners" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}>
                         <InvestorPartnersTab
                           firmName={effectiveInvestor.name}

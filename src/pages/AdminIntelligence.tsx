@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
-  Building2, X, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
+  UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminAnalytics }          from "@/components/admin/AdminAnalytics";
@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
-  { key: "firm-records",   label: "Firm Records",    icon: Building2  },
+  { key: "firm-records",   label: "Investor Records", icon: UserRound },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
   { key: "ai-agents-page", label: "AI Agents page",  icon: Bot        },
@@ -91,11 +91,13 @@ export default function AdminIntelligence() {
   const { isAppAdmin, isGodMode, loading: adminLoading } = useAppAdmin();
   const [activeView, setActiveView] = useState<AdminView>("overview");
   const [systemStatus, setSystemStatus] = useState<SystemStatusId>("normal");
+  const [focusFirm, setFocusFirm] = useState<{ id: string; name: string } | null>(null);
+  const [focusPerson, setFocusPerson] = useState<{ id: string; name: string } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const status = SYSTEM_STATUSES.find((item) => item.id === systemStatus) ?? SYSTEM_STATUSES[0];
 
-  const showOverview = () => {
-    setActiveView("overview");
+  const openView = (view: AdminView) => {
+    setActiveView(view);
     mainRef.current?.scrollTo({ top: 0 });
   };
 
@@ -139,7 +141,7 @@ export default function AdminIntelligence() {
             return (
               <button
                 key={item.key}
-                onClick={() => setActiveView(item.key)}
+                onClick={() => openView(item.key)}
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
                 style={{
                   background: isActive ? "rgba(46, 230, 166, 0.08)" : "transparent",
@@ -191,7 +193,7 @@ export default function AdminIntelligence() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="mt-2 w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[13px] font-medium text-white/45 transition-colors hover:border-white/15 hover:bg-white/[0.04] hover:text-white/70"
+            className="mt-2 w-full rounded-lg border border-red-500 bg-red-300 px-3 py-2 text-[13px] font-medium text-red-950 transition-colors hover:border-red-400 hover:bg-red-400 hover:text-white"
           >
             Exit
           </button>
@@ -200,26 +202,26 @@ export default function AdminIntelligence() {
 
       {/* main */}
       <main ref={mainRef} className="relative flex-1 overflow-y-auto px-8 pb-8">
-        {activeView !== "analytics" && activeView !== "overview" && (
-          <div className="pointer-events-none sticky top-0 z-50 -mx-8 h-0">
-            <button
-              type="button"
-              onClick={showOverview}
-              aria-label="Back to overview"
-              className="pointer-events-auto absolute right-8 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+        {activeView === "overview"       && <AdminOverview onNavigate={openView} />}
+        {activeView === "analytics"      && (
+          <AdminAnalytics
+            onOpenFirmRecord={(id, name) => {
+              setFocusPerson(null);
+              setFocusFirm({ id, name });
+              openView("firm-records");
+            }}
+            onOpenPersonRecord={(id, name) => {
+              setFocusFirm(null);
+              setFocusPerson({ id, name });
+              openView("firm-records");
+            }}
+          />
         )}
-
-        {activeView === "overview"       && <AdminOverview onNavigate={setActiveView} />}
-        {activeView === "analytics"      && <AdminAnalytics onClose={showOverview} />}
         {activeView === "users"          && <AdminUserManagement />}
         {activeView === "waitlist"       && <AdminWaitlist />}
-        {activeView === "firm-records"   && <AdminFirmRecords />}
+        {activeView === "firm-records"   && <AdminFirmRecords focusFirm={focusFirm} focusPerson={focusPerson} />}
         {activeView === "market-intel"   && <AdminMarketIntelligence />}
-        {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={setActiveView} />}
+        {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={openView} />}
         {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
         {activeView === "record-updates" && <AdminRecordUpdates />}
         {activeView === "api-health"     && <AdminApiHealth />}

@@ -29,6 +29,7 @@ const FIELD_LABELS: Record<MetricField, string> = {
   nrr: "NRR",
   activeUsers: "Active users",
   activeUsersMode: "Active users",
+  dau: "DAU",
   churnRate: "Churn rate",
   burnMultiple: "Burn multiple",
   cac: "CAC",
@@ -42,6 +43,30 @@ const FIELD_LABELS: Record<MetricField, string> = {
   totalDebt: "Total debt",
 };
 
+export const ATTRIBUTION_STORAGE_KEY = "deck-metrics-attribution";
+
+export type MetricConfidence = "high" | "low";
+
+export interface MetricAttribution {
+  slideNumber?: number;
+  quote?: string;
+  confidence: MetricConfidence;
+}
+
+export type MetricAttributions = Partial<Record<MetricField, MetricAttribution>>;
+
+export interface ExtractionReport {
+  metrics: ExtractedMetrics;
+  attributions: MetricAttributions;
+}
+
+interface DeckHit {
+  value: number;
+  quote: string;
+  index: number;
+  lowConfidence: boolean;
+}
+
 /**
  * Plausibility range for each field, in the unit the field is stored in. A number outside
  * its range means the regex latched onto the wrong figure (a slide number, a year, a
@@ -49,6 +74,7 @@ const FIELD_LABELS: Record<MetricField, string> = {
  */
 const FIELD_SPECS: Record<NumericField, { kind: "currency" | "percent" | "integer" | "multiplier"; min: number; max: number }> = {
   headcount: { kind: "integer", min: 1, max: 500_000 },
+  dau: { kind: "integer", min: 1, max: 5e9 },
   tam: { kind: "currency", min: 100_000, max: 1e14 },
   sam: { kind: "currency", min: 10_000, max: 1e14 },
   som: { kind: "currency", min: 1_000, max: 1e14 },
@@ -234,20 +260,57 @@ function extractBackground(text: string): string {
   return "";
 }
 
+function lineAt(text: string, index: number): string {
+  const start = text.lastIndexOf("\n", index) + 1;
+  const end = text.indexOf("\n", index);
+  return text.slice(start, end === -1 ? undefined : end).replace(/\s+/g, " ").trim();
+}
+
+function slideNumberAt(text: string, index: number): number | undefined {
+  const before = text.slice(0, index);
+  let slide: number | undefined;
+  for (const match of before.matchAll(/\[slide\s+(\d+)/gi)) {
+    slide = Number(match[1]);
+  }
+  return slide;
+}
+
+function hitFromMatch(text: string, match: RegExpMatchArray, value: number, lowConfidence: boolean): DeckHit {
+  return {
+    value,
+    quote: lineAt(text, match.index ?? 0),
+    index: match.index ?? 0,
+    lowConfidence,
+  };
+}
+
+function attributionFromHit(text: string, hit: DeckHit): MetricAttribution {
+  const slideNumber = slideNumberAt(text, hit.index);
+  return {
+    slideNumber,
+    quote: hit.quote,
+    confidence: !slideNumber || hit.lowConfidence ? "low" : "high",
+  };
+}
+
 /** First match across the given patterns that parses into a plausible value for the field. */
 function findAmount(
   text: string,
   field: NumericField,
   patterns: string[],
   options: { requireMagnitude?: boolean } = {},
-): number | null {
+): DeckHit | null {
   const { min, max } = FIELD_SPECS[field];
   for (const pattern of patterns) {
     for (const match of text.matchAll(new RegExp(pattern, "gi"))) {
       if (options.requireMagnitude && !hasMagnitude(match.groups)) continue;
       const value = parseAmount(match.groups);
       if (value === null || value < min || value > max) continue;
-      return value;
+      const spec = FIELD_SPECS[field];
+      const lowConfidence =
+        (spec.kind === "percent" && !match.groups?.pct) ||
+        (spec.kind === "currency" && !hasMagnitude(match.groups));
+      return hitFromMatch(text, match, value, lowConfidence);
     }
   }
   return null;
@@ -265,7 +328,9 @@ const MONTH_UNITS = ["month", "mo", "mth"];
 const YEAR_UNITS = ["year", "yr"];
 
 /** Runway is stored as a number plus its own unit toggle, so months stay months. */
-function findRunway(text: string): { runway: string; runwayUnit: CompanyMetricsData["runwayUnit"] } | null {
+function findRunway(
+  text: string,
+): { runway: string; runwayUnit: CompanyMetricsData["runwayUnit"]; hit: DeckHit } | null {
   for (const pattern of RUNWAY) {
     for (const match of text.matchAll(new RegExp(pattern, "gi"))) {
       const value = parseAmount(match.groups);
@@ -282,14 +347,20 @@ function findRunway(text: string): { runway: string; runwayUnit: CompanyMetricsD
 
       const amount = months ?? value * DAYS_PER_UNIT[unit ?? "day"];
       const formatted = formatField("runway", amount);
-      if (formatted) return { runway: formatted, runwayUnit: months === null ? "days" : "months" };
+      if (formatted) {
+        return {
+          runway: formatted,
+          runwayUnit: months === null ? "days" : "months",
+          hit: hitFromMatch(text, match, amount, unit === null),
+        };
+      }
     }
   }
   return null;
 }
 
 /** CAC payback is stored in days, however the deck phrased it. */
-function findCacPaybackDays(text: string): number | null {
+function findCacPaybackDays(text: string): DeckHit | null {
   for (const pattern of CAC_PAYBACK) {
     for (const match of text.matchAll(new RegExp(pattern, "gi"))) {
       const value = parseAmount(match.groups);
@@ -300,14 +371,14 @@ function findCacPaybackDays(text: string): number | null {
       const days = unit ? value * DAYS_PER_UNIT[unit] : value <= 36 ? value * 30 : value;
       const { min, max } = FIELD_SPECS.cacPaybackDays;
       if (days < min || days > max) continue;
-      return Math.round(days);
+      return hitFromMatch(text, match, Math.round(days), unit === null);
     }
   }
   return null;
 }
 
 /** Burn is normalised to a monthly figure; an annual number is divided back down. */
-function findMonthlyBurn(text: string): number | null {
+function findMonthlyBurn(text: string): DeckHit | null {
   const { min, max } = FIELD_SPECS.monthlyBurnRate;
   for (const pattern of BURN_RATE) {
     for (const match of text.matchAll(new RegExp(pattern, "gi"))) {
@@ -317,21 +388,24 @@ function findMonthlyBurn(text: string): number | null {
       const period = `${match.groups?.lead ?? ""} ${match.groups?.period ?? ""}`;
       const monthly = /ann|year|yr|\/\s*y/i.test(period) ? value / 12 : value;
       if (monthly < min || monthly > max) continue;
-      return monthly;
+      return hitFromMatch(text, match, monthly, false);
     }
   }
   return null;
 }
 
-/** Pulls every metric the deck states outright. Anything ambiguous is left out. */
-export function extractMetricsFromDeckText(deckText: string): ExtractedMetrics {
+/** Pulls every metric the deck states outright, plus slide/quote attribution for the review UI. */
+export function extractMetricsReport(deckText: string): ExtractionReport {
   const text = deckText.replace(/\u00a0/g, " ");
   const extracted: ExtractedMetrics = {};
+  const attributions: MetricAttributions = {};
 
-  const set = (field: NumericField, value: number | null) => {
-    if (value === null) return;
-    const formatted = formatField(field, value);
-    if (formatted) extracted[field] = formatted;
+  const set = (field: NumericField, hit: DeckHit | null) => {
+    if (!hit) return;
+    const formatted = formatField(field, hit.value);
+    if (!formatted) return;
+    extracted[field] = formatted;
+    attributions[field] = attributionFromHit(text, hit);
   };
 
   set("headcount", findAmount(text, "headcount", HEADCOUNT));
@@ -350,22 +424,75 @@ export function extractMetricsFromDeckText(deckText: string): ExtractedMetrics {
   set("totalDebt", findAmount(text, "totalDebt", DEBT, { requireMagnitude: true }));
 
   const monthlyUsers = findAmount(text, "activeUsers", MAU);
-  const dailyUsers = monthlyUsers === null ? findAmount(text, "activeUsers", DAU) : null;
-  if (monthlyUsers !== null || dailyUsers !== null) {
-    set("activeUsers", monthlyUsers ?? dailyUsers);
-    if (extracted.activeUsers) extracted.activeUsersMode = monthlyUsers !== null ? "mau" : "dau";
+  const dailyUsers = findAmount(text, "activeUsers", DAU);
+  if (monthlyUsers) {
+    set("activeUsers", monthlyUsers);
+    extracted.activeUsersMode = "mau";
+  } else if (dailyUsers) {
+    set("activeUsers", dailyUsers);
+    extracted.activeUsersMode = "dau";
+  }
+  if (dailyUsers) {
+    const formatted = formatField("activeUsers", dailyUsers.value);
+    if (formatted) {
+      extracted.dau = formatted;
+      attributions.dau = attributionFromHit(text, dailyUsers);
+    }
   }
 
   const runway = findRunway(text);
   if (runway) {
     extracted.runway = runway.runway;
     extracted.runwayUnit = runway.runwayUnit;
+    attributions.runway = attributionFromHit(text, runway.hit);
   }
 
   const background = extractBackground(text);
-  if (background) extracted.background = background;
+  if (background) {
+    extracted.background = background;
+    const teamSection = splitSections(text).find((section) => TEAM_SECTION.test(section.heading));
+    const teamIndex = teamSection ? text.indexOf(teamSection.heading) : -1;
+    attributions.background = {
+      slideNumber: teamIndex >= 0 ? slideNumberAt(text, teamIndex) : undefined,
+      quote: background,
+      confidence: teamIndex >= 0 && slideNumberAt(text, teamIndex) ? "high" : "low",
+    };
+  }
 
-  return extracted;
+  return { metrics: extracted, attributions };
+}
+
+/** Pulls every metric the deck states outright. Anything ambiguous is left out. */
+export function extractMetricsFromDeckText(deckText: string): ExtractedMetrics {
+  return extractMetricsReport(deckText).metrics;
+}
+
+export function storeMetricAttributions(attributions: MetricAttributions): void {
+  try {
+    sessionStorage.setItem(ATTRIBUTION_STORAGE_KEY, JSON.stringify(attributions));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function readMetricAttributions(): MetricAttributions {
+  try {
+    const raw = sessionStorage.getItem(ATTRIBUTION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    // Safety: sessionStorage is our own write of MetricAttributions.
+    return parsed as MetricAttributions;
+  } catch {
+    return {};
+  }
+}
+
+export function mergeAttributions(
+  primary: MetricAttributions,
+  secondary: MetricAttributions,
+): MetricAttributions {
+  return { ...secondary, ...primary };
 }
 
 /**
@@ -400,6 +527,7 @@ export function metricsFromAuditResponse(raw: unknown): ExtractedMetrics {
       "som",
       "nrr",
       "activeUsers",
+      "dau",
       "churnRate",
       "burnMultiple",
       "cac",

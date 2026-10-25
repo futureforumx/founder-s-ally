@@ -105,6 +105,7 @@ export interface InvestorEntry {
   matchReason: string | null;
   matchScore?: number | null;
   category: "investor";
+  sectorClassification?: string | null;
   partners?: PartnerPerson[];
   logo_url?: string | null;
   /** `firm_records.id` when the row came from Supabase (not an MDM domain id). */
@@ -112,7 +113,7 @@ export interface InvestorEntry {
   websiteUrl?: string | null;
 }
 
-export const INVESTOR_TABS = ["Updates", "Activity", "Investment Thesis", "Portfolio", "Investors", "Feedback", "Connect"] as const;
+export const INVESTOR_TABS = ["Updates", "Activity", "Investment Thesis", "Portfolio", "People", "Feedback", "Connect"] as const;
 export type InvestorTab = typeof INVESTOR_TABS[number];
 
 // ── Mock Partners Data (Relational Glue) ──

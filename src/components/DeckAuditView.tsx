@@ -6,10 +6,12 @@ import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
 import { useCompanyMetrics } from "@/hooks/useCompanyMetrics";
 import {
-  extractMetricsFromDeckText,
+  extractMetricsReport,
+  mergeAttributions,
   mergeExtractedMetrics,
   metricsFromAuditResponse,
   metricsPrefillPatch,
+  storeMetricAttributions,
   type ExtractedMetrics,
 } from "./data-room/deckMetricsExtraction";
 
@@ -125,7 +127,9 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     setState("processing");
     // Read straight from the deck text first: this works for every PDF/TXT upload,
     // with or without the audit, and the audit's own numbers only fill the gaps.
-    let fromDeck = extractMetricsFromDeckText(deckText);
+    const report = extractMetricsReport(deckText);
+    let fromDeck = report.metrics;
+    storeMetricAttributions(report.attributions);
     try {
       if (file) {
         const savedDeck = await uploadDeck(file, { silent: true, slideCount: pageCount ?? null });
@@ -142,6 +146,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
       fromDeck = mergeExtractedMetrics(fromDeck, metricsFromAuditResponse(data?.metrics));
+      storeMetricAttributions(mergeAttributions(report.attributions, {}));
       const normalized = normalizeAuditResponse(data);
       setResult(normalized);
       try { sessionStorage.setItem("deck-audit-result", JSON.stringify(normalized)); } catch {}

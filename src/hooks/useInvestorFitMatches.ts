@@ -18,6 +18,7 @@ import {
 export function useInvestorFitMatches(company: CompanyFitInput, limit = 5) {
   const [candidates, setCandidates] = useState<FitInvestor[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const stages = stageFocusFor(company.stage);
   const patterns = buildVerticalPatterns(company);
@@ -29,6 +30,7 @@ export function useInvestorFitMatches(company: CompanyFitInput, limit = 5) {
   useEffect(() => {
     if (!ready) {
       setCandidates([]);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -47,8 +49,10 @@ export function useInvestorFitMatches(company: CompanyFitInput, limit = 5) {
       if (error) {
         console.error("Failed to load investor matches:", error);
         setCandidates([]);
+        setError(error.message);
       } else {
         setCandidates((data || []) as unknown as FitInvestor[]);
+        setError(null);
       }
       setLoading(false);
     })();
@@ -75,5 +79,5 @@ export function useInvestorFitMatches(company: CompanyFitInput, limit = 5) {
     ],
   );
 
-  return { matches, loading, hasInputs: ready };
+  return { matches, loading, hasInputs: ready, error };
 }

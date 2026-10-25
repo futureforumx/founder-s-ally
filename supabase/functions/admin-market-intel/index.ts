@@ -1,10 +1,11 @@
 /**
  * admin-market-intel  v4
  *
- * GET  ?entity=companies|founders|operators|firms|firm-investors|people|organizations|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fc-public-paths|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
+ * GET  ?entity=companies|founders|operators|firms|firm-people|people|organizations|fresh-funds|firm-funds|deals|fi-sources|fc-enrichment-settings|fc-public-paths|fi-fetch-runs|vc-fund-sync-runs|vc-fund-sync-latest|latest-vc-daily-sync  + filters
  *   → { rows, total }
  * GET  ?entity=<table-backed>&id=<uuid>  → { row }  (full-row live editor)
- *   - firm-funds: **requires** ?firm_id=<firm_records.id> — only vc_funds for that firm (Firm Records admin).
+ *   - firm-funds: **requires** ?firm_id=<firm_records.id> — only vc_funds for that firm (Investor Records admin).
+ *   - firm-people: optional ?firm_id= to scope one firm; omit for the firm people directory (includes firm + fund links).
  *   - fresh-funds: global Fund Watch list; optional ?firm_record_id=… to filter one firm.
  *   - fi-sources: Latest Funding ingestion source registry (editable via PATCH entity=fi-sources&id=). Alias: ?entity=fisources
  *   - fc-enrichment-settings: Singleton row for Fund Watch vs Latest Funding operator notes (PATCH without id). Aliases: fcenrichmentsettings, fc-enrichment
@@ -18,8 +19,9 @@
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
  *
- * POST ?entity=fresh-funds|deals|firms|fi-sources|fc-public-paths  body: { … }  → { row }  (create)
+ * POST ?entity=fresh-funds|deals|firms|firm-people|fi-sources|fc-public-paths  body: { … }  → { row }  (create)
  *   - firms: requires `firm_name`; optional `website_url`, `slug`, `legal_name`. New rows default to needs-review / not live.
+ *   - firm-people: requires `full_name` plus `firm_id` and/or `vc_fund_id` (fund infers firm). Optional title, email, linkedin_url, role.
  *
  * DELETE ?entity=fresh-funds|deals|fc-public-paths&id=<uuid>
  *   → { ok: true }   (fresh-funds: soft-delete vc_funds.deleted_at; deals: hard-delete fi_deals_canonical row)
@@ -233,6 +235,13 @@ const FIRM_INVESTOR_COLS = [
   "last_3_investments","last_5_investments","co_investors","prior_roles",
 ].join(", ");
 
+const FIRM_INVESTOR_DIRECTORY_COLS = [
+  "id","firm_id","full_name","title","email","linkedin_url",
+  "city","state","country","avatar_url","headshot_url",
+  "is_active","needs_review","ready_for_live",
+  "completeness_score","enrichment_status","updated_at",
+].join(", ");
+
 const FIRM_PORTFOLIO_COLS = [
   "id","firm_id","company_name","normalized_company_name","amount","stage","date_announced",
   "investment_status","is_notable","portfolio_company_website","portfolio_company_linkedin",
@@ -290,7 +299,7 @@ const TOOL_CATEGORY_PAGE_PATCH_KEYS = new Set(["title", "description", "meta"]);
 // ── Entity param normalization (Unicode hyphens, spaces, zero-width, etc.) ───
 
 /**
- * Canonical form for ?entity= routing. Ensures `firm-investors` matches even when the client
+ * Canonical form for ?entity= routing. Ensures `firm-people` matches even when the client
  * sends underscore, unicode dashes (U+2010…U+2015, minus sign), or stray zero-width chars.
  */
 function canonicalEntityParam(raw: string | null | undefined): string {
@@ -317,6 +326,8 @@ function resolveEntityTable(entityCanonical: string): string | undefined {
     founders: "startup_founders",
     operators: "operator_profiles",
     firms: "firm_records",
+    "firm-people": "firm_investors",
+    firmpeople: "firm_investors",
     "firm-investors": "firm_investors",
     firminvestors: "firm_investors",
     investors: "firm_investors",
@@ -359,6 +370,179 @@ const FIRM_SNAPSHOT_COLS = [
   "id", "firm_name", "website_url", "logo_url", "location", "hq_city", "hq_state", "hq_country",
   "aum", "aum_usd", "has_fresh_capital", "fresh_capital_priority_score",
 ].join(", ");
+
+function splitPersonFullName(fullName: string): { first_name: string | null; last_name: string | null } {
+  const parts = fullName.trim().split(/\s+/).filter((p) => p.length > 0);
+
+  if (parts.length === 0) return { first_name: null, last_name: null };
+
+  if (parts.length === 1) return { first_name: parts[0] ?? null, last_name: null };
+
+  return { first_name: parts[0] ?? null, last_name: parts.slice(1).join(" ") };
+}
+
+function personSearchOrClause(raw: string, firmIds: string[]): string | null {
+  const t = raw.replace(/,/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+
+  if (t.length < 2 && firmIds.length === 0) return null;
+
+  const esc = t.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+  const pat = `%${esc}%`;
+  const parts: string[] = [];
+
+  if (t.length >= 2) {
+    parts.push(`full_name.ilike.${pat}`);
+    parts.push(`title.ilike.${pat}`);
+    parts.push(`email.ilike.${pat}`);
+  }
+
+  if (firmIds.length > 0) {
+    parts.push(`firm_id.in.(${firmIds.join(",")})`);
+  }
+
+  return parts.length > 0 ? parts.join(",") : null;
+}
+
+async function matchingFirmIdsForName(
+  db: SupabaseClient,
+  raw: string,
+): Promise<string[]> {
+  const clause = firmAdminBroadOrClause(raw);
+
+  if (!clause) return [];
+
+  const { data, error } = await db
+    .from("firm_records")
+    .select("id")
+    .is("deleted_at", null)
+    .or(clause)
+    .limit(200);
+
+  if (error || !data) return [];
+
+  const ids: string[] = [];
+
+  for (const row of data) {
+    const id = (row as { id?: unknown }).id;
+
+    if (typeof id === "string" && id.length > 0) ids.push(id);
+  }
+
+  return ids;
+}
+
+async function decorateInvestorDirectory(
+  db: SupabaseClient,
+  rows: Record<string, unknown>[],
+): Promise<{ rows: Record<string, unknown>[]; error: string | null }> {
+  if (!rows.length) return { rows: [], error: null };
+
+  const firmIds: string[] = [];
+  const investorIds: string[] = [];
+
+  for (const row of rows) {
+    if (typeof row.firm_id === "string" && row.firm_id.length > 0) firmIds.push(row.firm_id);
+
+    if (typeof row.id === "string" && row.id.length > 0) investorIds.push(row.id);
+  }
+
+  const uniqueFirmIds = [...new Set(firmIds)];
+  const uniqueInvestorIds = [...new Set(investorIds)];
+  const firmById = new Map<string, { firm_name: string | null; logo_url: string | null; favicon_url: string | null }>();
+
+  if (uniqueFirmIds.length > 0) {
+    const { data: firms, error: firmErr } = await db
+      .from("firm_records")
+      .select("id, firm_name, logo_url, favicon_url")
+      .in("id", uniqueFirmIds);
+
+    if (firmErr) return { rows, error: firmErr.message };
+
+    for (const firm of firms ?? []) {
+      const rec = firm as { id?: unknown; firm_name?: unknown; logo_url?: unknown; favicon_url?: unknown };
+
+      if (typeof rec.id !== "string") continue;
+
+      firmById.set(rec.id, {
+        firm_name: typeof rec.firm_name === "string" ? rec.firm_name : null,
+        logo_url: typeof rec.logo_url === "string" ? rec.logo_url : null,
+        favicon_url: typeof rec.favicon_url === "string" ? rec.favicon_url : null,
+      });
+    }
+  }
+
+  const fundsByInvestor = new Map<string, Array<{ id: string; name: string | null; role: string }>>();
+
+  if (uniqueInvestorIds.length > 0) {
+    const { data: links, error: linkErr } = await db
+      .from("vc_fund_people")
+      .select("firm_investor_id, role, vc_fund_id")
+      .in("firm_investor_id", uniqueInvestorIds);
+
+    if (linkErr) return { rows, error: linkErr.message };
+
+    const fundIds: string[] = [];
+
+    for (const link of links ?? []) {
+      const rec = link as { vc_fund_id?: unknown };
+
+      if (typeof rec.vc_fund_id === "string" && rec.vc_fund_id.length > 0) fundIds.push(rec.vc_fund_id);
+    }
+
+    const uniqueFundIds = [...new Set(fundIds)];
+    const fundNameById = new Map<string, string | null>();
+
+    if (uniqueFundIds.length > 0) {
+      const { data: funds, error: fundErr } = await db
+        .from("vc_funds")
+        .select("id, name")
+        .in("id", uniqueFundIds)
+        .is("deleted_at", null);
+
+      if (fundErr) return { rows, error: fundErr.message };
+
+      for (const fund of funds ?? []) {
+        const rec = fund as { id?: unknown; name?: unknown };
+
+        if (typeof rec.id !== "string") continue;
+
+        fundNameById.set(rec.id, typeof rec.name === "string" ? rec.name : null);
+      }
+    }
+
+    for (const link of links ?? []) {
+      const rec = link as { firm_investor_id?: unknown; vc_fund_id?: unknown; role?: unknown };
+      const investorId = typeof rec.firm_investor_id === "string" ? rec.firm_investor_id : "";
+      const fundId = typeof rec.vc_fund_id === "string" ? rec.vc_fund_id : "";
+
+      if (!investorId || !fundId || !fundNameById.has(fundId)) continue;
+
+      const list = fundsByInvestor.get(investorId) ?? [];
+      list.push({
+        id: fundId,
+        name: fundNameById.get(fundId) ?? null,
+        role: typeof rec.role === "string" && rec.role.length > 0 ? rec.role : "partner",
+      });
+      fundsByInvestor.set(investorId, list);
+    }
+  }
+
+  const decorated = rows.map((row) => {
+    const firmId = typeof row.firm_id === "string" ? row.firm_id : "";
+    const investorId = typeof row.id === "string" ? row.id : "";
+    const firm = firmById.get(firmId);
+
+    return {
+      ...row,
+      firm_name: firm?.firm_name ?? null,
+      firm_logo_url: firm?.logo_url ?? null,
+      firm_favicon_url: firm?.favicon_url ?? null,
+      funds: fundsByInvestor.get(investorId) ?? [],
+    };
+  });
+
+  return { rows: decorated, error: null };
+}
 
 async function loadFirmMap(
   client: SupabaseClient,
@@ -827,6 +1011,112 @@ Deno.serve(async (req) => {
       return json({ row: inserted });
     }
 
+    if (entity === "firm-people" || entity === "firm-investors" || entity === "investors") {
+      const fullName = typeof body.full_name === "string" ? body.full_name.trim() : "";
+
+      if (!fullName) return err("full_name is required", 400);
+
+      let firmId = typeof body.firm_id === "string" ? body.firm_id.trim() : "";
+      const fundId = typeof body.vc_fund_id === "string" ? body.vc_fund_id.trim() : "";
+      const roleRaw = typeof body.role === "string" ? body.role.trim() : "";
+      const role = roleRaw || "partner";
+      const title = typeof body.title === "string" ? body.title.trim() : "";
+      const email = typeof body.email === "string" ? body.email.trim() : "";
+      const linkedin = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() : "";
+      let fundName: string | null = null;
+
+      if (fundId) {
+        const { data: fundRow, error: fundErr } = await db
+          .from("vc_funds")
+          .select("id, firm_record_id, name")
+          .eq("id", fundId)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (fundErr) return err(fundErr.message, 500);
+
+        if (!fundRow) return err("No vc_funds row found for vc_fund_id", 404);
+
+        const fundFirm = typeof fundRow.firm_record_id === "string" ? fundRow.firm_record_id : "";
+        fundName = typeof fundRow.name === "string" ? fundRow.name : null;
+
+        if (!firmId) firmId = fundFirm;
+        else if (firmId !== fundFirm) return err("vc_fund_id does not belong to firm_id", 400);
+      }
+
+      if (!firmId) return err("firm_id is required (or provide vc_fund_id to infer it)", 400);
+
+      const { data: firmOk, error: firmErr } = await db
+        .from("firm_records")
+        .select("id")
+        .eq("id", firmId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (firmErr) return err(firmErr.message, 500);
+
+      if (!firmOk) return err("No firm_records row found for firm_id", 404);
+
+      const names = splitPersonFullName(fullName);
+      const insertRow: Record<string, unknown> = {
+        firm_id: firmId,
+        full_name: fullName,
+        first_name: names.first_name,
+        last_name: names.last_name,
+        title: title || null,
+        email: email || null,
+        linkedin_url: linkedin || null,
+        enrichment_status: "pending",
+        completeness_score: 0,
+        needs_review: true,
+        ready_for_live: false,
+        is_active: true,
+        is_actively_investing: true,
+        source_count: 0,
+      };
+
+      const { data: inserted, error: insErr } = await db
+        .from("firm_investors")
+        .insert(insertRow)
+        .select(FIRM_INVESTOR_COLS)
+        .single();
+
+      if (insErr) return err(insErr.message, 500);
+
+      const personId = typeof inserted?.id === "string" ? inserted.id : "";
+      const funds: Array<{ id: string; name: string | null; role: string }> = [];
+      let warning: string | undefined;
+
+      if (fundId && personId) {
+        const { error: linkErr } = await db.from("vc_fund_people").insert({
+          vc_fund_id: fundId,
+          firm_investor_id: personId,
+          role,
+          confidence: 1,
+          source: "admin_market_intel_post",
+        });
+
+        if (linkErr) {
+          warning = `Person created, but fund link failed: ${linkErr.message}`;
+        } else {
+          funds.push({ id: fundId, name: fundName, role });
+        }
+      }
+
+      const decorated = await decorateInvestorDirectory(db, [inserted as Record<string, unknown>]);
+
+      if (decorated.error) {
+        return json({
+          row: { ...(inserted as Record<string, unknown>), funds },
+          ...(warning ? { warning } : {}),
+        });
+      }
+
+      const row = decorated.rows[0] ?? { ...(inserted as Record<string, unknown>), funds };
+
+      return json({ row, ...(warning ? { warning } : {}) });
+    }
+
     if (entity === "fc-public-paths") {
       const pathRaw =
         typeof body.path === "string" ? body.path :
@@ -1239,18 +1529,53 @@ Deno.serve(async (req) => {
     return json({ rows: data ?? [], total: count ?? 0 });
   }
 
-  if (entity === "firm-investors" || entity === "investors") {
+  if (entity === "firm-people" || entity === "firm-investors" || entity === "investors") {
     const firmId = url.searchParams.get("firm_id")?.trim() ?? "";
-    if (!firmId) return err("Missing firm_id");
-    let q = db.from("firm_investors").select(FIRM_INVESTOR_COLS, { count: "exact" })
-      .eq("firm_id", firmId)
+    const enrichment = url.searchParams.get("enrichment") ?? "";
+    const review = url.searchParams.get("needs_review") ?? "";
+    const live = url.searchParams.get("ready_for_live") ?? "";
+    const status = url.searchParams.get("status") ?? "";
+    const directory = !firmId;
+    const cols = directory ? FIRM_INVESTOR_DIRECTORY_COLS : FIRM_INVESTOR_COLS;
+    let q = db.from("firm_investors").select(cols, { count: "exact" })
       .is("deleted_at", null)
-      .order("full_name", { ascending: true })
+      .order(directory ? "completeness_score" : "full_name", { ascending: !directory })
       .range(offset, offset + limit - 1);
-    if (search) q = q.ilike("full_name", `%${search}%`);
+
+    if (firmId) q = q.eq("firm_id", firmId);
+
+    if (search && looksLikeUuid(search)) {
+      q = q.or(`id.eq.${search},firm_id.eq.${search}`);
+    } else if (search) {
+      const firmIds = firmId ? [] : await matchingFirmIdsForName(db, search);
+      const orClause = personSearchOrClause(search, firmIds);
+
+      if (orClause) q = q.or(orClause);
+    }
+
+    if (enrichment) q = q.eq("enrichment_status", enrichment);
+
+    if (review === "true") q = q.eq("needs_review", true);
+
+    if (review === "false") q = q.eq("needs_review", false);
+
+    if (live === "true") q = q.eq("ready_for_live", true);
+
+    if (live === "false") q = q.eq("ready_for_live", false);
+
+    if (status === "archive") q = q.eq("is_active", false);
+
     const { data, error, count } = await q;
+
     if (error) return err(error.message, 500);
-    return json({ rows: data ?? [], total: count ?? 0 });
+
+    if (firmId) return json({ rows: data ?? [], total: count ?? 0 });
+
+    const decorated = await decorateInvestorDirectory(db, (data ?? []) as Record<string, unknown>[]);
+
+    if (decorated.error) return err(decorated.error, 500);
+
+    return json({ rows: decorated.rows, total: count ?? 0 });
   }
 
   if (entity === "firm-portfolio") {

@@ -17,6 +17,8 @@ export interface CompanyMetricsData {
   nrr: string;
   activeUsers: string;
   activeUsersMode: ActiveUsersMode;
+  /** Daily actives when MAU is the stored primary. Kept locally so stickiness can use both. */
+  dau: string;
   churnRate: string;
   burnMultiple: string;
   // Unit Economics
@@ -41,6 +43,7 @@ export const EMPTY_METRICS: CompanyMetricsData = {
   nrr: "",
   activeUsers: "",
   activeUsersMode: "mau",
+  dau: "",
   churnRate: "",
   burnMultiple: "",
   cac: "",

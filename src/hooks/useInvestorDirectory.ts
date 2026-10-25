@@ -21,6 +21,7 @@ export interface LiveInvestorEntry {
   lastSynced: Date;
   logo_url?: string | null;
   firm_type?: string;
+  sector_classification?: string | null;
   /** `firm_records` intel — drives directory “investment focus” pill. */
   strategy_classifications?: string[] | null;
   thesis_orientation?: string | null;
@@ -142,6 +143,7 @@ export function mapDbInvestor(row: any): LiveInvestorEntry {
     lastSynced: new Date(),
     logo_url: row.logo_url || null,
     firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm_type, row.entity_type),
+    sector_classification: typeof row.sector_classification === "string" ? row.sector_classification : null,
     strategy_classifications: Array.isArray(row.strategy_classifications)
       ? row.strategy_classifications.filter(Boolean)
       : null,
@@ -196,6 +198,7 @@ const DIRECTORY_COLUMNS = [
   "max_check_size",
   "logo_url",
   "firm_type",
+  "sector_classification",
   "entity_type",
   "is_actively_deploying",
   "has_fresh_capital",
@@ -441,7 +444,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
             "sweet_spot",
             "funding_intel_activity_score",
             "firm:firm_records!firm_investors_firm_id_fkey(",
-            "id,firm_name,logo_url,website_url,thesis_verticals,strategy_classifications,thesis_orientation,sector_scope,geo_focus,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,entity_type,",
+            "id,firm_name,logo_url,website_url,thesis_verticals,strategy_classifications,thesis_orientation,sector_scope,geo_focus,stage_focus,hq_city,hq_state,hq_country,location,locations,firm_type,sector_classification,entity_type,",
             "is_actively_deploying,has_fresh_capital,likely_actively_deploying,active_fund_vintage,last_fund_announcement_date,most_recent_investment_date,last_5_investments,founder_reputation_score,headcount,aum,is_trending,is_popular,is_recent,recent_deals,funding_intel_activity_score",
             ")",
           ].join(","),
@@ -487,6 +490,7 @@ export function useInvestorPeopleDirectory(limit = 5000) {
                     pickHqLineFromLocationsJson(row.firm.locations) ??
                     null,
                   firm_type: resolveDirectoryFirmTypeKey(firmName, row.firm.firm_type, row.firm.entity_type),
+                  sector_classification: typeof row.firm.sector_classification === "string" ? row.firm.sector_classification : null,
                   entity_type: row.firm.entity_type ?? null,
                   is_actively_deploying:
                     typeof row.firm.is_actively_deploying === "boolean" ? row.firm.is_actively_deploying : null,

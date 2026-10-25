@@ -20,6 +20,7 @@ import { StepInvestorMaterials } from "./StepInvestorMaterials";
 import { GenericFormStep } from "./GenericFormStep";
 import { useOnboardingWorkflow } from "@/hooks/useOnboardingWorkflow";
 import { activeSteps, type StepDef } from "@/config/onboardingWorkflow";
+import { withOnboardingTelemetry } from "@/lib/onboardingTelemetry";
 import { CheckCircle2, LockKeyhole, Network, Radar, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { playSound } from "@/lib/playSound";
@@ -134,10 +135,7 @@ export function OnboardingWizard() {
 
     const timeout = window.setTimeout(() => {
       void upsertPrefs({
-        onboarding_data: {
-          ...(onboardingDataRef.current || {}),
-          wizardState: state,
-        },
+        onboarding_data: withOnboardingTelemetry(onboardingDataRef.current, state, "autosave"),
       }).then((result) => {
         if (result.ok) lastRemoteCheckpointRef.current = serialized;
       });
@@ -216,7 +214,8 @@ export function OnboardingWizard() {
       const isPendingAccessRequest = Boolean(resolvedExistingId && !companyId);
 
       const prefsPayload = {
-        onboarding_data: {
+        onboarding_data: withOnboardingTelemetry({
+          ...(onboardingDataRef.current || {}),
           firstName: state.firstName,
           lastName: state.lastName,
           email: state.email,
@@ -245,7 +244,7 @@ export function OnboardingWizard() {
           cac: state.cac,
           ltv: state.ltv,
           headcount: state.headcount,
-        },
+        }, state, "complete"),
         privacy_settings: {
           aiInboxPaths: state.aiInboxPaths,
           shareAnonMetrics: state.shareAnonMetrics,

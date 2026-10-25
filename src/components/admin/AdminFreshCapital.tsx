@@ -1110,7 +1110,7 @@ function FreshFundEditPanel({
                 onClick={() => { onNavigate("firm-records"); toast.info("Firm ID copied — paste it in the search box", { duration: 4000 }); navigator.clipboard.writeText(draft.firm_record_id); }}
                 className="rounded border px-2 py-1 text-[10px] font-semibold transition-colors hover:bg-emerald-500/10"
                 style={{ borderColor: "rgba(46,230,166,0.35)", color: "#2EE6A6" }}
-              >View in Firm Records ↗</button>
+              >View in Investor Records ↗</button>
             )}
           </div>
         </div>
@@ -1359,7 +1359,7 @@ function AddFundModal({
               Add fund vehicle
             </h2>
             <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
-              Creates a row in <span className="font-mono text-white/55">vc_funds</span> linked to an existing firm. Use the firm&apos;s UUID from Firm Records admin.
+              Creates a row in <span className="font-mono text-white/55">vc_funds</span> linked to an existing firm. Use the firm&apos;s UUID from Investor Records admin.
             </p>
           </div>
           <button

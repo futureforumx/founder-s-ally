@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Save, RotateCcw,
-  Loader2, Layers, GripVertical, PanelsTopLeft,
+  Loader2, Layers, GripVertical,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useOnboardingWorkflow } from "@/hooks/useOnboardingWorkflow";
@@ -17,6 +17,8 @@ import {
   type StepDef,
 } from "@/config/onboardingWorkflow";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
+import { OnboardingAnalytics } from "@/components/admin/OnboardingAnalytics";
+import { OnboardingSectionTabs, type OnboardingSection } from "@/components/admin/OnboardingSectionTabs";
 
 const FIELD_TYPES: FieldType[] = [
   "text", "textarea", "email", "url", "number", "select", "multiselect", "boolean", "date", "social",
@@ -32,6 +34,18 @@ function clone<T>(v: T): T {
 }
 
 export function AdminOnboarding() {
+  const [section, setSection] = useState<OnboardingSection>("edit");
+  const tabs = <OnboardingSectionTabs section={section} onChange={setSection} />;
+
+  return (
+    <>
+      <OnboardingEdit active={section === "edit"} tabs={tabs} />
+      {section === "analytics" ? <OnboardingAnalytics tabs={tabs} /> : null}
+    </>
+  );
+}
+
+function OnboardingEdit({ active, tabs }: { active: boolean; tabs: ReactNode }) {
   const { definition, loading, saving, error, save } = useOnboardingWorkflow();
   const [draft, setDraft] = useState<OnboardingWorkflowDef>(() => clone(definition));
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -177,6 +191,8 @@ export function AdminOnboarding() {
     ? Math.max(0, activeSteps(draft).findIndex((s) => s.id === selectedStep.id))
     : 0;
 
+  if (!active) return null;
+
   if (loading && !definition) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -187,12 +203,11 @@ export function AdminOnboarding() {
 
   return (
     <div className="max-w-[1400px]">
-      <AdminStickyHeader>
+      <AdminStickyHeader className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <PanelsTopLeft className="h-4 w-4 text-emerald-500" />
-            <h1 className="text-lg font-semibold text-white">Onboarding Workflow</h1>
+            <h1 className="font-sans text-lg font-semibold text-neutral-100">Onboarding</h1>
             {dirty && (
               <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-400">
                 Unsaved
@@ -230,6 +245,7 @@ export function AdminOnboarding() {
           </button>
         </div>
       </div>
+      {tabs}
       </AdminStickyHeader>
 
       <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">

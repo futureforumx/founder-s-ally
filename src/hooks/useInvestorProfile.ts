@@ -11,7 +11,7 @@ import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
 
 // ── Types ──
-export interface InvestorPartner {
+export interface FirmPerson {
   id: string;
   full_name: string;
   first_name: string | null;
@@ -19,6 +19,7 @@ export interface InvestorPartner {
   title: string | null;
   is_active: boolean;
   profile_image_url?: string | null;
+  headshot_url?: string | null;
   avatar_url: string | null;
   email: string | null;
   linkedin_url: string | null;
@@ -38,6 +39,9 @@ export interface InvestorPartner {
   check_size_max?: number | null;
   sweet_spot?: string | null;
 }
+
+/** Backward-compatible type name for investor-domain consumers. */
+export type InvestorPartner = FirmPerson;
 
 export interface FirmDeal {
   id: string;
@@ -68,6 +72,7 @@ export interface InvestorProfile {
   /** Multi-office / scrape payload (`firm_records.locations` jsonb). */
   locations: Record<string, unknown> | null;
   firm_type: string | null;
+  sector_classification: string | null;
   aum: string | null;
   location: string | null;
   logo_url: string | null;
@@ -106,7 +111,7 @@ export interface InvestorProfile {
   /** Admin-set founder reputation score (`firm_records.founder_reputation_score`), 0–100. */
   founder_reputation_score: number | null;
   // Joined relations
-  partners: InvestorPartner[];
+  partners: FirmPerson[];
   deals: FirmDeal[];
   // Provenance flag
   source: "live";
@@ -123,8 +128,8 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
       .is("deleted_at", null)
       .maybeSingle(),
     supabase
-      .from("firm_investors")
-      .select("id, full_name, first_name, last_name, title, is_active, profile_image_url, avatar_url, profile_image_last_fetched_at, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, sector_focus, background_summary, education_summary, check_size_min, check_size_max, sweet_spot")
+      .from("firm_people")
+      .select("id, full_name, first_name, last_name, title, is_active, avatar_url, headshot_url, email, linkedin_url, x_url, website_url, bio, city, state, country, personal_thesis_tags, stage_focus, sector_focus, background_summary, education_summary, check_size_min, check_size_max, sweet_spot")
       .eq("firm_id", firmId)
       .is("deleted_at", null)
       .order("full_name"),
@@ -155,6 +160,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     hq_country: firm.hq_country,
     locations: firm.locations && typeof firm.locations === "object" ? (firm.locations as Record<string, unknown>) : null,
     firm_type: resolveDirectoryFirmTypeKey(firm.firm_name, firm.firm_type, firm.entity_type),
+    sector_classification: typeof firm.sector_classification === "string" ? firm.sector_classification : null,
     aum: firm.aum,
     location: resolveFirmDisplayLocation({
       hq_city: firm.hq_city,
@@ -199,9 +205,10 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
     total_headcount: typeof firm.total_headcount === "number" ? firm.total_headcount : null,
     headcount: typeof firm.headcount === "string" ? firm.headcount : null,
     founder_reputation_score: typeof firm.founder_reputation_score === "number" ? firm.founder_reputation_score : null,
-    partners: (partnersRes.data ?? []).map((p: any) => ({
+    partners: (partnersRes.data ?? []).map((p) => ({
       ...p,
-      profile_image_last_fetched_at: p.profile_image_last_fetched_at ?? null,
+      profile_image_url: p.avatar_url ?? p.headshot_url ?? null,
+      avatar_url: p.avatar_url ?? p.headshot_url ?? null,
       bio: sanitizeText(p.bio) || generateInvestorBio({
         full_name: p.full_name,
         first_name: p.first_name,
@@ -217,7 +224,7 @@ async function fetchInvestorProfile(firmId: string): Promise<InvestorProfile> {
         state: p.state,
         country: p.country,
       }),
-    })) as InvestorPartner[],
+    })) as FirmPerson[],
     deals: (dealsRes.data ?? []) as FirmDeal[],
     source: "live",
   };

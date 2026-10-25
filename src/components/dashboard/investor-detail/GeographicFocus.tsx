@@ -40,6 +40,20 @@ function classifyLocation(location: string): string | null {
 const TIME_OPTIONS = ["6M", "18M", "All Time"] as const;
 
 const COLLAPSED_FOCUS_COUNT = 3;
+const GEO_FOCUS_CHIP_COLORS: Record<string, string> = {
+  "Bay Area": "border-sky-500/30 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25",
+  "New York": "border-violet-500/30 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25",
+  Boston: "border-cyan-500/30 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25",
+  Austin: "border-amber-500/30 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25",
+  London: "border-fuchsia-500/30 bg-fuchsia-500/15 text-fuchsia-300 hover:bg-fuchsia-500/25",
+  Berlin: "border-rose-500/30 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25",
+  Singapore: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25",
+  "São Paulo": "border-orange-500/30 bg-orange-500/15 text-orange-300 hover:bg-orange-500/25",
+  Tokyo: "border-pink-500/30 bg-pink-500/15 text-pink-300 hover:bg-pink-500/25",
+  Mumbai: "border-lime-500/30 bg-lime-500/15 text-lime-300 hover:bg-lime-500/25",
+  "Tel Aviv": "border-indigo-500/30 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25",
+  Shanghai: "border-red-500/30 bg-red-500/15 text-red-300 hover:bg-red-500/25",
+};
 
 // ── Dot globe ──
 function DotGlobe({ radius }: { radius: number }) {
@@ -482,13 +496,13 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
                 aria-pressed={isSelected}
                 title={`Show ${s.name} on the globe`}
                 onClick={() => setSelectedPin(isSelected ? null : s.name)}
-                className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                className={`border text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-accent/25 text-accent ring-1 ring-accent/50"
-                    : "bg-accent/10 text-accent hover:bg-accent/20"
+                    ? `${GEO_FOCUS_CHIP_COLORS[s.name] ?? "border-accent/40 bg-accent/25 text-accent"} ring-1 ring-current/40`
+                    : GEO_FOCUS_CHIP_COLORS[s.name] ?? "border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
                 }`}
               >
-                {s.name} <span className="text-accent/60">{pct}%</span>
+                {s.name} <span className="font-mono tabular-nums opacity-75">{pct}%</span>
               </button>
             );
           })}

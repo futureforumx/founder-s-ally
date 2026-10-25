@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   extractMetricsFromDeckText,
+  extractMetricsReport,
   mergeExtractedMetrics,
   metricsFromAuditResponse,
   metricsPrefillPatch,
@@ -110,6 +111,14 @@ describe("extractMetricsFromDeckText", () => {
     const daily = extractMetricsFromDeckText("Engagement\nDAU 3,200\nWe grew fast in 2026.");
     expect(daily.activeUsers).toBe("3,200");
     expect(daily.activeUsersMode).toBe("dau");
+    expect(daily.dau).toBe("3,200");
+  });
+
+  it("keeps MAU and DAU when the deck reports both", () => {
+    const both = extractMetricsFromDeckText("[Slide 04]\nTraction\n12,000 MAU\nDAU 3,200");
+    expect(both.activeUsers).toBe("12,000");
+    expect(both.activeUsersMode).toBe("mau");
+    expect(both.dau).toBe("3,200");
   });
 
   it("stores a runway quoted in days on the days toggle", () => {
@@ -204,5 +213,31 @@ describe("metricsPrefillPatch", () => {
       metricsPrefillPatch({ ...EMPTY_METRICS, runway: "18" }, { runway: "540", runwayUnit: "days" })
         .patch,
     ).toEqual({});
+  });
+});
+
+describe("extractMetricsReport", () => {
+  it("attributes extracted figures to the slide and quote they came from", () => {
+    const { metrics, attributions } = extractMetricsReport(SLIDE_DECK);
+
+    expect(metrics.tam).toBe("12,400,000,000");
+    expect(attributions.tam).toEqual({
+      slideNumber: 3,
+      quote: "TAM $12.4B",
+      confidence: "high",
+    });
+    expect(attributions.cac).toMatchObject({
+      slideNumber: 5,
+      quote: "CAC $250",
+      confidence: "high",
+    });
+    expect(attributions.background?.slideNumber).toBe(2);
+  });
+
+  it("flags a figure without a slide marker as needing review", () => {
+    const { attributions } = extractMetricsReport("TAM $12.4B across North America.");
+    expect(attributions.tam?.confidence).toBe("low");
+    expect(attributions.tam?.slideNumber).toBeUndefined();
+    expect(attributions.tam?.quote).toContain("TAM $12.4B");
   });
 });

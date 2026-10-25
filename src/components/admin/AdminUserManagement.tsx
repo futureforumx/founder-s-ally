@@ -392,7 +392,7 @@ function PersonAvatar({ name, email, src }: { name: string; email: string; src: 
 
 function RolePill({ label }: { label: string }) {
   return (
-    <span className="inline-flex rounded-full border border-neutral-800 bg-neutral-900 px-2 py-0.5 font-sans text-xs text-neutral-300">
+    <span className="inline-flex whitespace-nowrap rounded-full border border-neutral-800 bg-neutral-900 px-2 py-0.5 font-sans text-xs text-neutral-300">
       {label}
     </span>
   );
@@ -449,7 +449,7 @@ function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
   const style = styles[lifecycle];
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-sans text-xs ${style.className}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 font-sans text-xs ${style.className}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
       {style.label}
     </span>
@@ -948,21 +948,21 @@ export function AdminUserManagement() {
         </div>
       ) : (
         <div className={`overflow-x-auto rounded-lg border border-neutral-800/80 bg-neutral-950 ${selectedIds.length > 0 ? "mb-2" : ""}`}>
-          <table className="w-full border-collapse text-left">
+          <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
             <colgroup>
               <col className="w-10" />
               <col className="w-8" />
-              <col className="w-1/4" />
-              <col className="w-1/3" />
-              <col className="w-28" />
-              <col className="w-28" />
-              <col className="w-36" />
-              <col className="w-28" />
+              <col />
+              <col />
+              <col className="w-[6.75rem]" />
+              <col className="w-[7.5rem]" />
+              <col className="w-[9rem]" />
+              <col className="w-[7.25rem]" />
               <col className="w-12" />
             </colgroup>
             <thead>
               <tr className="border-b border-neutral-800/80">
-                <th className="w-10 px-2 py-2">
+                <th className="px-2 py-2">
                   <Checkbox
                     aria-label="Select all visible users"
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
@@ -970,14 +970,14 @@ export function AdminUserManagement() {
                     className="border-neutral-700 bg-neutral-950 data-[state=checked]:bg-primary data-[state=checked]:text-white data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-white"
                   />
                 </th>
-                <th className="w-8 px-1 py-2" />
-                <th className="min-w-[180px] px-3 py-2 font-sans text-xs font-medium text-neutral-500">Name</th>
-                <th className="min-w-[220px] px-3 py-2 font-sans text-xs font-medium text-neutral-500">Email</th>
-                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Role</th>
-                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Subscription</th>
-                <th className="w-36 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Status</th>
-                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Joined</th>
-                <th className="w-12 px-2 py-2 text-right font-sans text-xs font-medium text-neutral-500">
+                <th className="px-1 py-2" />
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Name</th>
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Email</th>
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Role</th>
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Subscription</th>
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Status</th>
+                <th className="px-3 py-2 font-sans text-xs font-medium text-neutral-500">Joined</th>
+                <th className="px-2 py-2 text-right font-sans text-xs font-medium text-neutral-500">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -1100,7 +1100,7 @@ function DirectoryTableRow({
   return (
     <>
       <tr className="group/row border-b border-neutral-800/60 hover:bg-white/[0.02]">
-        <td className="w-10 px-2 py-2.5">
+        <td className="px-2 py-2.5">
           <Checkbox
             aria-label={`Select ${display.label}`}
             checked={selected}
@@ -1108,7 +1108,7 @@ function DirectoryTableRow({
             className="border-neutral-700 bg-neutral-950 data-[state=checked]:bg-primary data-[state=checked]:text-white"
           />
         </td>
-        <td className="w-8 px-1 py-2.5">
+        <td className="px-1 py-2.5">
           <button
             type="button"
             aria-expanded={expanded}
@@ -1119,8 +1119,8 @@ function DirectoryTableRow({
             {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
         </td>
-        <td className="min-w-[180px] px-3 py-2.5">
-          <div className="flex items-center gap-2.5">
+        <td className="px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <PersonAvatar name={avatarName} email={email} src={avatar} />
             <div className="min-w-0">
               <p className={`truncate font-sans text-sm ${display.incomplete ? "italic text-neutral-500" : "font-medium text-neutral-200"}`}>
@@ -1132,25 +1132,25 @@ function DirectoryTableRow({
             </div>
           </div>
         </td>
-        <td className="min-w-[220px] px-3 py-2.5">
+        <td className="px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate font-sans text-sm text-neutral-300">{email || "—"}</span>
             <CopyEmailButton email={email} />
           </div>
         </td>
-        <td className="w-28 px-3 py-2.5">
+        <td className="px-3 py-2.5">
           <RoleCell row={row} />
         </td>
-        <td className="w-28 px-3 py-2.5">
+        <td className="px-3 py-2.5">
           <SubscriptionCell row={row} />
         </td>
-        <td className="w-36 px-3 py-2.5">
+        <td className="px-3 py-2.5">
           <StatusBadge lifecycle={lifecycle} />
         </td>
-        <td className="w-28 px-3 py-2.5">
-          <span className="font-mono text-xs text-neutral-400">{formatJoined(rowCreatedAt(row))}</span>
+        <td className="px-3 py-2.5">
+          <span className="whitespace-nowrap font-mono text-xs tabular-nums text-neutral-400">{formatJoined(rowCreatedAt(row))}</span>
         </td>
-        <td className="w-12 px-2 py-2.5">
+        <td className="px-2 py-2.5">
           <div className="flex items-center justify-end" onClick={(event) => event.stopPropagation()}>
             <RowMenu
               row={row}

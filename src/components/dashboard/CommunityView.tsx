@@ -112,6 +112,7 @@ interface DirectoryEntry {
   _profileId?: string;
   /** Investor-specific enrichment fields */
   _firmType?: string;
+  _sectorClassification?: string | null;
   /** `firm_records` — strategy tag array (Postgres enum values). */
   _strategyClassifications?: string[] | null;
   _thesisOrientation?: string | null;
@@ -552,6 +553,7 @@ function directoryEntryFromLiveInvestor(inv: LiveInvestorEntry): DirectoryEntry 
     _sectors: [] as string[],
     _stages: [] as string[],
     _firmType: inv.firm_type ?? resolveDirectoryFirmTypeKey(inv.name, null),
+    _sectorClassification: inv.sector_classification ?? null,
     _strategyClassifications: inv.strategy_classifications ?? null,
     _thesisOrientation: inv.thesis_orientation ?? null,
     _sectorScope: inv.sector_scope ?? null,
@@ -4395,6 +4397,7 @@ export function CommunityView({
                   )
                     ? selectedInvestor._firmId.trim()
                     : null,
+                sectorClassification: selectedInvestor._sectorClassification ?? null,
                 /** Panel reads `logo_url`; directory cards use `_logoUrl` (+ VC JSON match). */
                 logo_url: selectedInvestor._logoUrl ?? selectedInvestorMatchedVCFirm?.logo_url ?? null,
                 websiteUrl: selectedInvestor._websiteUrl ?? selectedInvestorMatchedVCFirm?.website_url ?? null,

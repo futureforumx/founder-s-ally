@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
   Copy, DollarSign, ExternalLink, Loader2, MapPin, Plus, RefreshCw, Save, Search, Sparkles,
-  Users, X, XCircle,
+  UserRound, Users, X, XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/admin/FilterSelect";
@@ -65,6 +66,19 @@ function orderedStageSelectOptions(
   return out;
 }
 const COL = "2.1fr 1.7fr 1fr 1.4fr 1.3fr 0.75fr 0.75fr 0.85fr";
+const PERSON_COL = "1.6fr 1.1fr 1.5fr 1.5fr 1fr 0.75fr 0.85fr";
+const RECORD_KIND_OPTIONS = [
+  { value: "firm", label: "Firm" },
+  { value: "person", label: "Person" },
+] as const;
+const FUND_ROLE_OPTIONS = [
+  { value: "partner", label: "Partner" },
+  { value: "general_partner", label: "General partner" },
+  { value: "principal", label: "Principal" },
+  { value: "associate", label: "Associate" },
+  { value: "investor", label: "Investor" },
+  { value: "advisor", label: "Advisor" },
+] as const;
 const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
@@ -90,7 +104,7 @@ type FirmRow = {
   manual_review_status: string | null; updated_at: string | null;
 };
 
-type FirmInvestorRow = {
+type FirmPersonRow = {
   id: string; firm_id: string; created_at: string | null; updated_at: string | null; deleted_at: string | null;
   full_name: string; first_name: string | null; last_name: string | null; preferred_name: string | null; alternate_names: string[] | null;
   slug: string | null; title: string | null; seniority: string | null; investor_type: string | null;
@@ -121,6 +135,21 @@ type FirmInvestorRow = {
   co_investors: Json | null; prior_roles: Json | null;
 };
 
+type PersonLinkedFund = {
+  id: string;
+  name: string | null;
+  role: string;
+};
+
+type PersonDirectoryRow = FirmPersonRow & {
+  firm_name: string | null;
+  firm_logo_url: string | null;
+  firm_favicon_url: string | null;
+  funds: PersonLinkedFund[];
+};
+
+type RecordKind = "firm" | "person";
+
 type FirmPortfolioRow = {
   id: string; firm_id: string; company_name: string; normalized_company_name: string | null;
   amount: string | null; stage: string | null; date_announced: string | null; investment_status: string | null;
@@ -128,7 +157,7 @@ type FirmPortfolioRow = {
   source_name: string | null; source_url: string | null; source_confidence: number | null; updated_at: string | null;
 };
 
-type FirmModalTab = "profile" | "funds" | "investors" | "portfolio";
+type FirmModalTab = "profile" | "funds" | "people" | "portfolio";
 
 /** Row shape from GET `entity=fresh-funds` (see `freshFundRow` in admin-market-intel). */
 type FirmLinkedFundRow = {
@@ -199,6 +228,40 @@ async function createFirm(body: Record<string, unknown>): Promise<{ row?: FirmRo
     const json = await res.json().catch(() => ({})) as { row?: FirmRow; error?: string };
     if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
     return { row: json.row };
+  } catch (e: unknown) {
+    return { error: (e as Error)?.message };
+  }
+}
+
+async function fetchPeople(params: Record<string, string>): Promise<{ rows: PersonDirectoryRow[]; total: number; error?: string }> {
+  if (!SUPABASE_URL) return { rows: [], total: 0, error: "Supabase not configured" };
+
+  const qs = new URLSearchParams({ ...params, entity: "firm-investors" }).toString();
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
+    const json = await res.json().catch(() => ({})) as { rows?: PersonDirectoryRow[]; total?: number; error?: string };
+
+    if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
+
+    return { rows: json.rows ?? [], total: json.total ?? 0 };
+  } catch (e: unknown) {
+    return { rows: [], total: 0, error: (e as Error)?.message };
+  }
+}
+
+async function createPerson(body: Record<string, unknown>): Promise<{ row?: PersonDirectoryRow; error?: string; warning?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+
+  const url = `${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firm-investors`;
+
+  try {
+    const res = await fetch(url, { method: "POST", headers: await adminHeaders(), body: JSON.stringify(body) });
+    const json = await res.json().catch(() => ({})) as { row?: PersonDirectoryRow; error?: string; warning?: string };
+
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+
+    return { row: json.row, warning: json.warning };
   } catch (e: unknown) {
     return { error: (e as Error)?.message };
   }
@@ -559,11 +622,30 @@ function fmtFundDate(iso: string | null | undefined): string {
 function displayLocation(row: FirmRow): string {
   return row.location || [row.hq_city, row.hq_state ?? row.hq_country].filter(Boolean).join(", ") || "—";
 }
+function displayPersonLocation(row: PersonDirectoryRow): string {
+  return [row.city, row.state, row.country].filter(Boolean).join(", ") || "—";
+}
+function displayPersonFunds(funds: PersonLinkedFund[] | undefined): string {
+  if (!funds?.length) return "—";
+
+  const first = funds[0]?.name?.trim() || "Untitled fund";
+
+  if (funds.length === 1) return first;
+
+  return `${first} +${funds.length - 1}`;
+}
 type FirmAdminStatus = "live" | "needs_review" | "archive";
 function getFirmAdminStatus(row: FirmRow): FirmAdminStatus {
   const normalized = (row.status ?? "").toLowerCase().replace(/[\s-]+/g, "_");
   if (normalized === "archive" || normalized === "archived") return "archive";
   if (row.needs_review || normalized === "needs_review") return "needs_review";
+  return "live";
+}
+function getPersonAdminStatus(row: PersonDirectoryRow): FirmAdminStatus {
+  if (!row.is_active) return "archive";
+
+  if (row.needs_review || !row.ready_for_live) return "needs_review";
+
   return "live";
 }
 function firmStatusLabel(status: FirmAdminStatus): string {
@@ -600,19 +682,19 @@ function FirmEditPanel({
   onClose,
   onSaved,
   initialTab = "profile",
-  focusInvestorId = null,
+  focusPersonId = null,
 }: {
   row: FirmRow;
   onClose: () => void;
   onSaved: (r: FirmRow) => void;
   initialTab?: FirmModalTab;
-  focusInvestorId?: string | null;
+  focusPersonId?: string | null;
 }) {
   const [draft, setDraft] = useState<FirmRow>({ ...row });
   const [activeTab, setActiveTab] = useState<FirmModalTab>(initialTab);
   const [funds, setFunds] = useState<FirmLinkedFundRow[]>([]);
   const [fundDrafts, setFundDrafts] = useState<Record<string, { min: number | null; max: number | null; saving: boolean }>>({});
-  const [investors, setInvestors] = useState<FirmInvestorRow[]>([]);
+  const [people, setPeople] = useState<FirmPersonRow[]>([]);
   const [portfolio, setPortfolio] = useState<FirmPortfolioRow[]>([]);
   const [linkedLoading, setLinkedLoading] = useState(false);
   const [linkedError, setLinkedError] = useState<string | null>(null);
@@ -643,11 +725,11 @@ function FirmEditPanel({
     setLinkedError(null);
     Promise.all([
       fetchFirmLinkedFunds(row.id),
-      fetchFirmLinkedRows<FirmInvestorRow>("firm-investors", row.id),
+      fetchFirmLinkedRows<FirmPersonRow>("firm-investors", row.id),
       fetchFirmLinkedRows<FirmPortfolioRow>("firm-portfolio", row.id),
-    ]).then(([fundRes, investorRes, portfolioRes]) => {
+    ]).then(([fundRes, peopleRes, portfolioRes]) => {
       if (cancelled) return;
-      const error = fundRes.error ?? investorRes.error ?? portfolioRes.error ?? null;
+      const error = fundRes.error ?? peopleRes.error ?? portfolioRes.error ?? null;
       setLinkedError(error);
       setFunds(fundRes.rows);
       // Initialise per-fund check size drafts
@@ -656,7 +738,7 @@ function FirmEditPanel({
         initialDrafts[f.id] = { min: f.estimated_check_min_usd ?? null, max: f.estimated_check_max_usd ?? null, saving: false };
       }
       setFundDrafts(initialDrafts);
-      setInvestors(investorRes.rows);
+      setPeople(peopleRes.rows);
       setPortfolio(portfolioRes.rows);
     }).finally(() => {
       if (!cancelled) setLinkedLoading(false);
@@ -665,10 +747,10 @@ function FirmEditPanel({
   }, [row.id]);
 
   useEffect(() => {
-    if (!focusInvestorId || linkedLoading || activeTab !== "investors") return;
-    const el = document.getElementById(`admin-investor-${focusInvestorId}`);
+    if (!focusPersonId || linkedLoading || activeTab !== "people") return;
+    const el = document.getElementById(`admin-person-${focusPersonId}`);
     el?.scrollIntoView({ block: "center" });
-  }, [focusInvestorId, linkedLoading, investors, activeTab]);
+  }, [focusPersonId, linkedLoading, people, activeTab]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -698,13 +780,13 @@ function FirmEditPanel({
     setFundDrafts(prev => ({ ...prev, [fundId]: { ...prev[fundId], saving: false } }));
   };
 
-  const saveInvestor = async (item: FirmInvestorRow) => {
+  const savePerson = async (item: FirmPersonRow) => {
     const { id, firm_id, created_at, deleted_at, updated_at, ...patch } = item;
-    const { row: updated, error } = await patchLinkedRow<FirmInvestorRow>("firm-investors", id, patch);
+    const { row: updated, error } = await patchLinkedRow<FirmPersonRow>("firm-investors", id, patch);
     if (error) toast.error("Investor save failed", { description: error });
     else {
       toast.success("Investor saved");
-      if (updated) setInvestors(prev => prev.map(r => r.id === updated.id ? updated : r));
+      if (updated) setPeople(prev => prev.map(r => r.id === updated.id ? updated : r));
     }
   };
 
@@ -718,8 +800,8 @@ function FirmEditPanel({
     }
   };
 
-  function updateInvestor<K extends keyof FirmInvestorRow>(id: string, key: K, value: FirmInvestorRow[K]) {
-    setInvestors(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
+  function updatePerson<K extends keyof FirmPersonRow>(id: string, key: K, value: FirmPersonRow[K]) {
+    setPeople(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
   }
 
   function updatePortfolio<K extends keyof FirmPortfolioRow>(id: string, key: K, value: FirmPortfolioRow[K]) {
@@ -814,7 +896,7 @@ function FirmEditPanel({
             {([
               ["profile", "Firm Profile"],
               ["funds", `Funds (${funds.length})`],
-              ["investors", `Linked Investors (${investors.length})`],
+              ["people", `Linked People (${people.length})`],
               ["portfolio", `Portfolio Companies (${portfolio.length})`],
             ] as const).map(([tab, label]) => (
               <button
@@ -1091,9 +1173,9 @@ function FirmEditPanel({
                 </div>
               ))}
             </div>
-          ) : activeTab === "investors" ? (
+          ) : activeTab === "people" ? (
             <div className="space-y-3">
-              <Sect title="Linked Investors" />
+              <Sect title="Linked People" />
               <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                 <UF
                   label="LinkedIn team / people URL"
@@ -1105,163 +1187,163 @@ function FirmEditPanel({
                   Firm-level people page for future LinkedIn/team scrapes. Persists with the main <span className="text-white/55">Save</span> button above.
                 </p>
               </div>
-              {linkedLoading && <div className="flex items-center gap-2 py-8 text-[12px] text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> Loading linked investors…</div>}
+              {linkedLoading && <div className="flex items-center gap-2 py-8 text-[12px] text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> Loading linked people…</div>}
               {linkedError && <div className="rounded border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">{linkedError}</div>}
-              {!linkedLoading && !linkedError && investors.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked investors found</div>}
-              {investors.map(item => (
+              {!linkedLoading && !linkedError && people.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked people found</div>}
+              {people.map(item => (
                 <div
                   key={item.id}
-                  id={`admin-investor-${item.id}`}
+                  id={`admin-person-${item.id}`}
                   className="rounded-lg border bg-white/[0.03] p-3"
                   style={{
-                    borderColor: focusInvestorId === item.id ? "rgba(46,230,166,0.55)" : "rgba(255,255,255,0.1)",
+                    borderColor: focusPersonId === item.id ? "rgba(46,230,166,0.55)" : "rgba(255,255,255,0.1)",
                   }}
                 >
                   <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_0.8fr_auto]">
-                    <TF label="Investor Name" value={item.full_name} onChange={v => updateInvestor(item.id, "full_name", v)} />
-                    <TF label="Title" value={item.title} onChange={v => updateInvestor(item.id, "title", v)} />
-                    <TF label="Email" value={item.email} onChange={v => updateInvestor(item.id, "email", v)} />
-                    <RF label="Investor ID" value={item.id} />
-                    <button type="button" onClick={() => saveInvestor(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
+                    <TF label="Person Name" value={item.full_name} onChange={v => updatePerson(item.id, "full_name", v)} />
+                    <TF label="Title" value={item.title} onChange={v => updatePerson(item.id, "title", v)} />
+                    <TF label="Email" value={item.email} onChange={v => updatePerson(item.id, "email", v)} />
+                    <RF label="Person ID" value={item.id} />
+                    <button type="button" onClick={() => savePerson(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
                       <Save className="h-3.5 w-3.5" /> Save
                     </button>
                   </div>
 
                   <Sect title="Profile" />
                   <div className="grid gap-3 lg:grid-cols-4">
-                    <TF label="First Name" value={item.first_name} onChange={v => updateInvestor(item.id, "first_name", v)} />
-                    <TF label="Last Name" value={item.last_name} onChange={v => updateInvestor(item.id, "last_name", v)} />
-                    <TF label="Preferred Name" value={item.preferred_name} onChange={v => updateInvestor(item.id, "preferred_name", v)} />
-                    <TF label="Seniority" value={item.seniority} onChange={v => updateInvestor(item.id, "seniority", v)} />
-                    <TF label="Investor Type" value={item.investor_type} onChange={v => updateInvestor(item.id, "investor_type", v)} />
-                    <TF label="Phone" value={item.phone} onChange={v => updateInvestor(item.id, "phone", v)} />
-                    <TF label="Timezone" value={item.timezone} onChange={v => updateInvestor(item.id, "timezone", v)} />
-                    <TF label="Slug" value={item.slug} onChange={v => updateInvestor(item.id, "slug", v)} />
+                    <TF label="First Name" value={item.first_name} onChange={v => updatePerson(item.id, "first_name", v)} />
+                    <TF label="Last Name" value={item.last_name} onChange={v => updatePerson(item.id, "last_name", v)} />
+                    <TF label="Preferred Name" value={item.preferred_name} onChange={v => updatePerson(item.id, "preferred_name", v)} />
+                    <TF label="Seniority" value={item.seniority} onChange={v => updatePerson(item.id, "seniority", v)} />
+                    <TF label="Investor Type" value={item.investor_type} onChange={v => updatePerson(item.id, "investor_type", v)} />
+                    <TF label="Phone" value={item.phone} onChange={v => updatePerson(item.id, "phone", v)} />
+                    <TF label="Timezone" value={item.timezone} onChange={v => updatePerson(item.id, "timezone", v)} />
+                    <TF label="Slug" value={item.slug} onChange={v => updatePerson(item.id, "slug", v)} />
                   </div>
                   <div className="mt-3">
-                    <TagF label="Alternate Names" value={item.alternate_names} onChange={v => updateInvestor(item.id, "alternate_names", v)} />
+                    <TagF label="Alternate Names" value={item.alternate_names} onChange={v => updatePerson(item.id, "alternate_names", v)} />
                   </div>
 
                   <Sect title="Social & Web" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
-                    <UF label="LinkedIn" value={item.linkedin_url} onChange={v => updateInvestor(item.id, "linkedin_url", v)} />
-                    <UF label="X" value={item.x_url} onChange={v => updateInvestor(item.id, "x_url", v)} />
-                    <UF label="Website" value={item.website_url} onChange={v => updateInvestor(item.id, "website_url", v)} />
-                    <UF label="Personal Website" value={item.personal_website} onChange={v => updateInvestor(item.id, "personal_website", v)} />
-                    <UF label="Firm Bio Page" value={item.firm_bio_page_url} onChange={v => updateInvestor(item.id, "firm_bio_page_url", v)} />
-                    <UF label="Facebook" value={item.facebook_url} onChange={v => updateInvestor(item.id, "facebook_url", v)} />
-                    <UF label="Instagram" value={item.instagram_url} onChange={v => updateInvestor(item.id, "instagram_url", v)} />
-                    <UF label="YouTube" value={item.youtube_url} onChange={v => updateInvestor(item.id, "youtube_url", v)} />
-                    <UF label="TikTok" value={item.tiktok_url} onChange={v => updateInvestor(item.id, "tiktok_url", v)} />
-                    <UF label="Medium" value={item.medium_url} onChange={v => updateInvestor(item.id, "medium_url", v)} />
-                    <UF label="Substack" value={item.substack_url} onChange={v => updateInvestor(item.id, "substack_url", v)} />
-                    <UF label="Tracxn" value={item.tracxn_url} onChange={v => updateInvestor(item.id, "tracxn_url", v)} />
+                    <UF label="LinkedIn" value={item.linkedin_url} onChange={v => updatePerson(item.id, "linkedin_url", v)} />
+                    <UF label="X" value={item.x_url} onChange={v => updatePerson(item.id, "x_url", v)} />
+                    <UF label="Website" value={item.website_url} onChange={v => updatePerson(item.id, "website_url", v)} />
+                    <UF label="Personal Website" value={item.personal_website} onChange={v => updatePerson(item.id, "personal_website", v)} />
+                    <UF label="Firm Bio Page" value={item.firm_bio_page_url} onChange={v => updatePerson(item.id, "firm_bio_page_url", v)} />
+                    <UF label="Facebook" value={item.facebook_url} onChange={v => updatePerson(item.id, "facebook_url", v)} />
+                    <UF label="Instagram" value={item.instagram_url} onChange={v => updatePerson(item.id, "instagram_url", v)} />
+                    <UF label="YouTube" value={item.youtube_url} onChange={v => updatePerson(item.id, "youtube_url", v)} />
+                    <UF label="TikTok" value={item.tiktok_url} onChange={v => updatePerson(item.id, "tiktok_url", v)} />
+                    <UF label="Medium" value={item.medium_url} onChange={v => updatePerson(item.id, "medium_url", v)} />
+                    <UF label="Substack" value={item.substack_url} onChange={v => updatePerson(item.id, "substack_url", v)} />
+                    <UF label="Tracxn" value={item.tracxn_url} onChange={v => updatePerson(item.id, "tracxn_url", v)} />
                   </div>
 
                   <Sect title="Images" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
-                    <UF label="Avatar URL" value={item.avatar_url} onChange={v => updateInvestor(item.id, "avatar_url", v)} />
-                    <UF label="Headshot URL" value={item.headshot_url} onChange={v => updateInvestor(item.id, "headshot_url", v)} />
-                    <UF label="Avatar Source URL" value={item.avatar_source_url} onChange={v => updateInvestor(item.id, "avatar_source_url", v)} />
-                    <TF label="Avatar Source Type" value={item.avatar_source_type} onChange={v => updateInvestor(item.id, "avatar_source_type", v)} />
-                    <NF label="Avatar Confidence" value={item.avatar_confidence} onChange={v => updateInvestor(item.id, "avatar_confidence", v)} />
-                    <TF label="Avatar Verified At" value={item.avatar_last_verified_at} onChange={v => updateInvestor(item.id, "avatar_last_verified_at", v)} />
+                    <UF label="Avatar URL" value={item.avatar_url} onChange={v => updatePerson(item.id, "avatar_url", v)} />
+                    <UF label="Headshot URL" value={item.headshot_url} onChange={v => updatePerson(item.id, "headshot_url", v)} />
+                    <UF label="Avatar Source URL" value={item.avatar_source_url} onChange={v => updatePerson(item.id, "avatar_source_url", v)} />
+                    <TF label="Avatar Source Type" value={item.avatar_source_type} onChange={v => updatePerson(item.id, "avatar_source_type", v)} />
+                    <NF label="Avatar Confidence" value={item.avatar_confidence} onChange={v => updatePerson(item.id, "avatar_confidence", v)} />
+                    <TF label="Avatar Verified At" value={item.avatar_last_verified_at} onChange={v => updatePerson(item.id, "avatar_last_verified_at", v)} />
                   </div>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
-                    <BF label="Avatar Needs Review" value={item.avatar_needs_review} onChange={v => updateInvestor(item.id, "avatar_needs_review", v)} />
+                    <BF label="Avatar Needs Review" value={item.avatar_needs_review} onChange={v => updatePerson(item.id, "avatar_needs_review", v)} />
                   </div>
 
                   <Sect title="Location & Access" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-4">
-                    <TF label="City" value={item.city} onChange={v => updateInvestor(item.id, "city", v)} />
-                    <TF label="State" value={item.state} onChange={v => updateInvestor(item.id, "state", v)} />
-                    <TF label="Country" value={item.country} onChange={v => updateInvestor(item.id, "country", v)} />
+                    <TF label="City" value={item.city} onChange={v => updatePerson(item.id, "city", v)} />
+                    <TF label="State" value={item.state} onChange={v => updatePerson(item.id, "state", v)} />
+                    <TF label="Country" value={item.country} onChange={v => updatePerson(item.id, "country", v)} />
                   </div>
                   <div className="mt-3 grid max-w-3xl gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <BF label="Active" value={item.is_active} onChange={v => updateInvestor(item.id, "is_active", v)} />
-                    <BF label="Actively Investing" value={item.is_actively_investing} onChange={v => updateInvestor(item.id, "is_actively_investing", v)} />
-                    <BF label="Cold Outreach OK" value={item.cold_outreach_ok} onChange={v => updateInvestor(item.id, "cold_outreach_ok", v)} />
-                    <BF label="Warm Intro Preferred" value={item.warm_intro_preferred} onChange={v => updateInvestor(item.id, "warm_intro_preferred", v)} />
+                    <BF label="Active" value={item.is_active} onChange={v => updatePerson(item.id, "is_active", v)} />
+                    <BF label="Actively Investing" value={item.is_actively_investing} onChange={v => updatePerson(item.id, "is_actively_investing", v)} />
+                    <BF label="Cold Outreach OK" value={item.cold_outreach_ok} onChange={v => updatePerson(item.id, "cold_outreach_ok", v)} />
+                    <BF label="Warm Intro Preferred" value={item.warm_intro_preferred} onChange={v => updatePerson(item.id, "warm_intro_preferred", v)} />
                   </div>
 
                   <Sect title="Focus & Thesis" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <TagF label="Stage Focus" value={item.stage_focus} onChange={v => updateInvestor(item.id, "stage_focus", v)} />
-                    <TagF label="Sector Focus" value={item.sector_focus} onChange={v => updateInvestor(item.id, "sector_focus", v)} />
-                    <TagF label="Thesis Tags" value={item.personal_thesis_tags} onChange={v => updateInvestor(item.id, "personal_thesis_tags", v)} />
-                    <TagF label="Portfolio Companies" value={item.portfolio_companies} onChange={v => updateInvestor(item.id, "portfolio_companies", v)} />
-                    <TagF label="Geographic Focus" value={item.geographic_focus} onChange={v => updateInvestor(item.id, "geographic_focus", v)} />
-                    <TagF label="Domain Expertise" value={item.domain_expertise} onChange={v => updateInvestor(item.id, "domain_expertise", v)} />
-                    <TagF label="Investing Themes" value={item.investing_themes} onChange={v => updateInvestor(item.id, "investing_themes", v)} />
-                    <TagF label="Current Areas of Interest" value={item.current_areas_of_interest} onChange={v => updateInvestor(item.id, "current_areas_of_interest", v)} />
-                    <TagF label="Notable Investments" value={item.notable_investments} onChange={v => updateInvestor(item.id, "notable_investments", v)} />
-                    <TagF label="Networks" value={item.networks} onChange={v => updateInvestor(item.id, "networks", v)} />
-                    <TagF label="Board Seats" value={item.board_seats} onChange={v => updateInvestor(item.id, "board_seats", v)} />
-                    <TagF label="Prior Firms" value={item.prior_firms} onChange={v => updateInvestor(item.id, "prior_firms", v)} />
-                    <TagF label="Prior Firm Associations" value={item.prior_firm_associations} onChange={v => updateInvestor(item.id, "prior_firm_associations", v)} />
-                    <TagF label="Stage Concentration" value={item.stage_concentration} onChange={v => updateInvestor(item.id, "stage_concentration", v)} />
-                    <TagF label="Geographic Concentration" value={item.geographic_concentration} onChange={v => updateInvestor(item.id, "geographic_concentration", v)} />
-                    <TagF label="Thematic Concentration" value={item.thematic_concentration} onChange={v => updateInvestor(item.id, "thematic_concentration", v)} />
-                    <TagF label="Sub-Sectors" value={item.sub_sectors} onChange={v => updateInvestor(item.id, "sub_sectors", v)} />
+                    <TagF label="Stage Focus" value={item.stage_focus} onChange={v => updatePerson(item.id, "stage_focus", v)} />
+                    <TagF label="Sector Focus" value={item.sector_focus} onChange={v => updatePerson(item.id, "sector_focus", v)} />
+                    <TagF label="Thesis Tags" value={item.personal_thesis_tags} onChange={v => updatePerson(item.id, "personal_thesis_tags", v)} />
+                    <TagF label="Portfolio Companies" value={item.portfolio_companies} onChange={v => updatePerson(item.id, "portfolio_companies", v)} />
+                    <TagF label="Geographic Focus" value={item.geographic_focus} onChange={v => updatePerson(item.id, "geographic_focus", v)} />
+                    <TagF label="Domain Expertise" value={item.domain_expertise} onChange={v => updatePerson(item.id, "domain_expertise", v)} />
+                    <TagF label="Investing Themes" value={item.investing_themes} onChange={v => updatePerson(item.id, "investing_themes", v)} />
+                    <TagF label="Current Areas of Interest" value={item.current_areas_of_interest} onChange={v => updatePerson(item.id, "current_areas_of_interest", v)} />
+                    <TagF label="Notable Investments" value={item.notable_investments} onChange={v => updatePerson(item.id, "notable_investments", v)} />
+                    <TagF label="Networks" value={item.networks} onChange={v => updatePerson(item.id, "networks", v)} />
+                    <TagF label="Board Seats" value={item.board_seats} onChange={v => updatePerson(item.id, "board_seats", v)} />
+                    <TagF label="Prior Firms" value={item.prior_firms} onChange={v => updatePerson(item.id, "prior_firms", v)} />
+                    <TagF label="Prior Firm Associations" value={item.prior_firm_associations} onChange={v => updatePerson(item.id, "prior_firm_associations", v)} />
+                    <TagF label="Stage Concentration" value={item.stage_concentration} onChange={v => updatePerson(item.id, "stage_concentration", v)} />
+                    <TagF label="Geographic Concentration" value={item.geographic_concentration} onChange={v => updatePerson(item.id, "geographic_concentration", v)} />
+                    <TagF label="Thematic Concentration" value={item.thematic_concentration} onChange={v => updatePerson(item.id, "thematic_concentration", v)} />
+                    <TagF label="Sub-Sectors" value={item.sub_sectors} onChange={v => updatePerson(item.id, "sub_sectors", v)} />
                   </div>
 
                   <Sect title="Narrative" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <TA label="Short Summary" value={item.short_summary} onChange={v => updateInvestor(item.id, "short_summary", v)} rows={2} />
-                    <TA label="Bio" value={item.bio} onChange={v => updateInvestor(item.id, "bio", v)} rows={2} />
-                    <TA label="Background Summary" value={item.background_summary} onChange={v => updateInvestor(item.id, "background_summary", v)} rows={3} />
-                    <TA label="Education Summary" value={item.education_summary} onChange={v => updateInvestor(item.id, "education_summary", v)} rows={3} />
-                    <TA label="Founder Background" value={item.founder_background} onChange={v => updateInvestor(item.id, "founder_background", v)} rows={3} />
-                    <TA label="Operator Background" value={item.operator_background} onChange={v => updateInvestor(item.id, "operator_background", v)} rows={3} />
-                    <TA label="Recent Focus" value={item.recent_focus} onChange={v => updateInvestor(item.id, "recent_focus", v)} rows={2} />
+                    <TA label="Short Summary" value={item.short_summary} onChange={v => updatePerson(item.id, "short_summary", v)} rows={2} />
+                    <TA label="Bio" value={item.bio} onChange={v => updatePerson(item.id, "bio", v)} rows={2} />
+                    <TA label="Background Summary" value={item.background_summary} onChange={v => updatePerson(item.id, "background_summary", v)} rows={3} />
+                    <TA label="Education Summary" value={item.education_summary} onChange={v => updatePerson(item.id, "education_summary", v)} rows={3} />
+                    <TA label="Founder Background" value={item.founder_background} onChange={v => updatePerson(item.id, "founder_background", v)} rows={3} />
+                    <TA label="Operator Background" value={item.operator_background} onChange={v => updatePerson(item.id, "operator_background", v)} rows={3} />
+                    <TA label="Recent Focus" value={item.recent_focus} onChange={v => updatePerson(item.id, "recent_focus", v)} rows={2} />
                   </div>
 
                   <Sect title="Investment Behavior" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-4">
-                    <TF label="Avg Deal Size" value={item.avg_deal_size} onChange={v => updateInvestor(item.id, "avg_deal_size", v)} />
-                    <NF label="Check Size Min" value={item.check_size_min} onChange={v => updateInvestor(item.id, "check_size_min", v)} />
-                    <NF label="Check Size Max" value={item.check_size_max} onChange={v => updateInvestor(item.id, "check_size_max", v)} />
-                    <NF label="Sweet Spot" value={item.sweet_spot} onChange={v => updateInvestor(item.id, "sweet_spot", v)} />
-                    <TF label="Lead vs Follow" value={item.lead_vs_follow} onChange={v => updateInvestor(item.id, "lead_vs_follow", v)} />
-                    <TF label="Investment Pace" value={item.investment_pace} onChange={v => updateInvestor(item.id, "investment_pace", v)} />
-                    <TF label="Investment Style" value={item.investment_style} onChange={v => updateInvestor(item.id, "investment_style", v)} />
-                    <NF label="Total Known Investments" value={item.total_known_investments} onChange={v => updateInvestor(item.id, "total_known_investments", v)} />
-                    <NF label="Recent Deal Count" value={item.recent_deal_count} onChange={v => updateInvestor(item.id, "recent_deal_count", v)} />
-                    <TF label="Last Active Date" value={item.last_active_date} onChange={v => updateInvestor(item.id, "last_active_date", v)} />
-                    <TF label="Last Capital Signal At" value={item.last_capital_signal_at} onChange={v => updateInvestor(item.id, "last_capital_signal_at", v)} />
-                    <TF label="Last Enriched At" value={item.last_enriched_at} onChange={v => updateInvestor(item.id, "last_enriched_at", v)} />
+                    <TF label="Avg Deal Size" value={item.avg_deal_size} onChange={v => updatePerson(item.id, "avg_deal_size", v)} />
+                    <NF label="Check Size Min" value={item.check_size_min} onChange={v => updatePerson(item.id, "check_size_min", v)} />
+                    <NF label="Check Size Max" value={item.check_size_max} onChange={v => updatePerson(item.id, "check_size_max", v)} />
+                    <NF label="Sweet Spot" value={item.sweet_spot} onChange={v => updatePerson(item.id, "sweet_spot", v)} />
+                    <TF label="Lead vs Follow" value={item.lead_vs_follow} onChange={v => updatePerson(item.id, "lead_vs_follow", v)} />
+                    <TF label="Investment Pace" value={item.investment_pace} onChange={v => updatePerson(item.id, "investment_pace", v)} />
+                    <TF label="Investment Style" value={item.investment_style} onChange={v => updatePerson(item.id, "investment_style", v)} />
+                    <NF label="Total Known Investments" value={item.total_known_investments} onChange={v => updatePerson(item.id, "total_known_investments", v)} />
+                    <NF label="Recent Deal Count" value={item.recent_deal_count} onChange={v => updatePerson(item.id, "recent_deal_count", v)} />
+                    <TF label="Last Active Date" value={item.last_active_date} onChange={v => updatePerson(item.id, "last_active_date", v)} />
+                    <TF label="Last Capital Signal At" value={item.last_capital_signal_at} onChange={v => updatePerson(item.id, "last_capital_signal_at", v)} />
+                    <TF label="Last Enriched At" value={item.last_enriched_at} onChange={v => updatePerson(item.id, "last_enriched_at", v)} />
                   </div>
 
                   <Sect title="Scores & Enrichment" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-4">
-                    <NF label="Match Score" value={item.match_score} onChange={v => updateInvestor(item.id, "match_score", v)} />
-                    <NF label="Network Strength" value={item.network_strength} onChange={v => updateInvestor(item.id, "network_strength", v)} />
-                    <NF label="Reputation Score" value={item.reputation_score} onChange={v => updateInvestor(item.id, "reputation_score", v)} />
-                    <NF label="Responsiveness Score" value={item.responsiveness_score} onChange={v => updateInvestor(item.id, "responsiveness_score", v)} />
-                    <NF label="Value Add Score" value={item.value_add_score} onChange={v => updateInvestor(item.id, "value_add_score", v)} />
-                    <NF label="Capital Freshness Boost" value={item.capital_freshness_boost_score} onChange={v => updateInvestor(item.id, "capital_freshness_boost_score", v)} />
-                    <NF label="Completeness Score" value={item.completeness_score} onChange={v => updateInvestor(item.id, "completeness_score", v ?? 0)} />
-                    <NF label="Source Count" value={item.source_count} onChange={v => updateInvestor(item.id, "source_count", v ?? 0)} />
-                    <TF label="Enrichment Status" value={item.enrichment_status} onChange={v => updateInvestor(item.id, "enrichment_status", v)} />
+                    <NF label="Match Score" value={item.match_score} onChange={v => updatePerson(item.id, "match_score", v)} />
+                    <NF label="Network Strength" value={item.network_strength} onChange={v => updatePerson(item.id, "network_strength", v)} />
+                    <NF label="Reputation Score" value={item.reputation_score} onChange={v => updatePerson(item.id, "reputation_score", v)} />
+                    <NF label="Responsiveness Score" value={item.responsiveness_score} onChange={v => updatePerson(item.id, "responsiveness_score", v)} />
+                    <NF label="Value Add Score" value={item.value_add_score} onChange={v => updatePerson(item.id, "value_add_score", v)} />
+                    <NF label="Capital Freshness Boost" value={item.capital_freshness_boost_score} onChange={v => updatePerson(item.id, "capital_freshness_boost_score", v)} />
+                    <NF label="Completeness Score" value={item.completeness_score} onChange={v => updatePerson(item.id, "completeness_score", v ?? 0)} />
+                    <NF label="Source Count" value={item.source_count} onChange={v => updatePerson(item.id, "source_count", v ?? 0)} />
+                    <TF label="Enrichment Status" value={item.enrichment_status} onChange={v => updatePerson(item.id, "enrichment_status", v)} />
                   </div>
                   <div className="mt-3 grid max-w-md gap-3 sm:grid-cols-2">
-                    <BF label="Needs Review" value={item.needs_review} onChange={v => updateInvestor(item.id, "needs_review", v)} />
-                    <BF label="Ready for Live" value={item.ready_for_live} onChange={v => updateInvestor(item.id, "ready_for_live", v)} />
+                    <BF label="Needs Review" value={item.needs_review} onChange={v => updatePerson(item.id, "needs_review", v)} />
+                    <BF label="Ready for Live" value={item.ready_for_live} onChange={v => updatePerson(item.id, "ready_for_live", v)} />
                   </div>
 
                   <Sect title="Source Payloads" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                    <JF label="Articles" value={item.articles} onChange={v => updateInvestor(item.id, "articles", v)} />
-                    <JF label="Blog Posts" value={item.blog_posts} onChange={v => updateInvestor(item.id, "blog_posts", v)} />
-                    <JF label="Interviews" value={item.interviews} onChange={v => updateInvestor(item.id, "interviews", v)} />
-                    <JF label="Podcasts" value={item.podcasts} onChange={v => updateInvestor(item.id, "podcasts", v)} />
-                    <JF label="Past Investments" value={item.past_investments} onChange={v => updateInvestor(item.id, "past_investments", v)} />
-                    <JF label="Recent Investments" value={item.recent_investments} onChange={v => updateInvestor(item.id, "recent_investments", v)} />
-                    <JF label="Recent News" value={item.recent_news} onChange={v => updateInvestor(item.id, "recent_news", v)} />
-                    <JF label="Last 3 Investments" value={item.last_3_investments} onChange={v => updateInvestor(item.id, "last_3_investments", v)} />
-                    <JF label="Last 5 Investments" value={item.last_5_investments} onChange={v => updateInvestor(item.id, "last_5_investments", v)} />
-                    <JF label="Co-Investors" value={item.co_investors} onChange={v => updateInvestor(item.id, "co_investors", v)} />
-                    <JF label="Prior Roles" value={item.prior_roles} onChange={v => updateInvestor(item.id, "prior_roles", v)} />
+                    <JF label="Articles" value={item.articles} onChange={v => updatePerson(item.id, "articles", v)} />
+                    <JF label="Blog Posts" value={item.blog_posts} onChange={v => updatePerson(item.id, "blog_posts", v)} />
+                    <JF label="Interviews" value={item.interviews} onChange={v => updatePerson(item.id, "interviews", v)} />
+                    <JF label="Podcasts" value={item.podcasts} onChange={v => updatePerson(item.id, "podcasts", v)} />
+                    <JF label="Past Investments" value={item.past_investments} onChange={v => updatePerson(item.id, "past_investments", v)} />
+                    <JF label="Recent Investments" value={item.recent_investments} onChange={v => updatePerson(item.id, "recent_investments", v)} />
+                    <JF label="Recent News" value={item.recent_news} onChange={v => updatePerson(item.id, "recent_news", v)} />
+                    <JF label="Last 3 Investments" value={item.last_3_investments} onChange={v => updatePerson(item.id, "last_3_investments", v)} />
+                    <JF label="Last 5 Investments" value={item.last_5_investments} onChange={v => updatePerson(item.id, "last_5_investments", v)} />
+                    <JF label="Co-Investors" value={item.co_investors} onChange={v => updatePerson(item.id, "co_investors", v)} />
+                    <JF label="Prior Roles" value={item.prior_roles} onChange={v => updatePerson(item.id, "prior_roles", v)} />
                   </div>
 
                   <Sect title="System Metadata" />
@@ -1319,12 +1401,12 @@ function FirmEditPanel({
 export function AdminFirmEditor({
   firmId,
   initialTab = "profile",
-  focusInvestorId = null,
+  focusPersonId = null,
   onClose,
 }: {
   firmId: string;
   initialTab?: FirmModalTab;
-  focusInvestorId?: string | null;
+  focusPersonId?: string | null;
   onClose: () => void;
 }) {
   const [row, setRow] = useState<FirmRow | null>(null);
@@ -1364,7 +1446,7 @@ export function AdminFirmEditor({
     <FirmEditPanel
       row={row}
       initialTab={initialTab}
-      focusInvestorId={focusInvestorId}
+      focusPersonId={focusPersonId}
       onClose={onClose}
       onSaved={setRow}
     />
@@ -1477,13 +1559,288 @@ function AddFirmModal({
   );
 }
 
+function AddPersonModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (row: PersonDirectoryRow) => void | Promise<void>;
+}) {
+  const [fullName, setFullName] = useState("");
+  const [title, setTitle] = useState("");
+  const [email, setEmail] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [firmQuery, setFirmQuery] = useState("");
+  const [firmResults, setFirmResults] = useState<FirmRow[]>([]);
+  const [firmSearching, setFirmSearching] = useState(false);
+  const [pickedFirm, setPickedFirm] = useState<FirmRow | null>(null);
+  const [funds, setFunds] = useState<FirmLinkedFundRow[]>([]);
+  const [fundsLoading, setFundsLoading] = useState(false);
+  const [pickedFundId, setPickedFundId] = useState("");
+  const [role, setRole] = useState("partner");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setFullName("");
+      setTitle("");
+      setEmail("");
+      setLinkedinUrl("");
+      setFirmQuery("");
+      setFirmResults([]);
+      setPickedFirm(null);
+      setFunds([]);
+      setPickedFundId("");
+      setRole("partner");
+      setSubmitting(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || pickedFirm) {
+      setFirmResults([]);
+
+      return;
+    }
+
+    const q = firmQuery.trim();
+
+    if (q.length < 2) {
+      setFirmResults([]);
+
+      return;
+    }
+
+    const t = setTimeout(() => {
+      setFirmSearching(true);
+      void fetchFirms({ search: q, limit: "8" }).then((res) => {
+        setFirmResults(res.rows);
+        setFirmSearching(false);
+      });
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [firmQuery, open, pickedFirm]);
+
+  useEffect(() => {
+    if (!pickedFirm) {
+      setFunds([]);
+      setPickedFundId("");
+
+      return;
+    }
+
+    let cancelled = false;
+    setFundsLoading(true);
+    void fetchFirmLinkedFunds(pickedFirm.id).then((res) => {
+      if (cancelled) return;
+
+      setFunds(res.rows);
+      setFundsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pickedFirm]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    const name = fullName.trim();
+
+    if (!name) {
+      toast.error("Full name is required");
+
+      return;
+    }
+
+    if (!pickedFirm) {
+      toast.error("Choose a firm for this person");
+
+      return;
+    }
+
+    setSubmitting(true);
+
+    const body: Record<string, unknown> = {
+      full_name: name,
+      firm_id: pickedFirm.id,
+    };
+
+    const t = title.trim();
+    const e = email.trim();
+    const li = linkedinUrl.trim();
+
+    if (t) body.title = t;
+
+    if (e) body.email = e;
+
+    if (li) body.linkedin_url = li;
+
+    if (pickedFundId) {
+      body.vc_fund_id = pickedFundId;
+      body.role = role;
+    }
+
+    const { row, error, warning } = await createPerson(body);
+    setSubmitting(false);
+
+    if (error) {
+      toast.error("Could not create person", { description: error });
+
+      return;
+    }
+
+    if (warning) toast.error("Person created with a fund-link warning", { description: warning });
+
+    if (row) {
+      toast.success(pickedFundId ? "Person created and linked to fund" : "Person created — opens as NEEDS REVIEW");
+      await Promise.resolve(onCreated(row));
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <button type="button" aria-label="Close add person dialog" className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0c0c0c] p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-semibold text-white/90">Add person</h2>
+            <p className="mt-1 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,0.38)" }}>
+              Creates a person record linked to a firm and optionally to a fund.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <TF label="Full name *" value={fullName} onChange={setFullName} placeholder="e.g. Jordan Lee" />
+          <TF label="Title" value={title} onChange={setTitle} placeholder="Partner, Principal…" />
+          <TF label="Email" value={email} onChange={setEmail} placeholder="Optional" />
+          <UF label="LinkedIn" value={linkedinUrl} onChange={setLinkedinUrl} placeholder="https://linkedin.com/in/…" />
+          <FL label="Firm *">
+            {pickedFirm ? (
+              <div className="flex items-center justify-between gap-2 rounded px-3 py-1.5" style={IS}>
+                <span className="truncate text-[12px] text-white/85">{pickedFirm.firm_name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setPickedFirm(null); setFirmQuery(""); }}
+                  className="shrink-0 text-[11px] text-white/45 hover:text-white/80"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  value={firmQuery}
+                  onChange={e => setFirmQuery(e.target.value)}
+                  placeholder="Search firm name…"
+                  className={IC}
+                  style={IS}
+                  onFocus={e => Object.assign(e.target.style, IF)}
+                  onBlur={e => Object.assign(e.target.style, IS)}
+                />
+                {(firmSearching || firmResults.length > 0) && (
+                  <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-[#111] shadow-xl">
+                    {firmSearching && (
+                      <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-white/40">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+                      </div>
+                    )}
+                    {firmResults.map((firm) => (
+                      <button
+                        key={firm.id}
+                        type="button"
+                        onClick={() => { setPickedFirm(firm); setFirmQuery(firm.firm_name); setFirmResults([]); }}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-white/5"
+                      >
+                        <span className="truncate text-[12px] text-white/85">{firm.firm_name}</span>
+                        <span className="shrink-0 font-mono text-[9px] text-white/30">{firm.location || "—"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </FL>
+          <FL label="Fund">
+            <select
+              value={pickedFundId}
+              onChange={e => setPickedFundId(e.target.value)}
+              disabled={!pickedFirm || fundsLoading}
+              className={IC}
+              style={IS}
+            >
+              <option value="">{!pickedFirm ? "Choose a firm first" : fundsLoading ? "Loading funds…" : funds.length ? "No fund link" : "No funds for this firm"}</option>
+              {funds.map((fund) => (
+                <option key={fund.id} value={fund.id}>
+                  {fund.fund_name || "Untitled fund"}{fund.vintage_year ? ` · ${fund.vintage_year}` : ""}
+                </option>
+              ))}
+            </select>
+          </FL>
+          {pickedFundId ? (
+            <SF
+              label="Role on fund"
+              value={role}
+              onChange={setRole}
+              options={FUND_ROLE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
+          ) : null}
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-[12px] font-medium text-white/55 transition-colors hover:bg-white/10 hover:text-white/85"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => void submit()}
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[12px] font-semibold disabled:opacity-50"
+            style={{ background: "#2EE6A6", color: "#020403" }}
+          >
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {submitting ? "Creating…" : "Create person"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function AdminFirmRecords() {
+export function AdminFirmRecords({
+  focusFirm,
+  focusPerson,
+}: {
+  focusFirm?: { id: string; name: string } | null;
+  focusPerson?: { id: string; name: string } | null;
+}) {
+  const queryClient = useQueryClient();
+  const [recordKind, setRecordKind] = useState<RecordKind>("firm");
   const [rows, setRows]           = useState<FirmRow[]>([]);
+  const [people, setPeople]       = useState<PersonDirectoryRow[]>([]);
   const [total, setTotal]         = useState(0);
-  const [totalFirms, setTotalFirms] = useState<number | null>(null);
-  const [liveFirms, setLiveFirms] = useState<number | null>(null);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [liveCount, setLiveCount] = useState<number | null>(null);
   const [avgCompleteness, setAvgCompleteness] = useState<number | null>(null);
   const [lastUpdateAt, setLastUpdateAt] = useState<string | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -1495,32 +1852,58 @@ export function AdminFirmRecords() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [page, setPage]           = useState(0);
   const [selected, setSelected]   = useState<FirmRow | null>(null);
+  const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
   const [addOpen, setAddOpen]     = useState(false);
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [openingPersonId, setOpeningPersonId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => { setDSearch(search); setPage(0); }, 350);
+
     return () => clearTimeout(t);
   }, [search]);
 
+  useEffect(() => {
+    if (!focusFirm?.id) return;
+
+    setRecordKind("firm");
+    setSearch(focusFirm.name);
+    setFocusPersonId(null);
+    void fetchAdminFirmById(focusFirm.id).then((res) => {
+      if (res.row) setSelected(res.row);
+    });
+  }, [focusFirm]);
+
+  useEffect(() => {
+    if (!focusPerson?.id) return;
+
+    setRecordKind("person");
+    setSearch(focusPerson.name);
+    setSelected(null);
+    setFocusPersonId(focusPerson.id);
+  }, [focusPerson]);
+
   const loadMetrics = useCallback(async () => {
+    const table = recordKind === "person" ? "firm_people" : "firm_records";
     setMetricsLoading(true);
+
     try {
       const [
-        { count: totalCount, error: totalErr },
-        { count: liveCount, error: liveErr },
+        { count: allCount, error: totalErr },
+        { count: liveRows, error: liveErr },
         { data: latestData, error: latestErr },
       ] = await Promise.all([
         supabase
-          .from("firm_records")
+          .from(table)
           .select("id", { count: "exact", head: true })
           .is("deleted_at", null),
         supabase
-          .from("firm_records")
+          .from(table)
           .select("id", { count: "exact", head: true })
           .is("deleted_at", null)
           .eq("ready_for_live", true),
         supabase
-          .from("firm_records")
+          .from(table)
           .select("updated_at")
           .is("deleted_at", null)
           .order("updated_at", { ascending: false, nullsFirst: false })
@@ -1528,63 +1911,99 @@ export function AdminFirmRecords() {
       ]);
 
       if (totalErr) throw totalErr;
+
       if (liveErr) throw liveErr;
+
       if (latestErr) throw latestErr;
 
-      setTotalFirms(totalCount ?? 0);
-      setLiveFirms(liveCount ?? 0);
+      setTotalCount(allCount ?? 0);
+      setLiveCount(liveRows ?? 0);
       setLastUpdateAt(latestData?.[0]?.updated_at ?? null);
 
-      const pageSize = 1000;
-      let offset = 0;
-      let scoreSum = 0;
-      let scoreCount = 0;
+      try {
+        const pageSize = 1000;
+        const maxRows = recordKind === "person" ? 1000 : Number.POSITIVE_INFINITY;
+        let offset = 0;
+        let scoreSum = 0;
+        let scoreCount = 0;
 
-      while (true) {
-        const { data, error: scoreErr } = await supabase
-          .from("firm_records")
-          .select("completeness_score")
-          .is("deleted_at", null)
-          .order("id", { ascending: true })
-          .range(offset, offset + pageSize - 1);
-        if (scoreErr) throw scoreErr;
+        while (offset < maxRows) {
+          const { data, error: scoreErr } = await supabase
+            .from(table)
+            .select("completeness_score")
+            .is("deleted_at", null)
+            .order(recordKind === "person" ? "completeness_score" : "id", { ascending: recordKind !== "person" })
+            .range(offset, offset + pageSize - 1);
 
-        const chunk = data ?? [];
-        for (const row of chunk) {
-          const score = Number(row.completeness_score ?? 0);
-          if (Number.isFinite(score)) {
-            scoreSum += score;
-            scoreCount += 1;
+          if (scoreErr) throw scoreErr;
+
+          const chunk = data ?? [];
+
+          for (const row of chunk) {
+            const score = Number(row.completeness_score ?? 0);
+
+            if (Number.isFinite(score)) {
+              scoreSum += score;
+              scoreCount += 1;
+            }
           }
-        }
-        if (chunk.length < pageSize) break;
-        offset += pageSize;
-      }
 
-      setAvgCompleteness(scoreCount > 0 ? scoreSum / scoreCount : 0);
+          if (chunk.length < pageSize) break;
+
+          offset += pageSize;
+        }
+
+        setAvgCompleteness(scoreCount > 0 ? scoreSum / scoreCount : 0);
+      } catch (scoreErr) {
+        console.warn("[AdminFirmRecords] Failed to load completeness sample:", scoreErr);
+        setAvgCompleteness(null);
+      }
     } catch (metricsErr) {
       console.warn("[AdminFirmRecords] Failed to load metrics:", metricsErr);
-      setTotalFirms(null);
-      setLiveFirms(null);
+      setTotalCount(null);
+      setLiveCount(null);
       setAvgCompleteness(null);
       setLastUpdateAt(null);
     } finally {
       setMetricsLoading(false);
     }
-  }, []);
+  }, [recordKind]);
 
   const loadRows = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
-    if (dSearch)               params.search         = dSearch;
-    if (filterEnrich !== "all") params.enrichment    = filterEnrich;
+
+    if (dSearch) params.search = dSearch;
+
+    if (filterEnrich !== "all") params.enrichment = filterEnrich;
+
     if (filterStatus === "live") params.ready_for_live = "true";
+
     if (filterStatus === "needs_review") params.needs_review = "true";
+
     if (filterStatus === "archive") params.status = "archive";
-    const { rows: data, total: cnt, error: e } = await fetchFirms(params);
-    if (e) setError(e); else { setRows(data); setTotal(cnt); }
+
+    if (recordKind === "person") {
+      const { rows: data, total: cnt, error: e } = await fetchPeople(params);
+
+      if (e) setError(e);
+      else {
+        setPeople(data);
+        setTotal(cnt);
+      }
+    } else {
+      const { rows: data, total: cnt, error: e } = await fetchFirms(params);
+
+      if (e) setError(e);
+      else {
+        setRows(data);
+        setTotal(cnt);
+      }
+    }
+
     setLoading(false);
-  }, [dSearch, filterEnrich, filterStatus, page]);
+  }, [dSearch, filterEnrich, filterStatus, page, recordKind]);
 
   useEffect(() => { loadRows(); }, [loadRows]);
   useEffect(() => { void loadMetrics(); }, [loadMetrics]);
@@ -1596,21 +2015,63 @@ export function AdminFirmRecords() {
   };
 
   const handleFirmCreated = useCallback(
-    async (row: FirmRow) => {
-      await loadRows();
-      await loadMetrics();
+    (row: FirmRow) => {
+      setRecordKind("firm");
+      setPage(0);
+      setFocusPersonId(null);
       setSelected(row);
+      void loadRows();
+      void loadMetrics();
     },
     [loadMetrics, loadRows],
   );
 
+  const openPerson = useCallback(async (row: PersonDirectoryRow) => {
+    setOpeningPersonId(row.id);
+    const { row: firm, error: firmError } = await fetchAdminFirmById(row.firm_id);
+    setOpeningPersonId(null);
+
+    if (firmError || !firm) {
+      toast.error("Could not open this person's firm", { description: firmError });
+
+      return;
+    }
+
+    setFocusPersonId(row.id);
+    setSelected(firm);
+  }, []);
+
+  const handlePersonCreated = useCallback(
+    async (row: PersonDirectoryRow) => {
+      void queryClient.invalidateQueries({ queryKey: ["investor-profile", row.firm_id] });
+      void queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] });
+      void queryClient.invalidateQueries({ queryKey: ["fallback-firm-people-by-name"] });
+      void queryClient.invalidateQueries({ queryKey: ["investor-directory"] });
+      setRecordKind("person");
+      setPage(0);
+      await openPerson(row);
+      void loadRows();
+      void loadMetrics();
+    },
+    [loadMetrics, loadRows, openPerson, queryClient],
+  );
+
+  const handleRecordKindChange = (value: string) => {
+    setRecordKind(value === "person" ? "person" : "firm");
+    setPage(0);
+    setSelected(null);
+    setFocusPersonId(null);
+    setError(null);
+  };
+
   const pages = Math.ceil(total / PAGE_SIZE);
+  const showingPeople = recordKind === "person";
 
   return (
     <div className="flex flex-col gap-6">
       <AdminStickyHeader>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-lg font-semibold text-white/90">Firm Records</h1>
+        <h1 className="text-lg font-semibold text-white/90">Firm &amp; Person Records</h1>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
@@ -1620,7 +2081,15 @@ export function AdminFirmRecords() {
           >
             <Plus className="h-4 w-4" /> Add firm
           </button>
-          <Building2 className="h-5 w-5" style={{ color: "#2EE6A6" }} />
+          <button
+            type="button"
+            onClick={() => setAddPersonOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold"
+            style={{ background: "rgba(46,230,166,0.14)", color: "#2EE6A6", border: "1px solid rgba(46,230,166,0.35)" }}
+          >
+            <Plus className="h-4 w-4" /> Add person
+          </button>
+          <UserRound className="h-5 w-5" style={{ color: "#2EE6A6" }} />
         </div>
       </div>
       </AdminStickyHeader>
@@ -1629,13 +2098,13 @@ export function AdminFirmRecords() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Total firms",
-            value: totalFirms == null ? "—" : totalFirms.toLocaleString(),
+            label: showingPeople ? "Total people" : "Total firms",
+            value: totalCount == null ? "—" : totalCount.toLocaleString(),
             accent: "rgba(46,230,166,0.32)",
           },
           {
-            label: "Live firms",
-            value: liveFirms == null ? "—" : liveFirms.toLocaleString(),
+            label: showingPeople ? "Live people" : "Live firms",
+            value: liveCount == null ? "—" : liveCount.toLocaleString(),
             accent: "rgba(46,230,166,0.32)",
           },
           {
@@ -1680,10 +2149,22 @@ export function AdminFirmRecords() {
       </div>
 
       <AdminStickyFilters className="flex flex-wrap items-center gap-3">
+        <FilterSelect
+          label="Record"
+          icon={showingPeople ? UserRound : Building2}
+          value={recordKind}
+          options={[...RECORD_KIND_OPTIONS]}
+          onValueChange={handleRecordKindChange}
+        />
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
-          <Input placeholder="Search name / slug, or paste firm record UUID…" value={search} onChange={e => setSearch(e.target.value)}
-            className="h-8 pl-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }} />
+          <Input
+            placeholder={showingPeople ? "Search name, title, firm, or paste UUID…" : "Search name / slug, or paste firm record UUID…"}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="h-8 pl-8 text-[12px]"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}
+          />
         </div>
         <FilterSelect
           label="Enrichment"
@@ -1713,25 +2194,84 @@ export function AdminFirmRecords() {
         <button onClick={() => { void loadRows(); void loadMetrics(); }} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
-        <span className="ml-auto font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} firms</span>
+        <span className="ml-auto font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+          {total.toLocaleString()} {showingPeople ? "people" : "firms"}
+        </span>
       </AdminStickyFilters>
 
       {/* table */}
       <div className="rounded-lg border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-        <div className="grid px-4 py-2 text-[10px] font-semibold uppercase tracking-widest"
-          style={{ gridTemplateColumns: COL, background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <span>Firm</span><span>Record ID</span><span>Location</span><span>Stage Focus</span><span>Verticals</span><span>AUM</span><span>Score</span><span>Status</span>
-        </div>
+        {showingPeople ? (
+          <div className="grid px-4 py-2 text-[10px] font-semibold uppercase tracking-widest"
+            style={{ gridTemplateColumns: PERSON_COL, background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span>Person</span><span>Title</span><span>Firm</span><span>Fund</span><span>Location</span><span>Score</span><span>Status</span>
+          </div>
+        ) : (
+          <div className="grid px-4 py-2 text-[10px] font-semibold uppercase tracking-widest"
+            style={{ gridTemplateColumns: COL, background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span>Firm</span><span>Record ID</span><span>Location</span><span>Stage Focus</span><span>Verticals</span><span>AUM</span><span>Score</span><span>Status</span>
+          </div>
+        )}
 
         {loading && <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} /></div>}
         {!loading && error && <div className="flex items-center gap-2 px-4 py-10 text-[13px]" style={{ color: "#ef4444" }}><AlertCircle className="h-4 w-4" /> {error}</div>}
-        {!loading && !error && rows.length === 0 && <div className="py-14 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>No firm records found</div>}
+        {!loading && !error && showingPeople && people.length === 0 && <div className="py-14 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>No people found</div>}
+        {!loading && !error && !showingPeople && rows.length === 0 && <div className="py-14 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>No firm records found</div>}
 
-        {!loading && !error && rows.map(row => {
+        {!loading && !error && showingPeople && people.map(row => {
+          const isSelected = focusPersonId === row.id;
+          const status = getPersonAdminStatus(row);
+          const avatar = row.avatar_url || row.headshot_url;
+
+          return (
+            <div
+              key={row.id}
+              onClick={() => { void openPerson(row); }}
+              className="grid items-center gap-x-3 border-b px-4 py-3 cursor-pointer transition-colors"
+              style={{ gridTemplateColumns: PERSON_COL, borderColor: "rgba(255,255,255,0.05)", background: isSelected ? "rgba(46,230,166,0.06)" : undefined }}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 truncate">
+                  {avatar ? (
+                    <img src={externalHref(avatar) ?? undefined} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <UserRound className="h-3.5 w-3.5 shrink-0 text-white/25" />
+                  )}
+                  <span className="truncate text-[13px] font-medium text-white/90">{row.full_name}</span>
+                  {openingPersonId === row.id && <Loader2 className="h-3 w-3 shrink-0 animate-spin" style={{ color: "#2EE6A6" }} />}
+                  {row.linkedin_url && (
+                    <a href={externalHref(row.linkedin_url) ?? undefined} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="shrink-0 opacity-30 hover:opacity-70">
+                      <ExternalLink className="h-3 w-3" style={{ color: "#2EE6A6" }} />
+                    </a>
+                  )}
+                </div>
+                <span className="font-mono text-[9px] uppercase" style={{ color: enrichColor(row.enrichment_status) }}>{row.enrichment_status}</span>
+              </div>
+              <span className="truncate text-[12px]" style={{ color: "rgba(255,255,255,0.55)" }}>{row.title || "—"}</span>
+              <div className="min-w-0 truncate">
+                <span className="truncate text-[12px] text-white/75">{row.firm_name || "—"}</span>
+              </div>
+              <span className="truncate text-[12px]" style={{ color: "rgba(255,255,255,0.55)" }}>{displayPersonFunds(row.funds)}</span>
+              <span className="truncate text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>{displayPersonLocation(row)}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="h-1.5 w-8 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${row.completeness_score}%`, background: scoreColor(row.completeness_score) }} />
+                </div>
+                <span className="font-mono text-[10px]" style={{ color: scoreColor(row.completeness_score) }}>{row.completeness_score}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold" style={firmStatusStyle(status)}>{firmStatusLabel(status)}</span>
+              </div>
+            </div>
+          );
+        })}
+
+        {!loading && !error && !showingPeople && rows.map(row => {
           const isSelected = selected?.id === row.id;
+
           return (
             <div key={row.id}
-              onClick={() => setSelected(row)}
+              onClick={() => { setFocusPersonId(null); setSelected(row); }}
               className="grid items-center gap-x-3 border-b px-4 py-3 cursor-pointer transition-colors"
               style={{ gridTemplateColumns: COL, borderColor: "rgba(255,255,255,0.05)", background: isSelected ? "rgba(46,230,166,0.06)" : undefined }}>
               <div className="min-w-0">
@@ -1772,6 +2312,7 @@ export function AdminFirmRecords() {
               <div className="flex items-center">
                 {(() => {
                   const status = getFirmAdminStatus(row);
+
                   return <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold" style={firmStatusStyle(status)}>{firmStatusLabel(status)}</span>;
                 })()}
               </div>
@@ -1790,9 +2331,19 @@ export function AdminFirmRecords() {
       )}
 
       <AddFirmModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleFirmCreated} />
+      <AddPersonModal open={addPersonOpen} onClose={() => setAddPersonOpen(false)} onCreated={handlePersonCreated} />
 
       {/* slide-in edit panel */}
-      {selected && <FirmEditPanel row={selected} onClose={() => setSelected(null)} onSaved={handleSaved} />}
+      {selected && (
+        <FirmEditPanel
+          key={`${selected.id}:${focusPersonId ?? ""}`}
+          row={selected}
+          initialTab={focusPersonId ? "people" : "profile"}
+          focusPersonId={focusPersonId}
+          onClose={() => { setSelected(null); setFocusPersonId(null); }}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   );
 }

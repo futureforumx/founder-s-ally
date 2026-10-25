@@ -45,7 +45,7 @@ type WebsiteDerivedPersonProfile = {
   portfolioCompanies: string[];
 };
 
-type FirmInvestorSnapshot = {
+type FirmPersonSnapshot = {
   email: string | null;
   linkedin_url: string | null;
   x_url: string | null;
@@ -232,9 +232,9 @@ function DealLogo({ domain, name }: { domain: string | null; name: string }) {
 export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: PersonProfileModalProps) {
   const { session, user: authUser } = useAuth();
   const queryClient = useQueryClient();
-  const [firmInvestorSnap, setFirmInvestorSnap] = useState<FirmInvestorSnapshot | null>(null);
+  const [firmPersonSnap, setFirmPersonSnap] = useState<FirmPersonSnapshot | null>(null);
   /** Avoid showing directory/website-merge `person` avatars before `firm_investors` row resolves (UUID person ids). */
-  const [firmInvestorRowFetched, setFirmInvestorRowFetched] = useState(false);
+  const [personRowFetched, setPersonRowFetched] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [ratingRefresh, setRatingRefresh] = useState(0);
   const [optimisticPersonRating, setOptimisticPersonRating] = useState<unknown>(null);
@@ -263,7 +263,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         ? {
             entity: "firm-investors" as const,
             id: person.id,
-            title: person.full_name || "Investor",
+            title: person.full_name || "Person",
           }
         : null,
     [person],
@@ -271,7 +271,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
 
   const mergedFromDb = useMemo(() => {
     if (!person) return null;
-    const snap = firmInvestorSnap;
+    const snap = firmPersonSnap;
     return {
       email: safeTrim(snap?.email) || safeTrim(person.email) || null,
       linkedin_url: safeTrim(snap?.linkedin_url) || safeTrim(person.linkedin_url) || null,
@@ -285,7 +285,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       avatar_url: safeTrim(snap?.avatar_url) || safeTrim(person.avatar_url) || null,
       profile_image_url: safeTrim(snap?.profile_image_url) || safeTrim(person.profile_image_url) || null,
     };
-  }, [person, firmInvestorSnap]);
+  }, [person, firmPersonSnap]);
   const resolvedFirmWebsiteUrl = useMemo(
     () =>
       safeTrim(firm?.website_url) ||
@@ -299,30 +299,30 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     setOptimisticPersonRating(null);
     setDbEducationSummary(null);
     setDbEducationItems([]);
-    setFirmInvestorSnap(null);
-    setFirmInvestorRowFetched(false);
+    setFirmPersonSnap(null);
+    setPersonRowFetched(false);
   }, [person?.id, firm?.id]);
 
   useEffect(() => {
     if (!person?.id || !FIRM_INVESTOR_UUID_RE.test(person.id)) {
-      setFirmInvestorRowFetched(true);
+      setPersonRowFetched(true);
       return;
     }
     const firmId = safeTrim(person.firm_id);
     if (!firmId || !FIRM_INVESTOR_UUID_RE.test(firmId)) {
-      setFirmInvestorRowFetched(true);
+      setPersonRowFetched(true);
       return;
     }
 
-    setFirmInvestorRowFetched(false);
+    setPersonRowFetched(false);
     let cancelled = false;
     void (async () => {
       try {
         const { data, error } = await supabase
-          .from("firm_investors")
+          .from("firm_people")
           .select(
             [
-              "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url, profile_image_url",
+              "email, linkedin_url, x_url, website_url, bio, background_summary, city, state, country, avatar_url, headshot_url",
               ",funding_intel_activity_score,funding_intel_momentum_score,funding_intel_pace_label",
               ",funding_intel_summary,funding_intel_focus_json,funding_intel_recent_investments_json,funding_intel_updated_at",
             ].join(""),
@@ -333,14 +333,17 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
           .maybeSingle();
         if (cancelled) return;
         if (error || !data) {
-          setFirmInvestorSnap(null);
+          setFirmPersonSnap(null);
           return;
         }
-        setFirmInvestorSnap(data as FirmInvestorSnapshot);
+        setFirmPersonSnap({
+          ...(data as Omit<FirmPersonSnapshot, "profile_image_url"> & { headshot_url?: string | null }),
+          profile_image_url: data.avatar_url ?? data.headshot_url ?? null,
+        });
       } catch {
-        if (!cancelled) setFirmInvestorSnap(null);
+        if (!cancelled) setFirmPersonSnap(null);
       } finally {
-        if (!cancelled) setFirmInvestorRowFetched(true);
+        if (!cancelled) setPersonRowFetched(true);
       }
     })();
 
@@ -406,7 +409,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         // Prefer direct row-id lookup: avoids misses from name variants.
         if (!summary && personId) {
           const { data: byId } = await supabase
-            .from("firm_investors")
+            .from("firm_people")
             .select("education, education_summary")
             .eq("id", personId)
             .eq("firm_id", firmId)
@@ -421,7 +424,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
         // Fallback for non-firm_investors ids or stale mappings.
         if (!summary && parsedItems.length === 0) {
           const { data: byName } = await supabase
-            .from("firm_investors")
+            .from("firm_people")
             .select("education, education_summary, full_name")
             .eq("firm_id", firmId)
             .ilike("full_name", `%${fullName}%`)
@@ -698,7 +701,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
    */
   const headerAvatarImageUrls = useMemo(() => {
     if (!person) return [];
-    const snap = firmInvestorSnap;
+    const snap = firmPersonSnap;
     const expectFirmInvestorRow =
       FIRM_INVESTOR_UUID_RE.test(person.id) && FIRM_INVESTOR_UUID_RE.test(safeTrim(person.firm_id));
     const fromSnap = snap
@@ -712,7 +715,7 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
       profile_image_url: mergedFromDb?.profile_image_url ?? person.profile_image_url,
     });
     const base =
-      expectFirmInvestorRow && !firmInvestorRowFetched
+      expectFirmInvestorRow && !personRowFetched
         ? []
         : fromSnap.length > 0
           ? fromSnap
@@ -721,8 +724,8 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
     if (!web || base.includes(web)) return base;
     return [...base, web];
   }, [
-    firmInvestorSnap,
-    firmInvestorRowFetched,
+    firmPersonSnap,
+    personRowFetched,
     mergedFromDb?.avatar_url,
     mergedFromDb?.profile_image_url,
     person,
@@ -950,51 +953,51 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                   ))}
                 </div>
 
-                {firmInvestorSnap &&
-                (firmInvestorSnap.funding_intel_activity_score != null ||
-                  safeTrim(firmInvestorSnap.funding_intel_summary)) ? (
+                {firmPersonSnap &&
+                (firmPersonSnap.funding_intel_activity_score != null ||
+                  safeTrim(firmPersonSnap.funding_intel_summary)) ? (
                   <div className="mb-6 rounded-2xl border border-border bg-secondary/25 p-4">
                     <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Funding intel (90d, news-attributed)
                     </h4>
                     <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
-                      {firmInvestorSnap.funding_intel_activity_score != null ? (
+                      {firmPersonSnap.funding_intel_activity_score != null ? (
                         <span className="font-semibold tabular-nums text-foreground">
                           Activity{" "}
-                          <span className="text-accent">{Math.round(firmInvestorSnap.funding_intel_activity_score)}</span>
+                          <span className="text-accent">{Math.round(firmPersonSnap.funding_intel_activity_score)}</span>
                           /100
                         </span>
                       ) : null}
-                      {firmInvestorSnap.funding_intel_momentum_score != null ? (
+                      {firmPersonSnap.funding_intel_momentum_score != null ? (
                         <span className="font-semibold tabular-nums text-foreground">
                           Momentum{" "}
-                          <span className="text-accent">{Math.round(firmInvestorSnap.funding_intel_momentum_score)}</span>
+                          <span className="text-accent">{Math.round(firmPersonSnap.funding_intel_momentum_score)}</span>
                           /100
                         </span>
                       ) : null}
-                      {firmInvestorSnap.funding_intel_pace_label ? (
+                      {firmPersonSnap.funding_intel_pace_label ? (
                         <Badge variant="outline" className="text-[10px] font-medium">
-                          {formatFundingIntelPaceLabel(firmInvestorSnap.funding_intel_pace_label)}
+                          {formatFundingIntelPaceLabel(firmPersonSnap.funding_intel_pace_label)}
                         </Badge>
                       ) : null}
                     </div>
-                    {safeTrim(firmInvestorSnap.funding_intel_summary) ? (
-                      <p className="text-xs leading-relaxed text-muted-foreground">{firmInvestorSnap.funding_intel_summary}</p>
+                    {safeTrim(firmPersonSnap.funding_intel_summary) ? (
+                      <p className="text-xs leading-relaxed text-muted-foreground">{firmPersonSnap.funding_intel_summary}</p>
                     ) : null}
-                    {Array.isArray(firmInvestorSnap.funding_intel_focus_json?.recent_focus) &&
-                    (firmInvestorSnap.funding_intel_focus_json?.recent_focus as string[]).length > 0 ? (
+                    {Array.isArray(firmPersonSnap.funding_intel_focus_json?.recent_focus) &&
+                    (firmPersonSnap.funding_intel_focus_json?.recent_focus as string[]).length > 0 ? (
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {(firmInvestorSnap.funding_intel_focus_json!.recent_focus as string[]).map((s) => (
+                        {(firmPersonSnap.funding_intel_focus_json!.recent_focus as string[]).map((s) => (
                           <Badge key={s} variant="secondary" className="text-[10px]">
                             {s}
                           </Badge>
                         ))}
                       </div>
                     ) : null}
-                    {Array.isArray(firmInvestorSnap.funding_intel_recent_investments_json) &&
-                    firmInvestorSnap.funding_intel_recent_investments_json.length > 0 ? (
+                    {Array.isArray(firmPersonSnap.funding_intel_recent_investments_json) &&
+                    firmPersonSnap.funding_intel_recent_investments_json.length > 0 ? (
                       <ul className="mt-3 space-y-1 border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
-                        {firmInvestorSnap.funding_intel_recent_investments_json.slice(0, 6).map((row, idx) => {
+                        {firmPersonSnap.funding_intel_recent_investments_json.slice(0, 6).map((row, idx) => {
                           const r = row as { company_name?: string; sector?: string | null };
                           const cn = safeTrim(r.company_name) || "Company";
                           const sec = safeTrim(r.sector);
@@ -1007,9 +1010,9 @@ export function PersonProfileModal({ person, firm, onClose, onNavigateToFirm }: 
                         })}
                       </ul>
                     ) : null}
-                    {safeTrim(firmInvestorSnap.funding_intel_updated_at) ? (
+                    {safeTrim(firmPersonSnap.funding_intel_updated_at) ? (
                       <p className="mt-2 text-[9px] text-muted-foreground/70">
-                        Updated {firmInvestorSnap.funding_intel_updated_at!.slice(0, 10)}
+                        Updated {firmPersonSnap.funding_intel_updated_at!.slice(0, 10)}
                       </p>
                     ) : null}
                   </div>

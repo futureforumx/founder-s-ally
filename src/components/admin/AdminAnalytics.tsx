@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Calendar, ChevronDown, Loader2, RefreshCw, X } from "lucide-react";
+import { Calendar, ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { FilterSelect, filterTriggerClass } from "@/components/admin/FilterSelect";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import {
   DateRangePicker,
   DateRangePickerCalendar,
@@ -18,6 +19,19 @@ import {
   useDateRangePicker,
   type DateRange,
 } from "@/components/motion/date-range-picker";
+import {
+  AnalyticsEngagement,
+  type EngagementSeriesKey,
+} from "@/components/admin/AnalyticsEngagement";
+import {
+  formatSessionMinutes,
+  resolveAvgSessionMinutes,
+  resolveAvgSessionSpark,
+  resolveSearchSpark,
+  resolveTotalSearches,
+  type NavSectionStat,
+  type TopInvestorRecord,
+} from "@/components/admin/engagementAnalytics";
 
 type AnalyticsPreset = "1d" | "3d" | "7d" | "30d" | "90d" | "all";
 type AnalyticsSelection = AnalyticsPreset | "custom";
@@ -37,7 +51,10 @@ type SeriesPoint = {
   users: number;
   waitlist: number;
   clicks: number;
-  interactions: number;
+  interactions?: number;
+  searches?: number;
+  uploads?: number;
+  logins?: number;
 };
 
 type RecentItem = {
@@ -47,7 +64,7 @@ type RecentItem = {
   detail: string;
 };
 
-type AnalyticsPayload = {
+export type AnalyticsPayload = {
   range: AnalyticsSelection;
   generatedAt: string;
   grain: "day" | "week";
@@ -61,6 +78,12 @@ type AnalyticsPayload = {
   clickTypes: Breakdown[];
   interactionTypes: Breakdown[];
   profileTypes: Breakdown[];
+  navSectionStats?: NavSectionStat[];
+  investorReviewStats?: NavSectionStat[];
+  investorReviewRatings?: NavSectionStat[];
+  topInvestorRecords?: TopInvestorRecord[];
+  topInvestorPeople?: TopInvestorRecord[];
+  avgSessionSpark?: number[];
   recent: RecentItem[];
 };
 
@@ -133,16 +156,17 @@ const SERIES = [
   { key: "users", label: "App users", color: "#2EE6A6" },
   { key: "waitlist", label: "Waitlist", color: "#5B5CFF" },
   { key: "clicks", label: "Clicks", color: "#00D4FF" },
-  { key: "interactions", label: "Investor actions", color: "#FFB800" },
+  { key: "searches", label: "Searches", color: "#5B5CFF" },
+  { key: "uploads", label: "Uploads", color: "#2EE6A6" },
+  { key: "logins", label: "Logins", color: "#FFB800" },
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]["key"];
-type ChartView = "all" | "pipeline" | "engagement";
+type AnalyticsPage = "engagement" | "waitlist";
 
-const CHART_VIEWS: { id: ChartView; label: string; keys: SeriesKey[] }[] = [
-  { id: "all", label: "All", keys: ["users", "waitlist", "clicks", "interactions"] },
-  { id: "pipeline", label: "Pipeline", keys: ["waitlist", "users"] },
-  { id: "engagement", label: "Engagement", keys: ["clicks", "interactions"] },
+const PAGES: { id: AnalyticsPage; label: string; keys: SeriesKey[] }[] = [
+  { id: "engagement", label: "Engagement", keys: ["clicks", "searches", "uploads", "logins"] },
+  { id: "waitlist", label: "Waitlist", keys: ["waitlist", "users"] },
 ];
 
 const cardClass = "rounded-xl border border-neutral-800 bg-neutral-950 p-5";
@@ -293,21 +317,39 @@ function MetricCard({
   );
 }
 
-type AnalyticsQuery = { range: AnalyticsPreset } | { from: string; to: string };
+export type AnalyticsQuery = { range: AnalyticsPreset } | { from: string; to: string };
 
-export function AdminAnalytics({ onClose }: { onClose: () => void }) {
+export function AdminAnalytics({
+  onOpenFirmRecord,
+  onOpenPersonRecord,
+  loadPayload,
+}: {
+  onOpenFirmRecord?: (firmId: string, firmName: string) => void;
+  onOpenPersonRecord?: (personId: string, personName: string) => void;
+  loadPayload?: (query: AnalyticsQuery) => AnalyticsPayload | Promise<AnalyticsPayload>;
+}) {
   const [range, setRange] = useState<AnalyticsSelection>("all");
   const [dates, setDates] = useState<DateRange | null>(null);
   const [payload, setPayload] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chartView, setChartView] = useState<ChartView>("all");
+  const [page, setPage] = useState<AnalyticsPage>("engagement");
   const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([]);
   const dateKey = dates?.from && dates.to ? `${dates.from}:${dates.to}` : "";
 
   const load = useCallback(async (query: AnalyticsQuery) => {
     setLoading(true);
     setError(null);
+    if (loadPayload) {
+      try {
+        setPayload(await loadPayload(query));
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Could not load demo analytics");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     const { data, error: invokeError } = await invokeEdgeFunction("admin-analytics", {
       preferClerkSessionToken: true,
       body: query,
@@ -325,7 +367,7 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
     }
     setPayload(body);
     setLoading(false);
-  }, []);
+  }, [loadPayload]);
 
   const currentQuery = useCallback((): AnalyticsQuery | null => {
     if (range === "custom") {
@@ -344,8 +386,20 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
   const chartData = (payload?.series ?? []).map((point) => ({
     ...point,
     label: formatBucket(point.date),
+    clicks: point.clicks ?? 0,
+    searches: point.searches ?? 0,
+    uploads: point.uploads ?? 0,
+    logins: point.logins ?? 0,
   }));
-  const viewSeries = CHART_VIEWS.find((view) => view.id === chartView)?.keys ?? CHART_VIEWS[0].keys;
+
+  const viewSeries = PAGES.find((item) => item.id === page)?.keys ?? PAGES[0].keys;
+
+  const recent = (payload?.recent ?? []).filter((item) => {
+    if (page === "waitlist") return item.id.startsWith("event-");
+
+    return item.id.startsWith("click-") || item.id.startsWith("interaction-");
+  });
+
   const visibleSeries = SERIES.filter((series) => viewSeries.includes(series.key) && !hiddenSeries.includes(series.key));
   const hasActivity = chartData.some((point) => visibleSeries.some((series) => point[series.key] > 0));
   const tickInterval = chartData.length <= 8 ? 0 : Math.ceil(chartData.length / 7) - 1;
@@ -360,6 +414,20 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
     const spark = (key: SeriesKey) => payload.series.map((point) => point[key]);
     const waitlist = valueOf("waitlist");
     const approved = valueOf("approved");
+    const hasLiveSession = kpiByKey.has("avgSession");
+    const sessionContext = {
+      range,
+      grain: payload.grain,
+      series: payload.series,
+    };
+    const avgSessionMinutes = resolveAvgSessionMinutes(
+      hasLiveSession ? kpiByKey.get("avgSession")?.value : undefined,
+      sessionContext,
+    );
+    const avgSessionSpark = resolveAvgSessionSpark(
+      hasLiveSession ? payload.avgSessionSpark ?? [] : undefined,
+      sessionContext,
+    );
     const approvalRate = waitlist > 0 ? (approved / waitlist) * 100 : null;
     const onboardRate = payload.onboarding.profiles > 0
       ? (payload.onboarding.allTime / payload.onboarding.profiles) * 100
@@ -400,19 +468,21 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
           badge: RANGES.find((item) => item.id === range)?.label ?? "Range",
         },
         {
-          key: "interactions",
-          title: "Investor Actions",
-          value: valueOf("interactions"),
-          subtext: "Founder actions on firms",
-          spark: spark("interactions"),
+          key: "avgSession",
+          title: "Avg. Session (Min)",
+          value: avgSessionMinutes,
+          displayValue: formatSessionMinutes(avgSessionMinutes),
+          valueSuffix: "M",
+          subtext: "Time spent per visit in this range",
+          spark: avgSessionSpark,
           color: "#FFB800",
         },
         {
-          key: "clicks",
-          title: "Outbound Clicks",
-          value: valueOf("clicks"),
-          subtext: "External links clicked",
-          spark: spark("clicks"),
+          key: "searches",
+          title: "Total Searches",
+          value: resolveTotalSearches(kpiByKey.get("searches")?.value),
+          subtext: "Top nav and AI home",
+          spark: resolveSearchSpark(payload.series.map((point) => point.searches ?? 0)),
           color: "#00D4FF",
         },
       ],
@@ -420,8 +490,8 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
   }, [kpiByKey, payload, range]);
 
   return (
-    <div className="-mx-8">
-      <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#050505] px-8 py-4">
+    <div>
+      <AdminStickyHeader className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <h1 className="text-xl font-semibold text-white/90">Analytics</h1>
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -483,19 +553,43 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
                 Refresh
               </button>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Back to overview"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
         </div>
-      </div>
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Analytics page">
+          {PAGES.map((item) => {
+            const selected = page === item.id;
+            const count = item.id === "engagement"
+              ? kpiByKey.get("active")?.value
+              : kpiByKey.get("waitlist")?.value;
 
-      <div className="space-y-8 px-8 pb-8 pt-6">
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => {
+                  setPage(item.id);
+                  setHiddenSeries([]);
+                  document.querySelector("main")?.scrollTo({ top: 0 });
+                }}
+                className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 font-sans text-sm transition-colors ${
+                  selected
+                    ? "border-neutral-700 bg-neutral-900 text-neutral-100"
+                    : "border-transparent text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                {item.label}
+                {count == null ? null : (
+                  <span className="font-mono text-xs tabular-nums text-neutral-400">{count.toLocaleString()}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </AdminStickyHeader>
+
+      <div className="space-y-8 pt-6">
 
       {error ? (
         <div className="rounded-xl border p-5" style={{ borderColor: "rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)" }}>
@@ -520,9 +614,33 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
       ) : null}
 
       {payload ? (
+        page === "engagement" ? (
+          <AnalyticsEngagement
+            grain={payload.grain}
+            metricCards={metricRows.engagement}
+            chartData={chartData}
+            clickTypes={payload.clickTypes}
+            navSectionStats={payload.navSectionStats}
+            investorReviewStats={payload.investorReviewStats}
+            investorReviewRatings={payload.investorReviewRatings}
+            topInvestorRecords={payload.topInvestorRecords}
+            topInvestorPeople={payload.topInvestorPeople}
+            hiddenSeries={hiddenSeries.filter((key): key is EngagementSeriesKey =>
+              key === "clicks" || key === "searches" || key === "uploads" || key === "logins"
+            )}
+            onToggleSeries={(key) => {
+              setHiddenSeries((current) => (
+                current.includes(key)
+                  ? current.filter((item) => item !== key)
+                  : [...current, key]
+              ));
+            }}
+            onOpenFirmRecord={onOpenFirmRecord}
+            onOpenPersonRecord={onOpenPersonRecord}
+          />
+        ) : (
         <>
-          <section className="space-y-3">
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/35">Pipeline</h2>
+          <section>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               {metricRows.pipeline.map((card) => (
                 <MetricCard key={card.key} card={card} />
@@ -530,48 +648,20 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/35">Engagement</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              {metricRows.engagement.map((card) => (
-                <MetricCard key={card.key} card={card} />
-              ))}
-            </div>
-          </section>
-
           <div className="grid gap-4 xl:grid-cols-5">
             <div className={`${cardClass} xl:col-span-3`}>
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-white/80">Activity</h2>
-                  <p className="mt-1 text-xs text-white/35">
-                    {payload.grain === "week" ? "Weekly" : "Daily"} counts in this range
-                  </p>
-                </div>
-                <div className="flex rounded-lg border border-neutral-800 p-0.5">
-                  {CHART_VIEWS.map((view) => (
-                    <button
-                      key={view.id}
-                      type="button"
-                      onClick={() => {
-                        setChartView(view.id);
-                        setHiddenSeries([]);
-                      }}
-                      className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-                      style={{
-                        background: chartView === view.id ? "rgba(255,255,255,0.08)" : "transparent",
-                        color: chartView === view.id ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
-                      }}
-                    >
-                      {view.label}
-                    </button>
-                  ))}
-                </div>
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-white/80">Activity</h2>
+                <p className="mt-1 text-xs text-white/35">
+                  {payload.grain === "week" ? "Weekly" : "Daily"} counts in this range
+                </p>
               </div>
               <div className="mb-4 flex flex-wrap gap-2">
-                {SERIES.filter((series) => viewSeries.includes(series.key)).map((series) => {
+                {SERIES.flatMap((series) => {
+                  if (!viewSeries.includes(series.key)) return [];
                   const off = hiddenSeries.includes(series.key);
-                  return (
+
+                  return [(
                     <button
                       key={series.key}
                       type="button"
@@ -589,7 +679,7 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
                       <span className="h-2 w-2 rounded-full" style={{ background: series.color }} />
                       {series.label}
                     </button>
-                  );
+                  )];
                 })}
               </div>
               {hasActivity ? (
@@ -633,36 +723,18 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <BreakdownCard title="Waitlist sources" rows={payload.waitlistSources} />
             <BreakdownCard title="Applicant roles" rows={payload.waitlistRoles} />
-            <BreakdownCard title="Outbound clicks" rows={payload.clickTypes} />
-            <BreakdownCard title="Investor actions" rows={payload.interactionTypes} />
-            <BreakdownCard title="New profile types" rows={payload.profileTypes} />
-            <div className={cardClass}>
-              <h2 className="text-sm font-semibold text-white/80">Onboarding</h2>
-              <p className="mt-2 font-mono text-2xl font-bold tabular-nums text-white/90">
-                {payload.onboarding.inRange.toLocaleString()}
-              </p>
-              <p className="mt-1 text-xs text-white/35">
-                Profiles created in this range that finished onboarding
-              </p>
-              <p className="mt-4 text-xs text-white/50">
-                <span className="font-mono tabular-nums">{payload.onboarding.allTime.toLocaleString()}</span>
-                {" of "}
-                <span className="font-mono tabular-nums">{payload.onboarding.profiles.toLocaleString()}</span>
-                {" profiles onboarded all time"}
-              </p>
-            </div>
           </div>
 
           <div className={cardClass}>
             <h2 className="text-sm font-semibold text-white/80">Recent activity</h2>
-            {payload.recent.length === 0 ? (
+            {recent.length === 0 ? (
               <p className="mt-4 text-xs text-white/35">None in this range</p>
             ) : (
               <div className="mt-4 divide-y divide-white/5">
-                {payload.recent.map((item) => (
+                {recent.map((item) => (
                   <div key={item.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium text-white/80">{item.label}</p>
@@ -679,6 +751,7 @@ export function AdminAnalytics({ onClose }: { onClose: () => void }) {
             )}
           </div>
         </>
+        )
       ) : null}
       </div>
     </div>
