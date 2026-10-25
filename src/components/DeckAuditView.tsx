@@ -1,9 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { DeckUploader } from "./DeckUploader";
 import { BobbingDots } from "@/components/loading-ui/bobbing-dots";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
+import { useCompanyMetrics } from "@/hooks/useCompanyMetrics";
+import {
+  extractMetricsFromDeckText,
+  mergeExtractedMetrics,
+  metricsFromAuditResponse,
+  metricsPrefillPatch,
+  type ExtractedMetrics,
+} from "./data-room/deckMetricsExtraction";
 
 import { format } from "date-fns";
 
@@ -12,7 +20,6 @@ import { storedCompanyProfileOrEmpty } from "@/hooks/useStoredCompanyProfile";
 import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
-import { NewDeckImportModal } from "./deck-audit/NewDeckImportModal";
 import { VersionHistoryAccordion } from "./deck-audit/VersionHistoryAccordion";
 import type { AuditResult } from "./deck-audit/types";
 
@@ -88,8 +95,22 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   const [compareMode, setCompareMode] = useState(false);
   const { decks, activeDeck, loading, uploadDeck, makeActive, renameDeck, deleteDeck, getDownloadUrl } = usePitchDecks();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [importModalOpen, setImportModalOpen] = useState(false);
   const [activeDeckSignedUrl, setActiveDeckSignedUrl] = useState<string | null>(null);
+  const { metrics: savedMetrics, update: updateMetrics } = useCompanyMetrics();
+  // Read at upload time rather than captured in the upload callback, so a prefill
+  // always compares against what is saved right now.
+  const savedMetricsRef = useRef(savedMetrics);
+  savedMetricsRef.current = savedMetrics;
+
+  const prefillMetrics = useCallback((fromDeck: ExtractedMetrics) => {
+    const { patch, labels } = metricsPrefillPatch(savedMetricsRef.current, fromDeck);
+    if (!labels.length) return;
+    updateMetrics(patch);
+    toast({
+      title: `Pre-filled ${labels.length} metric${labels.length === 1 ? "" : "s"} from your deck`,
+      description: `${labels.join(", ")} — review them in the Metrics tab.`,
+    });
+  }, [updateMetrics]);
 
   // Get signed URL for active deck to render slide previews
   useEffect(() => {
@@ -102,6 +123,9 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
 
   const handleUpload = useCallback(async (deckText: string, file?: File, pageCount?: number) => {
     setState("processing");
+    // Read straight from the deck text first: this works for every PDF/TXT upload,
+    // with or without the audit, and the audit's own numbers only fill the gaps.
+    let fromDeck = extractMetricsFromDeckText(deckText);
     try {
       if (file) {
         const savedDeck = await uploadDeck(file, { silent: true, slideCount: pageCount ?? null });
@@ -117,6 +141,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
       const { data, error } = await supabase.functions.invoke("audit-deck", { body: { deckText: safeDeckText } });
       if (error) throw new Error(error.message || "Failed to analyze deck");
       if (data?.error) throw new Error(data.error);
+      fromDeck = mergeExtractedMetrics(fromDeck, metricsFromAuditResponse(data?.metrics));
       const normalized = normalizeAuditResponse(data);
       setResult(normalized);
       try { sessionStorage.setItem("deck-audit-result", JSON.stringify(normalized)); } catch {}
@@ -133,8 +158,10 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
         variant: "destructive",
       });
       setState("upload");
+    } finally {
+      prefillMetrics(fromDeck);
     }
-  }, [uploadDeck]);
+  }, [uploadDeck, prefillMetrics]);
 
   // Auto-run audit if a pending deck was queued from Mission Control
   useEffect(() => {
@@ -148,11 +175,6 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   }, [handleUpload]);
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
-
-  /** Called from the import modal — kicks off the audit for the newly imported deck */
-  const handleNewDeckImport = useCallback((deckText: string, file?: File, pageCount?: number) => {
-    handleUpload(deckText, file, pageCount);
-  }, [handleUpload]);
 
   const handleDownload = async (deck: PitchDeck) => {
     setActionLoading(deck.id);
@@ -201,35 +223,8 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
   // ── Files Tab: upload + manage deck versions ──
   if (activeSection === "files") {
     return (
-      <div className="space-y-8">
-        {state === "upload" ? (
-          <div className="flex flex-col items-center justify-center min-h-[40vh]">
-            <div className="w-full max-w-xl">
-              <DeckUploader onUpload={handleUpload} />
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/70 p-5">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Active deck</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {result ? `Analyzed ${format(new Date(result.metadata.analyzed_at), "MMM d, yyyy · h:mm a")}` : "No deck analyzed yet."}
-              </p>
-            </div>
-            <button
-              onClick={() => setImportModalOpen(true)}
-              className="rounded-lg bg-secondary px-4 py-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:bg-muted active:scale-[0.97]"
-            >
-              Upload New Version
-            </button>
-          </div>
-        )}
-
-        <NewDeckImportModal
-          open={importModalOpen}
-          onOpenChange={setImportModalOpen}
-          onImport={handleNewDeckImport}
-        />
+      <div className="space-y-9">
+        <DeckUploader onUpload={handleUpload} />
 
         <VersionHistoryAccordion
           decks={decks}

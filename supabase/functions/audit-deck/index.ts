@@ -31,7 +31,21 @@ Rules:
 - Reference specific claims, numbers, or slides from the deck
 - If financials are missing or vague, flag it as high severity
 - Check for: unrealistic TAM, weak moat, team gaps, inconsistent projections, missing competitive analysis, unclear GTM, inflated metrics
-- Write like a real associate who has seen 500+ decks`;
+- Write like a real associate who has seen 500+ decks
+
+Also fill the "metrics" object with the operating metrics this deck states, so the founder's
+data room can be pre-filled. Never estimate, infer, or invent a number: omit any field the
+deck does not state (or that does not follow directly from a number it does state).
+
+Units for "metrics":
+- tam, sam, som, cac, ltv, monthlyBurnRate, cashOnHand, totalDebt: full dollar amount in digits, no symbols ("$12.4B" -> 12400000000)
+- nrr, churnRate, grossMargin: the percentage as a plain number ("72%" -> 72)
+- headcount, activeUsers: whole numbers, with activeUsersMode set to "mau" or "dau"
+- runway: a number, with runwayUnit set to "months" or "days"
+- cacPaybackDays: always converted to days ("6 months" -> 180)
+- burnMultiple: a plain number ("1.5x" -> 1.5)
+- monthlyBurnRate: always a monthly figure (divide a stated annual burn by 12)
+- background: one or two sentences on the founding team's background, drawn only from the deck`;
 
 type AuditFlag = {
   severity: "high" | "medium" | "low";
@@ -41,10 +55,14 @@ type AuditFlag = {
   slideRef: string;
 };
 
+/** Metrics stated in the deck, used to pre-fill Data Room > Metrics. All fields optional. */
+type DeckMetrics = Record<string, string | number>;
+
 type AuditResult = {
   companyName: string;
   overallScore: number;
   flags: AuditFlag[];
+  metrics?: DeckMetrics;
 };
 
 function clampScore(value: number) {
@@ -307,6 +325,32 @@ serve(async (req) => {
                           required: ["severity", "title", "body", "requiredFix", "slideRef"],
                           additionalProperties: false,
                         },
+                      },
+                      metrics: {
+                        type: "object",
+                        description: "Operating metrics the deck states outright. Omit anything it does not state.",
+                        properties: {
+                          headcount: { type: "number" },
+                          background: { type: "string" },
+                          tam: { type: "number" },
+                          sam: { type: "number" },
+                          som: { type: "number" },
+                          nrr: { type: "number" },
+                          activeUsers: { type: "number" },
+                          activeUsersMode: { type: "string", enum: ["mau", "dau"] },
+                          churnRate: { type: "number" },
+                          burnMultiple: { type: "number" },
+                          cac: { type: "number" },
+                          ltv: { type: "number" },
+                          cacPaybackDays: { type: "number" },
+                          monthlyBurnRate: { type: "number" },
+                          runway: { type: "number" },
+                          runwayUnit: { type: "string", enum: ["months", "days"] },
+                          grossMargin: { type: "number" },
+                          cashOnHand: { type: "number" },
+                          totalDebt: { type: "number" },
+                        },
+                        additionalProperties: false,
                       },
                     },
                     required: ["companyName", "overallScore", "flags"],

@@ -7,9 +7,10 @@
 export function evaluateSmartMath(input: string): number | null {
   if (!input || typeof input !== "string") return null;
   const cleanExpression = input
-    .replace(/[$,kKmM]/g, (match) => {
+    .replace(/[$,kKmMbB]/g, (match) => {
       if (match.toLowerCase() === "k") return "*1000";
       if (match.toLowerCase() === "m") return "*1000000";
+      if (match.toLowerCase() === "b") return "*1000000000";
       return "";
     })
     .replace(/[^0-9.+\-*/()]/g, "");

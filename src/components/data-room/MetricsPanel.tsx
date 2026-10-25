@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ComponentType } from "react";
-import { Users, Target, TrendingUp, Scale, Wallet, DollarSign, Loader2, Check, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompanyMetrics, type SaveState } from "@/hooks/useCompanyMetrics";
 import {
@@ -13,73 +13,68 @@ import {
   formatRatio,
 } from "./metricsFormatting";
 
-// ── Layout primitives ──
+const FIELD = "color-mix(in srgb, hsl(var(--foreground)) 7%, hsl(var(--card)))";
+const ACCENT_TINT = "hsl(var(--primary) / 0.14)";
+const ACCENT_RING = "0 0 0 1px hsl(var(--primary))";
+const EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
 
-function SectionCard({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  children: React.ReactNode;
-}) {
+function chipStyle(active: boolean): CSSProperties {
+  return {
+    background: active ? ACCENT_TINT : FIELD,
+    boxShadow: active ? ACCENT_RING : "none",
+  };
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm">
-      <div className="flex items-center gap-2 p-6 pb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-          <Icon className="h-3.5 w-3.5 text-accent" /> {title}
-        </h3>
-      </div>
-      <div className="px-6 pb-6">{children}</div>
+    <div className="flex flex-col gap-2 border-b border-border px-4 py-3.5 last:border-b-0">
+      <p className="text-[12.5px] font-medium text-foreground">{title}</p>
+      {children}
     </div>
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-      {children}
-    </label>
-  );
-}
-
-/** Generic smart text input: formats on blur, syncs with external value changes (e.g. unit toggles) while not focused. */
+/** Compact inspector field. Label sits in the chip; the value formats on blur. */
 function SmartField({
+  label,
   value,
   onChange,
   onBlurFormat,
   placeholder,
-  prefixIcon: PrefixIcon,
+  prefix,
   suffix,
   allowedChars = /[^0-9.,kmbKMB+\-*/()$]/g,
 }: {
+  label: string;
   value: string;
   onChange: (v: string) => void;
   onBlurFormat: (raw: string) => string;
   placeholder?: string;
-  prefixIcon?: ComponentType<{ className?: string }>;
+  prefix?: string;
   suffix?: string;
   allowedChars?: RegExp;
 }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const filled = local.trim().length > 0;
 
   useEffect(() => {
     if (document.activeElement !== inputRef.current) setLocal(value);
   }, [value]);
 
-  const suffixPad = suffix ? (suffix.length > 2 ? "pr-16" : "pr-9") : "pr-3";
-
   return (
-    <div className="relative">
-      {PrefixIcon && (
-        <PrefixIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      )}
+    <label
+      className="flex h-[26px] min-w-0 items-center gap-1 rounded-lg py-1 pr-1.5 pl-2 transition-[background-color,box-shadow] duration-200 focus-within:shadow-[0_0_0_1px_hsl(var(--primary))]"
+      style={chipStyle(filled)}
+    >
+      <span className="shrink-0 text-[12px] text-muted-foreground">{label}</span>
+      {prefix && <span className="shrink-0 text-[12px] text-muted-foreground">{prefix}</span>}
       <input
         ref={inputRef}
         type="text"
+        inputMode="decimal"
         value={local}
+        aria-label={label}
         onChange={(e) => setLocal(e.target.value.replace(allowedChars, ""))}
         onBlur={() => {
           const formatted = onBlurFormat(local);
@@ -87,18 +82,10 @@ function SmartField({
           onChange(formatted);
         }}
         placeholder={placeholder}
-        className={cn(
-          "w-full rounded-lg border border-input bg-background py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring",
-          PrefixIcon ? "pl-9" : "pl-3",
-          suffixPad,
-        )}
+        className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground tabular-nums outline-none placeholder:text-muted-foreground/70"
       />
-      {suffix && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-          {suffix}
-        </span>
-      )}
-    </div>
+      {suffix && <span className="shrink-0 text-[11.5px] text-muted-foreground">{suffix}</span>}
+    </label>
   );
 }
 
@@ -111,13 +98,16 @@ function SmartTextarea({
   onChange: (v: string) => void;
   placeholder?: string;
 }) {
+  const filled = value.trim().length > 0;
   return (
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={3}
-      className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring"
+      aria-label="Background"
+      className="w-full resize-none rounded-lg px-2.5 py-2 text-[12px] text-foreground outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-muted-foreground/70 focus:shadow-[0_0_0_1px_hsl(var(--primary))]"
+      style={chipStyle(filled)}
     />
   );
 }
@@ -131,16 +121,32 @@ function UnitToggle<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const index = Math.max(0, options.findIndex((opt) => opt.id === value));
   return (
-    <div className="flex rounded-lg border border-border bg-muted/50 p-0.5">
+    <div
+      className="relative grid rounded-[10px] p-0.5"
+      style={{ background: FIELD, gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      <span
+        aria-hidden
+        className="absolute bottom-0.5 top-0.5 rounded-[6px] bg-card shadow-sm transition-transform duration-300 motion-reduce:transition-none"
+        style={{
+          width: `calc((100% - 4px) / ${options.length})`,
+          left: 2,
+          transform: `translateX(${index * 100}%)`,
+          transitionTimingFunction: EASE,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.28), 0 0 0 1px hsl(var(--border) / 0.8)",
+        }}
+      />
       {options.map((opt) => (
         <button
           key={opt.id}
           type="button"
+          aria-pressed={opt.id === value}
           onClick={() => onChange(opt.id)}
           className={cn(
-            "px-2.5 py-1 text-[11px] font-medium rounded-md transition-all",
-            value === opt.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            "relative z-10 flex h-6 items-center justify-center rounded-[6px] text-[12px] font-medium transition-colors duration-200",
+            opt.id === value ? "text-primary" : "text-muted-foreground hover:text-foreground",
           )}
         >
           {opt.label}
@@ -150,7 +156,6 @@ function UnitToggle<T extends string>({
   );
 }
 
-/** Dollar-amount field (TAM/SAM/SOM, CAC, LTV, burn rate, cash, debt) — shared $ prefix + currency blur formatting. */
 function CurrencyField({
   label,
   value,
@@ -163,31 +168,38 @@ function CurrencyField({
   placeholder?: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <FieldLabel>{label}</FieldLabel>
-      <SmartField value={value} onChange={onChange} onBlurFormat={smartBlurCurrency} prefixIcon={DollarSign} placeholder={placeholder} />
-    </div>
+    <SmartField
+      label={label}
+      value={value}
+      onChange={onChange}
+      onBlurFormat={smartBlurCurrency}
+      prefix="$"
+      placeholder={placeholder}
+    />
   );
 }
 
 function SaveIndicator({ state }: { state: SaveState }) {
   if (state === "saving") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" /> Saving…
       </span>
     );
   }
   if (state === "saved") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-success">
-        <Check className="h-3 w-3" /> Saved
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-success animate-in fade-in zoom-in-95 duration-200">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+        Saved
       </span>
     );
   }
   if (state === "error") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[11px] text-destructive">
+      <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] text-destructive">
         <AlertCircle className="h-3 w-3" /> Couldn't sync — saved locally
       </span>
     );
@@ -195,61 +207,58 @@ function SaveIndicator({ state }: { state: SaveState }) {
   return null;
 }
 
-// ── Main panel ──
-
 export function MetricsPanel() {
   const { metrics, update, saveState } = useCompanyMetrics();
   const ltvCacRatio = computeLtvCacRatio(metrics.ltv, metrics.cac);
+  const activeUsersLabel = metrics.activeUsersMode === "dau" ? "DAU" : "MAU";
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          Key metrics for your data room. Everything here saves automatically as you type.
-        </p>
-        <SaveIndicator state={saveState} />
-      </div>
+    <div className="w-full max-w-[520px] animate-in fade-in duration-200">
+      <div className="overflow-hidden rounded-[20px] bg-card shadow-[0_0_0_1px_hsl(var(--border)),0_18px_40px_-28px_rgba(0,0,0,0.75)]">
+        <div className="flex flex-col gap-2 border-b border-border px-4 py-3">
+          <p className="text-[13px] font-medium leading-snug text-foreground">
+            Key metrics for your data room. Everything here saves automatically as you type.
+          </p>
+          {saveState !== "idle" && (
+            <div className="flex justify-end">
+              <SaveIndicator state={saveState} />
+            </div>
+          )}
+        </div>
 
-      {/* TEAM */}
-      <SectionCard icon={Users} title="Team">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="space-y-1.5">
-            <FieldLabel>Headcount</FieldLabel>
+        <Section title="Team">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <SmartField
+              label="Headcount"
               value={metrics.headcount}
               onChange={(v) => update({ headcount: v })}
               onBlurFormat={smartBlurInteger}
               placeholder="e.g. 12"
-              prefixIcon={Users}
               allowedChars={/[^0-9kmKM+\-*/()]/g}
             />
           </div>
-          <div className="space-y-1.5 md:col-span-2">
-            <FieldLabel>Background</FieldLabel>
+          <div className="flex flex-col gap-2">
+            <p className="text-[12px] text-muted-foreground">Background</p>
             <SmartTextarea
               value={metrics.background}
               onChange={(v) => update({ background: v })}
               placeholder="Founding team backgrounds, key hires, notable advisors…"
             />
           </div>
-        </div>
-      </SectionCard>
+        </Section>
 
-      {/* MARKET */}
-      <SectionCard icon={Target} title="Market">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <CurrencyField label="TAM" value={metrics.tam} onChange={(v) => update({ tam: v })} />
-          <CurrencyField label="SAM" value={metrics.sam} onChange={(v) => update({ sam: v })} />
-          <CurrencyField label="SOM" value={metrics.som} onChange={(v) => update({ som: v })} />
-        </div>
-      </SectionCard>
+        <Section title="Market">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <CurrencyField label="TAM" value={metrics.tam} onChange={(v) => update({ tam: v })} />
+            <CurrencyField label="SAM" value={metrics.sam} onChange={(v) => update({ sam: v })} />
+            <CurrencyField label="SOM" value={metrics.som} onChange={(v) => update({ som: v })} />
+          </div>
+        </Section>
 
-      {/* TRACTION */}
-      <SectionCard icon={TrendingUp} title="Traction">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <FieldLabel>NRR</FieldLabel>
+        <Section title="Traction">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <SmartField
+              label="NRR"
               value={metrics.nrr}
               onChange={(v) => update({ nrr: v })}
               onBlurFormat={smartBlurPercent}
@@ -257,34 +266,8 @@ export function MetricsPanel() {
               placeholder="e.g. 110"
               allowedChars={/[^0-9.+\-*/()]/g}
             />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <FieldLabel>{metrics.activeUsersMode === "dau" ? "DAU" : "MAU"}</FieldLabel>
-              <UnitToggle
-                options={[
-                  { id: "mau" as const, label: "MAU" },
-                  { id: "dau" as const, label: "DAU" },
-                ]}
-                value={metrics.activeUsersMode}
-                onChange={(mode) => {
-                  const converted = convertActiveUsers(metrics.activeUsers, metrics.activeUsersMode, mode);
-                  update({ activeUsersMode: mode, activeUsers: converted });
-                }}
-              />
-            </div>
             <SmartField
-              value={metrics.activeUsers}
-              onChange={(v) => update({ activeUsers: v })}
-              onBlurFormat={smartBlurInteger}
-              prefixIcon={Users}
-              placeholder="e.g. 12,000"
-              allowedChars={/[^0-9kmKM+\-*/()]/g}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Churn Rate</FieldLabel>
-            <SmartField
+              label="Churn Rate"
               value={metrics.churnRate}
               onChange={(v) => update({ churnRate: v })}
               onBlurFormat={smartBlurPercent}
@@ -293,34 +276,49 @@ export function MetricsPanel() {
               allowedChars={/[^0-9.+\-*/()]/g}
             />
           </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Burn Multiple</FieldLabel>
-            <SmartField
-              value={metrics.burnMultiple}
-              onChange={(v) => update({ burnMultiple: v })}
-              onBlurFormat={smartBlurMultiplier}
-              suffix="x"
-              placeholder="e.g. 1.5"
-              allowedChars={/[^0-9.+\-*/()]/g}
-            />
-          </div>
-        </div>
-      </SectionCard>
+          <UnitToggle
+            options={[
+              { id: "mau" as const, label: "MAU" },
+              { id: "dau" as const, label: "DAU" },
+            ]}
+            value={metrics.activeUsersMode}
+            onChange={(mode) => {
+              const converted = convertActiveUsers(metrics.activeUsers, metrics.activeUsersMode, mode);
+              update({ activeUsersMode: mode, activeUsers: converted });
+            }}
+          />
+          <SmartField
+            label={activeUsersLabel}
+            value={metrics.activeUsers}
+            onChange={(v) => update({ activeUsers: v })}
+            onBlurFormat={smartBlurInteger}
+            placeholder="e.g. 12,000"
+            allowedChars={/[^0-9kmKM+\-*/()]/g}
+          />
+          <SmartField
+            label="Burn Multiple"
+            value={metrics.burnMultiple}
+            onChange={(v) => update({ burnMultiple: v })}
+            onBlurFormat={smartBlurMultiplier}
+            suffix="x"
+            placeholder="e.g. 1.5"
+            allowedChars={/[^0-9.+\-*/()]/g}
+          />
+        </Section>
 
-      {/* UNIT ECONOMICS */}
-      <SectionCard icon={Scale} title="Unit Economics">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <CurrencyField label="CAC" value={metrics.cac} onChange={(v) => update({ cac: v })} placeholder="e.g. 250" />
-          <CurrencyField label="LTV" value={metrics.ltv} onChange={(v) => update({ ltv: v })} placeholder="e.g. 5,000" />
-          <div className="space-y-1.5">
-            <FieldLabel>LTV : CAC Ratio</FieldLabel>
-            <div className="flex h-[42px] items-center rounded-lg border border-accent/20 bg-accent/5 px-3 text-sm font-semibold text-accent">
-              {formatRatio(ltvCacRatio)}
+        <Section title="Unit Economics">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <CurrencyField label="CAC" value={metrics.cac} onChange={(v) => update({ cac: v })} placeholder="e.g. 250" />
+            <CurrencyField label="LTV" value={metrics.ltv} onChange={(v) => update({ ltv: v })} placeholder="e.g. 5,000" />
+            <div
+              className="flex h-[26px] min-w-0 items-center justify-between gap-2 rounded-lg py-1 pr-1.5 pl-2 sm:col-span-2"
+              style={chipStyle(ltvCacRatio !== null)}
+            >
+              <span className="shrink-0 text-[12px] text-muted-foreground">LTV : CAC Ratio</span>
+              <span className="text-[12px] font-medium tabular-nums text-primary">{formatRatio(ltvCacRatio)}</span>
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>CAC Payback</FieldLabel>
             <SmartField
+              label="CAC Payback"
               value={metrics.cacPaybackDays}
               onChange={(v) => update({ cacPaybackDays: v })}
               onBlurFormat={smartBlurInteger}
@@ -329,45 +327,18 @@ export function MetricsPanel() {
               allowedChars={/[^0-9+\-*/()]/g}
             />
           </div>
-        </div>
-      </SectionCard>
+        </Section>
 
-      {/* FINANCIAL HEALTH */}
-      <SectionCard icon={Wallet} title="Financial Health">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <CurrencyField
-            label="Monthly Burn Rate"
-            value={metrics.monthlyBurnRate}
-            onChange={(v) => update({ monthlyBurnRate: v })}
-            placeholder="e.g. 85k"
-          />
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <FieldLabel>Runway</FieldLabel>
-              <UnitToggle
-                options={[
-                  { id: "months" as const, label: "Months" },
-                  { id: "days" as const, label: "Days" },
-                ]}
-                value={metrics.runwayUnit}
-                onChange={(unit) => {
-                  const converted = convertRunway(metrics.runway, metrics.runwayUnit, unit);
-                  update({ runwayUnit: unit, runway: converted });
-                }}
-              />
-            </div>
-            <SmartField
-              value={metrics.runway}
-              onChange={(v) => update({ runway: v })}
-              onBlurFormat={smartBlurInteger}
-              suffix={metrics.runwayUnit}
-              placeholder="e.g. 18"
-              allowedChars={/[^0-9.+\-*/()]/g}
+        <Section title="Financial Health">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <CurrencyField
+              label="Monthly Burn Rate"
+              value={metrics.monthlyBurnRate}
+              onChange={(v) => update({ monthlyBurnRate: v })}
+              placeholder="e.g. 85k"
             />
-          </div>
-          <div className="space-y-1.5">
-            <FieldLabel>Gross Margin</FieldLabel>
             <SmartField
+              label="Gross Margin"
               value={metrics.grossMargin}
               onChange={(v) => update({ grossMargin: v })}
               onBlurFormat={smartBlurPercent}
@@ -375,11 +346,31 @@ export function MetricsPanel() {
               placeholder="e.g. 72"
               allowedChars={/[^0-9.+\-*/()]/g}
             />
+            <CurrencyField label="Cash on Hand" value={metrics.cashOnHand} onChange={(v) => update({ cashOnHand: v })} placeholder="e.g. 1.4m" />
+            <CurrencyField label="Total Debt" value={metrics.totalDebt} onChange={(v) => update({ totalDebt: v })} placeholder="e.g. 0" />
           </div>
-          <CurrencyField label="Cash on Hand" value={metrics.cashOnHand} onChange={(v) => update({ cashOnHand: v })} placeholder="e.g. 1.4m" />
-          <CurrencyField label="Total Debt" value={metrics.totalDebt} onChange={(v) => update({ totalDebt: v })} placeholder="e.g. 0" />
-        </div>
-      </SectionCard>
+          <UnitToggle
+            options={[
+              { id: "months" as const, label: "Months" },
+              { id: "days" as const, label: "Days" },
+            ]}
+            value={metrics.runwayUnit}
+            onChange={(unit) => {
+              const converted = convertRunway(metrics.runway, metrics.runwayUnit, unit);
+              update({ runwayUnit: unit, runway: converted });
+            }}
+          />
+          <SmartField
+            label="Runway"
+            value={metrics.runway}
+            onChange={(v) => update({ runway: v })}
+            onBlurFormat={smartBlurInteger}
+            suffix={metrics.runwayUnit}
+            placeholder="e.g. 18"
+            allowedChars={/[^0-9.+\-*/()]/g}
+          />
+        </Section>
+      </div>
     </div>
   );
 }

@@ -59,28 +59,40 @@ const SAVE_DEBOUNCE_MS = 700;
 
 type MetricsRow = Record<string, string | null>;
 
+/**
+ * Only the values the row actually holds. Blank columns are dropped rather than returned as
+ * "", so hydration never overwrites something the local copy knows about and the row does
+ * not — a deck pre-fill written moments before the fetch resolved, for instance.
+ */
 function rowToMetrics(row: MetricsRow): Partial<CompanyMetricsData> {
-  return {
-    headcount: row.headcount ?? "",
-    background: row.background ?? "",
-    tam: row.tam ?? "",
-    sam: row.sam ?? "",
-    som: row.som ?? "",
-    nrr: row.nrr ?? "",
-    activeUsers: row.active_users ?? "",
-    activeUsersMode: row.active_users_mode === "dau" ? "dau" : "mau",
-    churnRate: row.churn_rate ?? "",
-    burnMultiple: row.burn_multiple ?? "",
-    cac: row.cac ?? "",
-    ltv: row.ltv ?? "",
-    cacPaybackDays: row.cac_payback_days ?? "",
-    monthlyBurnRate: row.monthly_burn_rate ?? "",
-    runway: row.runway ?? "",
-    runwayUnit: row.runway_unit === "days" ? "days" : "months",
-    grossMargin: row.gross_margin ?? "",
-    cashOnHand: row.cash_on_hand ?? "",
-    totalDebt: row.total_debt ?? "",
+  const text = (value: string | null | undefined) => (value?.trim() ? value : undefined);
+  const stored: Partial<CompanyMetricsData> = {
+    headcount: text(row.headcount),
+    background: text(row.background),
+    tam: text(row.tam),
+    sam: text(row.sam),
+    som: text(row.som),
+    nrr: text(row.nrr),
+    activeUsers: text(row.active_users),
+    // The unit toggles carry a NOT NULL default, so they only count as stored
+    // when the value they describe is stored too.
+    activeUsersMode: text(row.active_users) ? (row.active_users_mode === "dau" ? "dau" : "mau") : undefined,
+    churnRate: text(row.churn_rate),
+    burnMultiple: text(row.burn_multiple),
+    cac: text(row.cac),
+    ltv: text(row.ltv),
+    cacPaybackDays: text(row.cac_payback_days),
+    monthlyBurnRate: text(row.monthly_burn_rate),
+    runway: text(row.runway),
+    runwayUnit: text(row.runway) ? (row.runway_unit === "days" ? "days" : "months") : undefined,
+    grossMargin: text(row.gross_margin),
+    cashOnHand: text(row.cash_on_hand),
+    totalDebt: text(row.total_debt),
   };
+
+  return Object.fromEntries(
+    Object.entries(stored).filter(([, value]) => value !== undefined),
+  ) as Partial<CompanyMetricsData>;
 }
 
 function metricsToRow(m: CompanyMetricsData, userId: string) {

@@ -66,7 +66,7 @@ export function DataHubPage() {
   return (
     <div className={cn(
       "mx-auto w-full px-4 py-8 sm:px-6 lg:px-8",
-      activeTab === "overview" ? "max-w-[1312px]" : activeTab === "market" ? "max-w-6xl" : "max-w-5xl",
+      activeTab === "overview" || activeTab === "files" ? "max-w-[1312px]" : activeTab === "market" ? "max-w-6xl" : "max-w-5xl",
     )}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border pb-4">
         {DATA_ROOM_TABS.map((tab) => {
@@ -100,7 +100,7 @@ export function DataHubPage() {
       <div className={cn(
         activeTab === "assessment" || activeTab === "market"
           ? "mt-5"
-          : activeTab === "overview"
+          : activeTab === "overview" || activeTab === "files"
             ? "mt-9"
             : "mt-8",
       )}>
