@@ -23,32 +23,38 @@ export async function ensureAppUserRows(
   if (displayName) userRow.display_name = displayName;
   if (avatarUrl) userRow.avatar_url = avatarUrl;
 
-  const { error: userError } = await admin.from("users").upsert(userRow, { onConflict: "id" });
+  try {
+    const { error: userError } = await admin.from("users").upsert(userRow, { onConflict: "id" });
 
-  if (userError) {
-    console.error("[ensure-user] users upsert failed:", userError.message);
+    if (userError) {
+      console.error("[ensure-user] users upsert failed:", userError.message);
+    }
+
+    const { error: profileError } = await admin.from("profiles").upsert(
+      { user_id: userId, has_completed_onboarding: false, created_at: now, updated_at: now },
+      { onConflict: "user_id", ignoreDuplicates: true },
+    );
+
+    if (profileError) {
+      console.error("[ensure-user] profiles upsert failed:", profileError.message);
+      return { ok: false, error: profileError.message, status: 500 };
+    }
+
+    const { data: profile, error: fetchError } = await admin
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error("[ensure-user] profile fetch failed:", fetchError.message);
+      return { ok: false, error: fetchError.message, status: 500 };
+    }
+
+    return { ok: true, profile };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "ensure-user failed";
+    console.error("[ensure-user] request failed:", message);
+    return { ok: false, error: message, status: 503 };
   }
-
-  const { error: profileError } = await admin.from("profiles").upsert(
-    { user_id: userId, has_completed_onboarding: false, created_at: now, updated_at: now },
-    { onConflict: "user_id", ignoreDuplicates: true },
-  );
-
-  if (profileError) {
-    console.error("[ensure-user] profiles upsert failed:", profileError.message);
-    return { ok: false, error: profileError.message, status: 500 };
-  }
-
-  const { data: profile, error: fetchError } = await admin
-    .from("profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[ensure-user] profile fetch failed:", fetchError.message);
-    return { ok: false, error: fetchError.message, status: 500 };
-  }
-
-  return { ok: true, profile };
 }

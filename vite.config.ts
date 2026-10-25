@@ -277,41 +277,50 @@ function saveProfileDevPlugin(env: Record<string, string>) {
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
         for (const k of ALLOWED) if (k in body && body[k] !== undefined) patch[k] = body[k];
 
-        // Check if row exists
-        const sel = await fetch(
-          `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=id&limit=1`,
-          { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
-        );
-        const rows = sel.ok ? await sel.json() : [];
-        const exists = Array.isArray(rows) && rows.length > 0;
-
-        let dbRes: Response;
-        if (exists) {
-          dbRes = await fetch(
-            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}`,
-            {
-              method: "PATCH",
-              headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-              body: JSON.stringify(patch),
-            },
+        try {
+          const sel = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}&select=id&limit=1`,
+            { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } },
           );
-        } else {
-          dbRes = await fetch(`${supabaseUrl}/rest/v1/profiles`, {
-            method: "POST",
-            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-            body: JSON.stringify({ user_id: userId, full_name: "", user_type: "founder", is_public: true, ...patch }),
-          });
-        }
+          const rows = sel.ok ? await sel.json() : [];
+          const exists = Array.isArray(rows) && rows.length > 0;
 
-        if (!dbRes.ok) {
-          const errText = await dbRes.text();
-          res.writeHead(500, cors);
-          res.end(JSON.stringify({ error: `DB write failed (${dbRes.status}): ${errText}` }));
-          return;
-        }
+          let dbRes: Response;
+          if (exists) {
+            dbRes = await fetch(
+              `${supabaseUrl}/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}`,
+              {
+                method: "PATCH",
+                headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+                body: JSON.stringify(patch),
+              },
+            );
+          } else {
+            dbRes = await fetch(`${supabaseUrl}/rest/v1/profiles`, {
+              method: "POST",
+              headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ user_id: userId, full_name: "", user_type: "founder", is_public: true, ...patch }),
+            });
+          }
 
-        res.writeHead(200, cors);
-        res.end(JSON.stringify({ ok: true }));
+          if (!dbRes.ok) {
+            const errText = await dbRes.text();
+            res.writeHead(500, cors);
+            res.end(JSON.stringify({ error: `DB write failed (${dbRes.status}): ${errText}` }));
+            return;
+          }
+
+          res.writeHead(200, cors);
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          console.error("[save-profile] request failed:", e);
+          if (!res.headersSent) {
+            res.writeHead(503, cors);
+            res.end(JSON.stringify({
+              error: e instanceof Error ? e.message : "save-profile failed",
+            }));
+          }
+        }
       });
     },
   };
@@ -321,6 +330,12 @@ function ensureUserDevPlugin(env: Record<string, string>) {
   return {
     name: "ensure-user-dev",
     configureServer(server: any) {
+      if (!(globalThis as { __vektaDevRejectionHook?: boolean }).__vektaDevRejectionHook) {
+        (globalThis as { __vektaDevRejectionHook?: boolean }).__vektaDevRejectionHook = true;
+        process.on("unhandledRejection", (reason) => {
+          console.error("[vite] unhandledRejection:", reason);
+        });
+      }
       server.middlewares.use("/api/ensure-user", async (req: any, res: any) => {
         const cors = {
           "Access-Control-Allow-Origin": "*",
@@ -329,6 +344,7 @@ function ensureUserDevPlugin(env: Record<string, string>) {
           "Content-Type": "application/json",
         };
 
+        try {
         if (req.method === "OPTIONS") {
           res.writeHead(200, cors);
           res.end();
@@ -416,6 +432,15 @@ function ensureUserDevPlugin(env: Record<string, string>) {
 
         res.writeHead(200, cors);
         res.end(JSON.stringify({ ok: true, profile: result.profile }));
+        } catch (e) {
+          console.error("[ensure-user] uncaught:", e);
+          if (!res.headersSent) {
+            res.writeHead(503, cors);
+            res.end(JSON.stringify({
+              error: e instanceof Error ? e.message : "ensure-user failed",
+            }));
+          }
+        }
       });
     },
   };
