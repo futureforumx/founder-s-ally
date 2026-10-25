@@ -19,6 +19,26 @@ function asPermission(v: unknown): AppPermission | null {
   return null;
 }
 
+type SubscriptionPlan = "free" | "basic" | "premium" | "elite";
+
+const PLAN_RANK: Record<SubscriptionPlan, number> = { free: 0, basic: 1, premium: 2, elite: 3 };
+const ENTITLED_STATUSES = new Set(["active", "trialing", "past_due"]);
+
+function preferPlan(current: SubscriptionPlan | undefined, next: SubscriptionPlan): SubscriptionPlan {
+  if (!current || PLAN_RANK[next] > PLAN_RANK[current]) return next;
+  return current;
+}
+
+function planForProduct(productId: string | null | undefined): Exclude<SubscriptionPlan, "free"> | null {
+  const basic = Deno.env.get("STRIPE_BASIC_PRODUCT_ID") || "prod_UDOE8xN0c0nLJ9";
+  const premium = Deno.env.get("STRIPE_PREMIUM_PRODUCT_ID") || "prod_UDOEvx0txmJqg4";
+  const elite = Deno.env.get("STRIPE_ELITE_PRODUCT_ID") || "prod_V6Tlx8ZSJTA9Q8";
+  if (productId === elite) return "elite";
+  if (productId === premium) return "premium";
+  if (productId === basic) return "basic";
+  return null;
+}
+
 function highestPermission(...candidates: Array<AppPermission | null>): AppPermission {
   const rank: Record<AppPermission, number> = { user: 0, manager: 1, admin: 2, god: 3 };
   let best: AppPermission = "user";
@@ -189,6 +209,68 @@ Deno.serve(async (req) => {
 
     // Always union every identity source so the list is resilient: Clerk directory,
     // the app `users` table, and `profiles`. If Clerk can't be read, DB users still show.
+    const planByUserId = new Map<string, SubscriptionPlan>();
+    const planByEmail = new Map<string, SubscriptionPlan>();
+    const rememberPlan = (userId: string | null | undefined, email: string | null | undefined, plan: SubscriptionPlan) => {
+      if (userId) planByUserId.set(userId, preferPlan(planByUserId.get(userId), plan));
+      const normalized = email?.trim().toLowerCase();
+      if (normalized) planByEmail.set(normalized, preferPlan(planByEmail.get(normalized), plan));
+    };
+
+    const { data: subscriptionRows, error: subscriptionError } = await adminClient
+      .from("stripe_subscriptions")
+      .select("user_id, stripe_product_id, status");
+
+    if (!subscriptionError) {
+      for (const row of subscriptionRows ?? []) {
+        if (!ENTITLED_STATUSES.has(String(row.status))) continue;
+        const plan = planForProduct(row.stripe_product_id);
+        if (plan) rememberPlan(row.user_id, null, plan);
+      }
+    } else {
+      const stripeKey = Deno.env.get("STRIPE_SECRET_KEY")?.trim() ?? "";
+      if (!stripeKey) {
+        console.warn("[admin-list-users] Stripe subscriptions unavailable:", subscriptionError.message);
+      } else {
+        try {
+          const Stripe = (await import("npm:stripe@22.5.0")).default;
+          const stripe = new Stripe(stripeKey);
+          for (const status of ["active", "trialing", "past_due"] as const) {
+            let startingAfter: string | undefined;
+            for (let page = 0; page < 10; page += 1) {
+              const listed = await stripe.subscriptions.list({
+                status,
+                limit: 100,
+                expand: ["data.customer"],
+                ...(startingAfter ? { starting_after: startingAfter } : {}),
+              });
+              for (const subscription of listed.data) {
+                const price = subscription.items.data[0]?.price;
+                const product = price?.product;
+                const productId = typeof product === "string" ? product : product?.id;
+                const plan = planForProduct(productId);
+                if (!plan) continue;
+                const customer = subscription.customer;
+                const customerRecord = typeof customer === "object" && customer && !("deleted" in customer && customer.deleted)
+                  ? customer
+                  : null;
+                rememberPlan(
+                  subscription.metadata?.supabase_user_id || customerRecord?.metadata?.supabase_user_id,
+                  customerRecord?.email,
+                  plan,
+                );
+              }
+              if (!listed.has_more) break;
+              startingAfter = listed.data.at(-1)?.id;
+              if (!startingAfter) break;
+            }
+          }
+        } catch (stripeError) {
+          console.error("[admin-list-users] Stripe subscription lookup:", (stripeError as Error).message);
+        }
+      }
+    }
+
     const idSet = new Set<string>();
     for (const u of authUsers) idSet.add(u.id);
     for (const u of appUsers || []) idSet.add(u.id);
@@ -233,6 +315,7 @@ Deno.serve(async (req) => {
         ip_addresses: ipAddresses,
         last_ip: ipAddresses[0] ?? null,
         banned,
+        subscription: planByUserId.get(id) ?? (emailLower ? planByEmail.get(emailLower) : undefined) ?? "free",
       };
     });
 

@@ -9,16 +9,16 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
-  AlertCircle, ExternalLink, CheckCircle2, XCircle, Flag, X, Save,
-  Plus, Trash2,
+  Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Compass,
+  ExternalLink, Flag, Loader2, Plus, RefreshCw, Save, Search, Target, Trash2, X, XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FreshCapitalEnrichmentAdmin } from "./FreshCapitalEnrichmentAdmin";
 import { FreshCapitalPublicPathsAdmin } from "./FreshCapitalPublicPathsAdmin";
+import { AdminStickyFilters, AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
 import { displayCompanyHost } from "@/lib/latestFundingDisplay";
 import { canonicalSectorChoiceLabel, formatRoundKind } from "@/lib/latestFundingFilters";
@@ -1572,13 +1572,11 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full">
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col gap-6">
+      <AdminStickyHeader stacked>
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white/90">Fresh Capital New Funds</h1>
-          <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Edits the public /fresh-capital New Funds rows from vc_funds + firm_records.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -1601,10 +1599,11 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
           </button>
         </div>
       </div>
+      </AdminStickyHeader>
 
       <FreshCapitalPublicPathsAdmin />
 
-      <div className="flex gap-3 flex-wrap">
+      <AdminStickyFilters className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input
@@ -1615,16 +1614,17 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.8)" }}
           />
         </div>
-        <Select value={stage} onValueChange={v => { setStage(v); setPage(0); }}>
-          <SelectTrigger className="w-[160px] h-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Stages</SelectItem>
-            {STAGE_FOCUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterSelect
+          label="Stage"
+          icon={Target}
+          value={stage}
+          options={[
+            { value: "all", label: "All" },
+            ...STAGE_FOCUS_OPTIONS.map((item) => ({ value: item, label: item })),
+          ]}
+          onValueChange={(value) => { setStage(value); setPage(0); }}
+        />
+      </AdminStickyFilters>
 
       <div className="flex items-center gap-4">
         <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -1640,7 +1640,7 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr 0.7fr 0.75fr 0.9fr 0.9fr 1.2fr", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {["Firm","Fund","Size","Announced","Stage Focus","Geo Focus","Themes"].map(h => (
             <div key={h} style={HDR}>{h}</div>
@@ -1792,14 +1792,11 @@ function LatestFundingDealsAdmin() {
   };
 
   return (
-    <div className="flex flex-col gap-6 h-full">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="flex flex-col gap-6">
+      <AdminStickyHeader stacked>
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold text-white/90">Fresh Capital Feed</h1>
-          <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Raw funding intelligence from fi_deals_canonical — click any row to edit.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -1822,11 +1819,11 @@ function LatestFundingDealsAdmin() {
           </button>
         </div>
       </div>
+      </AdminStickyHeader>
 
       <FreshCapitalPublicPathsAdmin />
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <AdminStickyFilters className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input
@@ -1837,26 +1834,28 @@ function LatestFundingDealsAdmin() {
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.8)" }}
           />
         </div>
-        <Select value={needsReview} onValueChange={v => { setNeedsReview(v); setPage(0); }}>
-          <SelectTrigger className="w-[150px] h-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Records</SelectItem>
-            <SelectItem value="true">Needs Review</SelectItem>
-            <SelectItem value="false">Reviewed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={roundFilter} onValueChange={v => { setRoundFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-[150px] h-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rounds</SelectItem>
-            {ROUND_TYPES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterSelect
+          label="Status"
+          icon={Activity}
+          value={needsReview}
+          options={[
+            { value: "all", label: "All" },
+            { value: "true", label: "Needs review" },
+            { value: "false", label: "Reviewed" },
+          ]}
+          onValueChange={(value) => { setNeedsReview(value); setPage(0); }}
+        />
+        <FilterSelect
+          label="Round"
+          icon={Compass}
+          value={roundFilter}
+          options={[
+            { value: "all", label: "All" },
+            ...ROUND_TYPES.map((item) => ({ value: item, label: formatRoundKind(item) })),
+          ]}
+          onValueChange={(value) => { setRoundFilter(value); setPage(0); }}
+        />
+      </AdminStickyFilters>
 
       {/* Stats bar */}
       <div className="flex items-center gap-4">
@@ -1881,7 +1880,7 @@ function LatestFundingDealsAdmin() {
       )}
 
       {/* Table */}
-      <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         {/* Header row */}
         <div style={{ display: "grid", gridTemplateColumns: DEAL_COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {DEAL_HEADERS.map(h => (
@@ -2023,7 +2022,8 @@ export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) 
   const [view, setView] = useState<"funds" | "deals" | "enrichment">("funds");
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex flex-col gap-5">
+      <AdminStickyHeader>
       <div
         className="inline-flex w-max flex-wrap items-center gap-1 rounded-lg border p-1"
         style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
@@ -2050,6 +2050,7 @@ export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) 
           );
         })}
       </div>
+      </AdminStickyHeader>
       {view === "funds" && <FreshFundsAdmin onNavigate={onNavigate} />}
       {view === "deals" && <LatestFundingDealsAdmin />}
       {view === "enrichment" && <FreshCapitalEnrichmentAdmin />}

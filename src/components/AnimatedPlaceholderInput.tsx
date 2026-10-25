@@ -11,6 +11,8 @@ export type AnimatedPlaceholderInputProps = Omit<
   /** Shown when focused (or when animated overlay is hidden) and the field is empty */
   staticPlaceholder?: string;
   animationOptions?: UseAnimatedPlaceholderOptions;
+  wrapperClassName?: string;
+  overlayClassName?: string;
 };
 
 function assignRef<T>(node: T | null, ref: React.Ref<T> | null | undefined) {
@@ -30,6 +32,8 @@ export const AnimatedPlaceholderInput = forwardRef<HTMLTextAreaElement, Animated
       className,
       staticPlaceholder = "Ask VEX anything…",
       animationOptions,
+      wrapperClassName,
+      overlayClassName,
       onFocus,
       onBlur,
       placeholder,
@@ -67,12 +71,13 @@ export const AnimatedPlaceholderInput = forwardRef<HTMLTextAreaElement, Animated
     );
 
     return (
-      <div className="relative">
+      <div className={cn("relative", wrapperClassName)}>
         {showAnimatedOverlay ? (
           <div
             className={cn(
               "pointer-events-none absolute inset-0 z-0 flex max-h-48 flex-wrap content-start items-start gap-0 px-4 pt-4 pb-12 pr-10",
-              "text-sm leading-normal text-muted-foreground/60",
+              "text-base leading-normal text-muted-foreground/60",
+              overlayClassName,
             )}
             aria-hidden
           >

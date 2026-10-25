@@ -42,7 +42,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        sans: ["Geist", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["Geist Mono", "SF Mono", "Fira Code", "monospace"],
         spaceGrotesk: ['"Space Grotesk"', "ui-sans-serif", "system-ui", "sans-serif"],
         manrope: ['"Manrope"', "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -55,8 +55,8 @@ export default {
         "md": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }],         /* 16px */
         "lg": ["1.125rem", { lineHeight: "1.625rem", fontWeight: "500" }],   /* 18px */
         "xl": ["1.25rem", { lineHeight: "1.75rem", fontWeight: "600" }],     /* 20px */
-        "2xl": ["1.5rem", { lineHeight: "2rem", fontWeight: "700" }],        /* 24px */
-        "3xl": ["2rem", { lineHeight: "2.5rem", fontWeight: "700" }],        /* 32px */
+        "2xl": ["1.5rem", { lineHeight: "2rem", fontWeight: "600" }],        /* 24px */
+        "3xl": ["2rem", { lineHeight: "2.5rem", fontWeight: "600" }],        /* 32px */
       },
       colors: {
         border: "hsl(var(--border))",

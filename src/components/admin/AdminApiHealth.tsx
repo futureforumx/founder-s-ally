@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
-import { RefreshCw, ExternalLink } from "lucide-react";
+import { useState, useCallback, useMemo } from "react";
+import { Activity, ExternalLink, RefreshCw, Server } from "lucide-react";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 import { toast } from "sonner";
 
 interface Provider {
@@ -27,8 +29,33 @@ const STATUS_CONFIG = {
   down: { label: "Down", color: "#FF4444", bg: "rgba(255,68,68,0.08)", shadow: "0 0 8px rgba(255,68,68,0.4)" },
 };
 
+const HEALTH_STATUSES = [
+  { value: "all", label: "All" },
+  { value: "live", label: "Live" },
+  { value: "degraded", label: "Degraded" },
+  { value: "down", label: "Down" },
+] as const;
+
+const HEALTH_SERVICES = [
+  { value: "all", label: "All" },
+  ...PROVIDERS.map((provider) => ({ value: provider.name, label: provider.name })),
+];
+
 export function AdminApiHealth() {
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [status, setStatus] = useState("all");
+  const [service, setService] = useState("all");
+
+  const visible = useMemo(
+    () => PROVIDERS.filter((provider) => {
+      if (status !== "all" && provider.status !== status) return false;
+
+      if (service !== "all" && provider.name !== service) return false;
+
+      return true;
+    }),
+    [service, status],
+  );
 
   const handleForceSync = useCallback((provider: string) => {
     setSyncing(provider);
@@ -40,21 +67,36 @@ export function AdminApiHealth() {
 
   return (
     <div className="space-y-6">
+      <AdminStickyHeader className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white/90">API Health Monitor</h1>
-          <p className="mt-1 font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Real-time handshake status for all 7 integrations
-          </p>
         </div>
         <div className="flex items-center gap-2 font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
           <div className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "#2EE6A6" }} />
           Auto-refresh: 30s
         </div>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          label="Status"
+          icon={Activity}
+          value={status}
+          options={HEALTH_STATUSES}
+          onValueChange={setStatus}
+        />
+        <FilterSelect
+          label="Service"
+          icon={Server}
+          value={service}
+          options={HEALTH_SERVICES}
+          onValueChange={setService}
+        />
+      </div>
+      </AdminStickyHeader>
 
       <div className="grid grid-cols-2 gap-4">
-        {PROVIDERS.map((p) => {
+        {visible.map((p) => {
           const cfg = STATUS_CONFIG[p.status];
           const isSyncing = syncing === p.name;
 

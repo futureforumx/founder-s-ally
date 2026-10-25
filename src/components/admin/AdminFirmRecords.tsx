@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
-  AlertCircle, Building2, ExternalLink, X, CheckCircle2, XCircle,
-  MapPin, DollarSign, Users, Briefcase, Save, Copy, Plus,
+  Activity, AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
+  Copy, DollarSign, ExternalLink, Loader2, MapPin, Plus, RefreshCw, Save, Search, Sparkles,
+  Users, X, XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 import { FirmLogo } from "@/components/ui/firm-logo";
 import { getSupabaseBearerForFunctions, supabase } from "@/integrations/supabase/client";
 import { Constants } from "@/integrations/supabase/types";
+import { AdminStickyFilters, AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
@@ -203,15 +204,44 @@ async function createFirm(body: Record<string, unknown>): Promise<{ row?: FirmRo
   }
 }
 
+const LINKED_PAGE_SIZE = 100;
+
 async function fetchFirmLinkedRows<T>(entity: "firm-investors" | "firm-portfolio", firmId: string): Promise<{ rows: T[]; total: number; error?: string }> {
   if (!SUPABASE_URL) return { rows: [], total: 0, error: "Supabase not configured" };
-  const qs = new URLSearchParams({ entity, firm_id: firmId, limit: "100", offset: "0" }).toString();
+  const rows: T[] = [];
+  let total = 0;
+  try {
+    for (let offset = 0; offset < 20_000; offset += LINKED_PAGE_SIZE) {
+      const qs = new URLSearchParams({
+        entity,
+        firm_id: firmId,
+        limit: String(LINKED_PAGE_SIZE),
+        offset: String(offset),
+      }).toString();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
+      const json = await res.json().catch(() => ({})) as { rows?: T[]; total?: number; error?: string };
+      if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
+      const chunk = json.rows ?? [];
+      total = json.total ?? rows.length + chunk.length;
+      rows.push(...chunk);
+      if (chunk.length < LINKED_PAGE_SIZE || rows.length >= total) break;
+    }
+    return { rows, total: total || rows.length };
+  } catch (e: unknown) { return { rows: [], total: 0, error: (e as Error)?.message }; }
+}
+
+export async function fetchAdminFirmById(id: string): Promise<{ row?: FirmRow; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  const fid = id.trim();
+  if (!fid) return { error: "Missing firm id" };
+  const qs = new URLSearchParams({ entity: "firms", id: fid }).toString();
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
-    const json = await res.json().catch(() => ({})) as { rows?: T[]; total?: number; error?: string };
-    if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
-    return { rows: json.rows ?? [], total: json.total ?? 0 };
-  } catch (e: unknown) { return { rows: [], total: 0, error: (e as Error)?.message }; }
+    const json = await res.json().catch(() => ({})) as { row?: FirmRow; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    if (!json.row) return { error: "Firm not found" };
+    return { row: json.row };
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
 }
 
 async function fetchFirmLinkedFunds(firmRecordId: string): Promise<{ rows: FirmLinkedFundRow[]; total: number; error?: string }> {
@@ -219,17 +249,24 @@ async function fetchFirmLinkedFunds(firmRecordId: string): Promise<{ rows: FirmL
   const fid = firmRecordId.trim();
   if (!fid) return { rows: [], total: 0, error: "Missing firm id" };
   /** Dedicated entity: server requires firm_id — cannot return the global Fund Watch list */
-  const qs = new URLSearchParams({
-    entity: "firm-funds",
-    firm_id: fid,
-    limit: "100",
-    offset: "0",
-  }).toString();
+  const rows: FirmLinkedFundRow[] = [];
+  let total = 0;
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
-    const json = await res.json().catch(() => ({})) as { rows?: FirmLinkedFundRow[]; total?: number; error?: string };
-    if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
-    const rows = (json.rows ?? []).filter((r) => r.firm_record_id === fid);
+    for (let offset = 0; offset < 20_000; offset += LINKED_PAGE_SIZE) {
+      const qs = new URLSearchParams({
+        entity: "firm-funds",
+        firm_id: fid,
+        limit: String(LINKED_PAGE_SIZE),
+        offset: String(offset),
+      }).toString();
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${qs}`, { headers: await adminHeaders() });
+      const json = await res.json().catch(() => ({})) as { rows?: FirmLinkedFundRow[]; total?: number; error?: string };
+      if (!res.ok) return { rows: [], total: 0, error: json.error ?? `HTTP ${res.status}` };
+      const chunk = (json.rows ?? []).filter((r) => r.firm_record_id === fid);
+      total = json.total ?? rows.length + chunk.length;
+      rows.push(...chunk);
+      if ((json.rows ?? []).length < LINKED_PAGE_SIZE || rows.length >= total) break;
+    }
     return { rows, total: rows.length };
   } catch (e: unknown) {
     return { rows: [], total: 0, error: (e as Error)?.message };
@@ -558,9 +595,21 @@ function TagChips({ items, max = 3 }: { items: string[] | null | undefined; max?
 
 // ── Editable detail modal ──────────────────────────────────────────────────────
 
-function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () => void; onSaved: (r: FirmRow) => void }) {
+function FirmEditPanel({
+  row,
+  onClose,
+  onSaved,
+  initialTab = "profile",
+  focusInvestorId = null,
+}: {
+  row: FirmRow;
+  onClose: () => void;
+  onSaved: (r: FirmRow) => void;
+  initialTab?: FirmModalTab;
+  focusInvestorId?: string | null;
+}) {
   const [draft, setDraft] = useState<FirmRow>({ ...row });
-  const [activeTab, setActiveTab] = useState<FirmModalTab>("profile");
+  const [activeTab, setActiveTab] = useState<FirmModalTab>(initialTab);
   const [funds, setFunds] = useState<FirmLinkedFundRow[]>([]);
   const [fundDrafts, setFundDrafts] = useState<Record<string, { min: number | null; max: number | null; saving: boolean }>>({});
   const [investors, setInvestors] = useState<FirmInvestorRow[]>([]);
@@ -614,6 +663,12 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
     });
     return () => { cancelled = true; };
   }, [row.id]);
+
+  useEffect(() => {
+    if (!focusInvestorId || linkedLoading || activeTab !== "investors") return;
+    const el = document.getElementById(`admin-investor-${focusInvestorId}`);
+    el?.scrollIntoView({ block: "center" });
+  }, [focusInvestorId, linkedLoading, investors, activeTab]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -1054,7 +1109,14 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
               {linkedError && <div className="rounded border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">{linkedError}</div>}
               {!linkedLoading && !linkedError && investors.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked investors found</div>}
               {investors.map(item => (
-                <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div
+                  key={item.id}
+                  id={`admin-investor-${item.id}`}
+                  className="rounded-lg border bg-white/[0.03] p-3"
+                  style={{
+                    borderColor: focusInvestorId === item.id ? "rgba(46,230,166,0.55)" : "rgba(255,255,255,0.1)",
+                  }}
+                >
                   <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_0.8fr_auto]">
                     <TF label="Investor Name" value={item.full_name} onChange={v => updateInvestor(item.id, "full_name", v)} />
                     <TF label="Title" value={item.title} onChange={v => updateInvestor(item.id, "title", v)} />
@@ -1251,6 +1313,61 @@ function FirmEditPanel({ row, onClose, onSaved }: { row: FirmRow; onClose: () =>
         </div>
       </div>
     </div>
+  );
+}
+
+export function AdminFirmEditor({
+  firmId,
+  initialTab = "profile",
+  focusInvestorId = null,
+  onClose,
+}: {
+  firmId: string;
+  initialTab?: FirmModalTab;
+  focusInvestorId?: string | null;
+  onClose: () => void;
+}) {
+  const [row, setRow] = useState<FirmRow | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRow(null);
+    setError(null);
+    void fetchAdminFirmById(firmId).then((res) => {
+      if (cancelled) return;
+      if (res.error || !res.row) setError(res.error ?? "Firm not found");
+      else setRow(res.row);
+    });
+    return () => { cancelled = true; };
+  }, [firmId]);
+
+  if (!row) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" aria-label="Close firm editor" className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative rounded-2xl border border-white/10 bg-[#0c0c0c] px-8 py-10 text-center">
+          {error ? (
+            <div className="space-y-4">
+              <p className="text-sm text-red-300">{error}</p>
+              <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>Close</button>
+            </div>
+          ) : (
+            <Loader2 className="mx-auto h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <FirmEditPanel
+      row={row}
+      initialTab={initialTab}
+      focusInvestorId={focusInvestorId}
+      onClose={onClose}
+      onSaved={setRow}
+    />
   );
 }
 
@@ -1491,12 +1608,9 @@ export function AdminFirmRecords() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold text-white/90">Firm Records</h1>
-          <p className="mt-0.5 text-[13px]" style={{ color: "rgba(255,255,255,0.35)" }}>Click any row to view and edit all fields</p>
-        </div>
+      <AdminStickyHeader>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-lg font-semibold text-white/90">Firm Records</h1>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
@@ -1509,6 +1623,7 @@ export function AdminFirmRecords() {
           <Building2 className="h-5 w-5" style={{ color: "#2EE6A6" }} />
         </div>
       </div>
+      </AdminStickyHeader>
 
       {/* toolbar */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1564,36 +1679,42 @@ export function AdminFirmRecords() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <AdminStickyFilters className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search name / slug, or paste firm record UUID…" value={search} onChange={e => setSearch(e.target.value)}
             className="h-8 pl-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }} />
         </div>
-        <Select value={filterEnrich} onValueChange={v => { setFilterEnrich(v); setPage(0); }}>
-          <SelectTrigger className="h-8 w-36 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All enrichment</SelectItem>
-            <SelectItem value="enriched">Enriched</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); setPage(0); }}>
-          <SelectTrigger className="h-8 w-40 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All status</SelectItem>
-            <SelectItem value="live">LIVE</SelectItem>
-            <SelectItem value="needs_review">NEEDS REVIEW</SelectItem>
-            <SelectItem value="archive">ARCHIVE</SelectItem>
-          </SelectContent>
-        </Select>
+        <FilterSelect
+          label="Enrichment"
+          icon={Sparkles}
+          value={filterEnrich}
+          options={[
+            { value: "all", label: "All" },
+            { value: "enriched", label: "Enriched" },
+            { value: "partial", label: "Partial" },
+            { value: "pending", label: "Pending" },
+            { value: "failed", label: "Failed" },
+          ]}
+          onValueChange={(value) => { setFilterEnrich(value); setPage(0); }}
+        />
+        <FilterSelect
+          label="Status"
+          icon={Activity}
+          value={filterStatus}
+          options={[
+            { value: "all", label: "All" },
+            { value: "live", label: "Live" },
+            { value: "needs_review", label: "Needs review" },
+            { value: "archive", label: "Archive" },
+          ]}
+          onValueChange={(value) => { setFilterStatus(value); setPage(0); }}
+        />
         <button onClick={() => { void loadRows(); void loadMetrics(); }} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
         <span className="ml-auto font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} firms</span>
-      </div>
+      </AdminStickyFilters>
 
       {/* table */}
       <div className="rounded-lg border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.07)" }}>

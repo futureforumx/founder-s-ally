@@ -9,6 +9,7 @@ import { getSupabaseBearerForFunctions, isSupabaseConfigured, supabase } from "@
 import { toast } from "sonner";
 import { TOOL_CATEGORY_INTROS } from "@/features/tools/lib/tools";
 import { fetchToolCategoryPageOverride } from "@/features/tools/lib/toolCategoryPageOverrides";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 const SLUG = "ai-agents";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -156,15 +157,9 @@ export function AdminAiAgentsToolPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <AdminStickyHeader>
       <div>
         <h1 className="text-xl font-bold text-white/90">AI Agents tool page</h1>
-        <p className="mt-1 font-mono text-xs" style={{ color: "rgba(255,255,255,0.32)" }}>
-          Public URL{" "}
-          <code className="rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-emerald-400/90">
-            /tools/ai-agents
-          </code>
-          . Leave a field empty to use the built-in default.
-        </p>
         <a
           href="/tools/ai-agents"
           target="_blank"
@@ -174,6 +169,7 @@ export function AdminAiAgentsToolPage() {
           Open live page <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>
+      </AdminStickyHeader>
 
       {loadError ? (
         <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 font-mono text-[12px] text-amber-200/90">

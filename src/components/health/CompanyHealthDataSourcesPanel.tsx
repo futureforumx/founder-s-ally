@@ -222,7 +222,7 @@ function DocumentsBlock({
           )}
           {onEditDocumentsInDataRoom ? (
             <DocumentEditControl
-              label="Edit pitch deck in Raise Data Room"
+              label="Edit pitch deck in Fundraise Hub"
               onClick={onEditDocumentsInDataRoom}
             />
           ) : null}
@@ -255,7 +255,7 @@ function DocumentsBlock({
           )}
           {onEditDocumentsInDataRoom ? (
             <DocumentEditControl
-              label="Edit one-pager in Raise Data Room"
+              label="Edit one-pager in Fundraise Hub"
               onClick={onEditDocumentsInDataRoom}
             />
           ) : null}

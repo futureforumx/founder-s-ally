@@ -43,6 +43,8 @@ export interface RecordUpdateRow {
   name: string;
   subtitle: string | null;
   updatedAt: string;
+  /** Firm record id. Set for VC firms and for investors so the editor can open the parent firm. */
+  firmId?: string | null;
 }
 
 function effectiveTs(updatedAt: string | null | undefined, createdAt: string | null | undefined): string {
@@ -54,7 +56,14 @@ function effectiveTs(updatedAt: string | null | undefined, createdAt: string | n
 }
 
 type FirmRow = { id: string; firm_name: string; updated_at?: string | null; created_at?: string | null };
-type PartnerRow = { id: string; full_name: string; firm_id: string; updated_at?: string | null; created_at?: string | null };
+type PartnerRow = {
+  id: string;
+  full_name: string;
+  firm_id: string;
+  title?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
 type CompanyRow = { id: string; company_name: string; user_id: string; updated_at?: string | null; created_at?: string | null };
 type ProfileRow = { user_id: string; full_name: string; user_type: string; updated_at?: string | null; created_at?: string | null };
 
@@ -117,6 +126,153 @@ async function fetchCompanies(adminClient: SupabaseClient, limit: number): Promi
   return (fallback.data ?? []) as CompanyRow[];
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function safeSearch(raw: unknown): string {
+  return String(raw ?? "")
+    .replace(/[%_\\,"'()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
+function pageWindow(limitRaw: unknown, offsetRaw: unknown): { limit: number; offset: number } {
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(limitRaw) || 50)));
+  const offset = Math.max(0, Math.floor(Number(offsetRaw) || 0));
+  return { limit, offset };
+}
+
+async function readRequestBody(req: Request): Promise<Record<string, unknown>> {
+  if (req.method !== "POST") return {};
+  const text = await req.text();
+  if (!text.trim()) return {};
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+async function listFirmDirectory(
+  adminClient: SupabaseClient,
+  limit: number,
+  offset: number,
+  search: string,
+): Promise<{ updates: RecordUpdateRow[]; total: number }> {
+  const run = async (withDeleted: boolean, orderCol: "updated_at" | "created_at") => {
+    const cols = orderCol === "updated_at"
+      ? "id, firm_name, updated_at, created_at"
+      : "id, firm_name, created_at";
+    let q = adminClient.from("firm_records").select(cols, { count: "exact" });
+    if (withDeleted) q = q.is("deleted_at", null);
+    if (UUID_RE.test(search)) q = q.eq("id", search);
+    else if (search) q = q.ilike("firm_name", `%${search}%`);
+    return q.order(orderCol, { ascending: false }).range(offset, offset + limit - 1);
+  };
+
+  const attempts = [
+    () => run(true, "updated_at"),
+    () => run(false, "updated_at"),
+    () => run(true, "created_at"),
+    () => run(false, "created_at"),
+  ];
+  let lastError = "Could not list firms";
+  for (const attempt of attempts) {
+    const res = await attempt();
+    if (res.error || !res.data) {
+      if (res.error?.message) lastError = res.error.message;
+      continue;
+    }
+    const updates = (res.data as FirmRow[]).map((f) => ({
+      kind: "vc_firm" as const,
+      recordId: f.id,
+      firmId: f.id,
+      name: f.firm_name || "Unnamed firm",
+      subtitle: null,
+      updatedAt: effectiveTs(f.updated_at, f.created_at),
+    }));
+    return { updates, total: res.count ?? updates.length };
+  }
+  throw new Error(lastError);
+}
+
+async function listInvestorDirectory(
+  adminClient: SupabaseClient,
+  limit: number,
+  offset: number,
+  search: string,
+): Promise<{ updates: RecordUpdateRow[]; total: number }> {
+  let firmIdsFromName: string[] = [];
+  if (search && !UUID_RE.test(search)) {
+    const named = await adminClient
+      .from("firm_records")
+      .select("id")
+      .is("deleted_at", null)
+      .ilike("firm_name", `%${search}%`)
+      .limit(40);
+    firmIdsFromName = (named.data ?? []).map((row) => String((row as { id: string }).id));
+  }
+
+  const run = async (withDeleted: boolean, orderCol: "updated_at" | "created_at") => {
+    const cols = orderCol === "updated_at"
+      ? "id, full_name, firm_id, title, updated_at, created_at"
+      : "id, full_name, firm_id, title, created_at";
+    let q = adminClient.from("firm_investors").select(cols, { count: "exact" });
+    if (withDeleted) q = q.is("deleted_at", null);
+    if (UUID_RE.test(search)) q = q.eq("id", search);
+    else if (search) {
+      const nameFilter = `full_name.ilike."%${search}%",title.ilike."%${search}%"`;
+      const firmFilter = firmIdsFromName.map((id) => `firm_id.eq.${id}`).join(",");
+      q = q.or(firmFilter ? `${nameFilter},${firmFilter}` : nameFilter);
+    }
+    return q.order(orderCol, { ascending: false }).range(offset, offset + limit - 1);
+  };
+
+  const attempts = [
+    () => run(true, "updated_at"),
+    () => run(false, "updated_at"),
+    () => run(true, "created_at"),
+    () => run(false, "created_at"),
+  ];
+
+  let partners: PartnerRow[] = [];
+  let total = 0;
+  let matched = false;
+  let lastError = "Could not list investors";
+  for (const attempt of attempts) {
+    const res = await attempt();
+    if (res.error || !res.data) {
+      if (res.error?.message) lastError = res.error.message;
+      continue;
+    }
+    partners = res.data as PartnerRow[];
+    total = res.count ?? partners.length;
+    matched = true;
+    break;
+  }
+  if (!matched) throw new Error(lastError);
+
+  const firmNameById = new Map<string, string>();
+  const firmIds = [...new Set(partners.map((p) => p.firm_id).filter(Boolean))];
+  if (firmIds.length) {
+    const { data: firms } = await adminClient.from("firm_records").select("id, firm_name").in("id", firmIds);
+    for (const f of firms ?? []) firmNameById.set(f.id, f.firm_name);
+  }
+
+  const updates = partners.map((p) => ({
+    kind: "vc_investor" as const,
+    recordId: p.id,
+    firmId: p.firm_id,
+    name: p.full_name || "Unnamed",
+    subtitle: [firmNameById.get(p.firm_id) ?? null, p.title ?? null]
+      .filter(Boolean)
+      .join(" · ") || null,
+    updatedAt: effectiveTs(p.updated_at, p.created_at),
+  }));
+  return { updates, total };
+}
+
 async function fetchProfiles(adminClient: SupabaseClient, limit: number): Promise<ProfileRow[]> {
   const res = await adminClient
     .from("profiles")
@@ -166,6 +322,19 @@ Deno.serve(async (req) => {
     );
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 
+    const body = await readRequestBody(req);
+    const requestedKind = typeof body.kind === "string" ? body.kind : "";
+    if (requestedKind === "vc_firm" || requestedKind === "vc_investor") {
+      const search = safeSearch(body.search);
+      const { limit, offset } = pageWindow(body.limit, body.offset);
+      const page = requestedKind === "vc_firm"
+        ? await listFirmDirectory(adminClient, limit, offset, search)
+        : await listInvestorDirectory(adminClient, limit, offset, search);
+      return new Response(JSON.stringify({ updates: page.updates, total: page.total, directory: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const perSource = 250;
 
     const [firms, partners, companies, profiles] = await Promise.all([
@@ -193,6 +362,7 @@ Deno.serve(async (req) => {
       updates.push({
         kind: "vc_firm",
         recordId: f.id,
+        firmId: f.id,
         name: f.firm_name || "Unnamed firm",
         subtitle: null,
         updatedAt: effectiveTs(f.updated_at as string | null | undefined, f.created_at as string | null | undefined),
@@ -203,6 +373,7 @@ Deno.serve(async (req) => {
       updates.push({
         kind: "vc_investor",
         recordId: p.id,
+        firmId: p.firm_id,
         name: p.full_name || "Unnamed",
         subtitle: firmNameById.get(p.firm_id) ?? null,
         updatedAt: effectiveTs(p.updated_at as string | null | undefined, p.created_at as string | null | undefined),

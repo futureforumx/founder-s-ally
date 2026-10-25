@@ -9,15 +9,22 @@
     },
     "frontend-design": {
       "source": "anthropics/skills",
+      "ref": "main",
       "sourceType": "github",
       "skillPath": "skills/frontend-design/SKILL.md",
-      "computedHash": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
+      "computedHash": "89496d5dd00f4810205f351759594fc2742bf8eea85a2f2b2d1de59f4bd91576"
+    },
+    "high-leverage-job-hunt": {
+      "source": "paulklayvc/skills",
+      "sourceType": "github",
+      "skillPath": "high-leverage-job-hunt/SKILL.md",
+      "computedHash": "9311f352ab6c28b8c2351c191d1869773dbac172507744e4a381ba8cf8861848"
     },
     "install-anti-slop": {
       "source": "dmmulroy/anti-slop",
       "sourceType": "github",
       "skillPath": "skills/install-anti-slop/SKILL.md",
-      "computedHash": "b903a7ac2c823d473a4b0046834fccbab0bc75ee4fda8be4f81efa895d475b01"
+      "computedHash": "1b9b5d3c0d9e0ef8dd7631f4d637e66b62a73e34dceaf4ae07c0d3de376fd7d7"
     },
     "investor-warm-intros": {
       "source": "paulklayvc/skills",
@@ -36,12 +43,6 @@
       "sourceType": "github",
       "skillPath": "skills/supabase-postgres-best-practices/SKILL.md",
       "computedHash": "0d2c4857a7d6fdcd3fbc46e458fa4c497f029cab89a01548b3defce203003932"
-    },
-    "high-leverage-job-hunt": {
-      "source": "paulklayvc/skills",
-      "sourceType": "github",
-      "skillPath": "high-leverage-job-hunt/SKILL.md",
-      "computedHash": "9311f352ab6c28b8c2351c191d1869773dbac172507744e4a381ba8cf8861848"
     }
   }
 }

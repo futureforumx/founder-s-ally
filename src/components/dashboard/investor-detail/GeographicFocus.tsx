@@ -1,19 +1,10 @@
-import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense, type ReactNode } from "react";
 import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Html } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { supabase } from "@/integrations/supabase/client";
-import { Maximize2, Minimize2 } from "lucide-react";
-
-function latLonToXYZ(lat: number, lon: number, radius: number): [number, number, number] {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return [
-    -(radius * Math.sin(phi) * Math.cos(theta)),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
+import { Maximize2, Minimize2, X } from "lucide-react";
+import { focusQuaternion, latLonToXYZ } from "./globeGeometry";
 
 interface GeoCluster {
   name: string;
@@ -48,6 +39,8 @@ function classifyLocation(location: string): string | null {
 
 const TIME_OPTIONS = ["6M", "18M", "All Time"] as const;
 
+const COLLAPSED_FOCUS_COUNT = 3;
+
 // ── Dot globe ──
 function DotGlobe({ radius }: { radius: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null!);
@@ -80,7 +73,7 @@ function DotGlobe({ radius }: { radius: number }) {
   );
 }
 
-// ── Portfolio company in tooltip ──
+// ── Portfolio company in the detail card ──
 interface PortfolioDeal {
   company_name: string;
   amount: string | null;
@@ -89,18 +82,16 @@ interface PortfolioDeal {
   logo_url: string; // derived from company name
 }
 
-// ── Pin with tooltip ──
+// ── Pin ──
 interface PinProps {
   position: [number, number, number];
   count: number;
-  name: string;
   isActive: boolean;
   isSelected: boolean;
   onSelect: () => void;
-  deals: PortfolioDeal[];
 }
 
-function Pin({ position, count, name, isActive, isSelected, onSelect, deals }: PinProps) {
+function Pin({ position, count, isActive, isSelected, onSelect }: PinProps) {
   const ref = useRef<THREE.Mesh>(null!);
   const [hovered, setHovered] = useState(false);
   const scale = Math.min(0.03 + count * 0.004, 0.08);
@@ -116,8 +107,6 @@ function Pin({ position, count, name, isActive, isSelected, onSelect, deals }: P
     e.stopPropagation();
     onSelect();
   }, [onSelect]);
-
-  const top3 = deals.slice(0, 3);
 
   return (
     <group>
@@ -139,59 +128,101 @@ function Pin({ position, count, name, isActive, isSelected, onSelect, deals }: P
         <sphereGeometry args={[scale * 0.35, 8, 8]} />
         <meshBasicMaterial color="#ffffff" />
       </mesh>
-
-      {isSelected && (
-        <Html position={position} distanceFactor={4} center style={{ pointerEvents: "auto" }}>
-          <div
-            className="bg-zinc-900/95 backdrop-blur-md border border-zinc-700/60 rounded-xl px-3.5 py-3 shadow-2xl min-w-[200px] max-w-[240px]"
-            style={{ transform: "translateY(-120%)" }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] font-bold text-white leading-tight">{name}</p>
-              <span className="text-[9px] text-zinc-500 font-medium">{count} firm{count !== 1 ? "s" : ""}</span>
-            </div>
-
-            {/* Portfolio companies */}
-            {top3.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-zinc-700/50 space-y-2">
-                <p className="text-[8px] font-mono uppercase tracking-wider text-zinc-500">Recent Investments</p>
-                {top3.map((deal, i) => (
-                  <div key={`${deal.company_name}-${i}`} className="flex items-center gap-2">
-                    <img
-                      src={deal.logo_url}
-                      alt=""
-                      className="w-5 h-5 rounded bg-zinc-800 object-contain shrink-0"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-white font-semibold truncate leading-tight">{deal.company_name}</p>
-                      <p className="text-[9px] text-zinc-400 truncate">
-                        {[deal.amount, deal.stage].filter(Boolean).join(" · ") || "Undisclosed"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {deals.length > 3 && (
-                  <p className="text-[9px] text-zinc-500 pt-0.5">+{deals.length - 3} more</p>
-                )}
-              </div>
-            )}
-
-            {top3.length === 0 && (
-              <p className="text-[9px] text-zinc-500 mt-1">No recent deal data available</p>
-            )}
-          </div>
-        </Html>
-      )}
     </group>
   );
 }
 
-function AutoRotate({ paused }: { paused: boolean }) {
-  const { scene } = useThree();
-  useFrame(() => { if (!paused) scene.rotation.y += 0.001; });
-  return null;
+/**
+ * Detail panel for the selected cluster. It sits over the canvas rather than
+ * inside it: anchored to the pin it either outgrew the globe viewport or
+ * blanketed the neighbouring pins with its hit box.
+ */
+function SpotDetail({ name, count, deals, showDeals, onClose }: {
+  name: string;
+  count: number;
+  deals: PortfolioDeal[];
+  /** The deal list only fits without covering the centred pin once the card is expanded. */
+  showDeals: boolean;
+  onClose: () => void;
+}) {
+  const top3 = showDeals ? deals.slice(0, 3) : [];
+  return (
+    <div className="absolute left-3 top-3 z-10 w-[190px] rounded-xl border border-zinc-700/60 bg-zinc-900/95 px-3 py-2.5 shadow-2xl backdrop-blur-md">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-bold leading-tight text-white">{name}</p>
+          <span className="text-[9px] font-medium text-zinc-500">{count} firm{count !== 1 ? "s" : ""}</span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Clear ${name} selection`}
+          className="-mr-1 -mt-0.5 rounded p-0.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white cursor-pointer"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+
+      {top3.length > 0 ? (
+        <div className="mt-2 space-y-2 border-t border-zinc-700/50 pt-2">
+          <p className="text-[8px] font-mono uppercase tracking-wider text-zinc-500">Recent Investments</p>
+          {top3.map((deal, i) => (
+            <div key={`${deal.company_name}-${i}`} className="flex items-center gap-2">
+              <img
+                src={deal.logo_url}
+                alt=""
+                className="h-5 w-5 shrink-0 rounded bg-zinc-800 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[10px] font-semibold leading-tight text-white">{deal.company_name}</p>
+                <p className="truncate text-[9px] text-zinc-400">
+                  {[deal.amount, deal.stage].filter(Boolean).join(" · ") || "Undisclosed"}
+                </p>
+              </div>
+            </div>
+          ))}
+          {deals.length > 3 && (
+            <p className="pt-0.5 text-[9px] text-zinc-500">+{deals.length - 3} more</p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-1 text-[9px] text-zinc-500">
+          {deals.length > 0
+            ? `${deals.length} recent investment${deals.length === 1 ? "" : "s"}`
+            : "No recent deal data available"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Idles with a slow spin; eases around to `focus` while one is set. */
+function GlobeGroup({ focus, children }: { focus: { lat: number; lon: number } | null; children: ReactNode }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const camera = useThree((state) => state.camera);
+  const targetRef = useRef<THREE.Quaternion | null>(null);
+  const { lat, lon } = focus ?? {};
+
+  useEffect(() => {
+    targetRef.current =
+      lat === undefined || lon === undefined ? null : focusQuaternion(lat, lon, camera);
+  }, [lat, lon, camera]);
+
+  useFrame((_, delta) => {
+    const group = groupRef.current;
+    if (!group) return;
+    if (targetRef.current) {
+      group.quaternion.slerp(targetRef.current, 1 - Math.exp(-6 * delta));
+      return;
+    }
+    group.rotation.y += delta * 0.06;
+    // Unwind any tilt left behind by a focus so the idle spin sits upright.
+    group.rotation.x = THREE.MathUtils.damp(group.rotation.x, 0, 4, delta);
+    group.rotation.z = THREE.MathUtils.damp(group.rotation.z, 0, 4, delta);
+  });
+
+  return <group ref={groupRef}>{children}</group>;
 }
 
 interface SpotData extends GeoCluster {
@@ -207,31 +238,31 @@ function GlobeScene({ spots, timeRange, selectedPin, onSelectPin }: {
   onSelectPin: (name: string | null) => void;
 }) {
   const radius = 1.4;
+  const focused = spots.find((spot) => spot.name === selectedPin);
   return (
     <>
       <ambientLight intensity={0.6} />
       <pointLight position={[5, 5, 5]} intensity={0.8} />
-      <mesh><sphereGeometry args={[radius - 0.01, 64, 64]} /><meshBasicMaterial color="#1a2e4a" /></mesh>
-      <mesh><sphereGeometry args={[radius + 0.06, 64, 64]} /><meshBasicMaterial color="#3b6daa" transparent opacity={0.08} side={THREE.BackSide} /></mesh>
-      <DotGlobe radius={radius} />
-      {spots.map((spot) => {
-        const count = spot.investments[timeRange] || 0;
-        if (count === 0) return null;
-        const pos = latLonToXYZ(spot.lat, spot.lon, radius + 0.02);
-        return (
-          <Pin
-            key={spot.name}
-            position={pos}
-            count={count}
-            name={spot.name}
-            isActive
-            isSelected={selectedPin === spot.name}
-            onSelect={() => onSelectPin(selectedPin === spot.name ? null : spot.name)}
-            deals={spot.deals[timeRange] || []}
-          />
-        );
-      })}
-      <AutoRotate paused={!!selectedPin} />
+      <GlobeGroup focus={focused ? { lat: focused.lat, lon: focused.lon } : null}>
+        <mesh><sphereGeometry args={[radius - 0.01, 64, 64]} /><meshBasicMaterial color="#1a2e4a" /></mesh>
+        <mesh><sphereGeometry args={[radius + 0.06, 64, 64]} /><meshBasicMaterial color="#3b6daa" transparent opacity={0.08} side={THREE.BackSide} /></mesh>
+        <DotGlobe radius={radius} />
+        {spots.map((spot) => {
+          const count = spot.investments[timeRange] || 0;
+          if (count === 0) return null;
+          const pos = latLonToXYZ(spot.lat, spot.lon, radius + 0.02);
+          return (
+            <Pin
+              key={spot.name}
+              position={pos}
+              count={count}
+              isActive
+              isSelected={selectedPin === spot.name}
+              onSelect={() => onSelectPin(selectedPin === spot.name ? null : spot.name)}
+            />
+          );
+        })}
+      </GlobeGroup>
       <OrbitControls enableZoom enablePan={false} minDistance={2.2} maxDistance={5} rotateSpeed={0.5} zoomSpeed={0.6} />
     </>
   );
@@ -270,6 +301,7 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
   const [firmLocations, setFirmLocations] = useState<FirmLocationRow[]>([]);
   const [deals, setDeals] = useState<DealRow[]>([]);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [showAllFocus, setShowAllFocus] = useState(false);
 
   useEffect(() => {
     // Fetch firms with locations and deals in parallel
@@ -372,8 +404,17 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
     }));
   }, [firmLocations, deals]);
 
-  const activeSpots = spots.filter((s) => (s.investments[timeRange] || 0) > 0);
+  const activeSpots = useMemo(
+    () =>
+      spots
+        .filter((s) => (s.investments[timeRange] || 0) > 0)
+        .sort((a, b) => (b.investments[timeRange] || 0) - (a.investments[timeRange] || 0)),
+    [spots, timeRange],
+  );
   const totalInvestments = activeSpots.reduce((sum, s) => sum + (s.investments[timeRange] || 0), 0);
+  const visibleSpots = showAllFocus ? activeSpots : activeSpots.slice(0, COLLAPSED_FOCUS_COUNT);
+  const hiddenCount = activeSpots.length - visibleSpots.length;
+  const selectedSpot = activeSpots.find((s) => s.name === selectedPin);
 
   return (
     <div
@@ -387,7 +428,11 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
             {TIME_OPTIONS.map((opt) => (
               <button
                 key={opt}
-                onClick={() => setTimeRange(opt)}
+                onClick={() => {
+                  setTimeRange(opt);
+                  // The focused cluster may have no firms in the new range.
+                  setSelectedPin(null);
+                }}
                 className={`px-2 py-0.5 text-[9px] font-semibold rounded transition-all cursor-pointer ${
                   timeRange === opt ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -413,23 +458,58 @@ export function GeographicFocus({ firmName, isExpanded, onToggleExpand }: Geogra
             <GlobeScene spots={spots} timeRange={timeRange} selectedPin={selectedPin} onSelectPin={setSelectedPin} />
           </Suspense>
         </Canvas>
+        {selectedSpot && (
+          <SpotDetail
+            name={selectedSpot.name}
+            count={selectedSpot.investments[timeRange] || 0}
+            deals={selectedSpot.deals[timeRange] || []}
+            showDeals={!!isExpanded}
+            onClose={() => setSelectedPin(null)}
+          />
+        )}
       </div>
 
       <div className="flex items-center justify-between px-4 py-1.5 border-t border-border shrink-0">
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Focus</span>
-          {activeSpots
-            .sort((a, b) => (b.investments[timeRange] || 0) - (a.investments[timeRange] || 0))
-            .slice(0, 3)
-            .map((s) => {
-              const pct = totalInvestments > 0 ? Math.round(((s.investments[timeRange] || 0) / totalInvestments) * 100) : 0;
-              return (
-                <span key={s.name} className="text-[9px] px-1.5 py-0.5 rounded-md bg-accent/10 text-accent font-medium">
-                  {s.name} <span className="text-accent/60">{pct}%</span>
-                </span>
-              );
-            })}
-          {activeSpots.length > 3 && <span className="text-[9px] text-muted-foreground">+{activeSpots.length - 3}</span>}
+          {visibleSpots.map((s) => {
+            const pct = totalInvestments > 0 ? Math.round(((s.investments[timeRange] || 0) / totalInvestments) * 100) : 0;
+            const isSelected = selectedPin === s.name;
+            return (
+              <button
+                key={s.name}
+                type="button"
+                aria-pressed={isSelected}
+                title={`Show ${s.name} on the globe`}
+                onClick={() => setSelectedPin(isSelected ? null : s.name)}
+                className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                  isSelected
+                    ? "bg-accent/25 text-accent ring-1 ring-accent/50"
+                    : "bg-accent/10 text-accent hover:bg-accent/20"
+                }`}
+              >
+                {s.name} <span className="text-accent/60">{pct}%</span>
+              </button>
+            );
+          })}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllFocus(true)}
+              className="text-[9px] px-1 py-0.5 rounded-md text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors cursor-pointer"
+            >
+              +{hiddenCount}
+            </button>
+          )}
+          {showAllFocus && activeSpots.length > COLLAPSED_FOCUS_COUNT && (
+            <button
+              type="button"
+              onClick={() => setShowAllFocus(false)}
+              className="text-[9px] px-1 py-0.5 rounded-md text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors cursor-pointer"
+            >
+              Less
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -87,6 +87,10 @@ verify_jwt = false
 [functions.admin-market-intel]
 verify_jwt = false
 
+[functions.admin-record-updates]
+# Clerk session JWTs are verified inside the function by resolveAdminCaller.
+verify_jwt = false
+
 [functions.admin-waitlist]
 # Clerk session JWTs are verified inside the function by resolveAdminCaller.
 verify_jwt = false
@@ -96,6 +100,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-ban-user]
+# Clerk session JWTs are verified inside the function by resolveAdminCaller.
+verify_jwt = false
+
+[functions.admin-analytics]
 # Clerk session JWTs are verified inside the function by resolveAdminCaller.
 verify_jwt = false
 

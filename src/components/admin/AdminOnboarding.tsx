@@ -16,6 +16,7 @@ import {
   type OnboardingWorkflowDef,
   type StepDef,
 } from "@/config/onboardingWorkflow";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 const FIELD_TYPES: FieldType[] = [
   "text", "textarea", "email", "url", "number", "select", "multiselect", "boolean", "date", "social",
@@ -186,8 +187,8 @@ export function AdminOnboarding() {
 
   return (
     <div className="max-w-[1400px]">
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <AdminStickyHeader>
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <PanelsTopLeft className="h-4 w-4 text-emerald-500" />
@@ -198,9 +199,6 @@ export function AdminOnboarding() {
               </span>
             )}
           </div>
-          <p className="mt-1 text-[13px] text-white/45">
-            View and edit the founder onboarding — steps, fields, order, and copy. Changes apply to every user after saving.
-          </p>
           {error && <p className="mt-1 text-[12px] text-rose-400">Load error: {error}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -232,8 +230,9 @@ export function AdminOnboarding() {
           </button>
         </div>
       </div>
+      </AdminStickyHeader>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+      <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
         {/* ── Builder column ── */}
         <div className="space-y-5">
           {/* Steps list */}

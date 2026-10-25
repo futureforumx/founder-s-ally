@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Clock, ExternalLink, Loader2, RefreshCcw, Search, Send, X } from "lucide-react";
+import { AlertCircle, Check, Clock, ExternalLink, Loader2, RefreshCcw, Search, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterSelect } from "@/components/admin/FilterSelect";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 type ReviewStatus = "pending" | "approved" | "rejected";
 
@@ -326,12 +327,9 @@ export function AdminWaitlist() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 pr-24">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-400">Access queue</p>
-          <h1 className="mt-1 text-2xl font-semibold text-white">Waitlist approvals</h1>
-          <p className="mt-1 text-sm text-white/40">Review requests submitted from vekta.so/register.</p>
-        </div>
+      <AdminStickyHeader className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-white">Waitlist approvals</h1>
         <button
           type="button"
           onClick={() => void fetchApplicants()}
@@ -378,18 +376,20 @@ export function AdminWaitlist() {
             className="border-white/10 bg-white/[0.03] pl-9 text-white placeholder:text-white/25"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full border-white/10 bg-white/[0.03] text-white/70 sm:w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
+        <FilterSelect
+          label="Status"
+          icon={AlertCircle}
+          value={statusFilter}
+          options={[
+            { value: "all", label: "All" },
+            { value: "pending", label: "Pending" },
+            { value: "approved", label: "Approved" },
+            { value: "rejected", label: "Rejected" },
+          ]}
+          onValueChange={setStatusFilter}
+        />
       </div>
+      </AdminStickyHeader>
 
       <div className="overflow-hidden rounded-lg border border-white/[0.07]">
         {loading ? (

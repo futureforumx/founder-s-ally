@@ -5,12 +5,13 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  X,
   TrendingUp,
   Users,
   UserPlus,
   Activity,
   Swords,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
@@ -98,8 +99,10 @@ const HERO_PROMPT_SUGGESTIONS = [
 
 export function HomeView({ onViewChange, companyName }: HomeViewProps) {
   const [query, setQuery] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const suggestionsScrollRef = useRef<HTMLDivElement>(null);
   const [suggestionsOverflow, setSuggestionsOverflow] = useState(false);
   const [pauseSuggestionAuto, setPauseSuggestionAuto] = useState(false);
@@ -132,7 +135,7 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
 
   function handleSubmit() {
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed || attachments.length > 0) return;
     // For now navigate to the investor Network view; VEX will intercept later
     onViewChange("investors");
   }
@@ -229,14 +232,6 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
       <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center">
-        <div className="mb-6 flex items-center gap-2 rounded-md bg-muted/80 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-muted-foreground outline-none">
-          <span
-            className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-success animate-command-desk-status-dot"
-            aria-hidden
-          />
-          VEKTA COMMAND DESK
-        </div>
-
         <div className="relative mb-8 flex items-center justify-center">
           <div
             className="absolute h-28 w-28 rounded-full animate-home-vyta-mark-aura-pulse bg-[radial-gradient(circle,hsl(var(--primary)/0.16)_0%,hsl(var(--muted)/0.55)_52%,transparent_82%)] blur-[20px] dark:bg-[radial-gradient(circle,rgba(148,163,184,0.28)_0%,rgba(100,116,139,0.12)_52%,transparent_82%)]"
@@ -256,53 +251,77 @@ export function HomeView({ onViewChange, companyName }: HomeViewProps) {
 
         <div
           className={cn(
-            "relative w-full max-w-3xl rounded-xl border bg-card/90 transition-colors duration-200",
+            "relative w-full max-w-3xl rounded-[14px] border bg-card/90 p-1.5 shadow-sm transition-colors duration-200",
             focused ? "border-ring/50" : "border-border",
           )}
         >
-          <AnimatedPlaceholderInput
-            ref={inputRef}
-            rows={1}
-            value={query}
-            phrases={[...HERO_PROMPT_SUGGESTIONS]}
-            staticPlaceholder="Describe the investor outcome you want"
-            aria-label="Ask VEX a question"
-            onChange={(e) => {
-              setQuery(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = `${e.target.scrollHeight}px`;
-            }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={handleKeyDown}
-            className={cn(
-              "w-full max-h-52 resize-none overflow-y-auto rounded-xl px-4 pt-4 pb-12 text-sm text-foreground",
-              "placeholder:text-muted-foreground focus:outline-none",
-            )}
-            style={{ minHeight: "58px" }}
-          />
+          {attachments.length > 0 && (
+            <div className="px-1 pb-2 pt-1" aria-live="polite">
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <span key={`${file.name}-${file.lastModified}-${index}`} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-muted px-2 py-1 text-xs text-foreground">
+                    <span className="truncate">{file.name}</span>
+                    <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setAttachments((files) => files.filter((_, fileIndex) => fileIndex !== index))} className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Attachments can be selected, but sending them is not available yet. Remove them to continue.</p>
+            </div>
+          )}
 
-          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-3">
+          <div className="flex items-end gap-1">
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                setAttachments((files) => [...files, ...Array.from(event.target.files ?? [])]);
+                event.target.value = "";
+              }}
+            />
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.35px] text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+              onClick={() => attachmentInputRef.current?.click()}
+              aria-label="Add attachments"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <Zap className="h-3 w-3" />
-              VEX
+              <Plus className="h-4 w-4" aria-hidden />
             </button>
+            <AnimatedPlaceholderInput
+              ref={inputRef}
+              rows={1}
+              value={query}
+              phrases={[...HERO_PROMPT_SUGGESTIONS]}
+              staticPlaceholder="Describe the investor outcome you want"
+              aria-label="Ask a question"
+              wrapperClassName="min-w-0 flex-1"
+              overlayClassName="max-h-full overflow-hidden px-1 py-2 text-sm leading-5"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={handleKeyDown}
+              className="max-h-28 min-h-9 resize-none overflow-y-auto px-1 py-2 text-sm leading-5 text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!query.trim()}
+              disabled={!query.trim() || attachments.length > 0}
               aria-label="Submit"
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
-                query.trim()
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                query.trim() && attachments.length === 0
                   ? "border-foreground/20 bg-foreground text-background hover:bg-foreground/90"
                   : "cursor-not-allowed border-border bg-muted text-muted-foreground/40",
               )}
             >
-              <ArrowUp className="h-3.5 w-3.5" />
+              <ArrowUp className="h-4 w-4" />
             </button>
           </div>
         </div>

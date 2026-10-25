@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RefreshCw, Brain, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip } from "recharts";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 const DENSITY_DATA = [
   { category: "Pricing", count: 342, color: "#2EE6A6" },
@@ -45,12 +46,10 @@ export function AdminAiDebugger() {
 
   return (
     <div className="space-y-8">
+      <AdminStickyHeader>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white/90">AI Brain Debugger</h1>
-          <p className="mt-1 font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Semantic intelligence insights · Embedding context viewer
-          </p>
         </div>
         <button
           onClick={handleRefresh}
@@ -62,6 +61,7 @@ export function AdminAiDebugger() {
           Refresh
         </button>
       </div>
+      </AdminStickyHeader>
 
       <div className="grid grid-cols-5 gap-6">
         {/* Vector Density Chart */}

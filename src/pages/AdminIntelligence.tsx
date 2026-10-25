@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
-  Building2, X, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft,
+  Building2, X, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
+import { AdminAnalytics }          from "@/components/admin/AdminAnalytics";
 import { AdminApiHealth }          from "@/components/admin/AdminApiHealth";
 import { AdminSyncLogs }           from "@/components/admin/AdminSyncLogs";
 import { AdminAiDebugger }         from "@/components/admin/AdminAiDebugger";
@@ -18,9 +19,16 @@ import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
 import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
 import { AdminOnboarding }         from "@/components/admin/AdminOnboarding";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
+  { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
   { key: "firm-records",   label: "Firm Records",    icon: Building2  },
@@ -36,11 +44,60 @@ const NAV_ITEMS = [
 
 type AdminView = (typeof NAV_ITEMS)[number]["key"];
 
+const SYSTEM_STATUSES = [
+  {
+    id: "normal",
+    label: "Normal",
+    color: "#2EE6A6",
+    glow: "rgba(46,230,166,0.55)",
+    wash: "rgba(46,230,166,0.03)",
+  },
+  {
+    id: "not-optimal",
+    label: "Not optimal",
+    color: "#FBBF24",
+    glow: "rgba(251,191,36,0.55)",
+    wash: "rgba(251,191,36,0.04)",
+  },
+  {
+    id: "attention",
+    label: "Immediate attention needed",
+    color: "#F87171",
+    glow: "rgba(248,113,113,0.55)",
+    wash: "rgba(248,113,113,0.05)",
+  },
+] as const;
+
+type SystemStatusId = (typeof SYSTEM_STATUSES)[number]["id"];
+
+function StatusDot({ color, glow }: { color: string; glow: string }) {
+  return (
+    <span className="relative mt-0.5 flex h-2 w-2 shrink-0">
+      <span
+        className="absolute inset-0 animate-ping rounded-full opacity-75"
+        style={{ background: color }}
+      />
+      <span
+        className="relative h-2 w-2 rounded-full"
+        style={{ background: color, boxShadow: `0 0 8px ${glow}` }}
+      />
+    </span>
+  );
+}
+
 export default function AdminIntelligence() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { isAppAdmin, isGodMode, loading: adminLoading } = useAppAdmin();
   const [activeView, setActiveView] = useState<AdminView>("overview");
+  const [systemStatus, setSystemStatus] = useState<SystemStatusId>("normal");
+  const mainRef = useRef<HTMLElement>(null);
+  const status = SYSTEM_STATUSES.find((item) => item.id === systemStatus) ?? SYSTEM_STATUSES[0];
+
+  const showOverview = () => {
+    setActiveView("overview");
+    mainRef.current?.scrollTo({ top: 0 });
+  };
 
   if (loading || adminLoading) {
     return (
@@ -97,38 +154,67 @@ export default function AdminIntelligence() {
         </nav>
 
         <div className="mt-auto px-3">
-          <div className="rounded-lg border p-3"
-            style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(46,230,166,0.03)" }}>
+          <div
+            className="rounded-lg border p-3"
+            style={{ borderColor: "rgba(255,255,255,0.06)", background: status.wash }}
+          >
             <span className="font-mono text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>
               System
             </span>
-            <div className="mt-1.5 flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full animate-pulse"
-                style={{ background: "#2EE6A6", boxShadow: "0 0 8px rgba(46,230,166,0.5)" }} />
-              <span className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>All systems nominal</span>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="mt-1.5 flex w-full items-start gap-2 rounded-md text-left outline-none"
+                  aria-label={`System status: ${status.label}. Change status`}
+                >
+                  <StatusDot color={status.color} glow={status.glow} />
+                  <span className="font-mono text-[11px] leading-tight" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    {status.label}
+                  </span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="w-56">
+                {SYSTEM_STATUSES.map((option) => (
+                  <DropdownMenuItem
+                    key={option.id}
+                    onSelect={() => setSystemStatus(option.id)}
+                    className="items-start gap-2"
+                  >
+                    <StatusDot color={option.color} glow={option.glow} />
+                    <span>{option.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mt-2 w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[13px] font-medium text-white/45 transition-colors hover:border-white/15 hover:bg-white/[0.04] hover:text-white/70"
+          >
+            Exit
+          </button>
         </div>
       </aside>
 
       {/* main */}
-      <main className="relative flex-1 overflow-y-auto p-8">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          aria-label="Close admin and return to app"
-          className="absolute right-6 top-6 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-colors"
-          style={{
-            borderColor: "rgba(255,255,255,0.14)",
-            color: "rgba(255,255,255,0.65)",
-            background: "rgba(255,255,255,0.03)",
-          }}
-        >
-          <X className="h-3.5 w-3.5" />
-          Close
-        </button>
+      <main ref={mainRef} className="relative flex-1 overflow-y-auto px-8 pb-8">
+        {activeView !== "analytics" && activeView !== "overview" && (
+          <div className="pointer-events-none sticky top-0 z-50 -mx-8 h-0">
+            <button
+              type="button"
+              onClick={showOverview}
+              aria-label="Back to overview"
+              className="pointer-events-auto absolute right-8 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {activeView === "overview"       && <AdminOverview onNavigate={setActiveView} />}
+        {activeView === "analytics"      && <AdminAnalytics onClose={showOverview} />}
         {activeView === "users"          && <AdminUserManagement />}
         {activeView === "waitlist"       && <AdminWaitlist />}
         {activeView === "firm-records"   && <AdminFirmRecords />}

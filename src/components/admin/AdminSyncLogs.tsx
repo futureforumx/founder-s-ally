@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
-import { Search, RefreshCw, X, AlertTriangle } from "lucide-react";
+import { AlertCircle, AlertTriangle, RefreshCw, Search, Server, X } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 
 interface SyncLog {
   id: string;
@@ -26,18 +28,40 @@ const MOCK_LOGS: SyncLog[] = [
   { id: "log_010", provider: "Attio", status: "FAILED", recordsSynced: 0, durationMs: 5100, timestamp: "2026-03-23T13:35:00Z", errorMessage: "Error: Connection refused (ECONNREFUSED).\n\nHost: api.attio.com:443\nThe upstream API appears to be experiencing an outage." },
 ];
 
+const LOG_STATUSES = [
+  { value: "all", label: "All" },
+  { value: "SUCCESS", label: "Success" },
+  { value: "FAILED", label: "Failed" },
+] as const;
+
+const LOG_SERVICES = [
+  { value: "all", label: "All" },
+  ...Array.from(new Set(MOCK_LOGS.map((log) => log.provider))).map((provider) => ({
+    value: provider,
+    label: provider,
+  })),
+];
+
 export function AdminSyncLogs() {
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [service, setService] = useState("all");
   const [errorDrawer, setErrorDrawer] = useState<SyncLog | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const filtered = useMemo(() => {
-    if (!search) return MOCK_LOGS;
     const q = search.toLowerCase();
-    return MOCK_LOGS.filter(
-      (l) => l.provider.toLowerCase().includes(q) || l.status.toLowerCase().includes(q) || l.id.toLowerCase().includes(q)
-    );
-  }, [search]);
+
+    return MOCK_LOGS.filter((log) => {
+      if (status !== "all" && log.status !== status) return false;
+
+      if (service !== "all" && log.provider !== service) return false;
+
+      if (!q) return true;
+
+      return log.provider.toLowerCase().includes(q) || log.status.toLowerCase().includes(q) || log.id.toLowerCase().includes(q);
+    });
+  }, [search, service, status]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -54,12 +78,10 @@ export function AdminSyncLogs() {
 
   return (
     <div className="space-y-6">
+      <AdminStickyHeader className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white/90">Sync Log Viewer</h1>
-          <p className="mt-1 font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-            The black box — full audit trail for every sync operation
-          </p>
         </div>
         <button
           onClick={handleRefresh}
@@ -72,7 +94,23 @@ export function AdminSyncLogs() {
         </button>
       </div>
 
-      {/* Search */}
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          label="Status"
+          icon={AlertCircle}
+          value={status}
+          options={LOG_STATUSES}
+          onValueChange={setStatus}
+        />
+        <FilterSelect
+          label="Service"
+          icon={Server}
+          value={service}
+          options={LOG_SERVICES}
+          onValueChange={setService}
+        />
+      </div>
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.2)" }} />
         <input
@@ -88,6 +126,7 @@ export function AdminSyncLogs() {
           </button>
         )}
       </div>
+      </AdminStickyHeader>
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>

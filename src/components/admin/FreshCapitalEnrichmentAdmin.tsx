@@ -17,6 +17,7 @@ import {
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import {
   FUND_WATCH_FEED_SOURCES,
   isPipelineSourceEnabled,
@@ -397,14 +398,10 @@ export function FreshCapitalEnrichmentAdmin() {
     "data-[state=checked]:!bg-[#2EE6A6] data-[state=unchecked]:!bg-white/20 [&>span]:data-[state=checked]:!bg-[#050505] [&>span]:data-[state=unchecked]:!bg-white/80";
 
   return (
-    <div className="flex flex-col gap-6 h-full min-h-0 overflow-auto pb-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-white/90">Enrichment &amp; pipelines</h1>
-          <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Turn sources on or off, then review schedules, process notes, and recent runs.
-          </p>
-        </div>
+    <div className="flex flex-col gap-6 pb-8">
+      <AdminStickyHeader stacked>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-lg font-semibold text-white/90">Enrichment &amp; pipelines</h1>
         <button
           type="button"
           onClick={() => void load()}
@@ -416,6 +413,7 @@ export function FreshCapitalEnrichmentAdmin() {
           Refresh
         </button>
       </div>
+      </AdminStickyHeader>
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg border px-4 py-3" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.08)" }}>

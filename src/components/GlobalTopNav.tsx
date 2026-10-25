@@ -111,8 +111,8 @@ const VIEW_META: Record<ViewType, { section: string; label: string; siblings?: {
   dashboard: { section: "Mission Control", label: "Company" },
   industry: { section: "Mission Control", label: "Industry" },
   competitive: { section: "Mission Control", label: "Competitive" },
-  "data-room": { section: "Raise", label: "Data Room" },
-  "market-data-room": { section: "Raise", label: "Data Room" },
+  "data-room": { section: "Raise", label: "Fundraise Hub" },
+  "market-data-room": { section: "Raise", label: "Fundraise Hub" },
   company: { section: "My Company", label: "Company Settings", siblings: [
     { id: "company", label: "Company Settings" },
     { id: "competitors", label: "Competitors" },
@@ -506,7 +506,7 @@ const MARKET_INTEL_SEGMENT_IDS = new Set<ViewType>(MARKET_INTEL_SEGMENTS.map((s)
 
 /** Raise (home `/`): top nav is Data Room only — Investor Match stays on sidebar Raise. */
 const RAISE_SEGMENTS: readonly { id: ViewType; label: string }[] = [
-  { id: "market-data-room", label: "Data Room" },
+  { id: "market-data-room", label: "Fundraise Hub" },
 ];
 
 const MISSION_CONTROL_SEGMENTS: { id: ViewType; label: string }[] = [
@@ -1318,7 +1318,7 @@ export function GlobalTopNav({
               segments={RAISE_SEGMENTS}
               activeId={activeView}
               onSelect={(id) => routeView(id)}
-              ariaLabel="Raise — Data Room"
+              ariaLabel="Raise — Fundraise Hub"
             />
           </div>
         )}

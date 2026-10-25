@@ -470,14 +470,14 @@ export function AppSidebar({
                 {!collapsed && "Mission Control"}
               </button>
             </SidebarHint>
-            <SidebarHint collapsed={collapsed} label="Data Room">
+            <SidebarHint collapsed={collapsed} label="Fundraise Hub">
               <button
                 type="button"
                 onClick={() => goView("data-hub")}
                 className={navBtn(activeView === "data-hub")}
               >
                 <Database className={iconCls} />
-                {!collapsed && "Data Room"}
+                {!collapsed && "Fundraise Hub"}
               </button>
             </SidebarHint>
           </div>

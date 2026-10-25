@@ -1,5 +1,13 @@
 # Vekta Design System
 
+## Current direction: v0
+
+The active visual reference is [v0.design.md](docs/design-systems/v0.design.md). Shared semantic tokens use v0's monochrome light palette, Geist typography, 12px structural radius and pill-shaped shared buttons. Dark mode is a neutral VEKTA adaptation because the reference does not specify one. Preserve semantic status colors for meaning and accessibility. Some bespoke screens and marketing surfaces still use legacy styles; migrate them deliberately rather than assuming the global tokens cover every component.
+
+## Legacy Vekta guidance
+
+The material below documents the prior visual direction and is retained for existing surfaces during migration; it is not the current visual target.
+
 Source of truth for Vekta UI. Tokens live in `src/index.css` and `tailwind.config.ts`. Prefer semantic Tailwind classes (`bg-primary`, `text-muted-foreground`) over raw hex unless matching an existing marketing surface that already uses explicit values.
 
 ## 1. Visual Theme & Atmosphere

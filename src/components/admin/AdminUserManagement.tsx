@@ -1,16 +1,26 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import {
-  Crown, Search, Shield, UserCog, Loader2, Clock, Zap, Mail, MapPin, ExternalLink,
-  ChevronDown, ChevronRight, Ban, Globe, Activity, CalendarClock, Fingerprint,
+  Ban, Check, ChevronDown, ChevronRight, Copy, CreditCard, Download, ExternalLink, Fingerprint, Loader2, MoreHorizontal, Search, Shield, Trash2, Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 import { toast } from "sonner";
-import { formatDistanceToNow, format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 interface EnrichedUser {
   id: string;
@@ -31,91 +41,577 @@ interface EnrichedUser {
   ip_addresses?: string[];
   last_ip?: string | null;
   banned?: boolean;
+  subscription?: SubscriptionPlan;
 }
 
-const PERMISSION_COLORS: Record<string, { bg: string; text: string }> = {
-  user: { bg: "rgba(255,255,255,0.06)", text: "rgba(255,255,255,0.5)" },
-  manager: { bg: "rgba(59,130,246,0.12)", text: "#3b82f6" },
-  admin: { bg: "rgba(46,230,166,0.1)", text: "#2EE6A6" },
-  god: { bg: "rgba(245,158,11,0.15)", text: "#f59e0b" },
-};
+interface WaitlistApplicant {
+  id: string;
+  created_at: string;
+  email: string;
+  name: string | null;
+  role: string | null;
+  company_name: string | null;
+  linkedin_url: string | null;
+  source: string | null;
+  status: string;
+  total_score: number;
+  waitlist_position: number | null;
+  reviewed_at: string | null;
+  admin_notes: string | null;
+}
 
-const PERMISSION_ICONS: Record<string, typeof UserCog> = {
-  user: UserCog,
-  manager: Shield,
-  admin: Crown,
-  god: Zap,
-};
+interface DecisionNotification {
+  sent: boolean;
+  status: string;
+  detail?: string;
+}
+
+type Stage = "accounts" | "active" | "waitlist" | "invites";
+
+type RoleFilter = "all" | "founder" | "investor" | "operator";
+
+type PermissionFilter = "all" | "user" | "manager" | "admin" | "god";
+
+type SubscriptionPlan = "free" | "basic" | "premium" | "elite";
+
+type SubscriptionFilter = "all" | SubscriptionPlan;
+
+type Lifecycle = "active" | "invited" | "waitlisted" | "never" | "inactive";
+
+type RoleKey = "founder" | "investor" | "operator" | "admin" | "other";
+
+type DirectoryRow =
+  | { kind: "account"; id: string; user: EnrichedUser }
+  | { kind: "applicant"; id: string; applicant: WaitlistApplicant; stage: "waitlist" | "invites" };
+
+const AVATAR_COLORS = ["#8B8CFF", "#2EE6A6", "#7DD3FC", "#FBBF24", "#F9A8D4", "#86EFAC"] as const;
+
+const PERMISSIONS = [
+  { value: "user", label: "User" },
+  { value: "manager", label: "Manager" },
+  { value: "admin", label: "Admin" },
+  { value: "god", label: "God" },
+] as const;
+
+const STAGES: { id: Stage; label: string }[] = [
+  { id: "accounts", label: "All Accounts" },
+  { id: "active", label: "Active" },
+  { id: "waitlist", label: "Waitlist" },
+  { id: "invites", label: "Pending Invites" },
+];
+
+interface WaitlistCommand {
+  action: "list" | "update_status" | "delete";
+  id?: string;
+  status?: "approved" | "rejected" | "pending";
+}
+
+interface WaitlistUpdateResponse {
+  applicant?: WaitlistApplicant;
+  notification?: DecisionNotification;
+}
+
+function invokeAdminWaitlist(body: WaitlistCommand) {
+  return invokeEdgeFunction("admin-waitlist", {
+    preferClerkSessionToken: true,
+    body,
+  });
+}
+
+function emailHandle(email: string): string {
+  return email.split("@")[0]?.trim() ?? "";
+}
+
+function personLabel(name: string | null | undefined, email: string): string {
+  const trimmed = name?.trim() ?? "";
+
+  if (trimmed) return trimmed;
+
+  return emailHandle(email) || "Unknown";
+}
+
+function isIncompleteName(name: string | null | undefined, email: string): boolean {
+  const trimmed = name?.trim() ?? "";
+  const handle = emailHandle(email);
+
+  if (!trimmed) return true;
+
+  return trimmed.toLowerCase() === handle.toLowerCase() || trimmed.toLowerCase() === email.trim().toLowerCase();
+}
+
+function initials(label: string): string {
+  const parts = label.split(/[\s._+-]+/).filter((part) => part.length > 0);
+
+  if (parts.length >= 2) {
+    return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
+  }
+
+  const letters = label.replace(/[^a-zA-Z0-9]/g, "");
+
+  return (letters.slice(0, 2) || "??").toUpperCase();
+}
+
+function avatarColor(seed: string): string {
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash + seed.charCodeAt(index) * (index + 1)) % AVATAR_COLORS.length;
+  }
+
+  return AVATAR_COLORS[hash] ?? AVATAR_COLORS[0];
+}
 
 function formatTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
+
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";
-  try {
-    return format(new Date(value), "MMM d, yyyy · h:mm a");
-  } catch {
-    return "—";
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return format(date, "MMM d, yyyy · h:mm a");
+}
+
+function formatJoined(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const days = (Date.now() - date.getTime()) / 86_400_000;
+
+  if (days < 7) {
+    return formatDistanceToNow(date, { addSuffix: true }).replace(/^about /, "");
   }
+
+  return format(date, "MMM d, yyyy");
+}
+
+function accountRole(user: EnrichedUser): RoleKey {
+  if (user.user_type === "investor") return "investor";
+
+  if (user.user_type === "founder") return "founder";
+
+  if (user.user_type === "operator") return "operator";
+
+  return "other";
+}
+
+function applicantRole(role: string | null): RoleKey {
+  const value = role?.trim().toLowerCase() ?? "";
+
+  if (value.includes("admin")) return "admin";
+
+  if (value.includes("invest")) return "investor";
+
+  if (value.includes("found")) return "founder";
+
+  if (value.includes("operat")) return "operator";
+
+  return "other";
+}
+
+function rowRole(row: DirectoryRow): RoleKey {
+  return row.kind === "account" ? accountRole(row.user) : applicantRole(row.applicant.role);
+}
+
+function roleLabel(row: DirectoryRow): string {
+  const role = rowRole(row);
+
+  if (role === "admin") return "Admin";
+
+  if (role === "investor") return "Investor";
+
+  if (role === "founder") return "Founder";
+
+  if (role === "operator") return "Operator";
+
+  if (row.kind === "account" && row.user.user_type) {
+    return row.user.user_type.charAt(0).toUpperCase() + row.user.user_type.slice(1);
+  }
+
+  const raw = row.kind === "applicant" ? row.applicant.role?.trim() : "";
+
+  return raw || "Member";
+}
+
+function rowLifecycle(row: DirectoryRow): Lifecycle {
+  if (row.kind === "applicant") return row.stage === "invites" ? "invited" : "waitlisted";
+
+  if (row.user.banned) return "inactive";
+
+  if (row.user.last_sign_in_at || row.user.last_active_at) return "active";
+
+  return "never";
+}
+
+function isRoleFilter(value: string): value is RoleFilter {
+  return value === "all" || value === "founder" || value === "investor" || value === "operator";
+}
+
+function isPermissionFilter(value: string): value is PermissionFilter {
+  return value === "all" || value === "user" || value === "manager" || value === "admin" || value === "god";
+}
+
+function isSubscriptionFilter(value: string): value is SubscriptionFilter {
+  return value === "all" || value === "free" || value === "basic" || value === "premium" || value === "elite";
+}
+
+function rowPermission(row: DirectoryRow): string | null {
+  if (row.kind !== "account") return null;
+
+  return row.user.permission;
+}
+
+function rowPlan(row: DirectoryRow): SubscriptionPlan {
+  if (row.kind === "applicant") return "free";
+
+  return row.user.subscription ?? "free";
+}
+
+function rowEmail(row: DirectoryRow): string {
+  return row.kind === "account" ? row.user.email : row.applicant.email;
+}
+
+function rowName(row: DirectoryRow): string {
+  if (row.kind === "account") return personLabel(row.user.full_name, row.user.email);
+
+  return personLabel(row.applicant.name, row.applicant.email);
+}
+
+type DisplayName = {
+  label: string;
+  incomplete: boolean;
+};
+
+function rowDisplayName(row: DirectoryRow): DisplayName {
+  const email = rowEmail(row);
+  const raw = row.kind === "account" ? row.user.full_name : row.applicant.name;
+
+  if (isIncompleteName(raw, email)) {
+    return { label: "Profile incomplete", incomplete: true };
+  }
+
+  return { label: raw?.trim() || "Unknown", incomplete: false };
+}
+
+function rowCreatedAt(row: DirectoryRow): string {
+  return row.kind === "account" ? row.user.created_at : row.applicant.created_at;
+}
+
+function planLabel(plan: SubscriptionPlan): string {
+  if (plan === "premium") return "Pro";
+
+  if (plan === "basic") return "Basic";
+
+  if (plan === "elite") return "Elite";
+
+  return "Free";
+}
+
+function permissionLabel(permission: string | null): string | null {
+  if (!permission || permission === "user") return null;
+
+  if (permission === "god") return "God";
+
+  if (permission === "admin") return "Admin";
+
+  if (permission === "manager") return "Manager";
+
+  return permission;
+}
+
+function csvCell(value: string): string {
+  if (!/[",\n]/.test(value)) return value;
+
+  return `"${value.replaceAll("\"", "\"\"")}"`;
+}
+
+function statusLabel(lifecycle: Lifecycle): string {
+  if (lifecycle === "active") return "Active";
+
+  if (lifecycle === "invited") return "Invite Sent";
+
+  if (lifecycle === "waitlisted") return "Waitlisted";
+
+  if (lifecycle === "inactive") return "Inactive";
+
+  return "Never active";
+}
+
+function rowHeadline(row: DirectoryRow): string {
+  if (row.kind === "account") return row.user.title?.trim() ?? "";
+
+  return row.applicant.company_name?.trim() ?? "";
+}
+
+function rowSearchText(row: DirectoryRow): string {
+  if (row.kind === "account") {
+    return [row.user.full_name, row.user.email, row.user.id].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  return [row.applicant.name, row.applicant.email, row.applicant.company_name, row.applicant.role]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function PersonAvatar({ name, email, src }: { name: string; email: string; src: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const color = avatarColor(email || name);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="h-8 w-8 shrink-0 rounded-full object-cover"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-sans text-[11px] font-semibold"
+      style={{ background: `${color}24`, color }}
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
+function RolePill({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-full border border-neutral-800 bg-neutral-900 px-2 py-0.5 font-sans text-xs text-neutral-300">
+      {label}
+    </span>
+  );
+}
+
+function RoleCell({ row }: { row: DirectoryRow }) {
+  const permission = permissionLabel(rowPermission(row));
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <RolePill label={roleLabel(row)} />
+      {permission ? (
+        <span className="inline-flex rounded-full border border-neutral-800 bg-neutral-950 px-1.5 py-0.5 font-sans text-[10px] text-neutral-400">
+          {permission}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function SubscriptionCell({ row }: { row: DirectoryRow }) {
+  return <RolePill label={planLabel(rowPlan(row))} />;
+}
+
+function StatusBadge({ lifecycle }: { lifecycle: Lifecycle }) {
+  const styles: Record<Lifecycle, { label: string; dot: string; className: string }> = {
+    active: {
+      label: "Active",
+      dot: "bg-emerald-500",
+      className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-300",
+    },
+    invited: {
+      label: "Invite Sent",
+      dot: "bg-amber-500",
+      className: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+    },
+    waitlisted: {
+      label: "Waitlisted",
+      dot: "bg-sky-500",
+      className: "border-sky-500/20 bg-sky-500/10 text-sky-300",
+    },
+    never: {
+      label: "Never active",
+      dot: "bg-neutral-600",
+      className: "border-neutral-800 bg-neutral-900 text-neutral-400",
+    },
+    inactive: {
+      label: "Inactive",
+      dot: "bg-neutral-600",
+      className: "border-neutral-800 bg-neutral-900 text-neutral-400",
+    },
+  };
+
+  const style = styles[lifecycle];
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-sans text-xs ${style.className}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
+      {style.label}
+    </span>
+  );
+}
+
+function CopyEmailButton({ email }: { email: string }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!email) return null;
+
+  return (
+    <button
+      type="button"
+      aria-label={copied ? "Email copied" : `Copy ${email}`}
+      onClick={async (event) => {
+        event.stopPropagation();
+
+        try {
+          await navigator.clipboard.writeText(email);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        } catch {
+          toast.error("Could not copy email");
+        }
+      }}
+      className="inline-flex h-6 w-6 items-center justify-center rounded text-neutral-500 opacity-0 transition-opacity hover:bg-white/5 hover:text-neutral-200 group-hover/row:opacity-100"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+    </button>
+  );
+}
+
+function Metric({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-sans text-xs text-neutral-500">{label}</p>
+      <p className={`mt-1 truncate font-sans text-sm text-neutral-200 ${mono ? "font-mono tabular-nums" : ""}`}>
+        {value}
+      </p>
+    </div>
+  );
 }
 
 export function AdminUserManagement() {
   const [users, setUsers] = useState<EnrichedUser[]>([]);
+  const [applicants, setApplicants] = useState<WaitlistApplicant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stage, setStage] = useState<Stage>("accounts");
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
-  const [filterPermission, setFilterPermission] = useState<string>("all");
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [permissionFilter, setPermissionFilter] = useState<PermissionFilter>("all");
+  const [subscriptionFilter, setSubscriptionFilter] = useState<SubscriptionFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [banningId, setBanningId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchBusy, setBatchBusy] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
+  const load = useCallback(async () => {
+    setLoading(true);
+
+    const [userResult, waitlistResult] = await Promise.all([
+      invokeEdgeFunction("admin-list-users", { preferClerkSessionToken: true }),
+      invokeAdminWaitlist({ action: "list" }),
+    ]);
+
+    if (userResult.error) {
+      toast.error("Failed to load users", { description: await formatEdgeFunctionInvokeError(userResult.error) });
+    } else {
+      setUsers(userResult.data?.users ?? []);
+    }
+
+    if (waitlistResult.error) {
+      toast.error("Failed to load waitlist", { description: await formatEdgeFunctionInvokeError(waitlistResult.error) });
+    } else {
+      setApplicants(waitlistResult.data?.applicants ?? []);
+    }
+
+    setLoading(false);
   }, []);
 
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await invokeEdgeFunction("admin-list-users", { preferClerkSessionToken: true });
-      if (error) throw error;
-      setUsers(data.users || []);
-    } catch (e: unknown) {
-      toast.error("Failed to load users", { description: await formatEdgeFunctionInvokeError(e) });
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const accountEmails = useMemo(() => {
+    const emails = new Set<string>();
+
+    for (const user of users) {
+      if (user.email) emails.add(user.email.toLowerCase());
     }
-    setLoading(false);
-  };
+
+    return emails;
+  }, [users]);
+
+  const staged = useMemo(() => {
+    const accounts: DirectoryRow[] = users.map((user) => ({ kind: "account", id: user.id, user }));
+    const active = accounts.filter((row) => rowLifecycle(row) === "active");
+    const waitlist: DirectoryRow[] = [];
+    const invites: DirectoryRow[] = [];
+
+    for (const applicant of applicants) {
+      if (applicant.status === "pending") {
+        waitlist.push({ kind: "applicant", id: applicant.id, applicant, stage: "waitlist" });
+      } else if (applicant.status === "approved" && !accountEmails.has(applicant.email.toLowerCase())) {
+        invites.push({ kind: "applicant", id: applicant.id, applicant, stage: "invites" });
+      }
+    }
+
+    return { accounts, active, waitlist, invites };
+  }, [accountEmails, applicants, users]);
+
+  const stageRows = staged[stage];
+
+  const visible = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return stageRows.filter((row) => {
+      if (roleFilter !== "all" && rowRole(row) !== roleFilter) return false;
+
+      if (permissionFilter !== "all" && rowPermission(row) !== permissionFilter) return false;
+
+      if (subscriptionFilter !== "all" && rowPlan(row) !== subscriptionFilter) return false;
+
+      if (!query) return true;
+
+      return rowSearchText(row).includes(query);
+    });
+  }, [permissionFilter, roleFilter, search, stageRows, subscriptionFilter]);
 
   const handlePermissionChange = async (userId: string, permission: string) => {
     setUpdatingId(userId);
+
     try {
       const { error } = await invokeEdgeFunction("admin-update-permission", {
         preferClerkSessionToken: true,
         body: { target_user_id: userId, permission },
       });
+
       if (error) throw error;
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, permission } : u));
-      toast.success("Permission updated", { description: `Set to ${permission.toUpperCase()}` });
-    } catch (e: unknown) {
-      toast.error("Failed to update permission", { description: await formatEdgeFunctionInvokeError(e) });
+      setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, permission } : user)));
+      toast.success("Permission updated", { description: `Set to ${permission}` });
+    } catch (error: unknown) {
+      toast.error("Failed to update permission", { description: await formatEdgeFunctionInvokeError(error) });
     }
+
     setUpdatingId(null);
   };
 
   const handleBan = async (user: EnrichedUser) => {
     const confirmed = window.confirm(
-      `Ban ${user.full_name || user.email || "this user"}?\n\n` +
+      `Revoke access for ${personLabel(user.full_name, user.email)}?\n\n` +
         `This blocks their email${user.email ? ` (${user.email})` : ""} and ` +
         `${user.ip_addresses?.length ? `${user.ip_addresses.length} known IP address(es)` : "any known IP addresses"} ` +
-        `from accessing the platform. This can be reversed in the database.`,
+        `from the platform. This can be reversed in the database.`,
     );
+
     if (!confirmed) return;
 
     setBanningId(user.id);
+
     try {
       const { data, error } = await invokeEdgeFunction("admin-ban-user", {
         preferClerkSessionToken: true,
@@ -125,358 +621,727 @@ export function AdminUserManagement() {
           ip_addresses: user.ip_addresses ?? [],
         },
       });
+
       if (error) throw error;
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, banned: true } : u)));
+      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
       const ips: string[] = data?.banned_ips ?? [];
-      toast.success("User banned", {
-        description: `Blocked ${data?.banned_email || user.email || "account"}${
-          ips.length ? ` and ${ips.length} IP address(es)` : ""
-        }.`,
+      toast.success("Access revoked", {
+        description: `Blocked ${data?.banned_email || user.email || "account"}${ips.length ? ` and ${ips.length} IP address(es)` : ""}.`,
       });
-    } catch (e: unknown) {
-      toast.error("Failed to ban user", { description: await formatEdgeFunctionInvokeError(e) });
+    } catch (error: unknown) {
+      toast.error("Failed to revoke access", { description: await formatEdgeFunctionInvokeError(error) });
     }
+
     setBanningId(null);
   };
 
-  const filtered = users.filter((u) => {
-    const searchHaystack = [u.full_name, u.email, u.id].filter(Boolean).join(" ").toLowerCase();
-    const matchSearch = searchHaystack.includes(search.toLowerCase());
-    const matchType = filterType === "all" || u.user_type === filterType;
-    const matchPerm = filterPermission === "all" || u.permission === filterPermission;
-    return matchSearch && matchType && matchPerm;
-  });
+  const revokeAccess = async (user: EnrichedUser) => {
+    const { data, error } = await invokeEdgeFunction("admin-ban-user", {
+      preferClerkSessionToken: true,
+      body: {
+        target_user_id: user.id,
+        email: user.email || undefined,
+        ip_addresses: user.ip_addresses ?? [],
+      },
+    });
+
+    if (error) throw error;
+    setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
+
+    return data;
+  };
+
+  const deleteApplicant = async (applicant: WaitlistApplicant) => {
+    const { error } = await invokeAdminWaitlist({ action: "delete", id: applicant.id });
+
+    if (error) throw error;
+    setApplicants((current) => current.filter((item) => item.id !== applicant.id));
+  };
+
+  const selectedRows = useMemo(
+    () => visible.filter((row) => selectedIds.includes(row.id)),
+    [selectedIds, visible],
+  );
+
+  useEffect(() => {
+    const ids = new Set(visible.map((row) => row.id));
+
+    setSelectedIds((current) => {
+      const next = current.filter((id) => ids.has(id));
+
+      if (next.length === current.length) return current;
+
+      return next;
+    });
+  }, [visible]);
+
+  const allVisibleSelected = visible.length > 0 && visible.every((row) => selectedIds.includes(row.id));
+  const someVisibleSelected = selectedIds.length > 0 && !allVisibleSelected;
+
+  const toggleRowSelected = (id: string, checked: boolean) => {
+    setSelectedIds((current) => {
+      if (checked) return current.includes(id) ? current : [...current, id];
+
+      return current.filter((item) => item !== id);
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(visible.map((row) => row.id));
+
+      return;
+    }
+
+    setSelectedIds([]);
+  };
+
+  const exportSelected = () => {
+    const rows = selectedRows.length > 0 ? selectedRows : visible;
+    const header = ["Name", "Email", "Role", "Plan", "Permission", "Status", "Joined"];
+
+    const body = rows.map((row) => {
+      const display = rowDisplayName(row);
+
+      return [
+        display.incomplete ? "" : display.label,
+        rowEmail(row),
+        roleLabel(row),
+        planLabel(rowPlan(row)),
+        rowPermission(row) ?? "",
+        statusLabel(rowLifecycle(row)),
+        formatJoined(rowCreatedAt(row)),
+      ].map(csvCell).join(",");
+    });
+
+    const blob = new Blob([[header.join(","), ...body].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "vekta-users.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} ${rows.length === 1 ? "row" : "rows"}`);
+  };
+
+  const resendSelected = async () => {
+    const invites = selectedRows.filter((row) => row.kind === "applicant" && row.stage === "invites");
+
+    if (invites.length === 0) {
+      toast.message("No pending invites in this selection");
+
+      return;
+    }
+
+    setBatchBusy(true);
+    let sent = 0;
+
+    for (const row of invites) {
+      if (row.kind !== "applicant") continue;
+
+      try {
+        await updateApplicantStatus(row.applicant, "pending");
+        const notification = await updateApplicantStatus(row.applicant, "approved");
+
+        if (notification?.sent) sent += 1;
+      } catch {
+        toast.error(`Failed to resend ${row.applicant.email}`);
+      }
+    }
+
+    setBatchBusy(false);
+    toast.success(sent > 0 ? `Resent ${sent} ${sent === 1 ? "invite" : "invites"}` : "Invite status refreshed");
+  };
+
+  const deleteSelected = async () => {
+    if (selectedRows.length === 0) return;
+
+    const accounts = selectedRows.filter((row) => row.kind === "account").length;
+    const applicants = selectedRows.length - accounts;
+
+    const confirmed = window.confirm(
+      `Remove ${selectedRows.length} selected ${selectedRows.length === 1 ? "record" : "records"}?\n\n` +
+        (accounts ? `${accounts} account${accounts === 1 ? "" : "s"} will have access revoked.\n` : "") +
+        (applicants ? `${applicants} waitlist ${applicants === 1 ? "row" : "rows"} will be deleted.` : ""),
+    );
+
+    if (!confirmed) return;
+
+    setBatchBusy(true);
+    let removed = 0;
+
+    for (const row of selectedRows) {
+      try {
+        if (row.kind === "account") {
+          if (!row.user.banned) await revokeAccess(row.user);
+        } else {
+          await deleteApplicant(row.applicant);
+        }
+
+        removed += 1;
+      } catch {
+        toast.error(`Could not remove ${rowEmail(row)}`);
+      }
+    }
+
+    setBatchBusy(false);
+    setSelectedIds([]);
+    toast.success(`Updated ${removed} ${removed === 1 ? "record" : "records"}`);
+  };
+
+  const updateApplicantStatus = async (applicant: WaitlistApplicant, status: "approved" | "rejected" | "pending") => {
+    const { data, error } = await invokeAdminWaitlist({
+      action: "update_status",
+      id: applicant.id,
+      status,
+    });
+
+    if (error) throw error;
+    // SAFETY: admin-waitlist update_status returns { applicant, notification } in this shape.
+    const payload = data as WaitlistUpdateResponse | null;
+    const updated = payload?.applicant;
+
+    if (!updated?.id) throw new Error("The waitlist update returned no applicant");
+    setApplicants((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+
+    return payload?.notification;
+  };
+
+  const decideApplicant = async (applicant: WaitlistApplicant, status: "approved" | "rejected") => {
+    setUpdatingId(applicant.id);
+
+    try {
+      const notification = await updateApplicantStatus(applicant, status);
+
+      if (notification?.sent) {
+        toast.success(status === "approved" ? "Approved and invite sent" : "Application rejected");
+      } else if (notification?.status === "unchanged") {
+        toast.success(status === "approved" ? "Already approved" : "Already rejected");
+      } else {
+        toast.warning(status === "approved" ? "Approved, invite email needs a check" : "Rejected, email needs a check", {
+          description: notification?.detail || "The status was saved. Check the decision email.",
+        });
+      }
+    } catch (error: unknown) {
+      toast.error("Failed to update applicant", { description: await formatEdgeFunctionInvokeError(error) });
+    }
+
+    setUpdatingId(null);
+  };
+
+  const resendInvite = async (applicant: WaitlistApplicant) => {
+    setUpdatingId(applicant.id);
+
+    try {
+      await updateApplicantStatus(applicant, "pending");
+      const notification = await updateApplicantStatus(applicant, "approved");
+
+      if (notification?.sent) toast.success("Invite sent again");
+      else {
+        toast.warning("Invite status refreshed", {
+          description: notification?.detail || "The approval email did not confirm a send.",
+        });
+      }
+    } catch (error: unknown) {
+      toast.error("Failed to resend invite", { description: await formatEdgeFunctionInvokeError(error) });
+    }
+
+    setUpdatingId(null);
+  };
+
+  const counts = {
+    accounts: staged.accounts.length,
+    active: staged.active.length,
+    waitlist: staged.waitlist.length,
+    invites: staged.invites.length,
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-mono text-lg font-semibold text-white/90">User Management</h1>
-        <p className="mt-1 font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-          {users.length} registered users · Manage permissions and monitor activity
-        </p>
-      </div>
+    <div className="space-y-4">
+      <AdminStickyHeader className="flex flex-col gap-4">
+        <h1 className="font-sans text-lg font-semibold text-neutral-100">User Management</h1>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
-          <Input
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 rounded-lg border-white/10 bg-white/5 text-sm text-white/80 placeholder:text-white/25 focus-visible:ring-emerald-500/40"
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="User stage">
+          {STAGES.map((item) => {
+            const selected = stage === item.id;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => {
+                  setStage(item.id);
+                  setExpandedId(null);
+                  setSelectedIds([]);
+                }}
+                className={`inline-flex h-8 items-center gap-2 rounded-md border px-3 font-sans text-sm transition-colors ${
+                  selected
+                    ? "border-neutral-700 bg-neutral-900 text-neutral-100"
+                    : "border-transparent text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                {item.label}
+                <span className="font-mono text-xs tabular-nums text-neutral-400">{counts[item.id]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-[240px] max-w-full shrink-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-500" />
+            <Input
+              aria-label="Search by name or email"
+              placeholder="Search by name or email..."
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-9 rounded-md border-neutral-800 bg-neutral-950 pl-9 font-sans text-sm text-neutral-200 placeholder:text-neutral-600"
+            />
+          </div>
+          <FilterSelect
+            label="Role"
+            icon={Users}
+            value={roleFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "founder", label: "Founder" },
+              { value: "investor", label: "Investor" },
+              { value: "operator", label: "Operator" },
+            ]}
+            onValueChange={(value) => { if (isRoleFilter(value)) setRoleFilter(value); }}
+          />
+          <FilterSelect
+            label="Permission"
+            icon={Shield}
+            value={permissionFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "user", label: "User" },
+              { value: "manager", label: "Manager" },
+              { value: "admin", label: "Admin" },
+              { value: "god", label: "God Mode" },
+            ]}
+            onValueChange={(value) => { if (isPermissionFilter(value)) setPermissionFilter(value); }}
+          />
+          <FilterSelect
+            label="Subscription"
+            icon={CreditCard}
+            value={subscriptionFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "free", label: "Free" },
+              { value: "basic", label: "Basic" },
+              { value: "premium", label: "Premium" },
+              { value: "elite", label: "Elite" },
+            ]}
+            onValueChange={(value) => { if (isSubscriptionFilter(value)) setSubscriptionFilter(value); }}
           />
         </div>
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-32 h-9 border-white/10 bg-white/5 text-xs text-white/70">
-            <SelectValue placeholder="User Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="founder">Founder</SelectItem>
-            <SelectItem value="operator">Operator</SelectItem>
-            <SelectItem value="investor">Investor</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterPermission} onValueChange={setFilterPermission}>
-          <SelectTrigger className="w-32 h-9 border-white/10 bg-white/5 text-xs text-white/70">
-            <SelectValue placeholder="Permission" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Levels</SelectItem>
-            <SelectItem value="user">User</SelectItem>
-            <SelectItem value="manager">Manager</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="god">GOD</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      </AdminStickyHeader>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-300" />
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-          {/* Table Header */}
-          <div
-            className="grid items-center gap-2 px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest"
-            style={{ background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.3)", gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr" }}
-          >
-            <span>Name</span>
-            <span>Email</span>
-            <span>Last Sign In</span>
-            <span>Type</span>
-            <span>Time on App</span>
-            <span>API Usage</span>
-            <span>Permission</span>
-          </div>
-
-          {/* Rows */}
-          {filtered.map((user) => {
-            const permColor = PERMISSION_COLORS[user.permission] || PERMISSION_COLORS.user;
-            const PermIcon = PERMISSION_ICONS[user.permission] || UserCog;
-            const isUpdating = updatingId === user.id;
-            const isExpanded = expandedId === user.id;
-
-            return (
-              <div key={user.id} className="border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              <div
-                onClick={() => setExpandedId((cur) => (cur === user.id ? null : user.id))}
-                className="grid items-center gap-2 px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.02]"
-                style={{
-                  gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr",
-                  background: isExpanded ? "rgba(255,255,255,0.02)" : undefined,
-                }}
-              >
-                {/* User */}
-                <div className="flex items-center gap-2 min-w-0">
-                  {isExpanded ? (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(255,255,255,0.35)" }} />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
-                  )}
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
-                    style={{ background: permColor.bg, color: permColor.text }}
-                  >
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} className="h-8 w-8 rounded-lg object-cover" alt="" />
-                    ) : (
-                      <PermIcon className="h-3.5 w-3.5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-white/85 truncate">{user.full_name || "Unnamed"}</p>
-                      {user.banned && (
-                        <span
-                          className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider"
-                          style={{ background: "rgba(239,68,68,0.15)", color: "#f87171" }}
-                        >
-                          Banned
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-mono text-[10px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      {user.title || "—"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Contact */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
-                    <span className="text-[11px] text-white/60 truncate" title={user.id}>
-                      {user.email || (
-                        <span style={{ color: "rgba(255,255,255,0.35)" }} className="font-mono">
-                          {user.id.length > 24 ? `${user.id.slice(0, 22)}…` : user.id}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  {user.location && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <MapPin className="h-3 w-3 shrink-0" style={{ color: "rgba(255,255,255,0.2)" }} />
-                      <span className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{user.location}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Last Sign In */}
-                <div>
-                  {user.last_sign_in_at ? (
-                    <span className="text-[11px] text-white/50">
-                      {formatDistanceToNow(new Date(user.last_sign_in_at), { addSuffix: true })}
-                    </span>
-                  ) : (
-                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>Never</span>
-                  )}
-                </div>
-
-                {/* User Type */}
-                <Badge
-                  variant="outline"
-                  className="w-fit border-none text-[9px] font-semibold uppercase"
-                  style={{
-                    background: user.user_type === "founder" ? "rgba(91,92,255,0.1)" : user.user_type === "investor" ? "rgba(46,230,166,0.1)" : "rgba(59,130,246,0.1)",
-                    color: user.user_type === "founder" ? "#a78bfa" : user.user_type === "investor" ? "#2EE6A6" : "#60a5fa",
-                  }}
-                >
-                  {user.user_type}
-                </Badge>
-
-                {/* Time on App */}
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3 w-3" style={{ color: "rgba(255,255,255,0.2)" }} />
-                  <span className="font-mono text-[11px] text-white/50">{formatTime(user.total_time_seconds)}</span>
-                </div>
-
-                {/* API Usage */}
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-3 w-3" style={{ color: user.api_calls_count > 100 ? "#f59e0b" : "rgba(255,255,255,0.2)" }} />
-                  <span className="font-mono text-[11px] text-white/50">{user.api_calls_count.toLocaleString()}</span>
-                </div>
-
-                {/* Permission */}
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Select
-                    value={user.permission}
-                    onValueChange={(val) => handlePermissionChange(user.id, val)}
-                    disabled={isUpdating}
-                  >
-                    <SelectTrigger
-                      className="h-7 w-full border-none text-[11px] font-semibold uppercase"
-                      style={{ background: permColor.bg, color: permColor.text }}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="god">GOD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {isExpanded && <UserDetailPanel user={user} banning={banningId === user.id} onBan={() => handleBan(user)} />}
-              </div>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <p className="py-12 text-center font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-              No users found.
-            </p>
-          )}
+        <div className={`overflow-x-auto rounded-lg border border-neutral-800/80 bg-neutral-950 ${selectedIds.length > 0 ? "mb-2" : ""}`}>
+          <table className="w-full border-collapse text-left">
+            <colgroup>
+              <col className="w-10" />
+              <col className="w-8" />
+              <col className="w-1/4" />
+              <col className="w-1/3" />
+              <col className="w-28" />
+              <col className="w-28" />
+              <col className="w-36" />
+              <col className="w-28" />
+              <col className="w-12" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-neutral-800/80">
+                <th className="w-10 px-2 py-2">
+                  <Checkbox
+                    aria-label="Select all visible users"
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={(value) => toggleAllVisible(value === true)}
+                    className="border-neutral-700 bg-neutral-950 data-[state=checked]:bg-primary data-[state=checked]:text-white data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-white"
+                  />
+                </th>
+                <th className="w-8 px-1 py-2" />
+                <th className="min-w-[180px] px-3 py-2 font-sans text-xs font-medium text-neutral-500">Name</th>
+                <th className="min-w-[220px] px-3 py-2 font-sans text-xs font-medium text-neutral-500">Email</th>
+                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Role</th>
+                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Subscription</th>
+                <th className="w-36 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Status</th>
+                <th className="w-28 px-3 py-2 font-sans text-xs font-medium text-neutral-500">Joined</th>
+                <th className="w-12 px-2 py-2 text-right font-sans text-xs font-medium text-neutral-500">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-3 py-14 text-center font-sans text-sm text-neutral-500">
+                    {stageRows.length === 0 ? "Nothing in this stage." : "No one matches these filters."}
+                  </td>
+                </tr>
+              ) : (
+                visible.map((row) => (
+                  <DirectoryTableRow
+                    key={row.id}
+                    row={row}
+                    selected={selectedIds.includes(row.id)}
+                    expanded={expandedId === row.id}
+                    busy={updatingId === row.id || banningId === (row.kind === "account" ? row.user.id : "")}
+                    onSelect={(checked) => toggleRowSelected(row.id, checked)}
+                    onToggle={() => setExpandedId((current) => (current === row.id ? null : row.id))}
+                    onApprove={() => {
+                      if (row.kind === "applicant") void decideApplicant(row.applicant, "approved");
+                    }}
+                    onReject={() => {
+                      if (row.kind === "applicant") void decideApplicant(row.applicant, "rejected");
+                    }}
+                    onResend={() => {
+                      if (row.kind === "applicant") void resendInvite(row.applicant);
+                    }}
+                    onPermission={(permission) => {
+                      if (row.kind === "account") void handlePermissionChange(row.user.id, permission);
+                    }}
+                    onBan={() => {
+                      if (row.kind === "account") void handleBan(row.user);
+                    }}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
-  );
-}
 
-function SectionCard({ icon: Icon, title, children }: { icon: typeof Clock; title: string; children: ReactNode }) {
-  return (
-    <div className="rounded-lg border p-3.5" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
-      <div className="mb-2.5 flex items-center gap-1.5">
-        <Icon className="h-3 w-3" style={{ color: "#2EE6A6" }} />
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
-          {title}
-        </span>
-      </div>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value, mono, href }: { label: string; value: ReactNode; mono?: boolean; href?: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="shrink-0 text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>{label}</span>
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 truncate text-[11px] text-emerald-300/80 hover:text-emerald-300"
-        >
-          <span className="truncate">{value}</span>
-          <ExternalLink className="h-2.5 w-2.5 shrink-0" />
-        </a>
-      ) : (
-        <span className={`truncate text-right text-[11px] text-white/70 ${mono ? "font-mono" : ""}`}>{value}</span>
-      )}
-    </div>
-  );
-}
-
-function UserDetailPanel({ user, banning, onBan }: { user: EnrichedUser; banning: boolean; onBan: () => void }) {
-  const ips = user.ip_addresses ?? [];
-  return (
-    <div className="px-4 pb-4 pt-1" style={{ background: "rgba(255,255,255,0.02)" }} onClick={(e) => e.stopPropagation()}>
-      <div className="grid gap-3 md:grid-cols-3">
-        {/* Login & session */}
-        <SectionCard icon={CalendarClock} title="Login & session">
-          <DetailRow label="Last sign in" value={formatDateTime(user.last_sign_in_at)} />
-          <DetailRow label="Time on app" value={formatTime(user.total_time_seconds)} mono />
-          <DetailRow label="Account created" value={formatDateTime(user.created_at)} />
-        </SectionCard>
-
-        {/* Activity */}
-        <SectionCard icon={Activity} title="Activity">
-          <DetailRow label="API calls" value={user.api_calls_count.toLocaleString()} mono />
-          <DetailRow
-            label="Last active"
-            value={user.last_active_at ? formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true }) : "Never"}
-          />
-          <DetailRow label="Permission" value={user.permission.toUpperCase()} mono />
-        </SectionCard>
-
-        {/* Details provided */}
-        <SectionCard icon={UserCog} title="Details provided">
-          <DetailRow label="Type" value={user.user_type || "—"} />
-          <DetailRow label="Title" value={user.title || "—"} />
-          <DetailRow label="Location" value={user.location || "—"} />
-          {user.linkedin_url && <DetailRow label="LinkedIn" value={user.linkedin_url} href={user.linkedin_url} />}
-          {user.twitter_url && <DetailRow label="X / Twitter" value={user.twitter_url} href={user.twitter_url} />}
-        </SectionCard>
-      </div>
-
-      {/* Contact + IPs */}
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <SectionCard icon={Mail} title="Contact">
-          <DetailRow label="Email" value={user.email || "—"} mono />
-          <DetailRow label="User ID" value={user.id} mono />
-        </SectionCard>
-
-        <SectionCard icon={Globe} title="Known IP addresses">
-          {ips.length === 0 ? (
-            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-              No IP addresses recorded yet.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {ips.map((ip) => (
-                <span
-                  key={ip}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px]"
-                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.6)" }}
-                >
-                  <Fingerprint className="h-2.5 w-2.5" style={{ color: "rgba(255,255,255,0.3)" }} />
-                  {ip}
-                </span>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
-
-      {/* Ban */}
-      <div className="mt-3 flex items-center justify-between rounded-lg border p-3" style={{ borderColor: "rgba(239,68,68,0.2)", background: "rgba(239,68,68,0.04)" }}>
-        <div>
-          <p className="text-[12px] font-medium text-white/80">Danger zone</p>
-          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-            Ban this user's email address{ips.length ? ` and ${ips.length} known IP address(es)` : ""} from the platform.
+      {selectedIds.length > 0 ? (
+        <div className="sticky bottom-4 z-40 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-neutral-950/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md">
+          <p className="font-sans text-sm text-neutral-300">
+            <span className="font-mono tabular-nums text-neutral-100">{selectedIds.length}</span>
+            {selectedIds.length === 1 ? " user selected" : " users selected"}
           </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={batchBusy}
+              onClick={() => void resendSelected()}
+              className="h-8 border-neutral-800 bg-transparent font-sans text-xs text-neutral-200 hover:bg-white/5"
+            >
+              Resend Invites
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={batchBusy}
+              onClick={exportSelected}
+              className="h-8 border-neutral-800 bg-transparent font-sans text-xs text-neutral-200 hover:bg-white/5"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={batchBusy}
+              onClick={() => void deleteSelected()}
+              className="h-8 border-red-500/30 bg-transparent font-sans text-xs text-red-300 hover:bg-red-500/10"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete Selected
+            </Button>
+          </div>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DirectoryTableRow({
+  row,
+  selected,
+  expanded,
+  busy,
+  onSelect,
+  onToggle,
+  onApprove,
+  onReject,
+  onResend,
+  onPermission,
+  onBan,
+}: {
+  row: DirectoryRow;
+  selected: boolean;
+  expanded: boolean;
+  busy: boolean;
+  onSelect: (checked: boolean) => void;
+  onToggle: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onResend: () => void;
+  onPermission: (permission: string) => void;
+  onBan: () => void;
+}) {
+  const display = rowDisplayName(row);
+  const email = rowEmail(row);
+  const headline = rowHeadline(row);
+  const lifecycle = rowLifecycle(row);
+  const avatar = row.kind === "account" ? row.user.avatar_url : null;
+  const avatarName = display.incomplete ? email : display.label;
+
+  return (
+    <>
+      <tr className="group/row border-b border-neutral-800/60 hover:bg-white/[0.02]">
+        <td className="w-10 px-2 py-2.5">
+          <Checkbox
+            aria-label={`Select ${display.label}`}
+            checked={selected}
+            onCheckedChange={(value) => onSelect(value === true)}
+            className="border-neutral-700 bg-neutral-950 data-[state=checked]:bg-primary data-[state=checked]:text-white"
+          />
+        </td>
+        <td className="w-8 px-1 py-2.5">
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={expanded ? `Hide details for ${display.label}` : `Show details for ${display.label}`}
+            onClick={onToggle}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500 hover:bg-white/5 hover:text-neutral-200"
+          >
+            {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </button>
+        </td>
+        <td className="min-w-[180px] px-3 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <PersonAvatar name={avatarName} email={email} src={avatar} />
+            <div className="min-w-0">
+              <p className={`truncate font-sans text-sm ${display.incomplete ? "italic text-neutral-500" : "font-medium text-neutral-200"}`}>
+                {display.label}
+              </p>
+              {headline && !display.incomplete ? (
+                <p className="truncate font-sans text-xs text-neutral-500">{headline}</p>
+              ) : null}
+            </div>
+          </div>
+        </td>
+        <td className="min-w-[220px] px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-sans text-sm text-neutral-300">{email || "—"}</span>
+            <CopyEmailButton email={email} />
+          </div>
+        </td>
+        <td className="w-28 px-3 py-2.5">
+          <RoleCell row={row} />
+        </td>
+        <td className="w-28 px-3 py-2.5">
+          <SubscriptionCell row={row} />
+        </td>
+        <td className="w-36 px-3 py-2.5">
+          <StatusBadge lifecycle={lifecycle} />
+        </td>
+        <td className="w-28 px-3 py-2.5">
+          <span className="font-mono text-xs text-neutral-400">{formatJoined(rowCreatedAt(row))}</span>
+        </td>
+        <td className="w-12 px-2 py-2.5">
+          <div className="flex items-center justify-end" onClick={(event) => event.stopPropagation()}>
+            <RowMenu
+              row={row}
+              busy={busy}
+              onView={onToggle}
+              onApprove={onApprove}
+              onResend={onResend}
+              onReject={onReject}
+              onPermission={onPermission}
+              onBan={onBan}
+            />
+          </div>
+        </td>
+      </tr>
+      {expanded ? (
+        <tr className="border-b border-neutral-800/60">
+          <td colSpan={9} className="bg-neutral-950 px-4 py-4">
+            {row.kind === "account" ? <AccountDetail user={row.user} /> : <ApplicantDetail applicant={row.applicant} />}
+          </td>
+        </tr>
+      ) : null}
+    </>
+  );
+}
+
+function RowMenu({
+  row,
+  busy,
+  onView,
+  onApprove,
+  onResend,
+  onReject,
+  onPermission,
+  onBan,
+}: {
+  row: DirectoryRow;
+  busy: boolean;
+  onView: () => void;
+  onApprove: () => void;
+  onResend: () => void;
+  onReject: () => void;
+  onPermission: (permission: string) => void;
+  onBan: () => void;
+}) {
+  const name = rowName(row);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
-          onClick={onBan}
-          disabled={banning || user.banned}
-          className="h-8 shrink-0 gap-1.5 border-none text-[12px] font-semibold"
-          style={{ background: user.banned ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.9)", color: user.banned ? "#f87171" : "#fff" }}
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={busy}
+          className="h-8 w-8 text-neutral-400 hover:bg-white/5 hover:text-neutral-100"
         >
-          {banning ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Ban className="h-3.5 w-3.5" />
-          )}
-          {user.banned ? "Banned" : "Ban user"}
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">Open actions for {name}</span>
         </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={onView}>View full profile</DropdownMenuItem>
+        {row.kind === "applicant" && row.stage === "waitlist" ? (
+          <DropdownMenuItem onSelect={onApprove}>Approve</DropdownMenuItem>
+        ) : null}
+        {row.kind === "applicant" ? (
+          <DropdownMenuItem onSelect={onResend}>Resend invite</DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onSelect={() => {
+              toast.message("Invites are sent from Pending invites", {
+                description: "This person already has an account, so there is no magic link to resend.",
+              });
+            }}
+          >
+            Resend magic link
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onSelect={() => {
+            toast.message("Impersonation isn't available", {
+              description: "This console can change permissions and revoke access. It does not open a user session.",
+            });
+          }}
+        >
+          Impersonate user
+        </DropdownMenuItem>
+        {row.kind === "account" ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Edit role</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {PERMISSIONS.map((permission) => (
+                <DropdownMenuItem
+                  key={permission.value}
+                  onSelect={() => onPermission(permission.value)}
+                >
+                  {permission.label}
+                  {row.user.permission === permission.value ? " · current" : ""}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
+        <DropdownMenuSeparator />
+        {row.kind === "account" ? (
+          <DropdownMenuItem
+            disabled={busy || row.user.banned}
+            onSelect={onBan}
+            className="text-red-300 focus:text-red-200"
+          >
+            <Ban className="mr-2 h-3.5 w-3.5" />
+            {row.user.banned ? "Access already revoked" : "Revoke access"}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onSelect={onReject} className="text-red-300 focus:text-red-200">
+            Reject application
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function AccountDetail({ user }: { user: EnrichedUser }) {
+  const ips = user.ip_addresses ?? [];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Metric
+        label="Last active"
+        value={user.last_active_at ? formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true }) : "Never"}
+      />
+      <Metric label="Session time" value={formatTime(user.total_time_seconds)} mono />
+      <Metric label="API requests" value={user.api_calls_count.toLocaleString()} mono />
+      <Metric label="Registered" value={formatDateTime(user.created_at)} />
+      <Metric label="Last sign in" value={formatDateTime(user.last_sign_in_at)} />
+      <Metric label="Permission" value={user.permission} mono />
+      <Metric label="User ID" value={user.id} mono />
+      <div className="min-w-0 sm:col-span-2 lg:col-span-1">
+        <p className="font-sans text-xs text-neutral-500">Known IPs</p>
+        {ips.length === 0 ? (
+          <p className="mt-1 font-sans text-sm text-neutral-500">None recorded</p>
+        ) : (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {ips.map((ip) => (
+              <span key={ip} className="inline-flex items-center gap-1 rounded bg-white/5 px-1.5 py-0.5 font-mono text-xs text-neutral-300">
+                <Fingerprint className="h-3 w-3 text-neutral-500" />
+                {ip}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
+      {user.location ? <Metric label="Location" value={user.location} /> : null}
+      {user.linkedin_url ? <ExternalMetric label="LinkedIn" href={user.linkedin_url} /> : null}
+      {user.twitter_url ? <ExternalMetric label="X" href={user.twitter_url} /> : null}
+    </div>
+  );
+}
+
+function ApplicantDetail({ applicant }: { applicant: WaitlistApplicant }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Metric label="Applied" value={formatDateTime(applicant.created_at)} />
+      <Metric label="Reviewed" value={formatDateTime(applicant.reviewed_at)} />
+      <Metric label="Score" value={String(applicant.total_score ?? 0)} mono />
+      <Metric
+        label="Position"
+        value={applicant.waitlist_position == null ? "—" : String(applicant.waitlist_position)}
+        mono
+      />
+      <Metric label="Source" value={applicant.source?.replaceAll("_", " ") || "Direct"} />
+      {applicant.admin_notes ? <Metric label="Notes" value={applicant.admin_notes} /> : null}
+      {applicant.linkedin_url ? <ExternalMetric label="LinkedIn" href={applicant.linkedin_url} /> : null}
+    </div>
+  );
+}
+
+function ExternalMetric({ label, href }: { label: string; href: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="font-sans text-xs text-neutral-500">{label}</p>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-1 inline-flex max-w-full items-center gap-1 truncate font-sans text-sm text-emerald-300 hover:text-emerald-200"
+      >
+        <span className="truncate">{href}</span>
+        <ExternalLink className="h-3 w-3 shrink-0" />
+      </a>
     </div>
   );
 }

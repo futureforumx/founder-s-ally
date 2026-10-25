@@ -8,15 +8,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Search, RefreshCw, Loader2, ChevronLeft, ChevronRight,
-  AlertCircle, ExternalLink, CheckCircle2, XCircle, X, Save,
-  Building2, Users, Briefcase,
+  AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
+  ExternalLink, Loader2, RefreshCw, Save, Search, Target, Users, X, XCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterSelect } from "@/components/admin/FilterSelect";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCanonicalHqLine, resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
+import { formatRoundKind } from "@/lib/latestFundingFilters";
+import { AdminStickyFilters, AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -720,7 +721,7 @@ function CompaniesTab() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       <MetricsTiles
         totalLabel="Total companies"
         liveLabel="Live companies"
@@ -731,7 +732,7 @@ function CompaniesTab() {
         loading={metricsLoading}
       />
 
-      <div className="flex gap-3 flex-wrap">
+      <AdminStickyFilters className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search companies…" value={search}
@@ -739,20 +740,21 @@ function CompaniesTab() {
             className="pl-9 text-[12px] h-8"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} />
         </div>
-        <Select value={stage} onValueChange={v => { setStage(v); setPage(0); }}>
-          <SelectTrigger className="w-[140px] h-8 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Stages</SelectItem>
-            {COMPANY_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <FilterSelect
+          label="Stage"
+          icon={Target}
+          value={stage}
+          options={[
+            { value: "all", label: "All" },
+            ...COMPANY_STAGES.map((item) => ({ value: item, label: formatRoundKind(item) })),
+          ]}
+          onValueChange={(value) => { setStage(value); setPage(0); }}
+        />
         <button onClick={() => { void load(); void loadMetrics(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
-      </div>
+      </AdminStickyFilters>
 
       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} companies — click any row to edit</p>
 
@@ -764,7 +766,7 @@ function CompaniesTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {["Company","Sector","Stage","Status","HQ","Raised"].map(h => <div key={h} style={HDR}>{h}</div>)}
         </div>
@@ -901,7 +903,7 @@ function FoundersTab() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       <MetricsTiles
         totalLabel="Total founders"
         liveLabel="Live founders"
@@ -912,7 +914,7 @@ function FoundersTab() {
         loading={metricsLoading}
       />
 
-      <div className="flex gap-3">
+      <AdminStickyFilters className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search founders…" value={search}
@@ -924,7 +926,7 @@ function FoundersTab() {
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
-      </div>
+      </AdminStickyFilters>
 
       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} founders — click any row to edit</p>
 
@@ -936,7 +938,7 @@ function FoundersTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {["Name","Role","Location","Archetype","Flags"].map(h => <div key={h} style={HDR}>{h}</div>)}
         </div>
@@ -1069,7 +1071,7 @@ function OperatorsTab() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4">
       <MetricsTiles
         totalLabel="Total operators"
         liveLabel="Live operators"
@@ -1080,7 +1082,7 @@ function OperatorsTab() {
         loading={metricsLoading}
       />
 
-      <div className="flex gap-3">
+      <AdminStickyFilters className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search operators…" value={search}
@@ -1092,7 +1094,7 @@ function OperatorsTab() {
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
-      </div>
+      </AdminStickyFilters>
 
       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{total.toLocaleString()} operators — click any row to edit</p>
 
@@ -1104,7 +1106,7 @@ function OperatorsTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {["Name","Title","Location","Expertise","Status"].map(h => <div key={h} style={HDR}>{h}</div>)}
         </div>
@@ -1184,16 +1186,12 @@ export function AdminMarketIntelligence() {
   const [tab, setTab] = useState<TabKey>("companies");
 
   return (
-    <div className="flex flex-col gap-6 h-full">
-      {/* Header */}
+    <div className="flex flex-col gap-6">
+      <AdminStickyHeader className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold text-white/90">Market Intelligence</h1>
-        <p className="mt-0.5 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Companies, founders, and operators — click any row to open the full edit panel.
-        </p>
       </div>
 
-      {/* Tab strip */}
       <div className="flex gap-1 rounded-lg p-1" style={{ background: "rgba(255,255,255,0.04)", width: "fit-content" }}>
         {TABS.map(t => (
           <button
@@ -1211,9 +1209,9 @@ export function AdminMarketIntelligence() {
           </button>
         ))}
       </div>
+      </AdminStickyHeader>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0">
+      <div>
         {tab === "companies" && <CompaniesTab />}
         {tab === "founders"  && <FoundersTab />}
         {tab === "operators" && <OperatorsTab />}

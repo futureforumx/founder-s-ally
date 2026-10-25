@@ -19,6 +19,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@loading-ui": "https://loading-ui.com/r/{name}.json"
+    "@loading-ui": "https://loading-ui.com/r/{name}.json",
+    "@beui": "https://beui.dev/r/{name}.json"
   }
 }

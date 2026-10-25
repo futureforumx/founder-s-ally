@@ -1,4 +1,5 @@
-import { Wifi, ScrollText, Brain, ArrowRight, History, Users } from "lucide-react";
+import { Wifi, ScrollText, Brain, ArrowRight, History, Users, LineChart } from "lucide-react";
+import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 const STATS = [
   { label: "Active Integrations", value: "7/7", color: "#2EE6A6" },
@@ -7,7 +8,7 @@ const STATS = [
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
 
-type AdminView = "overview" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
+type AdminView = "overview" | "analytics" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
 
 interface AdminOverviewProps {
   onNavigate: (view: AdminView) => void;
@@ -16,12 +17,9 @@ interface AdminOverviewProps {
 export function AdminOverview({ onNavigate }: AdminOverviewProps) {
   return (
     <div className="space-y-8">
-      <div>
+      <AdminStickyHeader>
         <h1 className="text-xl font-bold text-white/90">Platform Intelligence</h1>
-        <p className="mt-1 font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-          Real-time health monitoring · Last checked 4s ago
-        </p>
-      </div>
+      </AdminStickyHeader>
 
       {/* KPI Row */}
       <div className="grid grid-cols-4 gap-4">
@@ -42,8 +40,9 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {[
+          { key: "analytics", icon: LineChart, title: "Analytics", desc: "Users, waitlist, clicks, and investor actions" },
           { key: "users", icon: Users, title: "Users", desc: "Manage permissions and monitor user activity" },
           { key: "record-updates", icon: History, title: "Record updates", desc: "Latest changes across firms, investors, companies, users" },
           { key: "api-health", icon: Wifi, title: "API Health", desc: "Monitor 7 integration endpoints" },
