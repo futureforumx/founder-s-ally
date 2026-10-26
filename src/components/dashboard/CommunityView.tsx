@@ -60,6 +60,10 @@ import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/li
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
 import type { AumBand } from "@prisma/client";
 import { isSupabaseConfigured, supabaseVcDirectory } from "@/integrations/supabase/client";
+import {
+  computeFirmProfileMatchScoreFromProfile,
+  stableDirectoryMatchScore,
+} from "@/lib/investorBestFit";
 import { AdminLiveRecordDialog } from "@/components/admin/AdminLiveRecordDialog";
 import { AdminEditButton } from "@/components/admin/AdminEditButton";
 import {
@@ -667,7 +671,7 @@ function InvestorCard({
   const logoUrl = founder._logoUrl || null;
   const sentimentScore = founder._founderSentimentScore ?? stableReputationFallback(founder.name);
   const sentimentColor = sentimentScore != null ? (sentimentScore >= 70 ? "text-success" : sentimentScore >= 40 ? "text-warning" : "text-destructive") : "text-muted-foreground";
-  const matchScore = founder._matchScore ?? Math.floor(Math.random() * 30 + 60); // placeholder until real user-specific score
+  const matchScore = stableDirectoryMatchScore(founder.name, founder._matchScore);
   const matchColor = matchScore >= 75 ? "text-success" : matchScore >= 50 ? "text-warning" : "text-destructive";
   const aumBand = founder._aumBand ?? investorAumBandLabel(founder._aum);
   const velocityScore = (founder as any)._dealVelocityScore ?? null;
@@ -1587,6 +1591,7 @@ function CohortFooterSparkline({
 }
 
 const INVESTOR_SORT_OPTIONS = [
+  { value: "best_fit", label: "Best fit" },
   { value: "recommended", label: "Recommended" },
   { value: "funding_activity", label: "Funding activity (90d)" },
   { value: "name_az", label: "Name A–Z" },
@@ -1641,6 +1646,12 @@ function compareInvestorsForSort(a: DirectoryEntry, b: DirectoryEntry, sort: Inv
       if (fa == null) return 1;
       if (fb == null) return -1;
       if (fb !== fa) return fb - fa;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    }
+    case "best_fit": {
+      const sa = a._matchScore ?? 0;
+      const sb = b._matchScore ?? 0;
+      if (sb !== sa) return sb - sa;
       return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
     }
     case "recommended":
@@ -1905,7 +1916,7 @@ export function CommunityView({
   const [userStatuses, setUserStatuses] = useState<string[]>(["PARTNERSHIPS"]);
   const [activeCohortId, setActiveCohortId] = useState<string | null>(null);
   const [investorSort, setInvestorSort] = useState<InvestorSortValue>(() =>
-    variant === "investor-search" ? "name_az" : "recommended",
+    variant === "investor-search" ? "best_fit" : "recommended",
   );
   const [investorEntityFilter, setInvestorEntityFilter] = useState<InvestorEntityFilter>("all");
   const [networkDirectorySort, setNetworkDirectorySort] = useState<NetworkDirectorySortValue>("default");
@@ -3034,7 +3045,14 @@ export function CommunityView({
     if (directoryDbGrid) {
       return networkDirectoryGridEntries;
     }
-    const list = [...investorEntityFilteredEntries];
+    const list = investorEntityFilteredEntries.map((entry) =>
+      isInvestorSearch
+        ? {
+            ...entry,
+            _matchScore: computeFirmProfileMatchScoreFromProfile(userSector, userStage, entry),
+          }
+        : entry,
+    );
     if (isInvestorSearch || isOperatorHubLayout) {
       list.sort((a, b) => compareInvestorsForSort(a, b, investorSort));
     }
@@ -3046,6 +3064,8 @@ export function CommunityView({
     investorSort,
     isInvestorSearch,
     isOperatorHubLayout,
+    userSector,
+    userStage,
   ]);
 
   const hasMore = directoryDbGrid ? communityGrid.hasMore : visibleCount < gridEntries.length;

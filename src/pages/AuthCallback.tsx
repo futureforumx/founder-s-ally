@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { supabaseAuth } from "@/integrations/supabase/client";
+import { resolveAuthCallbackUser } from "@/lib/completeAuthCallback";
 import { waitlistSignup } from "@/lib/waitlist";
 
 function readCallbackError(): string | null {
@@ -45,22 +46,7 @@ export default function AuthCallback() {
 
     const finish = async () => {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
-        if (code) {
-          const { error } = await supabaseAuth.auth.exchangeCodeForSession(code);
-          // detectSessionInUrl may have exchanged the code already; getUser below is
-          // the source of truth for whether the callback actually succeeded.
-          if (error && import.meta.env.DEV) {
-            console.warn("[auth] exchangeCodeForSession:", error.message);
-          }
-        } else {
-          // Implicit / detectSessionInUrl path — give the client a beat to hydrate.
-          await supabaseAuth.auth.getSession();
-        }
-
-        const { data, error } = await supabaseAuth.auth.getUser();
-        if (error || !data.user) throw error ?? new Error("No authenticated user returned.");
+        const user = await resolveAuthCallbackUser(supabaseAuth, window.location.search);
         if (cancelled) return;
 
         if (!requestAccess) {
@@ -69,7 +55,8 @@ export default function AuthCallback() {
         }
 
         setStatusLabel("Submitting your access request...");
-        const metadata = data.user.user_metadata ?? {};
+        const params = new URLSearchParams(window.location.search);
+        const metadata = user.user_metadata ?? {};
         const fullName =
           (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
           (typeof metadata.name === "string" && metadata.name.trim()) ||
@@ -78,17 +65,17 @@ export default function AuthCallback() {
             .map((part) => part.trim())
             .join(" ");
         const provider =
-          data.user.app_metadata && typeof data.user.app_metadata.provider === "string"
-            ? data.user.app_metadata.provider
+          user.app_metadata && typeof user.app_metadata.provider === "string"
+            ? user.app_metadata.provider
             : "oauth";
         const signupResult = await waitlistSignup({
-          email: data.user.email ?? "",
+          email: user.email ?? "",
           name: fullName || undefined,
           source: `register_${provider}`,
           referral_code: params.get("ref")?.trim() || undefined,
           metadata: {
             oauth_provider: provider,
-            oauth_user_id: data.user.id,
+            oauth_user_id: user.id,
             avatar_url: typeof metadata.avatar_url === "string" ? metadata.avatar_url : undefined,
             terms_accepted: true,
           },
@@ -96,7 +83,7 @@ export default function AuthCallback() {
 
         const referralCode = signupResult.referral_code?.trim() || "";
         const confirmationState = {
-          email: (data.user.email ?? "").trim().toLowerCase(),
+          email: (user.email ?? "").trim().toLowerCase(),
           confirmationEmailSent: signupResult.confirmation_email_sent === true,
           referralCode,
           referralLink: referralCode
