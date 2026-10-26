@@ -1,6 +1,6 @@
 import type { User, Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { isSupabaseConfigured, setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
+import { setSupabaseAccessTokenGetter, supabaseAuth } from "@/integrations/supabase/client";
 import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
 import { LoginOtpError, sendLoginOtp } from "@/lib/sendLoginOtp";
@@ -543,46 +543,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function PublicAuthProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    setSupabaseAccessTokenGetter(null);
-    registerClerkSessionTokenGetter(async () => null);
-    mixpanelReset();
-
-    return () => {
-      setSupabaseAccessTokenGetter(null);
-      registerClerkSessionTokenGetter(async () => null);
-    };
-  }, []);
-
-  const value = useMemo<AuthCtx>(
-    () => ({
-      user: null,
-      session: null,
-      loading: false,
-      isConfigured: false,
-      signIn: async () => {},
-      signInWithPassword: async () => {},
-      signInWithOAuth: async () => {},
-      linkOAuthIdentity: async () => {},
-      resetPassword: async () => {},
-      signUp: async () => ({ needsEmailConfirmation: false }),
-      resendSignupConfirmation: async () => {},
-      verifySignupConfirmation: async () => false,
-      verifyOtp: async () => {},
-      signOut: async () => {},
-      getAccessToken: async () => null,
-    }),
-    [],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  if (!isSupabaseConfigured) {
-    return <PublicAuthProvider>{children}</PublicAuthProvider>;
-  }
   return <SupabaseAuthProvider>{children}</SupabaseAuthProvider>;
 }
 
