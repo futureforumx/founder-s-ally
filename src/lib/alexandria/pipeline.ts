@@ -781,9 +781,9 @@ async function processRecord(sel: Selected, c: RecordCtx): Promise<RecordResult>
   for (const g of refreshedGroups) refreshed[g] = nowIso;
   const stateExtras: Partial<EnrichmentState> = { fieldLastRefreshed: refreshed };
 
+  if (failedCalls > 0 && okCalls === 0) return finish("failed", calls.filter((x) => x.disposition === "error").map((x) => x.detail).join("; "), partial, stateExtras);
   if (anyBudgetStop && okCalls === 0) return finish("budget_stopped", "budget exhausted before this record could be enriched", partial, stateExtras);
   if (ambiguity && counts.apply === 0 && okCalls === 0) return finish("ambiguous", ambiguity, partial, stateExtras);
-  if (failedCalls > 0 && okCalls === 0) return finish("failed", calls.filter((x) => x.disposition === "error").map((x) => x.detail).join("; "), partial, stateExtras);
   if (!options.allowBillable && calls.every((x) => x.disposition === "would_call" || x.disposition === "terms_blocked") && facts.length === 0) {
     return finish("planned", "dry run: no lookups executed", partial, stateExtras);
   }

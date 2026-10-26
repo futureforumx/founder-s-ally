@@ -256,17 +256,22 @@ function isForward(spec: FieldSpec, before: unknown, after: unknown): boolean {
 
 /**
  * Latest-round details (type, size, valuation) describe one round. They only replace existing values
- * when the same batch also moves last_round_date forward (or the date was empty); otherwise a stale
- * provider round would overwrite a newer one.
+ * when the same batch also moves last_round_date forward; otherwise a stale provider round would
+ * overwrite a newer one.
  */
 function enforceRoundCoherence(decisions: FieldDecision[]): FieldDecision[] {
   const date = decisions.find((d) => d.field === "last_round_date");
   const dateAdvances = date?.action === "apply";
   return decisions.map((d) => {
-    if (!LATEST_ROUND_FOLLOWERS.has(d.field) || d.action !== "apply") return d;
-    if (isEmptyValue(d.before)) return d;
-    if (dateAdvances) return d;
-    return { ...d, action: "review" as const, reason: "round_details_not_confirmed_by_newer_round_date" };
+    if (!LATEST_ROUND_FOLLOWERS.has(d.field) || isEmptyValue(d.before)) return d;
+    if (d.action === "apply" && !dateAdvances) {
+      return { ...d, action: "review" as const, reason: "round_details_not_confirmed_by_newer_round_date" };
+    }
+    const upgradable = d.action === "review" && d.confidence === "high" && /^(conflict_unattributed|existing_more_authoritative)/.test(d.reason);
+    if (upgradable && dateAdvances) {
+      return { ...d, action: "apply" as const, reason: "current_state_correction: latest round advanced" };
+    }
+    return d;
   });
 }
 

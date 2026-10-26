@@ -293,7 +293,7 @@ AS $$
       ) t), '[]'::jsonb),
     'review', jsonb_build_object(
       'pending_candidate_values', (SELECT count(*) FROM public.enrichment_candidate_values WHERE status = 'pending' AND run_id IS NOT NULL),
-      'pending_identity_reviews', (SELECT count(*) FROM public.enrichment_review_queue WHERE entity_type = 'alexandria_identity_match' AND status = 'pending'),
+      'pending_identity_reviews', (SELECT count(*) FROM public.enrichment_review_queue WHERE entity_type::text = 'alexandria_identity_match' AND status::text = 'pending'),
       'match_failures', (SELECT count(*) FROM public.enrichment_match_failures WHERE source_platform LIKE 'alexandria:%' AND created_at >= p_since)
     ),
     'runs', COALESCE((

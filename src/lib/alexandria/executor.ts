@@ -108,6 +108,7 @@ export interface CallContext {
 
 /** Extract an HTTP-ish status/code from the SDK error without depending on its class identity. */
 function describeError(err: unknown): { status?: number; code?: string; message: string; chargeId?: string; requiresAction?: { type?: string; url?: string } } {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider error shapes vary
   const e = err as Record<string, any> | null;
   return {
     status: typeof e?.status === "number" ? e.status : undefined,
@@ -166,6 +167,7 @@ export class AlexandriaExecutor {
   private readonly now: () => Date;
   private readonly random: () => number;
   private gate: Promise<void> = Promise.resolve();
+  private cacheHits = 0;
 
   constructor(private readonly deps: ExecutorDeps) {
     this.sem = new Semaphore(Math.max(1, deps.config.concurrency));
@@ -236,7 +238,9 @@ export class AlexandriaExecutor {
     if (cache) {
       const hit = await cache.getCache(key, this.now());
       if (hit) {
-        await ledger.upsertLedger({ ...base, creditsEstimated: 0, creditsActual: 0, status: "cache_hit", attemptCount: 0 });
+        // A cache hit must never reuse the paid call's request id, or it would overwrite the charge in the ledger.
+        const hitId = deterministicUuid(`cache\n${requestId}\n${this.now().toISOString()}\n${this.cacheHits++}`);
+        await ledger.upsertLedger({ ...base, requestId: hitId, creditsEstimated: 0, creditsActual: 0, status: "cache_hit", attemptCount: 0 });
         return {
           ok: true,
           source: "cache",
@@ -290,6 +294,7 @@ export class AlexandriaExecutor {
 
           if ("error" in result && result.error) {
             const perCall = result.error;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider error shapes vary
             const d = { status: perCall.status, code: perCall.code, message: perCall.message, chargeId: perCall.chargeId, requiresAction: (perCall as any).requiresAction };
             if (isTermsError(d)) {
               this.blocked.set(provider, d.requiresAction?.url ?? null);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- SDK search/find-tools responses are loosely typed */
 /**
  * Refresh the verified Alexandria capability snapshot (FREE - discovery only, no credits).
  *

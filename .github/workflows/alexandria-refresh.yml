@@ -1,0 +1,90 @@
+# Alexandria enrichment (Firecrawl). MANUAL ONLY: no schedule is active.
+#
+# Dry run is the default and spends no credits. Billable lookups and DB writes need BOTH the workflow
+# input and the matching env gate below. To enable recurring paid refreshes, uncomment `schedule`
+# deliberately, set the repo variable ALEXANDRIA_SCHEDULE_ENABLED=true, and keep --max-credits low.
+#
+# Required secrets: FIRECRAWL_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+# Optional repo variable: ALEXANDRIA_DAILY_CREDIT_CAP.
+
+name: Alexandria enrichment
+
+on:
+  workflow_dispatch:
+    inputs:
+      entity:
+        description: "firm | investor | company | founder | operator | all"
+        required: true
+        default: firm
+      limit:
+        description: "Max records to scan"
+        required: true
+        default: "25"
+      max_credits:
+        description: "Hard credit cap for this job"
+        required: true
+        default: "100"
+      mode:
+        description: "dry-run (free) | lookup-only (spends credits, no writes) | apply (spends credits, writes high-confidence fields)"
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, lookup-only, apply]
+      refresh_stale:
+        description: "Refresh stale fields instead of only filling missing"
+        required: false
+        default: false
+        type: boolean
+  # schedule:
+  #   - cron: "0 5 * * 1"   # weekly; also requires vars.ALEXANDRIA_SCHEDULE_ENABLED == 'true'
+
+concurrency:
+  group: alexandria-enrichment
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    if: github.event_name == 'workflow_dispatch' || vars.ALEXANDRIA_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run enrichment
+        env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ALEXANDRIA_DAILY_CREDIT_CAP: ${{ vars.ALEXANDRIA_DAILY_CREDIT_CAP }}
+          ALEXANDRIA_TRUSTED_SHAPES: ${{ vars.ALEXANDRIA_TRUSTED_SHAPES }}
+          ALEXANDRIA_ALLOW_BILLABLE: ${{ inputs.mode != 'dry-run' && '1' || '' }}
+          ALEXANDRIA_ALLOW_WRITES: ${{ inputs.mode == 'apply' && '1' || '' }}
+          ENTITY: ${{ inputs.entity }}
+          LIMIT: ${{ inputs.limit }}
+          MAX_CREDITS: ${{ inputs.max_credits }}
+          MODE: ${{ inputs.mode }}
+          REFRESH_STALE: ${{ inputs.refresh_stale }}
+        run: |
+          set -euo pipefail
+          args=(--entity "$ENTITY" --limit "$LIMIT" --max-credits "$MAX_CREDITS" --missing-only --out alexandria-report.json)
+          if [ "$REFRESH_STALE" = "true" ]; then args+=(--refresh-stale); fi
+          case "$MODE" in
+            lookup-only) args+=(--allow-billable) ;;
+            apply)       args+=(--allow-billable --no-dry-run --apply) ;;
+          esac
+          pnpm alexandria:run "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alexandria-report
+          path: alexandria-report.json
+          if-no-files-found: ignore

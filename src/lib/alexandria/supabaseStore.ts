@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untyped client: the Alexandria tables are not in the generated Supabase types */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExistingProvenance } from "./decide";
 import type { CachedResponse, LedgerEntry } from "./executor";
