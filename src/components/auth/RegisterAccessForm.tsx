@@ -45,9 +45,12 @@ export function RegisterAccessForm({
   const { isConfigured, signInWithOAuth } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const inboundReferralCode =
+    searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim() || undefined;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [referralCodeInput, setReferralCodeInput] = useState(inboundReferralCode ?? "");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
@@ -60,8 +63,7 @@ export function RegisterAccessForm({
     onClearExternalError?.();
   };
 
-  const inboundReferralCode =
-    searchParams.get("ref")?.trim() || searchParams.get("referral_code")?.trim() || undefined;
+  const showReferralCode = Boolean(firstName.trim() && lastName.trim() && email.trim());
 
   const startOAuth = async (provider: OAuthProvider) => {
     clearErrors();
@@ -69,7 +71,7 @@ export function RegisterAccessForm({
     try {
       await signInWithOAuth(provider, {
         intent: "request-access",
-        referralCode: inboundReferralCode,
+        referralCode: referralCodeInput.trim() || undefined,
       });
     } catch (error) {
       const message =
@@ -94,7 +96,7 @@ export function RegisterAccessForm({
         name: `${firstName.trim()} ${lastName.trim()}`.trim(),
         source,
         campaign,
-        referral_code: inboundReferralCode,
+        referral_code: referralCodeInput.trim() || undefined,
         metadata: { first_name: firstName.trim(), last_name: lastName.trim(), terms_accepted: true },
       });
       const referralCode = signupResult.referral_code?.trim() || "";
@@ -214,6 +216,23 @@ export function RegisterAccessForm({
             />
           </div>
         </div>
+
+        {showReferralCode ? (
+          <div className="space-y-2 text-left">
+            <label htmlFor={`${idPrefix}-referral-code`} className={labelClassName}>
+              Referral code (optional)
+            </label>
+            <input
+              id={`${idPrefix}-referral-code`}
+              type="text"
+              autoComplete="off"
+              value={referralCodeInput}
+              onChange={(event) => setReferralCodeInput(event.target.value)}
+              placeholder="Enter referral code"
+              className={inputPlainClassName}
+            />
+          </div>
+        ) : null}
 
         <div className="flex items-center gap-3 text-left">
           <input
