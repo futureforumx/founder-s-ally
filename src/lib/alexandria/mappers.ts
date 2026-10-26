@@ -197,7 +197,7 @@ function mapFireroundInvestorProfile(rec: Obj, sink: FactSink, ctx: MapContext, 
       // Sectors a firm has backed describe activity, not its stated thesis.
       sink.add("sector_focus", sectors.slice(0, 8), { documented: false, kind: "inferred", verification: "derived" });
     }
-    const stages = names(rec.stages);
+    const stages = names(rec.stages, ["stage", "name"]);
     if (stages.length) sink.add("stage_focus", stages.slice(0, 8), { documented: false, kind: "inferred", verification: "derived" });
     const coInvestors = names(rec.co_investors);
     if (coInvestors.length) sink.add("co_investor_patterns", coInvestors.slice(0, 15), { documented: false });
@@ -227,7 +227,7 @@ function mapFireroundInvestorProfile(rec: Obj, sink: FactSink, ctx: MapContext, 
         companyDomain: normalizeDomain(r.company_domain ?? (isObj(r.company) ? r.company.domain : undefined) ?? r.domain),
         companyExternalId: str(r.company_id) ?? (isObj(r.company) ? str(r.company.id) : null),
         roundType: str(r.round) ?? str(r.round_type) ?? str(r.stage) ?? str(r.type),
-        amountUsd: num(r.amount_usd) ?? num(r.amount),
+        amountUsd: num(r.amount_usd) ?? (isObj(r.amount) ? usd(num(r.amount.usd_millions)) : num(r.amount)),
         announcedOn: isoDate(r.date) ?? isoDate(r.announced_on) ?? isoDate(r.announced_at),
         role: role.includes("lead") ? "lead" : role ? "participant" : "unknown",
         shapeDocumented: ctx.trustedShapes.has("fireround/investors/profile"),

@@ -112,6 +112,8 @@ export interface JobOptions {
   allowWrites: boolean;
   allowBillable: boolean;
   concurrency: number;
+  /** Minimum ms between provider call starts; keeps us under the account's requests-per-minute limit. */
+  minIntervalMs: number;
   resumeRunId: string | null;
   providers: string[] | null;
   cacheTtlHours: number;

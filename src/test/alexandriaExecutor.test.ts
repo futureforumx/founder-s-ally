@@ -87,9 +87,9 @@ describe("alexandria executor", () => {
     expect(rec.port!.calls).toHaveLength(1);
   });
 
-  it("retries 429/5xx with exponential backoff and the SAME request id (idempotent replay)", async () => {
+  it("retries 5xx with exponential backoff and the SAME request id (idempotent replay)", async () => {
     const { executor, port, sleeps, budget } = makeExecutor({
-      responder: (_req, attempt) => (attempt < 3 ? httpError(429) : ok("fireround", "companies/profile", { name: "X" }, 5)),
+      responder: (_req, attempt) => (attempt < 3 ? httpError(503) : ok("fireround", "companies/profile", { name: "X" }, 5)),
     });
     const out = await executor.call("fireround", "companies/profile", profile, ctx);
     expect(out).toMatchObject({ ok: true, credits: 5 });
@@ -97,6 +97,40 @@ describe("alexandria executor", () => {
     expect(new Set(port!.calls.map((c) => c.requestId)).size).toBe(1);
     expect(sleeps).toEqual([1000, 2000]);
     expect(budget.spent).toBe(5);
+  });
+
+  it("honours the provider's retry-after on rate limits, keeps the same request id, and does not charge", async () => {
+    const msg = "ERR_BAD_REQUEST: Rate limit exceeded. Consumed (req/min): 17, Remaining (req/min): 0. please retry after 37s, resets soon";
+    const { executor, port, sleeps, budget } = makeExecutor({
+      responder: (_req, attempt) => (attempt < 3 ? httpError(429, msg) : ok("fireround", "companies/profile", { name: "X" }, 5)),
+    });
+    const out = await executor.call("fireround", "companies/profile", profile, ctx);
+    expect(out).toMatchObject({ ok: true, credits: 5 });
+    expect(sleeps).toEqual([38_000, 38_000]);
+    expect(new Set(port!.calls.map((c) => c.requestId)).size).toBe(1);
+    expect(budget.spent).toBe(5);
+  });
+
+  it("detects rate limits from the message even without an HTTP status, and caps the wait", async () => {
+    const msg = "Rate limit exceeded. please retry after 600s";
+    const { executor, sleeps } = makeExecutor({
+      responder: (_req, attempt) => (attempt < 2 ? new Error(msg) : ok("fireround", "companies/profile", { name: "X" }, 5)),
+      config: { maxRateLimitWaitMs: 90_000 },
+    });
+    expect(await executor.call("fireround", "companies/profile", profile, ctx)).toMatchObject({ ok: true });
+    expect(sleeps).toEqual([90_000]);
+  });
+
+  it("gives up after the rate-limit retry budget without booking any cost", async () => {
+    const { executor, port, budget, store } = makeExecutor({
+      responder: () => httpError(429, "Rate limit exceeded. please retry after 1s"),
+      config: { maxRateLimitRetries: 2 },
+    });
+    const out = await executor.call("fireround", "companies/profile", profile, ctx);
+    expect(out).toMatchObject({ ok: false, reason: "provider_error", uncertain: false });
+    expect(port!.calls).toHaveLength(3);
+    expect(budget.spent).toBe(0);
+    expect([...store.ledger.values()][0].status).toBe("failed");
   });
 
   it("does not retry client errors and does not charge for them", async () => {

@@ -117,4 +117,42 @@ describe("helpers", () => {
     expect(text).not.toMatch(/Secret|a@b\.co|CEO|555/);
     expect(skel).toEqual({ email: "string", jobs: [{ title: "string", years: "number" }], name: "string", nested: { phone: "string" } });
   });
+  it("maps the captured Fireround investors/profile shape (stages as objects, nested amount, string company)", () => {
+    const data = {
+      id: "inv_1",
+      name: "Example Capital",
+      url: "https://example.test/inv_1",
+      description: null,
+      domain: null,
+      headquarters: null,
+      kind: null,
+      sectors: [],
+      stages: [{ stage: "Seed", count: 7 }, { stage: "Series A", count: 3 }],
+      co_investors: [{ id: "c1", name: "Peer Partners", shared_rounds: 2 }],
+      totals: { rounds_led: 2, rounds_co_led: 0, rounds_participated: 5, lead_share_usd_millions: 3 },
+      recent_rounds: [
+        {
+          company: "Acme Robotics",
+          company_domain: "acme.example",
+          company_url: "https://acme.example",
+          announced_on: "2026-03-01",
+          stage: "Seed",
+          stage_as_written: "seed round",
+          role: "lead",
+          lead_investors: ["Example Capital"],
+          earlier_round: false,
+          certainty: "high",
+          sector: null,
+          amount: { as_written: "$4M", usd_millions: 4 },
+        },
+      ],
+    };
+    const res = mapResponse("fireround", "investors/profile", data, null, ctx("firm"));
+    const byField = Object.fromEntries(res.facts.map((f) => [f.field, f]));
+    expect(byField.stage_focus.value).toEqual(["Seed", "Series A"]);
+    expect(byField.co_investor_patterns.value).toEqual(["Peer Partners"]);
+    expect(byField.most_recent_investment_date.value).toBe("2026-03-01");
+    expect(byField.domain).toBeUndefined();
+    expect(res.relationships[0]).toMatchObject({ companyName: "Acme Robotics", companyDomain: "acme.example", amountUsd: 4_000_000, role: "lead", announcedOn: "2026-03-01" });
+  });
 });

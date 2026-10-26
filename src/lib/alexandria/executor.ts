@@ -69,8 +69,12 @@ export interface ExecutorConfig {
   maxDelayMs: number;
   /** Max provider calls in flight. */
   concurrency: number;
-  /** Minimum spacing between call starts (ms). */
+  /** Minimum spacing between call starts (ms). Keep this under the account's requests-per-minute limit. */
   minIntervalMs: number;
+  /** Longest provider-requested wait (ms) we will honour on a rate limit before giving up. */
+  maxRateLimitWaitMs: number;
+  /** Extra attempts allowed specifically for rate limits (they are rejected before billing). */
+  maxRateLimitRetries: number;
   timeoutMs: number;
   cacheTtlMs: number;
   integrationTag: string;
@@ -82,7 +86,9 @@ export const DEFAULT_EXECUTOR_CONFIG: Omit<ExecutorConfig, "runId"> = {
   baseDelayMs: 1_000,
   maxDelayMs: 30_000,
   concurrency: 2,
-  minIntervalMs: 250,
+  minIntervalMs: 3_000,
+  maxRateLimitWaitMs: 90_000,
+  maxRateLimitRetries: 6,
   timeoutMs: 60_000,
   cacheTtlMs: 30 * 24 * 3_600_000,
   integrationTag: "_vekta-enrichment",
@@ -123,7 +129,18 @@ function isTermsError(d: ReturnType<typeof describeError>): boolean {
   return d.code === "THIRD_PARTY_DATA_TERMS_REQUIRED" || d.requiresAction?.type === "accept_terms";
 }
 
+export function isRateLimited(d: { status?: number; message: string }): boolean {
+  return d.status === 429 || /rate limit exceeded|too many requests/i.test(d.message);
+}
+
+/** Seconds the provider asked us to wait ("please retry after 37s"), as milliseconds. */
+export function retryAfterMs(d: { message: string }): number | null {
+  const m = /retry after (\d+(?:\.\d+)?)\s*s/i.exec(d.message);
+  return m ? Math.ceil(Number(m[1]) * 1000) : null;
+}
+
 function isRetryable(d: { status?: number; code?: string; message: string }): boolean {
+  if (isRateLimited(d)) return true;
   if (d.status !== undefined) return d.status === 408 || d.status === 429 || d.status >= 500;
   if (d.code && /timeout|rate_limit|temporar|unavailable|upstream/i.test(d.code)) return true;
   return /timeout|timed out|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket hang up/i.test(d.message);
@@ -191,12 +208,14 @@ export class AlexandriaExecutor {
     }
   }
 
+  private cooldownUntil = 0;
+
   private async paceStart(): Promise<void> {
     const prev = this.gate;
     let release!: () => void;
     this.gate = new Promise<void>((r) => (release = r));
     await prev;
-    const wait = this.lastStart + this.deps.config.minIntervalMs - Date.now();
+    const wait = Math.max(this.lastStart + this.deps.config.minIntervalMs, this.cooldownUntil) - Date.now();
     if (wait > 0) await this.sleep(wait);
     this.lastStart = Date.now();
     release();
@@ -272,6 +291,7 @@ export class AlexandriaExecutor {
     await this.sem.acquire();
     try {
       let attempt = 0;
+      let rateLimitRetries = 0;
       let lastError: ReturnType<typeof describeError> | null = null;
       while (attempt < config.maxAttempts) {
         attempt++;
@@ -302,9 +322,13 @@ export class AlexandriaExecutor {
               await ledger.upsertLedger({ ...base, creditsActual: 0, status: "blocked_terms", errorCode: d.code ?? "terms_required", attemptCount: attempt });
               return { ok: false, reason: "terms_required", provider, termsUrl: d.requiresAction?.url ?? null, requestId };
             }
-            if (isRetryable(d) && attempt < config.maxAttempts) {
+            if (isRetryable(d) && (isRateLimited(d) ? rateLimitRetries < config.maxRateLimitRetries : attempt < config.maxAttempts)) {
               lastError = d;
-              await this.backoff(attempt);
+              if (isRateLimited(d)) {
+                rateLimitRetries++;
+                attempt--;
+              }
+              await this.backoff(attempt, d);
               continue;
             }
             const charged = total > 0 || Boolean(d.chargeId);
@@ -340,8 +364,12 @@ export class AlexandriaExecutor {
             return { ok: false, reason: "terms_required", provider, termsUrl: d.requiresAction?.url ?? null, requestId };
           }
           lastError = d;
-          if (isRetryable(d) && attempt < config.maxAttempts) {
-            await this.backoff(attempt);
+          if (isRetryable(d) && (isRateLimited(d) ? rateLimitRetries < config.maxRateLimitRetries : attempt < config.maxAttempts)) {
+            if (isRateLimited(d)) {
+              rateLimitRetries++;
+              attempt--;
+            }
+            await this.backoff(attempt, d);
             continue;
           }
           break;
@@ -364,10 +392,17 @@ export class AlexandriaExecutor {
     }
   }
 
-  private async backoff(attempt: number): Promise<void> {
-    const { baseDelayMs, maxDelayMs } = this.deps.config;
-    const exp = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1));
+  private async backoff(attempt: number, d?: { status?: number; message: string }): Promise<void> {
+    const { baseDelayMs, maxDelayMs, maxRateLimitWaitMs } = this.deps.config;
+    const exp = Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(0, attempt - 1));
     const jitter = exp * 0.25 * this.random();
+    if (d && isRateLimited(d)) {
+      // The limit is account-wide, so pause every in-flight and queued call, not just this one.
+      const asked = retryAfterMs(d);
+      const wait = Math.min(maxRateLimitWaitMs, (asked ?? exp) + 1_000);
+      this.cooldownUntil = Math.max(this.cooldownUntil, Date.now() + wait);
+      return;
+    }
     await this.sleep(exp + jitter);
   }
 }
