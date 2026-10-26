@@ -404,7 +404,7 @@ export function AdminWaitlist() {
           <div className="flex min-h-64 items-center justify-center text-sm text-white/35">No matching applicants.</div>
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            <div className="grid grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] items-center gap-4 px-4 py-2.5 text-xs font-medium text-white/55">
+            <div className="grid grid-cols-[minmax(0,1.35fr)_96px_minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,0.9fr)_130px_150px] items-center gap-3 px-3 py-3 text-xs font-medium text-white/55">
               <span>Applicant</span>
               <span>Status</span>
               <span>Applied</span>
@@ -420,7 +420,7 @@ export function AdminWaitlist() {
               const source = formatSource(applicant);
               const noteValue = noteDrafts[applicant.id] ?? applicant.admin_notes ?? "";
               return (
-                <div key={applicant.id} className="grid grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] items-start gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025]">
+                <div key={applicant.id} className="grid grid-cols-[minmax(0,1.35fr)_96px_minmax(0,0.85fr)_minmax(0,1fr)_minmax(0,0.9fr)_130px_150px] items-start gap-3 bg-[#080808] p-3 transition hover:bg-white/[0.025]">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white/85">{applicant.name || "Unnamed applicant"}</p>
                     <a href={`mailto:${applicant.email}`} className="mt-1 block truncate text-xs text-white/45 hover:text-emerald-400">
