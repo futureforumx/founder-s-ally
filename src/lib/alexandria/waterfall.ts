@@ -139,9 +139,10 @@ export function planWaterfall(input: PlanInput): PlanResult {
     const second: Stage = { name: "firmographics", escalation: false, calls: [] };
     const fallback: Stage = { name: "fallback", escalation: true, calls: [] };
 
-    // investors/profile documents "the investor's name" as an accepted id; companies/profile documents the domain.
-    if (entity === "firm" && name) {
-      addCall(cheap, "fireround", "investors/profile", { id: name }, "matched by name; identity verified against returned domain");
+    // investors/profile documents "the investor's name" as an accepted id, and its not_found response says "name or site";
+    // companies/profile documents the domain. A known domain is the more precise key.
+    if (entity === "firm" && (domain || name)) {
+      addCall(cheap, "fireround", "investors/profile", { id: domain ?? name }, domain ? "matched by site; identity verified against returned domain" : "matched by name; identity verified against returned domain");
     } else if (entity === "company") {
       const fireId = domain ?? name;
       if (fireId) addCall(cheap, "fireround", "companies/profile", { id: fireId }, domain ? "matched by domain" : "matched by name only");
