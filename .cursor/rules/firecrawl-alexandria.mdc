@@ -1,0 +1,20 @@
+---
+description: Firecrawl Alexandria — discover before retrieve; report credit costs
+globs:
+alwaysApply: true
+---
+
+# Firecrawl Alexandria
+
+Alexandria is Firecrawl’s catalog of data providers. Prefer the installed CLI (`firecrawl`) or the `firecrawl` MCP server when available. Skills: `firecrawl-alexandria`, `firecrawl-search`, `firecrawl-scrape`.
+
+## Workflow (required)
+
+1. **Discover (free)** — `firecrawl search` with Alexandria / `firecrawl_search`, or `firecrawl find-tools` / `firecrawl_find_tools`. Do not invent provider or capability IDs.
+2. **Inspect** — read inputs, response shape, and credit price (`find-tools --include-costs`, `list <provider> <capability>`, or MCP equivalents) before spending credits.
+3. **Execute (billed)** — only capabilities discovery returned, via `firecrawl scrape <provider>/<capability>` / `firecrawl_scrape`, or SDK/HTTP `scrape` with `{ alexandria: { provider, capability, options } }`.
+4. **Report cost** — tell the user what each billed call cost in credits.
+
+Auth: `FIRECRAWL_API_KEY` (Bearer). Alexandria is not available keyless.
+
+Docs: https://docs.firecrawl.dev/features/alexandria
