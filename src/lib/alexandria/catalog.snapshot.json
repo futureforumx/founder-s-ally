@@ -1,0 +1,1140 @@
+{
+  "generatedAt": "2026-10-26T17:43:07.668Z",
+  "sdkVersion": "4.51.0",
+  "providers": {
+    "fireround": {
+      "termsRequired": false,
+      "termsVersion": null,
+      "termsUrl": "https://www.firecrawl.dev/app/settings?tab=data-sources"
+    },
+    "fullenrich": {
+      "termsRequired": false,
+      "termsVersion": "A-2.0.0",
+      "termsUrl": "https://www.firecrawl.dev/app/settings?tab=data-sources"
+    },
+    "apollo": {
+      "termsRequired": true,
+      "termsVersion": "F-1.0.0",
+      "termsUrl": "https://www.firecrawl.dev/app/settings?tab=data-sources"
+    },
+    "datalegion": {
+      "termsRequired": false,
+      "termsVersion": "H-1.1.0",
+      "termsUrl": "https://www.firecrawl.dev/app/settings?tab=data-sources"
+    },
+    "people-data-labs": {
+      "termsRequired": false,
+      "termsVersion": "I-1.1.0",
+      "termsUrl": "https://www.firecrawl.dev/app/settings?tab=data-sources"
+    }
+  },
+  "capabilities": [
+    {
+      "provider": "fireround",
+      "capability": "investors/profile",
+      "name": "An investor's profile",
+      "description": "One investor's track record on Fireround: the rounds it led and joined, the sectors and stages it backs, the investors it co-invests with, and its newest rounds with its role in each. Takes the id from investors/search or investors/top, or the investor's name.",
+      "creditsCost": 5,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "response": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "domain",
+            "type": "string"
+          },
+          {
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "name": "kind",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "headquarters",
+            "type": "string"
+          },
+          {
+            "name": "totals",
+            "type": "object"
+          },
+          {
+            "name": "sectors",
+            "type": "object[]"
+          },
+          {
+            "name": "stages",
+            "type": "object[]"
+          },
+          {
+            "name": "co_investors",
+            "type": "object[]"
+          },
+          {
+            "name": "recent_rounds",
+            "type": "object[]"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fireround",
+      "capability": "companies/profile",
+      "name": "A company's profile and funding",
+      "description": "One startup or private company's profile and venture funding: its headquarters (location), its sector, what the company does, its total raised (announced and reported rounds), its valuation (latest and every stated one), every round newest first with its leads and official announcement, and every investor on them, leads first. Use for questions like \"where is TypeSafe AI headquartered and what does it do\", \"tell me about Supabase's funding\", \"what is Ramp valued at\" or \"who has invested in Ramp\". Takes the company's domain or its id from companies/search.",
+      "creditsCost": 5,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "response": {
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "domain",
+            "type": "string"
+          },
+          {
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "sector",
+            "type": "string"
+          },
+          {
+            "name": "headquarters",
+            "type": "string"
+          },
+          {
+            "name": "total_raised_usd_millions",
+            "type": "number"
+          },
+          {
+            "name": "stated_total_raised",
+            "type": "object"
+          },
+          {
+            "name": "valuation_history",
+            "type": "object"
+          },
+          {
+            "name": "latest_round",
+            "type": "object"
+          },
+          {
+            "name": "rounds",
+            "type": "object[]"
+          },
+          {
+            "name": "investors",
+            "type": "object[]"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fireround",
+      "capability": "companies/search",
+      "name": "Search funded companies",
+      "description": "Find startups and other venture-backed private companies by sector, stage, location (headquarters city or country), what the company does, or when they last raised, one row per company: which fintech startups in London raised this month, the most-funded AI infrastructure companies, seed-stage climate companies in Germany. Each carries its headquarters, sector, what it does, total raised, round count and newest round; use companies/profile for one company's valuation and full funding.",
+      "creditsCost": 5,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "q",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "sector",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "stage",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "since",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "data",
+        "paginated": true,
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "domain",
+            "type": "string"
+          },
+          {
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "sector",
+            "type": "string"
+          },
+          {
+            "name": "headquarters",
+            "type": "string"
+          },
+          {
+            "name": "rounds_total",
+            "type": "number"
+          },
+          {
+            "name": "total_raised_usd_millions",
+            "type": "number"
+          },
+          {
+            "name": "latest_round",
+            "type": "object"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fireround",
+      "capability": "investors/search",
+      "name": "Search investors",
+      "description": "Find a venture investor or fund by name, or list the investors with the most rounds on record: how many rounds a firm led and joined and its newest round. Use the returned id with investors/profile for its portfolio and sectors.",
+      "creditsCost": 5,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "q",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "data",
+        "paginated": true,
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "domain",
+            "type": "string"
+          },
+          {
+            "name": "url",
+            "type": "string"
+          },
+          {
+            "name": "rounds_led",
+            "type": "number"
+          },
+          {
+            "name": "rounds_participated",
+            "type": "number"
+          },
+          {
+            "name": "rounds_total",
+            "type": "number"
+          },
+          {
+            "name": "latest_round",
+            "type": "object"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fullenrich",
+      "capability": "companies/lookup",
+      "name": "Company lookup",
+      "description": "Resolve one company from its domain, LinkedIn company URL, or LinkedIn company ID. Returns firmographics, technologies, social profiles, and locations.",
+      "creditsCost": 5,
+      "perRecord": true,
+      "requiresOneOf": [
+        [
+          "domain",
+          "professional_network_url",
+          "professional_network_id"
+        ]
+      ],
+      "options": [
+        {
+          "name": "domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "professional_network_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "professional_network_id",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "companies",
+        "paginated": true,
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "domain",
+            "type": "string"
+          },
+          {
+            "name": "website",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "year_founded",
+            "type": "number"
+          },
+          {
+            "name": "headcount",
+            "type": "number"
+          },
+          {
+            "name": "headcount_range",
+            "type": "string"
+          },
+          {
+            "name": "company_type",
+            "type": "string"
+          },
+          {
+            "name": "locations",
+            "type": "object"
+          },
+          {
+            "name": "social_profiles",
+            "type": "object"
+          },
+          {
+            "name": "specialties",
+            "type": "string[]"
+          },
+          {
+            "name": "technologies",
+            "type": "object[]"
+          },
+          {
+            "name": "industry",
+            "type": "object"
+          },
+          {
+            "name": "logo_url",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fullenrich",
+      "capability": "people/lookup",
+      "name": "Person lookup",
+      "description": "Resolve a person from a LinkedIn URL or ID, or a full name combined with a company domain, LinkedIn URL, or ID. Returns a profile, not verified email addresses or phone numbers.",
+      "creditsCost": 5,
+      "perRecord": true,
+      "requiresOneOf": [
+        [
+          "person_professional_network_url",
+          "person_professional_network_id",
+          "person_name"
+        ],
+        [
+          "person_professional_network_url",
+          "person_professional_network_id",
+          "company_domain",
+          "company_professional_network_url",
+          "company_professional_network_id"
+        ]
+      ],
+      "options": [
+        {
+          "name": "person_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "person_professional_network_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "person_professional_network_id",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "company_domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "company_professional_network_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "company_professional_network_id",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "people",
+        "paginated": true,
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "full_name",
+            "type": "string"
+          },
+          {
+            "name": "first_name",
+            "type": "string"
+          },
+          {
+            "name": "last_name",
+            "type": "string"
+          },
+          {
+            "name": "headline",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "location",
+            "type": "object"
+          },
+          {
+            "name": "social_profiles",
+            "type": "object"
+          },
+          {
+            "name": "employment",
+            "type": "object"
+          },
+          {
+            "name": "educations",
+            "type": "object[]"
+          },
+          {
+            "name": "languages",
+            "type": "object[]"
+          },
+          {
+            "name": "skills",
+            "type": "string[]"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "fullenrich",
+      "capability": "contacts/work-email",
+      "name": "Work email",
+      "description": "Find a person's verified work email from a LinkedIn URL, or from their name and employer. Use contacts/mobile for a phone number and people/lookup when only the profile is needed. To enrich multiple contacts, send up to 10 separate calls in the Firecrawl /v2/scrape alexandria array, each with its own provider, capability and options. Each call accepts one contact, runs as a separate upstream job and is billed only for a result found. Inspect each call for errors; this is not a single bulk job. Concurrent enrichments share poll capacity and can hit rate limits; spread large batches out. Do not pass a contacts array in options.",
+      "creditsCost": 20,
+      "perRecord": true,
+      "requiresOneOf": [
+        [
+          "linkedin_url",
+          "first_name"
+        ],
+        [
+          "linkedin_url",
+          "last_name"
+        ],
+        [
+          "linkedin_url",
+          "domain",
+          "company_name"
+        ]
+      ],
+      "options": [
+        {
+          "name": "first_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "company_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "linkedin_url",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "results",
+        "paginated": true,
+        "fields": [
+          {
+            "name": "input",
+            "type": "object"
+          },
+          {
+            "name": "contact_info",
+            "type": "object"
+          },
+          {
+            "name": "profile",
+            "type": "object"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "apollo",
+      "capability": "companies/enrich",
+      "name": "Company enrichment",
+      "description": "Use when you have a domain or LinkedIn company URL and need the company behind it. For a company you can only name, search first.",
+      "creditsCost": 30,
+      "perRecord": false,
+      "requiresOneOf": [
+        [
+          "domain",
+          "linkedin_url"
+        ]
+      ],
+      "options": [
+        {
+          "name": "domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "linkedin_url",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "organization",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "website_url",
+            "type": "string"
+          },
+          {
+            "name": "estimated_num_employees",
+            "type": "number"
+          },
+          {
+            "name": "industry",
+            "type": "string"
+          },
+          {
+            "name": "total_funding",
+            "type": "number"
+          },
+          {
+            "name": "latest_funding_stage",
+            "type": "string"
+          },
+          {
+            "name": "technology_names",
+            "type": "string[]"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "apollo",
+      "capability": "people/match",
+      "name": "Person match",
+      "description": "Use to resolve one person you have already found. Prefer the id from people/search, then a LinkedIn URL, then email; a bare name needs a domain beside it or it will match the wrong person.",
+      "creditsCost": 30,
+      "perRecord": false,
+      "requiresOneOf": [
+        [
+          "id",
+          "linkedin_url",
+          "email",
+          "name"
+        ]
+      ],
+      "options": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "linkedin_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "reveal_personal_emails",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "reveal_phone_number",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "person",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "email",
+            "type": "string"
+          },
+          {
+            "name": "linkedin_url",
+            "type": "string"
+          },
+          {
+            "name": "organization",
+            "type": "object"
+          },
+          {
+            "name": "employment_history",
+            "type": "object[]"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "datalegion",
+      "capability": "companies/enrich-base",
+      "name": "Company enrichment (base)",
+      "description": "Match a known company using identifiers with the base product. Name matching is global and cannot be narrowed by country, so for non-US or ambiguous names also send the website domain as domain, or the LinkedIn company page URL as social_url.",
+      "creditsCost": 10,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "legion_id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "domain",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "linkedin_id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "social_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "ticker_symbol",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "industry",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "min_confidence",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "titlecase",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "required_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "include_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exclude_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "pretty_print",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "matches",
+        "paginated": false,
+        "fields": [
+          {
+            "name": "company",
+            "type": "object"
+          },
+          {
+            "name": "match_metadata",
+            "type": "object"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "datalegion",
+      "capability": "people/enrich-base-no-contact",
+      "name": "Person enrichment (base-no-contact)",
+      "description": "Match a known person using identifiers with the base-no-contact product. Contact entitlement comes from the dedicated credential, never from field projection.",
+      "creditsCost": 10,
+      "perRecord": false,
+      "requiresOneOf": null,
+      "options": [
+        {
+          "name": "email",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "email_hash",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "linkedin_id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "social_url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "legion_id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "full_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "address",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "city",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "postal_code",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "job_title",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "company",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "school",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "birth_date",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "min_confidence",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "titlecase",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "required_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "include_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exclude_fields",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "pretty_print",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "response": {
+        "key": "matches",
+        "paginated": false,
+        "fields": [
+          {
+            "name": "person",
+            "type": "object"
+          },
+          {
+            "name": "match_metadata",
+            "type": "object"
+          }
+        ]
+      }
+    },
+    {
+      "provider": "people-data-labs",
+      "capability": "company/enrich",
+      "name": "Company enrichment",
+      "description": "Use when you have one company and want its firmographics, funding and headcount. Give it a domain, ticker or social profile if you possibly can - a bare name is the identifier most likely to miss.",
+      "creditsCost": 50,
+      "perRecord": false,
+      "requiresOneOf": [
+        [
+          "pdl_id",
+          "name",
+          "ticker",
+          "website",
+          "profile"
+        ]
+      ],
+      "options": [
+        {
+          "name": "pdl_id",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "ticker",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "website",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "profile",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "street_address",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "locality",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "postal_code",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "min_likelihood",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "required",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "data_include",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "include_if_matched",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "titlecase",
+          "type": "boolean",
+          "required": false
+        }
+      ],
+      "response": {
+        "paginated": false,
+        "fields": [
+          {
+            "name": "likelihood",
+            "type": "number"
+          },
+          {
+            "name": "status",
+            "type": "number"
+          },
+          {
+            "name": "matched",
+            "type": "string[]"
+          },
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "website",
+            "type": "string"
+          },
+          {
+            "name": "industry",
+            "type": "string"
+          },
+          {
+            "name": "size",
+            "type": "string"
+          },
+          {
+            "name": "employee_count",
+            "type": "number"
+          },
+          {
+            "name": "location",
+            "type": "object"
+          },
+          {
+            "name": "total_funding_raised",
+            "type": "number"
+          }
+        ]
+      }
+    }
+  ]
+}
