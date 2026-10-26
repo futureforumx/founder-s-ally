@@ -42,15 +42,14 @@ serve(async (req) => {
         );
       }
 
-      const actorId = "anchor~linkedin-company-scraper";
+      const actorId = "johnvc~linkedin-company-api";
       const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_API_KEY}&timeout=60`;
 
       const response = await fetch(runUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startUrls: [{ url: normalizedUrl }],
-          maxItems: 1,
+          companyUrls: [normalizedUrl],
         }),
       });
 
@@ -64,11 +63,13 @@ serve(async (req) => {
       }
 
       const items = await response.json();
-      const company = items?.[0];
+      const company = items?.find((item: { result_type?: string }) => item.result_type === "company");
 
       if (!company) {
+        const errorRow = items?.find((item: { result_type?: string }) => item.result_type === "error");
+
         return new Response(
-          JSON.stringify({ error: "No company data returned" }),
+          JSON.stringify({ error: errorRow?.error_message || "No company data returned" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -76,13 +77,11 @@ serve(async (req) => {
       mapped = {
         company_name: company.name || company.companyName || null,
         description: company.description || company.about || company.tagline || null,
-        sector: company.industry || company.industries?.[0] || null,
+        sector: (Array.isArray(company.industries) ? company.industries[0] : company.industries) || null,
         website_url: company.website || company.websiteUrl || null,
         logo_url: company.logoUrl || company.logo || null,
-        hq_location: company.headquarter?.city
-          ? `${company.headquarter.city}, ${company.headquarter.country || ""}`
-          : company.locations?.[0] || null,
-        employee_count: company.employeeCount || company.staffCount?.toString() || null,
+        hq_location: company.headquarters || company.locations?.[0] || null,
+        employee_count: company.employeesInLinkedin || company.companySize || null,
         founded_year: company.foundedYear || company.founded || null,
         specialties: company.specialties || [],
       };
