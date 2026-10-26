@@ -455,13 +455,14 @@ export class SupabaseStore implements EnrichmentStore {
 
   // --------------------------------------------------------- rollback
 
-  async rollbackBatch(batchIdOrRunId: string, by: string, opts: { force: boolean }): Promise<RollbackResult[]> {
-    const { data, error } = await this.db
+  async rollbackBatch(batchIdOrRunId: string, by: string, opts: { force: boolean; entityId?: string }): Promise<RollbackResult[]> {
+    let query = this.db
       .from("alexandria_enrichment_changes")
       .select("*")
       .is("rolled_back_at", null)
-      .or(`batch_id.eq.${batchIdOrRunId},run_id.eq.${batchIdOrRunId}`)
-      .order("applied_at", { ascending: false });
+      .or(`batch_id.eq.${batchIdOrRunId},run_id.eq.${batchIdOrRunId}`);
+    if (opts.entityId) query = query.eq("entity_id", opts.entityId);
+    const { data, error } = await query.order("applied_at", { ascending: false });
     fail("load changes", error);
 
     const results = new Map<string, RollbackResult>();

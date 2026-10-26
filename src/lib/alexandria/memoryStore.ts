@@ -188,8 +188,8 @@ export class MemoryStore implements EnrichmentStore {
     this.states.set(`${state.entityType}:${state.entityId}`, { ...state });
   }
 
-  async rollbackBatch(batchIdOrRunId: string, _by: string, opts: { force: boolean }): Promise<RollbackResult[]> {
-    const rows = this.changes.filter((c) => !c.rolledBack && (c.batchId === batchIdOrRunId || c.runId === batchIdOrRunId)).reverse();
+  async rollbackBatch(batchIdOrRunId: string, _by: string, opts: { force: boolean; entityId?: string }): Promise<RollbackResult[]> {
+    const rows = this.changes.filter((c) => !c.rolledBack && (c.batchId === batchIdOrRunId || c.runId === batchIdOrRunId) && (!opts.entityId || c.entityId === opts.entityId)).reverse();
     const results = new Map<string, RollbackResult>();
     for (const c of rows) {
       const res = results.get(c.batchId) ?? { batchId: c.batchId, reverted: 0, skippedConflicts: 0, deletedRows: 0 };

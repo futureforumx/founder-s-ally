@@ -176,5 +176,6 @@ export interface EnrichmentStore extends LedgerPort, CachePort {
   enqueueReview(item: ReviewItemWrite): Promise<void>;
   upsertState(state: EnrichmentState): Promise<void>;
 
-  rollbackBatch(batchIdOrRunId: string, by: string, opts: { force: boolean }): Promise<RollbackResult[]>;
+  /** `entityId` limits the rollback to one record of the batch. */
+  rollbackBatch(batchIdOrRunId: string, by: string, opts: { force: boolean; entityId?: string }): Promise<RollbackResult[]>;
 }

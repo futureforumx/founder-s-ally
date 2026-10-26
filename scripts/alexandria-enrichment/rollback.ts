@@ -2,7 +2,7 @@
  * Roll back an applied enrichment batch (or every batch of a run) using alexandria_enrichment_changes.
  * A value is only restored when the column still holds what the pipeline wrote (--force overrides).
  *
- *   pnpm alexandria:rollback --id <batch_id|run_id>            # dry run: lists what would be reverted
+ *   pnpm alexandria:rollback --id <batch_id|run_id> [--entity-id <record id>]   # dry run: lists what would be reverted
  *   ALEXANDRIA_ALLOW_WRITES=1 pnpm alexandria:rollback --id <batch_id|run_id> --apply [--force]
  *
  * To pause a running job, set its run to paused:
@@ -16,7 +16,7 @@ import { SupabaseStore } from "../../src/lib/alexandria/supabaseStore";
 loadEnvFiles([".env", ".env.local"]);
 
 const { values: v } = parseArgs({
-  options: { id: { type: "string" }, apply: { type: "boolean", default: false }, force: { type: "boolean", default: false }, cancel: { type: "string" }, by: { type: "string", default: "cli" } },
+  options: { id: { type: "string" }, apply: { type: "boolean", default: false }, force: { type: "boolean", default: false }, cancel: { type: "string" }, "entity-id": { type: "string" }, by: { type: "string", default: "cli" } },
 });
 
 async function main() {
@@ -49,7 +49,8 @@ async function main() {
       .from("alexandria_enrichment_changes")
       .select("batch_id, entity_type, table_name, column_name, op")
       .is("rolled_back_at", null)
-      .or(`batch_id.eq.${v.id},run_id.eq.${v.id}`);
+      .or(`batch_id.eq.${v.id},run_id.eq.${v.id}`)
+      .match(v["entity-id"] ? { entity_id: v["entity-id"] as string } : {});
     if (error) throw new Error(error.message);
     const summary = new Map<string, number>();
     for (const r of data ?? []) summary.set(`${r.entity_type}:${r.table_name}.${r.column_name ?? "(row)"} [${r.op}]`, (summary.get(`${r.entity_type}:${r.table_name}.${r.column_name ?? "(row)"} [${r.op}]`) ?? 0) + 1);
@@ -58,7 +59,7 @@ async function main() {
     return;
   }
 
-  const results = await new SupabaseStore(db).rollbackBatch(v.id, v.by as string, { force: v.force as boolean });
+  const results = await new SupabaseStore(db).rollbackBatch(v.id, v.by as string, { force: v.force as boolean, entityId: v["entity-id"] as string | undefined });
   console.log(JSON.stringify(results, null, 2));
 }
 

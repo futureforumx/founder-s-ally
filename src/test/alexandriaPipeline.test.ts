@@ -201,6 +201,18 @@ describe("apply", () => {
     expect(restored.founded_year ?? null).toBeNull();
   });
 
+  it("limits a rollback to the requested record", async () => {
+    const { store, deps } = world();
+    const report = await runEnrichmentJob(apply("firm", only("f-1")), deps);
+    const enriched = JSON.stringify(store.row("firm_records", "f-1"));
+    const none = await store.rollbackBatch(report.runId, "test", { force: false, entityId: "some-other-record" });
+    expect(none).toEqual([]);
+    expect(JSON.stringify(store.row("firm_records", "f-1"))).toBe(enriched);
+    const [res] = await store.rollbackBatch(report.runId, "test", { force: false, entityId: "f-1" });
+    expect(res.reverted).toBe(4);
+    expect(store.row("firm_records", "f-1")!.description).toBeNull();
+  });
+
   it("refuses to roll back a value someone edited afterwards", async () => {
     const { store, deps } = world();
     const report = await runEnrichmentJob(apply("firm", only("f-1")), deps);
