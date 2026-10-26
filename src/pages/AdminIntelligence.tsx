@@ -33,7 +33,7 @@ const NAV_ITEMS = [
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
-  { key: "referral-codes", label: "REFERRAL CODES",   icon: TicketCheck, indent: true },
+  { key: "referral-codes", label: "Referral Codes",   icon: TicketCheck, indent: true },
   { key: "firm-records",   label: "Investor Records", icon: UserRound },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
