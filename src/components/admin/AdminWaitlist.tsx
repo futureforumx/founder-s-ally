@@ -74,7 +74,7 @@ const STATUS_STYLES: Record<string, { color: string; background: string; borderC
   rejected: { color: "#f87171", background: "rgba(248,113,113,0.10)", borderColor: "rgba(248,113,113,0.25)" },
 };
 
-const tableFieldLabelClassName = "mb-1 text-xs font-medium text-white/55 2xl:hidden";
+const tableFieldLabelClassName = "hidden";
 
 function statusStyle(status: string) {
   return STATUS_STYLES[status] ?? {
@@ -394,7 +394,8 @@ export function AdminWaitlist() {
       </div>
       </AdminStickyHeader>
 
-      <div className="overflow-hidden rounded-lg border border-white/[0.07]">
+      <div className="overflow-x-auto rounded-lg border border-white/[0.07]">
+        <div className="min-w-[1120px]">
         {loading ? (
           <div className="flex min-h-64 items-center justify-center text-white/40">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading waitlist…
@@ -403,7 +404,7 @@ export function AdminWaitlist() {
           <div className="flex min-h-64 items-center justify-center text-sm text-white/35">No matching applicants.</div>
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            <div className="hidden px-4 py-2.5 text-xs font-medium text-white/55 2xl:grid 2xl:grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] 2xl:items-center 2xl:gap-4">
+            <div className="grid grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] items-center gap-4 px-4 py-2.5 text-xs font-medium text-white/55">
               <span>Applicant</span>
               <span>Status</span>
               <span>Applied</span>
@@ -419,7 +420,7 @@ export function AdminWaitlist() {
               const source = formatSource(applicant);
               const noteValue = noteDrafts[applicant.id] ?? applicant.admin_notes ?? "";
               return (
-                <div key={applicant.id} className="grid gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025] 2xl:grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] 2xl:items-start 2xl:gap-4">
+                <div key={applicant.id} className="grid grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] items-start gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025]">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white/85">{applicant.name || "Unnamed applicant"}</p>
                     <a href={`mailto:${applicant.email}`} className="mt-1 block truncate text-xs text-white/45 hover:text-emerald-400">
@@ -493,9 +494,9 @@ export function AdminWaitlist() {
                     )}
                   </div>
 
-                  <div className="flex flex-col items-start gap-2 2xl:items-end">
+                  <div className="flex flex-col items-end gap-2">
                     <p className={tableFieldLabelClassName}>Actions</p>
-                    <div className="flex flex-wrap gap-2 2xl:justify-end">
+                    <div className="flex flex-wrap justify-end gap-2">
                     {applicant.status !== "approved" && (
                       <button
                         type="button"
@@ -555,6 +556,7 @@ export function AdminWaitlist() {
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
