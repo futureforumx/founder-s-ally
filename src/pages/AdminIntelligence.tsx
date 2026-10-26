@@ -141,18 +141,19 @@ export default function AdminIntelligence() {
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const isActive = activeView === item.key;
+            const isIndented = "indent" in item && item.indent;
             return (
               <button
                 key={item.key}
                 onClick={() => openView(item.key)}
-                className={`flex items-center gap-2.5 rounded-lg py-2 text-[13px] font-medium transition-colors ${"indent" in item && item.indent ? "pl-6 pr-3" : "px-3"}`}
+                className={`flex items-center rounded-lg py-2 text-[13px] font-medium transition-colors ${isIndented ? "gap-2 pl-5 pr-2 whitespace-nowrap" : "gap-2.5 px-3"}`}
                 style={{
                   background: isActive ? "rgba(46, 230, 166, 0.08)" : "transparent",
                   color: isActive ? "#2EE6A6" : "rgba(255,255,255,0.45)",
                 }}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
