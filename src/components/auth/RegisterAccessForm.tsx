@@ -1,10 +1,10 @@
-import { useState, type ElementType, type FormEvent } from "react";
+import { useRef, useState, type ElementType, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Mail, Shield, User } from "lucide-react";
 import { GoogleGlyph, LinkedInGlyph } from "@/components/auth/oauthGlyphs";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
 import { saveRegistrationPrefill } from "@/lib/registrationPrefill";
-import { waitlistSignup } from "@/lib/waitlist";
+import { invokePublicEdgeFunction, waitlistSignup } from "@/lib/waitlist";
 import { cn } from "@/lib/utils";
 
 const inputClassName =
@@ -51,6 +51,8 @@ export function RegisterAccessForm({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [referralCodeInput, setReferralCodeInput] = useState(inboundReferralCode ?? "");
+  const referralCodeValueRef = useRef(referralCodeInput);
+  const [referralCodeInvalid, setReferralCodeInvalid] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
@@ -60,6 +62,7 @@ export function RegisterAccessForm({
 
   const clearErrors = () => {
     setLocalError(null);
+    setReferralCodeInvalid(false);
     onClearExternalError?.();
   };
 
@@ -120,7 +123,11 @@ export function RegisterAccessForm({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not submit your request. Please try again.";
-      setLocalError(message);
+      if (message.trim().toLowerCase() === "invalid code") {
+        setReferralCodeInvalid(true);
+      } else {
+        setLocalError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -227,10 +234,40 @@ export function RegisterAccessForm({
               type="text"
               autoComplete="off"
               value={referralCodeInput}
-              onChange={(event) => setReferralCodeInput(event.target.value)}
+              aria-invalid={referralCodeInvalid}
+              aria-describedby={referralCodeInvalid ? `${idPrefix}-referral-code-error` : undefined}
+              onChange={(event) => {
+                const value = event.target.value;
+                referralCodeValueRef.current = value;
+                setReferralCodeInput(value);
+                setReferralCodeInvalid(false);
+              }}
+              onBlur={async () => {
+                const code = referralCodeValueRef.current.trim().toUpperCase();
+                if (!code) {
+                  setReferralCodeInvalid(false);
+                  return;
+                }
+                try {
+                  const result = await invokePublicEdgeFunction<{ valid?: boolean }>("waitlist-signup", {
+                    action: "validate_referral_code",
+                    referral_code: code,
+                  });
+                  if (referralCodeValueRef.current.trim().toUpperCase() === code) {
+                    setReferralCodeInvalid(result.valid !== true);
+                  }
+                } catch {
+                  // Submission performs authoritative validation and reports errors inline.
+                }
+              }}
               placeholder="Enter referral code"
-              className={inputPlainClassName}
+              className={`${inputPlainClassName} ${referralCodeInvalid ? "border-red-500 focus:border-red-400" : ""}`}
             />
+            {referralCodeInvalid ? (
+              <p id={`${idPrefix}-referral-code-error`} role="alert" className="text-xs text-red-400">
+                invalid code
+              </p>
+            ) : null}
           </div>
         ) : null}
 

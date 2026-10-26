@@ -258,6 +258,61 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = String(body.action ?? "list");
 
+    if (action === "list_referral_codes") {
+      const { data, error } = await adminClient
+        .from("referral_codes")
+        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return new Response(JSON.stringify({ referralCodes: data ?? [] }), { headers: jsonHeaders });
+    }
+
+    if (action === "create_referral_code") {
+      const code = String(body.code ?? "").trim().toUpperCase();
+      const label = typeof body.label === "string" ? body.label.trim().slice(0, 120) || null : null;
+      if (!/^[A-Z0-9_-]{3,64}$/.test(code)) {
+        throw new Error("Code must be 3–64 letters, numbers, hyphens, or underscores");
+      }
+      const { data, error } = await adminClient
+        .from("referral_codes")
+        .insert({ code, label, source: "admin", created_by: resolved.email ?? resolved.id })
+        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .single();
+      if (error?.code === "23505") throw new Error("That referral code already exists");
+      if (error) throw error;
+      return new Response(JSON.stringify({ referralCode: data }), { headers: jsonHeaders });
+    }
+
+    if (action === "set_referral_code_active") {
+      const id = String(body.id ?? "").trim();
+      if (!id || typeof body.is_active !== "boolean") throw new Error("Invalid referral code update");
+      const { data, error } = await adminClient
+        .from("referral_codes")
+        .update({ is_active: body.is_active })
+        .eq("id", id)
+        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Referral code not found");
+      return new Response(JSON.stringify({ referralCode: data }), { headers: jsonHeaders });
+    }
+
+    if (action === "delete_referral_code") {
+      const id = String(body.id ?? "").trim();
+      if (!id) throw new Error("Referral code id is required");
+      const { data, error } = await adminClient
+        .from("referral_codes")
+        .delete()
+        .eq("id", id)
+        .eq("source", "admin")
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Only manually added referral codes can be deleted");
+      return new Response(JSON.stringify({ deleted: true, id }), { headers: jsonHeaders });
+    }
+
     if (action === "list") {
       const { data, error } = await adminClient
         .from("waitlist_users")

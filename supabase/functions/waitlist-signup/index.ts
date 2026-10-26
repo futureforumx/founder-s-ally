@@ -936,6 +936,33 @@ serve(async (req) => {
     console.log("REFERRAL INPUT:", body.ref, body.referral_code);
     console.log("NORMALIZED REFERRAL:", normalizedReferral);
 
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    if (body.action === "validate_referral_code") {
+      if (!normalizedReferral) {
+        return new Response(JSON.stringify({ valid: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data, error } = await supabase
+        .from("referral_codes")
+        .select("id")
+        .eq("code", normalizedReferral)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      const valid = Boolean(data);
+      return new Response(JSON.stringify({ valid, ...(valid ? {} : { error: "invalid code" }) }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const email = String(parsed.email ?? "").trim().toLowerCase();
     if (!email || !email.includes("@")) {
       const labels = (parsed.metadata?.tally_labels_seen as string[]) ?? [];
@@ -950,11 +977,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     const { data, error } = await supabase.rpc("waitlist_signup", {
       p_email: email,

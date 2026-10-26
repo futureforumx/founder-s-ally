@@ -5,6 +5,7 @@ import { useAppAdmin } from "@/hooks/useAppAdmin";
 import {
   Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
+  TicketCheck,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminAnalytics }          from "@/components/admin/AdminAnalytics";
@@ -18,6 +19,7 @@ import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntellige
 import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
 import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
+import { AdminReferralCodes }      from "@/components/admin/AdminReferralCodes";
 import { AdminOnboarding }         from "@/components/admin/AdminOnboarding";
 import {
   DropdownMenu,
@@ -31,6 +33,7 @@ const NAV_ITEMS = [
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
+  { key: "referral-codes", label: "REFERRAL CODES",   icon: TicketCheck, indent: true },
   { key: "firm-records",   label: "Investor Records", icon: UserRound },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
@@ -142,7 +145,7 @@ export default function AdminIntelligence() {
               <button
                 key={item.key}
                 onClick={() => openView(item.key)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
+                className={`flex items-center gap-2.5 rounded-lg py-2 text-[13px] font-medium transition-colors ${"indent" in item && item.indent ? "pl-6 pr-3" : "px-3"}`}
                 style={{
                   background: isActive ? "rgba(46, 230, 166, 0.08)" : "transparent",
                   color: isActive ? "#2EE6A6" : "rgba(255,255,255,0.45)",
@@ -219,6 +222,7 @@ export default function AdminIntelligence() {
         )}
         {activeView === "users"          && <AdminUserManagement />}
         {activeView === "waitlist"       && <AdminWaitlist />}
+        {activeView === "referral-codes" && <AdminReferralCodes />}
         {activeView === "firm-records"   && <AdminFirmRecords focusFirm={focusFirm} focusPerson={focusPerson} />}
         {activeView === "market-intel"   && <AdminMarketIntelligence />}
         {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={openView} />}
