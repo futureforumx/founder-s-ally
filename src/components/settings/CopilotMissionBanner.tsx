@@ -30,15 +30,6 @@ interface CopilotMissionBannerProps {
 
 const MISSION_STEPS: MissionStep[] = [
   {
-    id: "pitch-deck",
-    label: "Upload Pitch Deck",
-    field: "pitch-deck",
-    tab: "company",
-    section: "entity",
-    valueProp: "+45% Match Quality",
-    insight: "Investors spend 3m 44s on decks with uploaded assets",
-  },
-  {
     id: "sector",
     label: "Set Sector Tags",
     field: "sector-tags",

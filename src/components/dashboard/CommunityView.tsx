@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -55,6 +56,14 @@ import { investorPrimaryAvatarUrl } from "@/lib/investorAvatarUrl";
 import { investorFocusBadgeFromDirectoryFields } from "@/lib/investorFocusBadge";
 import { displayFundingStatus, displayInvestmentStage } from "@/lib/organizationFundingEnums";
 import { resolveDirectoryFirmTypeKey } from "@/lib/resolveDirectoryFirmType";
+import {
+  directoryFirmTypeMatchesFilters,
+  readDirectoryFirmTypeSearchParam,
+  sameDirectoryFirmTypeSelection,
+  writeDirectoryFirmTypeSearchParam,
+  type DirectoryFirmTypeFilterId,
+} from "@/lib/directoryFirmType";
+import { DirectoryFirmTypeFilter } from "@/components/dashboard/DirectoryFirmTypeFilter";
 import { resolveDirectoryFirmWebsiteUrl } from "@/lib/knownVcDomains";
 import { firmDisplayNameMatchesQuery, personDisplayNameMatchesQuery } from "@/lib/firmSearchNormalize";
 import { rpcSearchFirmRecords } from "@/lib/firmSearchRpc";
@@ -1908,6 +1917,10 @@ export function CommunityView({
     variant === "investor-search" ? "name_az" : "recommended",
   );
   const [investorEntityFilter, setInvestorEntityFilter] = useState<InvestorEntityFilter>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [investorFirmTypes, setInvestorFirmTypes] = useState<DirectoryFirmTypeFilterId[]>(() =>
+    readDirectoryFirmTypeSearchParam(searchParams),
+  );
   const [networkDirectorySort, setNetworkDirectorySort] = useState<NetworkDirectorySortValue>("default");
   const [networkDirectorySector, setNetworkDirectorySector] = useState<string>(NETWORK_DIRECTORY_SECTOR_ALL);
   const [networkDirectoryStage, setNetworkDirectoryStage] = useState<string>(NETWORK_DIRECTORY_STAGE_ALL);
@@ -1917,6 +1930,20 @@ export function CommunityView({
   useEffect(() => {
     if (isInvestorSearch) setActiveScope("investors");
   }, [isInvestorSearch]);
+
+  useEffect(() => {
+    if (!isInvestorSearch) return;
+    const fromUrl = readDirectoryFirmTypeSearchParam(searchParams);
+    setInvestorFirmTypes((prev) => (sameDirectoryFirmTypeSelection(prev, fromUrl) ? prev : fromUrl));
+  }, [isInvestorSearch, searchParams]);
+
+  useEffect(() => {
+    if (!isInvestorSearch) return;
+    const next = new URLSearchParams(searchParams);
+    writeDirectoryFirmTypeSearchParam(next, investorFirmTypes);
+    if (next.toString() === searchParams.toString()) return;
+    setSearchParams(next, { replace: true });
+  }, [investorFirmTypes, isInvestorSearch, searchParams, setSearchParams]);
 
   const toggleStatus = (status: string) => {
     setUserStatuses(prev => 
@@ -2732,7 +2759,7 @@ export function CommunityView({
   // Reset pagination on filter/scope/sort change (not on text search — large indices must stay reachable for scroll-to-pick)
   useEffect(() => {
     setVisibleCount(isInvestorSearch ? INVESTOR_DIRECTORY_INITIAL_VISIBLE : PAGE_SIZE);
-  }, [activeFilter, activeScope, activeInvestorTab, investorSort, investorEntityFilter, isInvestorSearch]);
+  }, [activeFilter, activeScope, activeInvestorTab, investorSort, investorEntityFilter, investorFirmTypes, isInvestorSearch]);
 
   /** Run before paint so directory filters never carry across All / Companies / Founders / Operators. */
   useLayoutEffect(() => {
@@ -2947,12 +2974,22 @@ export function CommunityView({
   }, [displayEntriesWithRpcFirms, investorListSearchQuery, isInvestorSearch]);
 
   const investorEntityFilteredEntries = useMemo(() => {
-    if (!isInvestorSearch || investorEntityFilter === "all") return textFilteredEntries;
-    return textFilteredEntries.filter((entry) => {
-      const isPerson = entry._investorEntityType === "person";
-      return investorEntityFilter === "investors" ? isPerson : !isPerson;
-    });
-  }, [investorEntityFilter, isInvestorSearch, textFilteredEntries]);
+    let list = textFilteredEntries;
+    if (isInvestorSearch && investorEntityFilter !== "all") {
+      list = list.filter((entry) => {
+        const isPerson = entry._investorEntityType === "person";
+        return investorEntityFilter === "investors" ? isPerson : !isPerson;
+      });
+    }
+    if (
+      isInvestorSearch &&
+      investorEntityFilter !== "investors" &&
+      investorFirmTypes.length > 0
+    ) {
+      list = list.filter((entry) => directoryFirmTypeMatchesFilters(entry._firmType, investorFirmTypes));
+    }
+    return list;
+  }, [investorEntityFilter, investorFirmTypes, isInvestorSearch, textFilteredEntries]);
 
   const networkDirectoryFilterSource = useMemo(() => {
     if (isInvestorSearch) return [];
@@ -3208,13 +3245,23 @@ export function CommunityView({
     return vcEntries.map((e) => markEntryActivelyDeploying(enrichInvestorSeedEntry(e), deployingNameSet));
   }, [vcEntries, enrichInvestorSeedEntry, deployingNameSet]);
 
+  const investorRailPool = useMemo(() => {
+    if (!isInvestorSearch) return [];
+    if (investorEntityFilter === "investors" || investorFirmTypes.length === 0) {
+      return investorCarouselPool;
+    }
+    return investorCarouselPool.filter((e) =>
+      directoryFirmTypeMatchesFilters(e._firmType, investorFirmTypes),
+    );
+  }, [isInvestorSearch, investorCarouselPool, investorEntityFilter, investorFirmTypes]);
+
   const investorRailSuggested = useMemo(
-    () => (isInvestorSearch ? investorCarouselPool.slice(0, 8) : []),
-    [isInvestorSearch, investorCarouselPool],
+    () => investorRailPool.slice(0, 8),
+    [investorRailPool],
   );
   const investorRailTrending = useMemo(
-    () => (isInvestorSearch ? investorCarouselPool.slice(8, 16) : []),
-    [isInvestorSearch, investorCarouselPool],
+    () => investorRailPool.slice(8, 16),
+    [investorRailPool],
   );
 
   const networkRailSuggested = useMemo(() => {
@@ -4030,6 +4077,12 @@ export function CommunityView({
                       </button>
                     ))}
                   </div>
+                  {investorEntityFilter !== "investors" ? (
+                    <DirectoryFirmTypeFilter
+                      selected={investorFirmTypes}
+                      onChange={setInvestorFirmTypes}
+                    />
+                  ) : null}
                   <Select
                     value={investorSort}
                     onValueChange={(v) => setInvestorSort(v as InvestorSortValue)}

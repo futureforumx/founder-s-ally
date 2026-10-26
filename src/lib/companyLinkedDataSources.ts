@@ -84,31 +84,6 @@ export function collectCompanyLinkedDataSources(connectorScopeId?: string): Comp
     }
   }
 
-  let hasDeckOnFile = false;
-  try {
-    const pending = sessionStorage.getItem("pending-deck-audit");
-    if (pending && pending.trim().length > 80) hasDeckOnFile = true;
-    if (!hasDeckOnFile) {
-      const last = localStorage.getItem("company-last-analyzed-inputs");
-      if (last) {
-        const j = JSON.parse(last) as { hasDeck?: boolean };
-        if (j?.hasDeck) hasDeckOnFile = true;
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  if (hasDeckOnFile) {
-    rows.push({
-      id: "pitch-deck",
-      section: "Company profile",
-      label: "Pitch deck",
-      detail: "Deck content on file — used when you run company analysis",
-      href: null,
-      iconUrl: null,
-    });
-  }
-
   let analysis: Partial<AnalysisResult> | null = null;
   try {
     const ar = localStorage.getItem("company-analysis");

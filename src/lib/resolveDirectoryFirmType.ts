@@ -1,3 +1,7 @@
+import {
+  canonicalizeDirectoryFirmTypeKey,
+  mapEntityTypeToDirectoryFirmTypeKey,
+} from "@/lib/directoryFirmType";
 import { safeTrim } from "@/lib/utils";
 
 /** Collapse whitespace; keep punctuation so exact maps stay stable. */
@@ -56,34 +60,6 @@ const EXACT_FIRM_TYPE_OVERRIDES: Record<string, string> = {
   "mucker lab": "ACCELERATOR",
 };
 
-/** Map `firm_records.entity_type` (Postgres enum labels) → Prisma-style `FirmType` keys. */
-function mapEntityTypeToDirectoryFirmTypeKey(entityType: string | null | undefined): string | null {
-  const e = safeTrim(entityType);
-  if (!e) return null;
-  switch (e) {
-    case "Corporate (CVC)":
-      return "CVC";
-    case "Family Office":
-      return "FAMILY_OFFICE";
-    case "Angel":
-      return "ANGEL_NETWORK";
-    case "Solo GP":
-      return "SOLO_GP";
-    case "Micro":
-      return "MICRO_VC";
-    case "Accelerator / Studio":
-      return "ACCELERATOR";
-    case "Syndicate":
-      return "OTHER";
-    case "Fund of Funds":
-      return "INSTITUTIONAL";
-    case "Institutional":
-      return "INSTITUTIONAL";
-    default:
-      return null;
-  }
-}
-
 /**
  * Canonical `firm_type` / Prisma-style enum string for directory + cards.
  * Applies small curated overrides when the stored row is wrong or missing.
@@ -100,10 +76,10 @@ export function resolveDirectoryFirmTypeKey(
   if (exact) return exact;
 
   const fromEntity = mapEntityTypeToDirectoryFirmTypeKey(entityType);
-  const stored = safeTrim(storedType);
+  const stored = canonicalizeDirectoryFirmTypeKey(storedType) ?? safeTrim(storedType);
 
   // Prefer Postgres `entity_type` when `firm_type` is missing or still the generic default.
-  if (fromEntity && (!stored || /^institutional$/i.test(stored))) {
+  if (fromEntity && (!stored || stored.toUpperCase() === "INSTITUTIONAL")) {
     return fromEntity;
   }
 
