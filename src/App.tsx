@@ -19,6 +19,7 @@ const WaitlistConfirmation = lazy(() => import("./pages/WaitlistConfirmation.tsx
 const AuthCallback = lazy(() => import("./pages/AuthCallback.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AdminIntelligence = lazy(() => import("./pages/AdminIntelligence.tsx"));
+const TestAdmin = lazy(() => import("./pages/test-admin/TestAdmin.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const FirmProfile = lazy(() => import("./pages/FirmProfile.tsx"));
 const OrganizationProfile = lazy(() => import("./pages/OrganizationProfile.tsx"));
@@ -473,6 +474,7 @@ const App = () => (
               )}
               <Route path="/admin" element={<Navigate to="/admin/intelligence" replace />} />
               <Route path="/admin/intelligence" element={<ProtectedRoute><AdminRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading admin tools…" />}><AdminIntelligence /></Suspense></AdminRoute></ProtectedRoute>} />
+              <Route path="/test/admin" element={<ProtectedRoute><AdminRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading test admin…" />}><TestAdmin /></Suspense></AdminRoute></ProtectedRoute>} />
               <Route path="/firms/:id" element={<ProtectedRoute><Suspense fallback={<RouteLoader fullscreen={false} label="Loading firm profile…" />}><FirmProfile /></Suspense></ProtectedRoute>} />
               <Route
                 path="/companies/:id"

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { cn } from "@/lib/utils";
 import { Calendar, ChevronDown, Loader2, RefreshCw } from "lucide-react";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
@@ -248,6 +250,13 @@ function ActivityTooltip({
   );
 }
 
+const PIE_SLICE_COLORS = ["#fafafa", "#2EE6A6", "#5B5CFF", "#a1a1aa", "#52525b", "#71717a"];
+
+function breakdownKey(label: string, index: number): string {
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${slug || "slice"}-${index}`;
+}
+
 function BreakdownCard({
   title,
   note,
@@ -257,15 +266,111 @@ function BreakdownCard({
   note?: string;
   rows: Breakdown[];
 }) {
+  const [asPie, setAsPie] = useState(false);
   const max = Math.max(1, ...rows.map((row) => row.count));
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  const pieRows = rows.map((row, index) => ({
+    ...row,
+    key: breakdownKey(row.label, index),
+    fill: PIE_SLICE_COLORS[index % PIE_SLICE_COLORS.length],
+  }));
+  const chartConfig = Object.fromEntries(
+    pieRows.map((row) => [row.key, { label: row.label, color: row.fill }]),
+  ) satisfies ChartConfig;
+
+  const topSlice = pieRows.reduce<(typeof pieRows)[number] | null>(
+    (best, row) => (!best || row.count > best.count ? row : best),
+    null,
+  );
+  const topShare = total > 0 && topSlice ? Math.round((topSlice.count / total) * 100) : 0;
+
   return (
-    <div className={cardClass}>
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-white/80">{title}</h2>
-        {note ? <p className="mt-1 text-xs text-white/35">{note}</p> : null}
+    <div
+      role="button"
+      tabIndex={rows.length === 0 ? -1 : 0}
+      aria-pressed={asPie}
+      aria-disabled={rows.length === 0}
+      aria-label={`${title}. ${asPie ? "Showing pie chart. Click to show bars." : "Showing bars. Click to show pie chart."}`}
+      onClick={() => {
+        if (rows.length === 0) return;
+        setAsPie((current) => !current);
+      }}
+      onKeyDown={(event) => {
+        if (rows.length === 0) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setAsPie((current) => !current);
+        }
+      }}
+      className={cn(
+        cardClass,
+        "h-fit w-full text-left transition-colors",
+        rows.length === 0 ? "cursor-default" : "cursor-pointer hover:border-neutral-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/25",
+      )}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight text-white/80">{title}</h2>
+          {note ? <p className="mt-1 text-xs text-white/35">{note}</p> : null}
+        </div>
+        {rows.length > 0 ? (
+          <span className="inline-flex h-6 shrink-0 items-center rounded-full border border-neutral-800 bg-neutral-950 px-2.5 text-[10px] font-medium text-white/45">
+            {asPie ? "Pie" : "Bars"}
+          </span>
+        ) : null}
       </div>
       {rows.length === 0 ? (
         <p className="text-xs text-white/35">None in this range</p>
+      ) : asPie ? (
+        <div className="space-y-4">
+          <div className="relative mx-auto h-[196px] w-[196px]">
+            <ChartContainer config={chartConfig} className="aspect-square h-[196px] w-[196px]">
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel nameKey="label" />}
+                />
+                <Pie
+                  data={pieRows}
+                  dataKey="count"
+                  nameKey="label"
+                  innerRadius={52}
+                  outerRadius={76}
+                  paddingAngle={2}
+                  stroke="hsl(var(--background))"
+                  strokeWidth={2}
+                >
+                  {pieRows.map((row) => (
+                    <Cell key={row.key} fill={`var(--color-${row.key})`} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            {topSlice ? (
+              <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center">
+                <span className="font-mono text-lg font-semibold tabular-nums tracking-tight text-white/90">
+                  {topShare}%
+                </span>
+                <span className="max-w-[88px] truncate text-[10px] text-white/40">{topSlice.label}</span>
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {pieRows.map((row) => (
+              <span
+                key={row.key}
+                className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 px-2 py-0.5 text-[11px] text-white/65"
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: row.fill }} />
+                {row.label}
+                <span className="font-mono tabular-nums text-white/40">{row.count.toLocaleString()}</span>
+              </span>
+            ))}
+          </div>
+          <p className="text-center font-mono text-[11px] tabular-nums text-white/35">
+            {total.toLocaleString()} total
+          </p>
+        </div>
       ) : (
         <div className="space-y-3">
           {rows.map((row) => (
@@ -714,7 +819,7 @@ export function AdminAnalytics({
               )}
             </div>
 
-            <div className="xl:col-span-2">
+            <div className="self-start xl:col-span-2">
               <BreakdownCard
                 title="Waitlist status"
                 note={payload.referrals > 0 ? `${payload.referrals} referred applicant${payload.referrals === 1 ? "" : "s"}` : "Applicants in this range"}
