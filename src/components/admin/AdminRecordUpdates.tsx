@@ -38,6 +38,18 @@ const KIND_LABEL: Record<RecordUpdateKind, string> = {
   user_other: "User (other)",
 };
 
+function changeTypeLabel(row: RecordUpdateRow): string {
+  switch (row.kind) {
+    case "vc_firm": return "Firm details updated";
+    case "vc_investor": return row.firmId ? "Linked to firm" : "Investor details updated";
+    case "company": return "Company details updated";
+    case "user_founder": return "Founder profile updated";
+    case "user_operator": return "Operator profile updated";
+    case "user_investor": return "Investor profile updated";
+    case "user_other": return "User profile updated";
+  }
+}
+
 type CategoryFilter =
   | "all"
   | RecordUpdateKind;
@@ -165,7 +177,7 @@ export function AdminRecordUpdates() {
   };
 
   const pages = isDirectory ? Math.max(1, Math.ceil(total / DIRECTORY_PAGE_SIZE)) : 1;
-  const grid = "1.1fr 2fr 1.5fr 1fr auto";
+  const grid = "minmax(100px,0.8fr) minmax(180px,1.5fr) minmax(140px,1.2fr) minmax(160px,1.3fr) minmax(120px,1fr) 64px";
 
   const openEditor = (row: RecordUpdateRow) => {
     if (row.kind !== "vc_firm" && row.kind !== "vc_investor") return;
@@ -260,7 +272,8 @@ export function AdminRecordUpdates() {
           <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+        <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+          <div className="min-w-[960px]">
           <div
             className="grid items-center gap-2 px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest"
             style={{
@@ -271,6 +284,7 @@ export function AdminRecordUpdates() {
           >
             <SortHead col="kind">Category</SortHead>
             <SortHead col="name">Name</SortHead>
+            <span className="font-mono">Change type</span>
             <span className="font-mono">Detail</span>
             <SortHead col="updatedAt">Updated</SortHead>
             <span className="font-mono">Edit</span>
@@ -294,6 +308,9 @@ export function AdminRecordUpdates() {
                   {r.recordId}
                 </p>
               </div>
+              <p className="truncate text-[11px] text-white/55" title={changeTypeLabel(r)}>
+                {changeTypeLabel(r)}
+              </p>
               <p className="truncate text-[11px] text-white/45" title={r.subtitle ?? ""}>
                 {r.subtitle ?? "—"}
               </p>
@@ -324,6 +341,7 @@ export function AdminRecordUpdates() {
               No records in this view.
             </p>
           )}
+          </div>
         </div>
       )}
 
