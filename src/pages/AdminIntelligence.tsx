@@ -33,7 +33,7 @@ const NAV_ITEMS = [
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
-  { key: "referral-codes", label: "Referral Codes",   icon: TicketCheck, indent: true },
+  { key: "referral-codes", label: "Referral Codes",   icon: TicketCheck },
   { key: "firm-records",   label: "Investor Records", icon: UserRound },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
@@ -141,12 +141,11 @@ export default function AdminIntelligence() {
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const isActive = activeView === item.key;
-            const isIndented = "indent" in item && item.indent;
             return (
               <button
                 key={item.key}
                 onClick={() => openView(item.key)}
-                className={`flex items-center rounded-lg py-2 text-[13px] font-medium transition-colors ${isIndented ? "gap-2 pl-5 pr-2 whitespace-nowrap" : "gap-2.5 px-3"}`}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
                 style={{
                   background: isActive ? "rgba(46, 230, 166, 0.08)" : "transparent",
                   color: isActive ? "#2EE6A6" : "rgba(255,255,255,0.45)",
