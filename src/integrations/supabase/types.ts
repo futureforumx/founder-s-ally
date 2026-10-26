@@ -8964,6 +8964,7 @@ export type Database = {
           email: string
           id: string
           raw_user_meta: Json
+          referral_code_used: string | null
           updated_at: string
         }
         Insert: {
@@ -8973,6 +8974,7 @@ export type Database = {
           email: string
           id: string
           raw_user_meta?: Json
+          referral_code_used?: string | null
           updated_at?: string
         }
         Update: {
@@ -8982,6 +8984,7 @@ export type Database = {
           email?: string
           id?: string
           raw_user_meta?: Json
+          referral_code_used?: string | null
           updated_at?: string
         }
         Relationships: []
