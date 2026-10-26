@@ -18,8 +18,6 @@ type ReferralCode = {
   times_used: number;
 };
 
-const tableFieldLabelClassName = "mb-1 text-xs font-medium text-white/55 2xl:hidden";
-
 type AdminWaitlistInvokeOptions = NonNullable<Parameters<typeof invokeEdgeFunction>[1]> & {
   body: Record<string, unknown>;
 };
@@ -180,8 +178,9 @@ export function AdminReferralCodes() {
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-white/[0.08]">
-        <div className="hidden px-4 py-3 text-xs font-medium text-white/55 2xl:grid 2xl:grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] 2xl:items-center 2xl:gap-4">
+      <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
+        <div className="min-w-[1000px]">
+        <div className="grid grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] items-center gap-4 px-4 py-3 text-xs font-medium text-white/55">
           <span>Code</span><span>Label</span><span>Times used</span><span>Source</span><span>Status</span><span>Added</span><span className="text-right">Actions</span><span className="text-center">Delete</span>
         </div>
         {loading ? (
@@ -193,33 +192,26 @@ export function AdminReferralCodes() {
             {codes.map((item) => {
               const updating = updatingId === item.id;
               return (
-                <div key={item.id} className="grid gap-3 bg-[#080808] px-4 py-4 2xl:grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] 2xl:items-center 2xl:gap-4 2xl:py-3">
+                <div key={item.id} className="grid grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] items-center gap-4 bg-[#080808] px-4 py-3">
                   <div className="min-w-0">
-                    <p className={tableFieldLabelClassName}>Code</p>
                     <span className="block truncate font-mono text-sm tracking-wide text-white">{item.code}</span>
                   </div>
                   <div className="min-w-0">
-                    <p className={tableFieldLabelClassName}>Label</p>
                     <span className="block truncate text-sm text-white/55">{item.label || "—"}</span>
                   </div>
                   <div>
-                    <p className={tableFieldLabelClassName}>Times used</p>
                     <span className="text-sm tabular-nums text-white/70">{item.times_used}</span>
                   </div>
                   <div>
-                    <p className={tableFieldLabelClassName}>Source</p>
                     <span className="text-xs capitalize text-white/45">{item.source === "member" ? "Member" : "Admin"}</span>
                   </div>
                   <div>
-                    <p className={tableFieldLabelClassName}>Status</p>
                     <span className={`text-xs ${item.is_active ? "text-emerald-300" : "text-white/35"}`}>{item.is_active ? "Active" : "Inactive"}</span>
                   </div>
                   <div>
-                    <p className={tableFieldLabelClassName}>Added</p>
                     <span className="text-xs text-white/40">{formatDate(item.created_at)}</span>
                   </div>
                   <div>
-                    <p className={tableFieldLabelClassName}>Actions</p>
                     <button
                       type="button"
                       disabled={updating}
@@ -229,8 +221,7 @@ export function AdminReferralCodes() {
                       {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : item.is_active ? "Disable" : "Enable"}
                     </button>
                   </div>
-                  <div className="min-w-0 2xl:flex 2xl:justify-center">
-                    <p className={tableFieldLabelClassName}>Delete</p>
+                  <div className="flex min-w-0 justify-center">
                     {item.source === "admin" ? (
                       <button
                         type="button"
@@ -248,6 +239,7 @@ export function AdminReferralCodes() {
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
