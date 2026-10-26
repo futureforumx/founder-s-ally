@@ -54,7 +54,14 @@ async function auditEntity(store: EnrichmentStore, entity: EntityType) {
 
   const ids = rows.map((r) => String(r[spec.idColumn]));
   const states = new Map<string, Awaited<ReturnType<EnrichmentStore["loadStates"]>> extends Map<string, infer S> ? S : never>();
-  for (let i = 0; i < ids.length; i += 200) for (const [k, s] of await store.loadStates(entity, ids.slice(i, i + 200))) states.set(k, s);
+  let stateTableAvailable = true;
+  try {
+    for (let i = 0; i < ids.length; i += 200) for (const [k, s] of await store.loadStates(entity, ids.slice(i, i + 200))) states.set(k, s);
+  } catch (e) {
+    // The audit is read-only and must work before the Alexandria migration is applied.
+    if (!/alexandria_enrichment_state/.test(String(e))) throw e;
+    stateTableAvailable = false;
+  }
 
   const fieldFill = completenessFields(entity).map((f) => {
     const filled = rows.filter((r) => !isEmptyValue(r[f.column])).length;
@@ -70,6 +77,7 @@ async function auditEntity(store: EnrichmentStore, entity: EntityType) {
   return {
     entity,
     table: spec.table,
+    migrationApplied: stateTableAvailable,
     records: rows.length,
     avgCompletenessPct: avg,
     completenessBands: bands,
