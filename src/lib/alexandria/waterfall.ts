@@ -1,7 +1,7 @@
 import type { Catalog } from "./catalog";
 import type { EntitySpec, FieldSpec } from "./fieldRegistry";
 import type { EntityIdentity } from "./identity";
-import { normalizeLinkedinUrl } from "./normalize";
+import { looksLikePersonName, normalizeLinkedinUrl } from "./normalize";
 import type { EntityType, JobOptions, ProviderCallPlan, RecordRow } from "./types";
 
 /**
@@ -172,16 +172,18 @@ export function planWaterfall(input: PlanInput): PlanResult {
     if (linkedin) {
       addCall(profile, "fullenrich", "people/lookup", { person_professional_network_url: linkedin });
       addCall(fallback, "apollo", "people/match", { linkedin_url: linkedin });
-    } else if (name && employerDomain) {
+    } else if (name && employerDomain && looksLikePersonName(name)) {
       addCall(profile, "fullenrich", "people/lookup", { person_name: name, company_domain: employerDomain });
       addCall(fallback, "apollo", "people/match", { name, domain: employerDomain });
+    } else if (name && employerDomain) {
+      skipped.push({ provider: "fullenrich", capability: "people/lookup", reason: "not_a_person_name: the name looks like a role, organisation or page artefact; skipped before any paid call" });
     } else {
       skipped.push({ provider: "fullenrich", capability: "people/lookup", reason: "insufficient_identifiers: needs LinkedIn URL or name + verified employer domain" });
     }
 
     if (linkedin) {
       addCall(contactStage, "fullenrich", "contacts/work-email", { linkedin_url: linkedin }, "work email only; requires --allow-contact-lookups", true);
-    } else if (name && employerDomain) {
+    } else if (name && employerDomain && looksLikePersonName(name)) {
       const { first, last } = splitName(name);
       if (first && last) addCall(contactStage, "fullenrich", "contacts/work-email", { first_name: first, last_name: last, domain: employerDomain }, "work email only; requires --allow-contact-lookups", true);
     }

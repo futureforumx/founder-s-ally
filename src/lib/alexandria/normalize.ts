@@ -135,6 +135,36 @@ export function normalizePersonName(raw: unknown): string {
   return tokens.join(" ");
 }
 
+/** Words that mark a scraped string as a role, an organisation or page furniture rather than a person's name. */
+const NON_PERSON_TOKENS = new Set([
+  "administrator", "admin", "assistant", "coordinator", "manager", "relations", "compliance", "headshot", "team", "info",
+  "contact", "office", "support", "website", "marketing", "careers", "press", "media", "sales", "operations",
+  "capital", "ventures", "venture", "fund", "funds", "partners", "investments", "investment", "holdings", "group",
+  "llc", "inc", "ltd", "corp", "labs", "lab", "seed", "angels", "studio", "foundation", "advisors", "advisory",
+  "usa", "ai", "link", "nebula",
+]);
+
+/**
+ * Cheap guard before any paid people lookup: a person needs at least a first and last name made of letters,
+ * and none of the tokens may be a role, company word or page artefact. Heuristic, deliberately conservative:
+ * a rejected record simply waits for a LinkedIn URL instead of costing credits on a likely miss.
+ */
+export function looksLikePersonName(raw: unknown): boolean {
+  const s = asString(raw);
+  if (!s) return false;
+  if (/\d|@|https?:|www\./i.test(s)) return false;
+  const tokens = s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z\s'.-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length < 2 || tokens.length > 5) return false;
+  if (tokens.some((t) => NON_PERSON_TOKENS.has(t.replace(/\./g, "")))) return false;
+  return tokens.every((t) => t.replace(/[.'-]/g, "").length >= 1) && tokens.some((t) => t.replace(/[.'-]/g, "").length >= 2);
+}
+
 export function personNameKey(raw: unknown): { first: string; last: string; full: string } {
   const full = normalizePersonName(raw);
   const tokens = full.split(" ").filter(Boolean);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ENTITY_SPECS } from "@/lib/alexandria/fieldRegistry";
 import { duplicateGroups, flagDuplicateIdentities, identityFromRow, resolveIdentity } from "@/lib/alexandria/identity";
+import { looksLikePersonName } from "@/lib/alexandria/normalize";
 
 const firm = (row: Record<string, unknown>) => identityFromRow(ENTITY_SPECS.firm, { id: "f", ...row });
 const investor = (row: Record<string, unknown>, parent: Record<string, unknown> | null) =>
@@ -105,5 +106,18 @@ describe("duplicate handling", () => {
     expect(c.duplicateOfExisting).toBe(false);
     expect(resolveIdentity(a, { name: "Cedar Ventures", domain: "cedar.example" }).kind).toBe("ambiguous");
     expect(duplicateGroups([a, b, c])[0].ids.sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("looksLikePersonName", () => {
+  const rejected = ["Website Administrator", "Marketing Coordinator", "Zoe van den Bol Headshot", "Investor Relations Aliah McDonnell", "Greg Geehan USA", "nvp capital", "Nebula Link", "Seed Ed", "Applied AI", "Madonna", "A", "John 3rd", "info@example.com", ""];
+  const accepted = ["Corina Gurau", "Sean O'Sullivan", "Ignacio Gonzalez", "Nitarshan Rajkumar", "Mary-Jane Watson", "Jean-Luc Picard", "Petr Semenov", "Pia Angeli Bernal", "KYLE COX", "J. Smith"];
+
+  it("rejects roles, organisations and page artefacts before any paid lookup", () => {
+    for (const n of rejected) expect(looksLikePersonName(n), n).toBe(false);
+  });
+
+  it("accepts ordinary personal names, including hyphens, apostrophes, initials and all caps", () => {
+    for (const n of accepted) expect(looksLikePersonName(n), n).toBe(true);
   });
 });
