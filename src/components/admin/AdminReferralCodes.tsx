@@ -15,7 +15,10 @@ type ReferralCode = {
   waitlist_user_id: string | null;
   created_by: string | null;
   created_at: string;
+  times_used: number;
 };
+
+const tableFieldLabelClassName = "mb-1 text-xs font-medium text-white/55 2xl:hidden";
 
 type AdminWaitlistInvokeOptions = NonNullable<Parameters<typeof invokeEdgeFunction>[1]> & {
   body: Record<string, unknown>;
@@ -94,7 +97,7 @@ export function AdminReferralCodes() {
       if (error) throw error;
       const updated = (data as { referralCode?: ReferralCode } | null)?.referralCode;
       if (!updated) throw new Error("Referral code was not returned");
-      setCodes((current) => current.map((candidate) => candidate.id === item.id ? updated : candidate));
+      setCodes((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, ...updated } : candidate));
       toast.success(updated.is_active ? "Referral code activated" : "Referral code deactivated");
     } catch (error) {
       toast.error("Could not update referral code", { description: await formatEdgeFunctionInvokeError(error) });
@@ -178,8 +181,8 @@ export function AdminReferralCodes() {
       </form>
 
       <div className="overflow-hidden rounded-lg border border-white/[0.08]">
-        <div className="hidden grid-cols-[minmax(150px,1fr)_minmax(120px,1fr)_100px_100px_130px_100px] gap-4 bg-white/[0.025] px-4 py-3 font-mono text-[9px] uppercase tracking-[0.17em] text-white/35 md:grid">
-          <span>Code</span><span>Label</span><span>Source</span><span>Status</span><span>Added</span><span className="text-right">Actions</span>
+        <div className="hidden px-4 py-3 text-xs font-medium text-white/55 2xl:grid 2xl:grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] 2xl:items-center 2xl:gap-4">
+          <span>Code</span><span>Label</span><span>Times used</span><span>Source</span><span>Status</span><span>Added</span><span className="text-right">Actions</span><span className="text-center">Delete</span>
         </div>
         {loading ? (
           <div className="flex min-h-48 items-center justify-center text-sm text-white/40"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading codes…</div>
@@ -190,30 +193,55 @@ export function AdminReferralCodes() {
             {codes.map((item) => {
               const updating = updatingId === item.id;
               return (
-                <div key={item.id} className="grid gap-3 bg-[#080808] px-4 py-3 md:grid-cols-[minmax(150px,1fr)_minmax(120px,1fr)_100px_100px_130px_100px] md:items-center md:gap-4">
-                  <span className="font-mono text-sm tracking-wide text-white">{item.code}</span>
-                  <span className="text-sm text-white/55">{item.label || "—"}</span>
-                  <span className="text-xs capitalize text-white/45">{item.source === "member" ? "Member" : "Admin"}</span>
-                  <span className={`text-xs ${item.is_active ? "text-emerald-300" : "text-white/35"}`}>{item.is_active ? "Active" : "Inactive"}</span>
-                  <span className="text-xs text-white/40">{formatDate(item.created_at)}</span>
-                  <div className="flex items-center justify-end gap-2">
+                <div key={item.id} className="grid gap-3 bg-[#080808] px-4 py-4 2xl:grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] 2xl:items-center 2xl:gap-4 2xl:py-3">
+                  <div className="min-w-0">
+                    <p className={tableFieldLabelClassName}>Code</p>
+                    <span className="block truncate font-mono text-sm tracking-wide text-white">{item.code}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className={tableFieldLabelClassName}>Label</p>
+                    <span className="block truncate text-sm text-white/55">{item.label || "—"}</span>
+                  </div>
+                  <div>
+                    <p className={tableFieldLabelClassName}>Times used</p>
+                    <span className="text-sm tabular-nums text-white/70">{item.times_used}</span>
+                  </div>
+                  <div>
+                    <p className={tableFieldLabelClassName}>Source</p>
+                    <span className="text-xs capitalize text-white/45">{item.source === "member" ? "Member" : "Admin"}</span>
+                  </div>
+                  <div>
+                    <p className={tableFieldLabelClassName}>Status</p>
+                    <span className={`text-xs ${item.is_active ? "text-emerald-300" : "text-white/35"}`}>{item.is_active ? "Active" : "Inactive"}</span>
+                  </div>
+                  <div>
+                    <p className={tableFieldLabelClassName}>Added</p>
+                    <span className="text-xs text-white/40">{formatDate(item.created_at)}</span>
+                  </div>
+                  <div>
+                    <p className={tableFieldLabelClassName}>Actions</p>
                     <button
                       type="button"
                       disabled={updating}
                       onClick={() => void setActive(item)}
-                      className="border border-white/10 px-2.5 py-1.5 text-[10px] uppercase tracking-wider text-white/65 transition hover:border-white/25 hover:text-white disabled:opacity-40"
+                      className="border border-white/10 px-2.5 py-1.5 text-xs text-white/65 transition hover:border-white/25 hover:text-white disabled:opacity-40"
                     >
                       {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : item.is_active ? "Disable" : "Enable"}
                     </button>
+                  </div>
+                  <div className="min-w-0 2xl:flex 2xl:justify-center">
+                    <p className={tableFieldLabelClassName}>Delete</p>
                     {item.source === "admin" ? (
                       <button
                         type="button"
                         disabled={updating}
                         onClick={() => void deleteCode(item)}
                         aria-label={`Delete ${item.code}`}
-                        className="p-1.5 text-white/35 transition hover:text-red-300 disabled:opacity-40"
-                      ><Trash2 className="h-3.5 w-3.5" /></button>
-                    ) : null}
+                        className="rounded p-1.5 text-white/35 transition hover:bg-red-400/10 hover:text-red-300 disabled:opacity-40"
+                      ><Trash2 className="h-4 w-4" /></button>
+                    ) : (
+                      <span className="text-sm text-white/30">—</span>
+                    )}
                   </div>
                 </div>
               );

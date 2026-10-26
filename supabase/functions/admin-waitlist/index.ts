@@ -265,7 +265,47 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(2000);
       if (error) throw error;
-      return new Response(JSON.stringify({ referralCodes: data ?? [] }), { headers: jsonHeaders });
+
+      const usersByCode = new Map<string, Set<string>>();
+      const addUsage = (code: string | null, userId: string) => {
+        const normalizedCode = code?.trim().toUpperCase();
+        if (!normalizedCode) return;
+        const users = usersByCode.get(normalizedCode) ?? new Set<string>();
+        users.add(userId);
+        usersByCode.set(normalizedCode, users);
+      };
+
+      const usagePageSize = 1000;
+      for (let offset = 0; ; offset += usagePageSize) {
+        const [signupResult, legacyReferralResult] = await Promise.all([
+          adminClient
+            .from("waitlist_users")
+            .select("id, referral_code_used")
+            .not("referral_code_used", "is", null)
+            .order("id")
+            .range(offset, offset + usagePageSize - 1),
+          adminClient
+            .from("waitlist_referrals")
+            .select("referred_user_id, referral_code")
+            .order("referred_user_id")
+            .range(offset, offset + usagePageSize - 1),
+        ]);
+        if (signupResult.error) throw signupResult.error;
+        if (legacyReferralResult.error) throw legacyReferralResult.error;
+
+        const signups = signupResult.data ?? [];
+        const legacyReferrals = legacyReferralResult.data ?? [];
+        signups.forEach((signup) => addUsage(signup.referral_code_used, signup.id));
+        legacyReferrals.forEach((referral) => addUsage(referral.referral_code, referral.referred_user_id));
+
+        if (signups.length < usagePageSize && legacyReferrals.length < usagePageSize) break;
+      }
+
+      const referralCodes = (data ?? []).map((referralCode) => ({
+        ...referralCode,
+        times_used: usersByCode.get(referralCode.code.trim().toUpperCase())?.size ?? 0,
+      }));
+      return new Response(JSON.stringify({ referralCodes }), { headers: jsonHeaders });
     }
 
     if (action === "create_referral_code") {
@@ -281,7 +321,7 @@ Deno.serve(async (req) => {
         .single();
       if (error?.code === "23505") throw new Error("That referral code already exists");
       if (error) throw error;
-      return new Response(JSON.stringify({ referralCode: data }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ referralCode: { ...data, times_used: 0 } }), { headers: jsonHeaders });
     }
 
     if (action === "set_referral_code_active") {
