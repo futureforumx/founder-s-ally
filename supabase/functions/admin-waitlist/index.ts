@@ -317,13 +317,31 @@ Deno.serve(async (req) => {
       const { data, error } = await adminClient
         .from("waitlist_users")
         .select(
-          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
+          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, referral_code_used, referred_by_user_id, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
         )
         .order("created_at", { ascending: false })
         .limit(1000);
       if (error) throw error;
 
-      const applicants = data ?? [];
+      let applicants = data ?? [];
+      const missingReferralIds = applicants
+        .filter((applicant) => !applicant.referral_code_used && applicant.referred_by_user_id)
+        .map((applicant) => applicant.id);
+      if (missingReferralIds.length > 0) {
+        const { data: referrals, error: referralError } = await adminClient
+          .from("waitlist_referrals")
+          .select("referred_user_id, referral_code")
+          .in("referred_user_id", missingReferralIds);
+        if (referralError) throw referralError;
+
+        const referralCodesByApplicant = new Map(
+          (referrals ?? []).map((referral) => [referral.referred_user_id, referral.referral_code]),
+        );
+        applicants = applicants.map((applicant) => ({
+          ...applicant,
+          referral_code_used: applicant.referral_code_used ?? referralCodesByApplicant.get(applicant.id) ?? null,
+        }));
+      }
       const counts = applicants.reduce<Record<string, number>>(
         (acc, applicant) => {
           const status = String(applicant.status ?? "pending");
@@ -345,7 +363,7 @@ Deno.serve(async (req) => {
 
       const { data: existing, error: existingError } = await adminClient
         .from("waitlist_users")
-        .select("id, email, name, status, reviewed_at")
+        .select("id, email, name, status, reviewed_at, referral_code_used")
         .eq("id", id)
         .maybeSingle();
       if (existingError) throw existingError;
@@ -431,7 +449,7 @@ Deno.serve(async (req) => {
         .update({ admin_notes: notes, updated_at: new Date().toISOString() })
         .eq("id", id)
         .select(
-          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
+          "id, created_at, updated_at, email, name, role, company_name, linkedin_url, source, campaign, referral_code_used, referred_by_user_id, metadata, status, priority_access, referral_count, total_score, waitlist_position, reviewed_at, reviewed_by, reviewed_by_email, admin_notes",
         )
         .maybeSingle();
       if (error) throw error;

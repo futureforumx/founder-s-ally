@@ -20,6 +20,7 @@ interface WaitlistApplicant {
   linkedin_url: string | null;
   source: string | null;
   campaign: string | null;
+  referral_code_used?: string | null;
   metadata: Record<string, unknown> | null;
   status: string;
   priority_access: boolean;
@@ -72,6 +73,8 @@ const STATUS_STYLES: Record<string, { color: string; background: string; borderC
   approved: { color: "#2EE6A6", background: "rgba(46,230,166,0.10)", borderColor: "rgba(46,230,166,0.25)" },
   rejected: { color: "#f87171", background: "rgba(248,113,113,0.10)", borderColor: "rgba(248,113,113,0.25)" },
 };
+
+const tableFieldLabelClassName = "mb-1 text-xs font-medium text-white/55 2xl:hidden";
 
 function statusStyle(status: string) {
   return STATUS_STYLES[status] ?? {
@@ -400,12 +403,13 @@ export function AdminWaitlist() {
           <div className="flex min-h-64 items-center justify-center text-sm text-white/35">No matching applicants.</div>
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            <div className="hidden bg-white/[0.02] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 lg:grid lg:grid-cols-[minmax(0,1.5fr)_100px_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1fr)_150px] lg:items-center lg:gap-4">
+            <div className="hidden px-4 py-2.5 text-xs font-medium text-white/55 2xl:grid 2xl:grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] 2xl:items-center 2xl:gap-4">
               <span>Applicant</span>
               <span>Status</span>
               <span>Applied</span>
               <span>Notes</span>
               <span>Source</span>
+              <span>Referral code</span>
               <span className="text-right">Actions</span>
             </div>
             {filtered.map((applicant) => {
@@ -415,7 +419,7 @@ export function AdminWaitlist() {
               const source = formatSource(applicant);
               const noteValue = noteDrafts[applicant.id] ?? applicant.admin_notes ?? "";
               return (
-                <div key={applicant.id} className="grid gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025] lg:grid-cols-[minmax(0,1.5fr)_100px_minmax(0,0.9fr)_minmax(0,1.3fr)_minmax(0,1fr)_150px] lg:items-start">
+                <div key={applicant.id} className="grid gap-4 bg-[#080808] p-4 transition hover:bg-white/[0.025] 2xl:grid-cols-[minmax(0,1.45fr)_96px_minmax(0,0.9fr)_minmax(0,1.25fr)_minmax(0,0.9fr)_130px_150px] 2xl:items-start 2xl:gap-4">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white/85">{applicant.name || "Unnamed applicant"}</p>
                     <a href={`mailto:${applicant.email}`} className="mt-1 block truncate text-xs text-white/45 hover:text-emerald-400">
@@ -432,7 +436,7 @@ export function AdminWaitlist() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Status</p>
+                    <p className={tableFieldLabelClassName}>Status</p>
                     <span className="inline-flex rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={badgeStyle}>
                       {applicant.status}
                     </span>
@@ -445,7 +449,7 @@ export function AdminWaitlist() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Applied</p>
+                    <p className={tableFieldLabelClassName}>Applied</p>
                     <p className="flex items-center gap-1.5 text-xs font-medium text-white/70">
                       <Clock className="h-3 w-3 shrink-0 text-white/35" /> {applied.date}
                     </p>
@@ -455,7 +459,7 @@ export function AdminWaitlist() {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Notes</p>
+                    <p className={tableFieldLabelClassName}>Notes</p>
                     <div className="relative">
                       <textarea
                         value={noteValue}
@@ -473,16 +477,25 @@ export function AdminWaitlist() {
                   </div>
 
                   <div className="min-w-0" title={source.title}>
-                    <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Source</p>
+                    <p className={tableFieldLabelClassName}>Source</p>
                     <p className="truncate text-xs font-medium text-white/70">{source.label}</p>
                     {source.detail && (
                       <p className="mt-0.5 truncate font-mono text-[10px] text-white/35">{source.detail}</p>
                     )}
                   </div>
 
-                  <div className="flex flex-col items-start gap-2 lg:items-end">
-                    <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/25 lg:hidden">Actions</p>
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <div className="min-w-0" title={applicant.referral_code_used || "No referral code used"}>
+                    <p className={tableFieldLabelClassName}>Referral code</p>
+                    {applicant.referral_code_used ? (
+                      <code className="block truncate font-mono text-xs text-white/70">{applicant.referral_code_used}</code>
+                    ) : (
+                      <span className="text-sm text-white/35">—</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col items-start gap-2 2xl:items-end">
+                    <p className={tableFieldLabelClassName}>Actions</p>
+                    <div className="flex flex-wrap gap-2 2xl:justify-end">
                     {applicant.status !== "approved" && (
                       <button
                         type="button"
