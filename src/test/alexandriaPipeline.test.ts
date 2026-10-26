@@ -96,6 +96,15 @@ describe("dry run (default)", () => {
     expect(port.calls).toHaveLength(0);
   });
 
+  it("still treats a record as a duplicate when only one of the twins is selected by id", async () => {
+    const { deps, port } = world();
+    const report = await runEnrichmentJob(apply("firm", { ...only("f-4"), maxCredits: 50 }), deps);
+    expect(report.results).toHaveLength(1);
+    expect(report.results[0]).toMatchObject({ id: "f-4", status: "ambiguous" });
+    expect(report.results[0].calls).toHaveLength(0);
+    expect(port.calls).toHaveLength(0);
+  });
+
   it("covers all five entity types on the sample data without paid calls", async () => {
     const { deps, port } = world();
     for (const entity of ["firm", "investor", "company", "founder", "operator"] as EntityType[]) {

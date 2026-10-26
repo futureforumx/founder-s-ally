@@ -215,7 +215,17 @@ export async function selectRecords(
   }
 
   const identities = rows.map((r) => identityFromRow(spec, r, spec.parent ? parents.get(String(r[spec.parent.fkColumn])) ?? null : null));
-  flagDuplicateIdentities(identities);
+  if (options.recordIds) {
+    // Duplicate detection must see the whole table: a twin outside the requested ids is still a twin.
+    const everyRow = await store.scanRecords(options.entity, { recordIds: null, scanCap: options.scanCap });
+    const everyParent = await store.loadParents(options.entity, everyRow);
+    const everyIdentity = everyRow.map((r) => identityFromRow(spec, r, spec.parent ? everyParent.get(String(r[spec.parent.fkColumn])) ?? null : null));
+    flagDuplicateIdentities(everyIdentity);
+    const duplicated = new Set(everyIdentity.filter((i) => i.duplicateOfExisting).map((i) => i.id));
+    for (const i of identities) if (duplicated.has(i.id)) i.duplicateOfExisting = true;
+  } else {
+    flagDuplicateIdentities(identities);
+  }
 
   const out: Selected[] = [];
   rows.forEach((row, i) => {
