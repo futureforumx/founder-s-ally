@@ -105,6 +105,36 @@ describe("dry run (default)", () => {
     expect(port.calls).toHaveLength(0);
   });
 
+  it("does not re-select records that were settled inside the cache window, but retries failed ones", async () => {
+    const { store, deps } = world();
+    const state = (id: string, status: "no_match" | "failed", daysAgo: number) => ({
+      entityType: "firm" as const,
+      entityId: id,
+      status,
+      lastAttemptAt: new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString(),
+      lastSuccessAt: null,
+      lastRunId: "earlier",
+      attempts: 1,
+      completenessBefore: null,
+      completenessAfter: null,
+      missingFields: [],
+      fieldsUpdated: [],
+      fieldLastRefreshed: {},
+      retryAfter: null,
+      lastError: null,
+    });
+    await store.upsertState(state("f-1", "no_match", 2));
+    await store.upsertState(state("f-2", "failed", 2));
+    const recent = await runEnrichmentJob(job("firm", { limit: 50 }), deps);
+    const seenRecent = new Set(recent.results.map((r) => r.id));
+    expect(seenRecent.has("f-1")).toBe(false);
+    expect(seenRecent.has("f-2")).toBe(true);
+
+    await store.upsertState(state("f-1", "no_match", 45));
+    const expired = await runEnrichmentJob(job("firm", { limit: 50 }), deps);
+    expect(new Set(expired.results.map((r) => r.id)).has("f-1")).toBe(true);
+  });
+
   it("covers all five entity types on the sample data without paid calls", async () => {
     const { deps, port } = world();
     for (const entity of ["firm", "investor", "company", "founder", "operator"] as EntityType[]) {

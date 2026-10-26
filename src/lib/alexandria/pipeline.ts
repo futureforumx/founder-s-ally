@@ -167,6 +167,9 @@ function toView(d: FieldDecision, spec: EntitySpec): DecisionView {
   };
 }
 
+/** Outcomes that need no retry until the provider cache expires. `failed` and `budget_stopped` stay eligible. */
+const SETTLED_STATUSES = new Set(["enriched", "unchanged", "no_match", "ambiguous", "skipped"]);
+
 /** Name-only records match weakly and are the most likely to be ambiguous, so they queue behind identifiable ones. */
 const NAME_ONLY_PRIORITY_FACTOR = 0.25;
 
@@ -233,6 +236,8 @@ export async function selectRecords(
     const state = states.get(id) ?? null;
     if (!options.recordIds) {
       if (state?.retryAfter && new Date(state.retryAfter) > now) return;
+      // A record already looked up inside the cache window would only replay the same answer (and burn a slot in --limit).
+      if (!options.forceRefresh && state?.lastAttemptAt && SETTLED_STATUSES.has(state.status) && now.getTime() - new Date(state.lastAttemptAt).getTime() < options.cacheTtlHours * 3_600_000) return;
       if (options.resumeRunId && state?.lastRunId === options.resumeRunId && state.status !== "pending" && state.status !== "failed" && state.status !== "budget_stopped") return;
     }
     const missing = missingFields(options.entity, row, { includeContact: options.allowContactLookups });
