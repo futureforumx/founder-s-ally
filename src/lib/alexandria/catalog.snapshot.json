@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T17:43:07.668Z",
+  "generatedAt": "2026-10-26T19:10:17.821Z",
   "sdkVersion": "4.51.0",
   "providers": {
     "fireround": {
@@ -335,7 +335,7 @@
       "capability": "companies/lookup",
       "name": "Company lookup",
       "description": "Resolve one company from its domain, LinkedIn company URL, or LinkedIn company ID. Returns firmographics, technologies, social profiles, and locations.",
-      "creditsCost": 5,
+      "creditsCost": 10,
       "perRecord": true,
       "requiresOneOf": [
         [
@@ -433,7 +433,7 @@
       "capability": "people/lookup",
       "name": "Person lookup",
       "description": "Resolve a person from a LinkedIn URL or ID, or a full name combined with a company domain, LinkedIn URL, or ID. Returns a profile, not verified email addresses or phone numbers.",
-      "creditsCost": 5,
+      "creditsCost": 10,
       "perRecord": true,
       "requiresOneOf": [
         [
@@ -541,7 +541,7 @@
       "capability": "contacts/work-email",
       "name": "Work email",
       "description": "Find a person's verified work email from a LinkedIn URL, or from their name and employer. Use contacts/mobile for a phone number and people/lookup when only the profile is needed. To enrich multiple contacts, send up to 10 separate calls in the Firecrawl /v2/scrape alexandria array, each with its own provider, capability and options. Each call accepts one contact, runs as a separate upstream job and is billed only for a result found. Inspect each call for errors; this is not a single bulk job. Concurrent enrichments share poll capacity and can hit rate limits; spread large batches out. Do not pass a contacts array in options.",
-      "creditsCost": 20,
+      "creditsCost": 30,
       "perRecord": true,
       "requiresOneOf": [
         [
@@ -758,7 +758,7 @@
       "capability": "companies/enrich-base",
       "name": "Company enrichment (base)",
       "description": "Match a known company using identifiers with the base product. Name matching is global and cannot be narrowed by country, so for non-US or ambiguous names also send the website domain as domain, or the LinkedIn company page URL as social_url.",
-      "creditsCost": 10,
+      "creditsCost": 20,
       "perRecord": false,
       "requiresOneOf": null,
       "options": [
@@ -848,7 +848,7 @@
       "capability": "people/enrich-base-no-contact",
       "name": "Person enrichment (base-no-contact)",
       "description": "Match a known person using identifiers with the base-no-contact product. Contact entitlement comes from the dedicated credential, never from field projection.",
-      "creditsCost": 10,
+      "creditsCost": 20,
       "perRecord": false,
       "requiresOneOf": null,
       "options": [
