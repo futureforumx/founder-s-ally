@@ -1,7 +1,9 @@
 /**
  * admin-enrichment-report
  *
- * GET ?since_days=30  ->  aggregated Alexandria enrichment report (admin only)
+ * GET ?since_days=30            ->  aggregated Alexandria enrichment report (admin only)
+ * GET|POST view=review[&recent_days=7]  ->  record-level review counts for the admin Overview cards
+ *   (POST accepts the same keys as a JSON body: { view, since_days, recent_days })
  *
  * Returns counts, completeness before/after, fields updated, confidence distribution, credits by
  * provider/entity/run, provider performance, review/conflict counts, failed + retry-eligible records and
@@ -24,7 +26,7 @@ import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-user-auth",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -70,7 +72,7 @@ async function assertAdmin(req: Request, db: SupabaseClient, supabaseUrl: string
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-  if (req.method !== "GET") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "GET" && req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -82,7 +84,22 @@ Deno.serve(async (req: Request) => {
   const denied = await assertAdmin(req, db, supabaseUrl, anonKey);
   if (denied) return json({ error: denied }, denied === "Caller is not an admin" ? 403 : 401);
 
-  const days = Math.min(365, Math.max(1, Number.parseInt(new URL(req.url).searchParams.get("since_days") ?? "30", 10) || 30));
+  const params = new URL(req.url).searchParams;
+  const body = req.method === "POST" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
+  const param = (key: string): string | null => {
+    const v = body[key] ?? params.get(key);
+    return v == null ? null : String(v);
+  };
+  const clampInt = (raw: string | null, fallback: number, max: number) =>
+    Math.min(max, Math.max(1, Number.parseInt(raw ?? "", 10) || fallback));
+
+  if (param("view") === "review") {
+    const { data, error } = await db.rpc("alexandria_review_summary", { p_recent_days: clampInt(param("recent_days"), 7, 90) });
+    if (error) return json({ error: `Review summary unavailable: ${error.message}` }, 500);
+    return json({ review: data });
+  }
+
+  const days = clampInt(param("since_days"), 30, 365);
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
 
   const { data, error } = await db.rpc("alexandria_enrichment_report", { p_since: since });

@@ -1,5 +1,6 @@
 import { Wifi, ScrollText, Brain, ArrowRight, History, Users, LineChart } from "lucide-react";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
+import { AdminRecordEnrichment } from "@/components/admin/AdminRecordEnrichment";
 
 const STATS = [
   { label: "Active Integrations", value: "7/7", color: "#2EE6A6" },
@@ -38,6 +39,8 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
           </div>
         ))}
       </div>
+
+      <AdminRecordEnrichment />
 
       {/* Quick Links */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
