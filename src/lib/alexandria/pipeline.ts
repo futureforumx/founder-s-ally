@@ -166,12 +166,16 @@ function toView(d: FieldDecision, spec: EntitySpec): DecisionView {
   };
 }
 
-/** Higher = enrich sooner: most incomplete first, weighted by the table's own priority signal. */
-export function priorityScore(spec: EntitySpec, row: RecordRow): number {
+/** Name-only records match weakly and are the most likely to be ambiguous, so they queue behind identifiable ones. */
+const NAME_ONLY_PRIORITY_FACTOR = 0.25;
+
+/** Higher = enrich sooner: most incomplete first, weighted by the table's own priority signal and by how identifiable the record is. */
+export function priorityScore(spec: EntitySpec, row: RecordRow, identity?: EntityIdentity): number {
   const incompleteness = 100 - completenessScore(spec.entity, row);
   const raw = spec.priorityColumn ? Number(row[spec.priorityColumn]) : NaN;
   const weight = Number.isFinite(raw) ? 1 + Math.min(1, Math.max(0, raw) / 100) : 1;
-  return incompleteness * weight;
+  const identifiable = !identity || Boolean(identity.domain || identity.linkedinSlug);
+  return incompleteness * weight * (identifiable ? 1 : NAME_ONLY_PRIORITY_FACTOR);
 }
 
 function utcDayStart(now: Date): Date {
@@ -244,7 +248,7 @@ export async function selectRecords(
       state,
       targets,
       refreshable: new Set(targets.filter((t) => stale.has(t.group) || !state).map((t) => t.field)),
-      priority: priorityScore(spec, row),
+      priority: priorityScore(spec, row, identities[i]),
     });
   });
 

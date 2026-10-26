@@ -43,7 +43,7 @@ used for rollback). `alexandria_enrichment_report(p_since)` returns aggregates o
 
 ## Pipeline
 
-1. Select records (incomplete / stale / high-value investor matches first).
+1. Select records: most incomplete first, weighted by the table's own priority signal (e.g. `match_score`), with name-only records (no domain or LinkedIn) queued behind identifiable ones.
 2. Identity resolution: domain/website or LinkedIn first, then normalized name plus corroboration. Score >= .92 high, >= .85 medium, .60-.85 ambiguous (review queue, no spend), < .60 no match. Existing duplicates are ambiguous and cost nothing.
 3. Waterfall, cheapest first: cache, Fireround, FullEnrich, then PDL/Apollo only if material fields remain and strong identifiers exist. Data Legion only if explicitly selected. Web tier (`--allow-web-research`) last.
 4. Map responses to facts, score confidence, decide per field. Only high-confidence explicit facts auto-apply; medium goes to `enrichment_review_queue`; low is recorded as a candidate and never applied. Manual values are never overwritten; monotonic current-state fields (e.g. `total_raised_usd`, `last_round_date`) may advance; multi-value fields are union-merged.

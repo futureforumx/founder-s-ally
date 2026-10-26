@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadCatalog } from "@/lib/alexandria";
+import { ENTITY_SPECS } from "@/lib/alexandria/fieldRegistry";
 import { MemoryStore } from "@/lib/alexandria/memoryStore";
-import { OptionsError, defaultJobOptions, runEnrichmentJob, validateJobOptions } from "@/lib/alexandria/pipeline";
+import { OptionsError, defaultJobOptions, priorityScore, runEnrichmentJob, validateJobOptions } from "@/lib/alexandria/pipeline";
 import type { EntityType, JobOptions } from "@/lib/alexandria/types";
 import { FakePort, httpError, ok, type FakeResponder } from "./helpers/alexandriaFakes";
 
@@ -328,5 +329,22 @@ describe("resumability", () => {
     const done = new Set(first.results.map((r) => r.id));
     const second = await runEnrichmentJob(apply("firm", { limit: 5, resumeRunId: first.runId }), deps);
     for (const r of second.results) expect(done.has(r.id) && r.status !== "ambiguous").toBe(false);
+  });
+});
+
+describe("priorityScore", () => {
+  const spec = ENTITY_SPECS.firm;
+  const row = { id: "f", firm_name: "Acme Capital" };
+  const base = { entity: "firm" as const, id: "f", name: "Acme Capital", domain: null, linkedinSlug: null };
+
+  it("queues name-only records behind identifiable ones with the same completeness", () => {
+    const withDomain = priorityScore(spec, row, { ...base, domain: "acme.vc" } as never);
+    const nameOnly = priorityScore(spec, row, base as never);
+    expect(withDomain).toBeGreaterThan(nameOnly);
+    expect(nameOnly).toBeGreaterThan(0);
+  });
+
+  it("is unchanged when no identity is supplied", () => {
+    expect(priorityScore(spec, row)).toBe(priorityScore(spec, row, { ...base, domain: "acme.vc" } as never));
   });
 });
