@@ -262,6 +262,7 @@ export function loadDemoUserDirectory(): { users: EnrichedUser[]; applicants: Ad
       permission,
       total_time_seconds: 1_800 + index * 420,
       api_calls_count: 40 + index * 13,
+      storage_bytes: index * 1_572_864,
       last_active_at: banned ? daysAgo(16) : hoursAgo(Math.max(1, lastActiveHours - 1)),
       ip_addresses: [`73.14.${20 + (index % 200)}.${10 + (index % 80)}`],
       last_ip: `73.14.${20 + (index % 200)}.${10 + (index % 80)}`,

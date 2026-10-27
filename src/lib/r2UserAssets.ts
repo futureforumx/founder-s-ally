@@ -1,4 +1,4 @@
-import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
+import { getSupabaseBearerForFunctions, trackAuthenticatedApiRequest } from "@/integrations/supabase/client";
 
 export type R2UserAssetType = "pitch-deck" | "demo-video" | "company-logo" | "founder-headshot";
 
@@ -59,6 +59,7 @@ export function uploadR2UserAssetWithProgress(
       }
       resolve(json as unknown as R2UploadResult);
     };
+    trackAuthenticatedApiRequest(headers.Authorization);
     request.send(form);
   }));
 }

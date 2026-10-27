@@ -103,6 +103,13 @@ Deno.serve(async (req) => {
 
     if (!hasAdminConsoleAccess(callerPermission)) throw new Error("Admin access required");
 
+    const { error: requestCountError } = await adminClient.rpc("record_user_api_request_for_user", {
+      _user_id: resolved.id,
+    });
+    if (requestCountError) {
+      console.error("[admin-list-users] Could not record admin list request:", requestCountError.message);
+    }
+
     // Clerk (third-party) users are not in auth.users — listUsers is often empty. Use profiles as source of truth.
     const { data: profiles } = await adminClient
       .from("profiles")
@@ -117,10 +124,6 @@ Deno.serve(async (req) => {
     const { data: roles } = await adminClient
       .from("user_roles")
       .select("user_id, permission");
-
-    const { data: activity } = await adminClient
-      .from("user_activity")
-      .select("user_id, total_time_seconds, api_calls_count, last_active_at");
 
     const { data: ipRows } = await adminClient
       .from("user_ip_log")
@@ -276,7 +279,24 @@ Deno.serve(async (req) => {
     for (const u of appUsers || []) idSet.add(u.id);
     for (const p of profiles || []) idSet.add(p.user_id);
 
-    const enrichedUsers = [...idSet].map((id) => {
+    const { data: activity } = await adminClient
+      .from("user_activity")
+      .select("user_id, total_time_seconds, api_calls_count, last_active_at");
+
+    const userIds = [...idSet];
+    const { data: storageUsage, error: storageUsageError } = await adminClient
+      .rpc("admin_user_storage_usage", { _user_ids: userIds });
+    if (storageUsageError) {
+      console.error("[admin-list-users] Storage usage lookup:", storageUsageError.message);
+    }
+    const storageBytesByUserId = new Map<string, number>(
+      (storageUsage ?? []).map((row: { user_id: string; storage_bytes: number | string }) => [
+        row.user_id,
+        Number(row.storage_bytes) || 0,
+      ]),
+    );
+
+    const enrichedUsers = userIds.map((id) => {
       const profile = profileMap.get(id);
       const u = authById.get(id);
       const appUser = appUserMap.get(id);
@@ -311,6 +331,7 @@ Deno.serve(async (req) => {
         ),
         total_time_seconds: act?.total_time_seconds ?? 0,
         api_calls_count: act?.api_calls_count ?? 0,
+        storage_bytes: storageBytesByUserId.get(id) ?? 0,
         last_active_at: act?.last_active_at ?? null,
         ip_addresses: ipAddresses,
         last_ip: ipAddresses[0] ?? null,

@@ -38,6 +38,7 @@ export interface EnrichedUser {
   permission: string;
   total_time_seconds: number;
   api_calls_count: number;
+  storage_bytes: number;
   last_active_at: string | null;
   ip_addresses?: string[];
   last_ip?: string | null;
@@ -172,6 +173,21 @@ function formatTime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
 
   return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
+function formatStorage(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = -1;
+  do {
+    value /= 1024;
+    unitIndex += 1;
+  } while (value >= 1024 && unitIndex < units.length - 1);
+
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${units[unitIndex]}`;
 }
 
 function formatDateTime(value: string | null | undefined): string {
@@ -1334,6 +1350,7 @@ function AccountDetail({ user }: { user: EnrichedUser }) {
       />
       <Metric label="Session time" value={formatTime(user.total_time_seconds)} mono />
       <Metric label="API requests" value={user.api_calls_count.toLocaleString()} mono />
+      <Metric label="Storage used" value={formatStorage(user.storage_bytes)} mono />
       <Metric label="Registered" value={formatDateTime(user.created_at)} />
       <Metric label="Last sign in" value={formatDateTime(user.last_sign_in_at)} />
       <Metric label="Permission" value={user.permission} mono />

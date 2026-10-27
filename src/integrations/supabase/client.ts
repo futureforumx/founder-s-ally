@@ -6,6 +6,90 @@ import { mockSupabase } from "./mock-client";
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+const nativeFetch = globalThis.fetch.bind(globalThis);
+const pendingApiRequestCounts = new Map<string, number>();
+let apiRequestFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flushApiRequestCounts(keepalive = false) {
+  if (apiRequestFlushTimer) {
+    clearTimeout(apiRequestFlushTimer);
+    apiRequestFlushTimer = null;
+  }
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || pendingApiRequestCounts.size === 0) return;
+
+  const batch = [...pendingApiRequestCounts.entries()];
+  pendingApiRequestCounts.clear();
+  for (const [token, count] of batch) {
+    void nativeFetch(new URL("/rest/v1/rpc/record_user_api_request", SUPABASE_URL), {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY.trim(),
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_request_count: count }),
+      keepalive,
+    }).catch(() => {});
+  }
+}
+
+function queueApiRequestCount(token: string) {
+  pendingApiRequestCounts.set(token, (pendingApiRequestCounts.get(token) ?? 0) + 1);
+  const pendingCount = [...pendingApiRequestCounts.values()].reduce((sum, value) => sum + value, 0);
+  if (pendingCount >= 20) {
+    flushApiRequestCounts();
+  } else if (!apiRequestFlushTimer) {
+    apiRequestFlushTimer = setTimeout(() => flushApiRequestCounts(), 3_000);
+  }
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushApiRequestCounts(true);
+  });
+  window.addEventListener("pagehide", () => flushApiRequestCounts(true));
+}
+
+async function getTrackedApiRequest(input: RequestInfo | URL, init?: RequestInit): Promise<{ token: string } | null> {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return null;
+  try {
+    const appOrigin = typeof window === "undefined" ? undefined : window.location.origin;
+    const requestUrl = new URL(
+      typeof input === "string" ? input : input instanceof URL ? input.href : input.url,
+      appOrigin ?? SUPABASE_URL,
+    );
+    const projectUrl = new URL(SUPABASE_URL);
+    const path = requestUrl.pathname;
+    const isSupabaseApi = requestUrl.origin === projectUrl.origin && /^\/(rest\/v1|functions\/v1|storage\/v1)(\/|$)/.test(path);
+    const isAppApi = Boolean(appOrigin && requestUrl.origin === appOrigin && path.startsWith("/api/"));
+    if (!isSupabaseApi && !isAppApi) return null;
+    if (isSupabaseApi && path === "/rest/v1/rpc/record_user_api_request") return null;
+    if (isSupabaseApi && path === "/functions/v1/admin-list-users") return null;
+    const requestHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    const authorization = requestHeaders.get("authorization") ?? "";
+    let token = authorization.replace(/^Bearer\s+/i, "").trim();
+    if (token === SUPABASE_PUBLISHABLE_KEY.trim()) {
+      token = (await getSupabaseAccessToken())?.trim() ?? "";
+    }
+    if (!token || token === SUPABASE_PUBLISHABLE_KEY.trim()) return null;
+    return { token };
+  } catch {
+    return null;
+  }
+}
+
+async function trackedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await nativeFetch(input, init);
+  const tracked = await getTrackedApiRequest(input, init);
+  if (tracked) queueApiRequestCount(tracked.token);
+  return response;
+}
+
+/** Track authenticated same-origin XHR requests that do not pass through fetch. */
+export function trackAuthenticatedApiRequest(token: string | null | undefined) {
+  const normalized = token?.replace(/^Bearer\s+/i, "").trim();
+  if (normalized && normalized !== SUPABASE_PUBLISHABLE_KEY?.trim()) queueApiRequestCount(normalized);
+}
 
 /** True when the real Supabase client is used (not the local mock). */
 export const isSupabaseConfigured = hasSupabaseConfig;
@@ -57,10 +141,14 @@ const sharedAuthOptions = {
   },
 } as const;
 
+if (hasSupabaseConfig && typeof window !== "undefined" && globalThis.fetch !== trackedFetch) {
+  globalThis.fetch = trackedFetch;
+}
+
 export const supabaseAuth = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       global: {
-        fetch: (...args) => fetch(...args),
+        fetch: trackedFetch,
       },
       auth: {
         persistSession: true,
@@ -78,7 +166,7 @@ export const supabaseAuth = hasSupabaseConfig
 export const supabaseVcDirectory = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       global: {
-        fetch: (...args) => fetch(...args),
+        fetch: trackedFetch,
       },
       accessToken: async () => {
         try {
@@ -104,7 +192,7 @@ export const supabaseVcDirectory = hasSupabaseConfig
 export const supabasePublicDirectory = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       global: {
-        fetch: (...args) => fetch(...args),
+        fetch: trackedFetch,
       },
       ...sharedAuthOptions,
     })
@@ -114,7 +202,7 @@ export const supabasePublicDirectory = hasSupabaseConfig
 export const supabase = hasSupabaseConfig
   ? createClient<Database>(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY!, {
       global: {
-        fetch: (...args) => fetch(...args),
+        fetch: trackedFetch,
       },
       // Never throw: a rejected accessToken aborts fetchWithAuth and surfaces as "Failed to send" on Edge Functions.
       accessToken: async () => {
