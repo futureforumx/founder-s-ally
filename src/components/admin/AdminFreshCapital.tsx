@@ -12,6 +12,7 @@ import {
   Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Compass,
   ExternalLink, Flag, Loader2, Plus, RefreshCw, Save, Search, Target, Trash2, X, XCircle,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
@@ -1649,7 +1650,7 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
 
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+            <BouncingDots />
           </div>
         )}
 
@@ -1890,7 +1891,7 @@ function LatestFundingDealsAdmin() {
 
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+            <BouncingDots />
           </div>
         )}
 

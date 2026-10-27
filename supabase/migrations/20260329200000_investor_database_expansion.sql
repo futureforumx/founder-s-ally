@@ -233,7 +233,7 @@ SELECT
   CASE
     WHEN EXISTS (
       SELECT 1 FROM public.user_credits uc
-      WHERE uc.user_id = auth.uid() AND uc.tier = 'admin'
+      WHERE uc.user_id = auth.uid()::text AND uc.tier = 'admin'
     )
     THEN email_source
     ELSE NULL

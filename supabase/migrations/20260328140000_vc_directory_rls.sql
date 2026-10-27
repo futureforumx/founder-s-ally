@@ -1,63 +1,35 @@
 -- VC directory tables (Prisma / vc_*): RLS for Clerk-authenticated app users.
 -- Read-only for signed-in users; soft-deleted rows hidden. Service role bypasses RLS.
+-- Some of these relations are created later in this history, or only exist when the
+-- Prisma directory is present. Skip a relation that is not here yet.
 
--- Enable RLS only for tables that exist (some may not be created in all environments)
-DO $$ BEGIN
-  IF to_regclass('public.vc_firms') IS NOT NULL THEN ALTER TABLE public.vc_firms ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_funds') IS NOT NULL THEN ALTER TABLE public.vc_funds ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_people') IS NOT NULL THEN ALTER TABLE public.vc_people ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_investments') IS NOT NULL THEN ALTER TABLE public.vc_investments ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_source_links') IS NOT NULL THEN ALTER TABLE public.vc_source_links ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_signals') IS NOT NULL THEN ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY; END IF;
-  IF to_regclass('public.vc_score_snapshots') IS NOT NULL THEN ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY; END IF;
+DO $$
+DECLARE
+  rel text;
+BEGIN
+  FOREACH rel IN ARRAY ARRAY[
+    'vc_firms',
+    'vc_funds',
+    'vc_people',
+    'vc_investments',
+    'vc_source_links',
+    'vc_signals',
+    'vc_score_snapshots'
+  ]
+  LOOP
+    IF to_regclass('public.' || rel) IS NULL THEN
+      CONTINUE;
+    END IF;
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', rel);
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      'Authenticated read active ' || rel,
+      rel
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (deleted_at IS NULL)',
+      'Authenticated read active ' || rel,
+      rel
+    );
+  END LOOP;
 END $$;
-
-DROP POLICY IF EXISTS "Authenticated read active vc_firms" ON public.vc_firms;
-DROP POLICY IF EXISTS "Authenticated read active vc_funds" ON public.vc_funds;
-DROP POLICY IF EXISTS "Authenticated read active vc_people" ON public.vc_people;
-DROP POLICY IF EXISTS "Authenticated read active vc_investments" ON public.vc_investments;
-DROP POLICY IF EXISTS "Authenticated read active vc_source_links" ON public.vc_source_links;
-DROP POLICY IF EXISTS "Authenticated read active vc_signals" ON public.vc_signals;
-DROP POLICY IF EXISTS "Authenticated read active vc_score_snapshots" ON public.vc_score_snapshots;
-
-CREATE POLICY "Authenticated read active vc_firms"
-  ON public.vc_firms
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_funds"
-  ON public.vc_funds
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_people"
-  ON public.vc_people
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_investments"
-  ON public.vc_investments
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_source_links"
-  ON public.vc_source_links
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_signals"
-  ON public.vc_signals
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Authenticated read active vc_score_snapshots"
-  ON public.vc_score_snapshots
-  FOR SELECT
-  TO authenticated
-  USING (deleted_at IS NULL);

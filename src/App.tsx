@@ -10,7 +10,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ActiveContextProvider } from "@/context/ActiveContext";
 import { ConnectorOAuthReturnListener } from "@/components/ConnectorOAuthReturnListener";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
-import { Loader2 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import TryVektaMarketing from "./pages/TryVektaMarketing";
 
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -182,14 +182,12 @@ function useProfileStatus() {
 
 function RouteLoader({ fullscreen = true, label = "Loading…" }: { fullscreen?: boolean; label?: string }) {
   const containerClass = fullscreen
-    ? "flex h-screen items-center justify-center bg-background"
-    : "flex min-h-[220px] items-center justify-center rounded-2xl border border-border/60 bg-card/70 text-muted-foreground";
+    ? "flex h-screen flex-col items-center justify-center gap-3 bg-background"
+    : "flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-card/70 text-muted-foreground";
   return (
     <div className={containerClass}>
-      <div className="flex items-center gap-2 text-sm">
-        <Loader2 className="h-4 w-4 animate-spin text-accent" />
-        <span>{label}</span>
-      </div>
+      <BouncingDots />
+      <span className="text-sm">{label}</span>
     </div>
   );
 }
@@ -455,6 +453,14 @@ const App = () => (
               />
               <Route
                 path="/share/:token"
+                element={
+                  <Suspense fallback={<RouteLoader label="Opening shared deck…" />}>
+                    <DeckSharePage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/share/:companySlug/:presentationSlug"
                 element={
                   <Suspense fallback={<RouteLoader label="Opening shared deck…" />}>
                     <DeckSharePage />

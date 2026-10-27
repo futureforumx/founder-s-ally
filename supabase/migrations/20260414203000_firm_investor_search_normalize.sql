@@ -3,9 +3,19 @@
 -- - firm_records.normalized_name, search_vector + trigger
 -- - firm_investors.normalized_full_name + trigger
 -- - RPCs: search_firm_records, search_firm_investors (pg_trgm + FTS ranking)
--- Uses existing firm_records.aliases text[] (see 20260331120000_firm_records_aliases_and_dedup.sql)
+-- Uses firm_records.aliases. The column is created here because
+-- 20260418151400_firm_records_aliases_and_dedup.sql is ordered after this file.
+-- That later migration adds the same column with IF NOT EXISTS.
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+ALTER TABLE public.firm_records
+  ADD COLUMN IF NOT EXISTS aliases text[] NOT NULL DEFAULT '{}';
+
+-- Referenced by search_firm_investors below. Added again, idempotently, in
+-- 20260415180000_person_website_profile_cache.sql.
+ALTER TABLE public.firm_investors
+  ADD COLUMN IF NOT EXISTS profile_image_url text;
 
 -- ── Normalization (shared; p_strip_suffix=false for person names) ────────────
 

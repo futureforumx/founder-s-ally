@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2, Plus, RefreshCw, TicketCheck, Trash2 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "sonner";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
@@ -11,7 +12,7 @@ type ReferralCode = {
   code: string;
   label: string | null;
   is_active: boolean;
-  source: "admin" | "member";
+  type: "organization" | "member";
   waitlist_user_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -28,6 +29,9 @@ function invokeAdminWaitlist(body: Record<string, unknown>) {
     body,
   } as AdminWaitlistInvokeOptions);
 }
+
+const tableGrid =
+  "grid w-full grid-cols-[minmax(0,1.5fr)_minmax(0,1.15fr)_5rem_6.5rem_4.5rem_6.25rem_4.75rem_3.25rem] items-center gap-x-3 px-4";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -121,27 +125,28 @@ export function AdminReferralCodes() {
 
   return (
     <div className="space-y-6">
-      <AdminStickyHeader>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-300">
-              <TicketCheck className="h-4 w-4" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em]">Waitlist</span>
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white">Referral Codes</h1>
-            <p className="mt-1 max-w-2xl text-sm text-white/45">
-              Add and manage codes accepted on the signup form. Member referral links are listed here automatically.
-            </p>
-          </div>
+      <AdminStickyHeader
+        trailing={(
           <button
             type="button"
             onClick={() => void loadCodes()}
             disabled={loading}
-            className="inline-flex h-9 items-center gap-2 border border-white/10 px-3 text-xs text-white/60 transition hover:border-white/20 hover:text-white disabled:opacity-40"
+            className="inline-flex h-8 shrink-0 items-center gap-2 border border-white/10 px-3 text-xs text-white/60 transition hover:border-white/20 hover:text-white disabled:opacity-40"
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Refresh
           </button>
+        )}
+      >
+        <div>
+          <div className="flex items-center gap-2 text-emerald-300">
+            <TicketCheck className="h-4 w-4" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">Waitlist</span>
+          </div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white">Referral Codes</h1>
+          <p className="mt-1 max-w-2xl text-sm text-white/45">
+            Add organization codes for partners and campaigns. Member codes are created automatically when someone signs up.
+          </p>
         </div>
       </AdminStickyHeader>
 
@@ -178,13 +183,19 @@ export function AdminReferralCodes() {
         </button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border border-white/[0.08]">
-        <div className="min-w-[1000px]">
-        <div className="grid grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] items-center gap-4 px-4 py-3 text-xs font-medium text-white/55">
-          <span>Code</span><span>Label</span><span>Times used</span><span>Source</span><span>Status</span><span>Added</span><span className="text-right">Actions</span><span className="text-center">Delete</span>
+      <div className="w-full overflow-hidden rounded-lg border border-white/[0.08]">
+        <div className={`${tableGrid} py-3 text-xs font-medium text-white/55`}>
+          <span>Code</span>
+          <span>Label</span>
+          <span className="whitespace-nowrap">Times used</span>
+          <span>Type</span>
+          <span>Status</span>
+          <span>Added</span>
+          <span>Actions</span>
+          <span className="text-center">Delete</span>
         </div>
         {loading ? (
-          <div className="flex min-h-48 items-center justify-center text-sm text-white/40"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading codes…</div>
+          <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-sm text-white/40"><BouncingDots />Loading codes…</div>
         ) : codes.length === 0 ? (
           <div className="flex min-h-48 items-center justify-center text-sm text-white/35">No referral codes yet.</div>
         ) : (
@@ -192,7 +203,7 @@ export function AdminReferralCodes() {
             {codes.map((item) => {
               const updating = updatingId === item.id;
               return (
-                <div key={item.id} className="grid grid-cols-[minmax(150px,1.2fr)_minmax(130px,1.1fr)_80px_90px_90px_125px_100px_56px] items-center gap-4 bg-[#080808] px-4 py-3">
+                <div key={item.id} className={`${tableGrid} bg-[#080808] py-2.5`}>
                   <div className="min-w-0">
                     <span className="block truncate font-mono text-sm tracking-wide text-white">{item.code}</span>
                   </div>
@@ -203,13 +214,13 @@ export function AdminReferralCodes() {
                     <span className="text-sm tabular-nums text-white/70">{item.times_used}</span>
                   </div>
                   <div>
-                    <span className="text-xs capitalize text-white/45">{item.source === "member" ? "Member" : "Admin"}</span>
+                    <span className="whitespace-nowrap text-xs text-white/45">{item.type === "member" ? "Member" : "Organization"}</span>
                   </div>
                   <div>
-                    <span className={`text-xs ${item.is_active ? "text-emerald-300" : "text-white/35"}`}>{item.is_active ? "Active" : "Inactive"}</span>
+                    <span className={`whitespace-nowrap text-xs ${item.is_active ? "text-emerald-300" : "text-white/35"}`}>{item.is_active ? "Active" : "Inactive"}</span>
                   </div>
                   <div>
-                    <span className="text-xs text-white/40">{formatDate(item.created_at)}</span>
+                    <span className="whitespace-nowrap text-xs text-white/40">{formatDate(item.created_at)}</span>
                   </div>
                   <div>
                     <button
@@ -221,8 +232,8 @@ export function AdminReferralCodes() {
                       {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : item.is_active ? "Disable" : "Enable"}
                     </button>
                   </div>
-                  <div className="flex min-w-0 justify-center">
-                    {item.source === "admin" ? (
+                  <div className="flex justify-center">
+                    {item.type === "organization" ? (
                       <button
                         type="button"
                         disabled={updating}
@@ -239,7 +250,6 @@ export function AdminReferralCodes() {
             })}
           </div>
         )}
-        </div>
       </div>
     </div>
   );

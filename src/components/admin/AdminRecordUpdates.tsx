@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Layers, Loader2, RefreshCw, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Layers, RefreshCw, Search } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "sonner";
 import { formatDistanceToNow, isValid } from "date-fns";
 import { FilterSelect } from "@/components/admin/FilterSelect";
@@ -9,46 +9,16 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import { AdminFirmEditor } from "@/components/admin/AdminFirmRecords";
+import { AdminStartupEditor } from "@/components/admin/AdminMarketIntelligence";
+import {
+  KIND_LABEL,
+  changeTypeLabel,
+  loadRecordUpdates,
+  type RecordUpdateKind,
+  type RecordUpdateRow,
+} from "@/components/admin/recordUpdates";
 
-export type RecordUpdateKind =
-  | "vc_firm"
-  | "vc_investor"
-  | "company"
-  | "user_founder"
-  | "user_operator"
-  | "user_investor"
-  | "user_other";
-
-export interface RecordUpdateRow {
-  kind: RecordUpdateKind;
-  recordId: string;
-  name: string;
-  subtitle: string | null;
-  updatedAt: string;
-  firmId?: string | null;
-}
-
-const KIND_LABEL: Record<RecordUpdateKind, string> = {
-  vc_firm: "VC firm",
-  vc_investor: "VC investor",
-  company: "Company",
-  user_founder: "Founder",
-  user_operator: "Operator",
-  user_investor: "Investor (user)",
-  user_other: "User (other)",
-};
-
-function changeTypeLabel(row: RecordUpdateRow): string {
-  switch (row.kind) {
-    case "vc_firm": return "Firm details updated";
-    case "vc_investor": return row.firmId ? "Linked to firm" : "Investor details updated";
-    case "company": return "Company details updated";
-    case "user_founder": return "Founder profile updated";
-    case "user_operator": return "Operator profile updated";
-    case "user_investor": return "Investor profile updated";
-    case "user_other": return "User profile updated";
-  }
-}
+export type { RecordUpdateKind, RecordUpdateRow };
 
 type CategoryFilter =
   | "all"
@@ -92,6 +62,7 @@ export function AdminRecordUpdates() {
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [startupId, setStartupId] = useState<string | null>(null);
 
   const isDirectory = DIRECTORY_KINDS.has(category);
   const requestSeq = useRef(0);
@@ -105,34 +76,17 @@ export function AdminRecordUpdates() {
     const seq = ++requestSeq.current;
     setLoading(true);
     try {
-      const { data, error } = await invokeEdgeFunction("admin-record-updates", {
-        preferClerkSessionToken: true,
-        body: isDirectory
+      const body = await loadRecordUpdates(
+        isDirectory
           ? { kind: category, search: dSearch, limit: DIRECTORY_PAGE_SIZE, offset: page * DIRECTORY_PAGE_SIZE }
           : {},
-      });
-      if (error) {
-        let detail = error.message;
-        const ctx = (error as { context?: Response }).context;
-        if (ctx && typeof ctx.json === "function") {
-          try {
-            const j = (await ctx.json()) as { error?: string };
-            if (typeof j?.error === "string") detail = j.error;
-          } catch {
-            /* ignore */
-          }
-        }
-        throw new Error(detail);
-      }
-      const body = data as { updates?: RecordUpdateRow[]; total?: number; directory?: boolean; error?: string };
-      if (body?.error) throw new Error(body.error);
+      );
       if (seq !== requestSeq.current) return;
-      const updates = body?.updates ?? [];
-      if (isDirectory && body?.directory !== true) {
+      if (isDirectory && !body.directory) {
         throw new Error("The record list is still capped. Deploy the admin-record-updates function to page through every firm and investor.");
       }
-      setRows(updates);
-      setTotal(typeof body?.total === "number" ? body.total : updates.length);
+      setRows(body.updates);
+      setTotal(body.total);
     } catch (e: unknown) {
       if (seq !== requestSeq.current) return;
       const msg = e instanceof Error ? e.message : "Unknown error";
@@ -180,12 +134,18 @@ export function AdminRecordUpdates() {
   const grid = "minmax(100px,0.8fr) minmax(180px,1.5fr) minmax(140px,1.2fr) minmax(160px,1.3fr) minmax(120px,1fr) 64px";
 
   const openEditor = (row: RecordUpdateRow) => {
+    if (row.kind === "company" && row.source === "startup") {
+      setEditor(null);
+      setStartupId(row.recordId);
+      return;
+    }
     if (row.kind !== "vc_firm" && row.kind !== "vc_investor") return;
     const firmId = row.kind === "vc_firm" ? row.recordId : row.firmId;
     if (!firmId) {
       toast.error("This investor is not linked to a firm");
       return;
     }
+    setStartupId(null);
     setEditor({
       firmId,
       initialTab: row.kind === "vc_investor" ? "investors" : "profile",
@@ -269,7 +229,7 @@ export function AdminRecordUpdates() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+          <BouncingDots />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
@@ -291,7 +251,7 @@ export function AdminRecordUpdates() {
           </div>
 
           {sorted.map((r) => {
-            const editable = r.kind === "vc_firm" || r.kind === "vc_investor";
+            const editable = r.kind === "vc_firm" || r.kind === "vc_investor" || (r.kind === "company" && r.source === "startup");
             return (
             <div
               key={`${r.kind}-${r.recordId}`}
@@ -377,6 +337,19 @@ export function AdminRecordUpdates() {
           initialTab={editor.initialTab}
           focusInvestorId={editor.focusInvestorId}
           onClose={() => setEditor(null)}
+        />
+      )}
+      {startupId && (
+        <AdminStartupEditor
+          startupId={startupId}
+          onClose={() => setStartupId(null)}
+          onSaved={(saved) => {
+            setRows((current) => current.map((row) => (
+              row.kind === "company" && row.recordId === saved.id
+                ? { ...row, name: saved.company_name || row.name }
+                : row
+            )));
+          }}
         />
       )}
     </div>

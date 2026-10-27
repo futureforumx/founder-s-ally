@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { supabaseAuth } from "@/integrations/supabase/client";
 import { waitlistSignup } from "@/lib/waitlist";
 
@@ -133,11 +133,9 @@ export default function AuthCallback() {
   }, [callbackError, navigate, requestAccess]);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-[#050506]">
-      <div className="flex items-center gap-2 text-sm text-zinc-400">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>{statusLabel}</span>
-      </div>
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-[#050506]">
+      <BouncingDots />
+      <span className="text-sm text-zinc-400">{statusLabel}</span>
     </div>
   );
 }

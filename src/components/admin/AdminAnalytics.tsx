@@ -3,7 +3,8 @@ import { formatDistanceToNow } from "date-fns";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
-import { Calendar, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { Calendar, ChevronDown, RefreshCw } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { FilterSelect, filterTriggerClass } from "@/components/admin/FilterSelect";
@@ -25,6 +26,7 @@ import {
   AnalyticsEngagement,
   type EngagementSeriesKey,
 } from "@/components/admin/AnalyticsEngagement";
+import { AnalyticsRecordUpdates } from "@/components/admin/AnalyticsRecordUpdates";
 import {
   formatSessionMinutes,
   resolveAvgSessionMinutes,
@@ -164,11 +166,12 @@ const SERIES = [
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]["key"];
-type AnalyticsPage = "engagement" | "waitlist";
+type AnalyticsPage = "engagement" | "waitlist" | "records";
 
 const PAGES: { id: AnalyticsPage; label: string; keys: SeriesKey[] }[] = [
   { id: "engagement", label: "Engagement", keys: ["clicks", "searches", "uploads", "logins"] },
   { id: "waitlist", label: "Waitlist", keys: ["waitlist", "users"] },
+  { id: "records", label: "Record updates", keys: [] },
 ];
 
 const cardClass = "rounded-xl border border-neutral-800 bg-neutral-950 p-5";
@@ -427,10 +430,12 @@ export type AnalyticsQuery = { range: AnalyticsPreset } | { from: string; to: st
 export function AdminAnalytics({
   onOpenFirmRecord,
   onOpenPersonRecord,
+  onOpenCompanyRecord,
   loadPayload,
 }: {
   onOpenFirmRecord?: (firmId: string, firmName: string) => void;
   onOpenPersonRecord?: (personId: string, personName: string) => void;
+  onOpenCompanyRecord?: (companyId: string, companyName: string) => void;
   loadPayload?: (query: AnalyticsQuery) => AnalyticsPayload | Promise<AnalyticsPayload>;
 }) {
   const [range, setRange] = useState<AnalyticsSelection>("all");
@@ -440,7 +445,14 @@ export function AdminAnalytics({
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState<AnalyticsPage>("engagement");
   const [hiddenSeries, setHiddenSeries] = useState<SeriesKey[]>([]);
+  const [recordRefresh, setRecordRefresh] = useState(0);
   const dateKey = dates?.from && dates.to ? `${dates.from}:${dates.to}` : "";
+  const presetWindow = range === "all" || range === "custom" ? null : presetDates(range);
+  const recordWindow = range === "custom"
+    ? (dates?.from && dates.to ? { from: dates.from, to: dates.to } : null)
+    : presetWindow?.from && presetWindow.to
+      ? { from: presetWindow.from, to: presetWindow.to }
+      : null;
 
   const load = useCallback(async (query: AnalyticsQuery) => {
     setLoading(true);
@@ -650,6 +662,7 @@ export function AdminAnalytics({
                 onClick={() => {
                   const query = currentQuery();
                   if (query) void load(query);
+                  setRecordRefresh((value) => value + 1);
                 }}
                 disabled={loading}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs font-medium text-white/60 transition-colors hover:bg-white/5 disabled:opacity-50"
@@ -665,7 +678,9 @@ export function AdminAnalytics({
             const selected = page === item.id;
             const count = item.id === "engagement"
               ? kpiByKey.get("active")?.value
-              : kpiByKey.get("waitlist")?.value;
+              : item.id === "waitlist"
+                ? kpiByKey.get("waitlist")?.value
+                : null;
 
             return (
               <button
@@ -696,6 +711,16 @@ export function AdminAnalytics({
 
       <div className="space-y-8 pt-6">
 
+      {page === "records" ? (
+        <AnalyticsRecordUpdates
+          window={recordWindow}
+          refreshKey={recordRefresh}
+          onOpenCompanyRecord={onOpenCompanyRecord}
+          onOpenFirmRecord={onOpenFirmRecord}
+          onOpenPersonRecord={onOpenPersonRecord}
+        />
+      ) : (
+      <>
       {error ? (
         <div className="rounded-xl border p-5" style={{ borderColor: "rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)" }}>
           <p className="text-sm text-red-300">{error}</p>
@@ -714,7 +739,7 @@ export function AdminAnalytics({
 
       {loading && !payload ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+          <BouncingDots />
         </div>
       ) : null}
 
@@ -858,6 +883,8 @@ export function AdminAnalytics({
         </>
         )
       ) : null}
+      </>
+      )}
       </div>
     </div>
   );

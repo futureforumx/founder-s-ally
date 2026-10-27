@@ -4,18 +4,20 @@ import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export type R2UserAssetType = "pitch-deck" | "company-logo" | "founder-headshot";
+export type R2UserAssetType = "pitch-deck" | "demo-video" | "company-logo" | "founder-headshot";
 type R2S3Command = PutObjectCommand | DeleteObjectCommand | GetObjectCommand;
 type R2S3Client = S3Client & { send(command: R2S3Command): Promise<unknown> };
 
 const ASSET_LIMITS: Record<R2UserAssetType, number> = {
-  "pitch-deck": 50 * 1024 * 1024,
+  "pitch-deck": 25 * 1024 * 1024,
+  "demo-video": 25 * 1024 * 1024,
   "company-logo": 5 * 1024 * 1024,
   "founder-headshot": 5 * 1024 * 1024,
 };
 
 const ASSET_PREFIX: Record<R2UserAssetType, string> = {
   "pitch-deck": "pitch-decks",
+  "demo-video": "pitch-decks",
   "company-logo": "company-logos",
   "founder-headshot": "founder-headshots",
 };
@@ -34,6 +36,7 @@ function r2Endpoint(): string {
 function publicBaseFor(type: R2UserAssetType): string {
   const keys: Record<R2UserAssetType, string[]> = {
     "pitch-deck": ["CF_R2_PUBLIC_BASE_PITCH_DECKS"],
+    "demo-video": ["CF_R2_PUBLIC_BASE_PITCH_DECKS"],
     "company-logo": ["CF_R2_PUBLIC_BASE_COMPANY_LOGOS", "CF_R2_PUBLIC_BASE_LOGOS"],
     "founder-headshot": ["CF_R2_PUBLIC_BASE_FOUNDER_HEADSHOTS", "CF_R2_PUBLIC_BASE_HEADSHOTS"],
   };
@@ -47,6 +50,7 @@ function publicBaseFor(type: R2UserAssetType): string {
 export function bucketFor(type: R2UserAssetType): string {
   const keys: Record<R2UserAssetType, string[]> = {
     "pitch-deck": ["CF_R2_BUCKET_PITCH_DECKS"],
+    "demo-video": ["CF_R2_BUCKET_PITCH_DECKS"],
     "company-logo": ["CF_R2_BUCKET_COMPANY_LOGOS", "CF_R2_BUCKET_LOGOS"],
     "founder-headshot": ["CF_R2_BUCKET_FOUNDER_HEADSHOTS", "CF_R2_BUCKET_HEADSHOTS"],
   };
@@ -63,7 +67,7 @@ export function r2ConfiguredFor(type: R2UserAssetType): { ok: boolean; missing: 
   if (!e("CF_R2_ACCESS_KEY_ID")) missing.push("CF_R2_ACCESS_KEY_ID");
   if (!e("CF_R2_SECRET_ACCESS_KEY")) missing.push("CF_R2_SECRET_ACCESS_KEY");
   if (!bucketFor(type)) missing.push(`bucket for ${type}`);
-  if (type !== "pitch-deck" && !publicBaseFor(type)) missing.push(`public base for ${type}`);
+  if (type !== "pitch-deck" && type !== "demo-video" && !publicBaseFor(type)) missing.push(`public base for ${type}`);
   return { ok: missing.length === 0, missing };
 }
 
@@ -91,22 +95,30 @@ function sanitizeFileName(raw: string): string {
 }
 
 function parseType(raw: string): R2UserAssetType | null {
-  if (raw === "pitch-deck" || raw === "company-logo" || raw === "founder-headshot") return raw;
+  if (raw === "pitch-deck" || raw === "demo-video" || raw === "company-logo" || raw === "founder-headshot") return raw;
   return null;
 }
 
-function validateContent(type: R2UserAssetType, fileName: string, mimeType: string): string | null {
+export function validateContent(type: R2UserAssetType, fileName: string, mimeType: string): string | null {
   const lower = fileName.toLowerCase();
   if (type === "pitch-deck") {
     if ([".pdf", ".ppt", ".pptx", ".doc", ".docx", ".txt", ".md"].some((extension) => lower.endsWith(extension))) return null;
     return "Investor material must be PDF, PowerPoint, Word, TXT, or MD.";
   }
+  if (type === "demo-video") {
+    if (!lower.endsWith(".mp4") || mimeType.toLowerCase() !== "video/mp4") return "Demo videos must be MP4 files.";
+    return null;
+  }
   if (mimeType.startsWith("image/")) return null;
   return "Image upload must have an image content type.";
 }
 
+export function hasMp4Signature(fileData: Uint8Array): boolean {
+  return fileData.length >= 8 && String.fromCharCode(...fileData.subarray(4, 8)) === "ftyp";
+}
+
 export function r2StoredValue(type: R2UserAssetType, key: string): string {
-  return type === "pitch-deck" ? `r2://${key}` : `${publicBaseFor(type)}/${key}`;
+  return type === "pitch-deck" || type === "demo-video" ? `r2://${key}` : `${publicBaseFor(type)}/${key}`;
 }
 
 export function parseR2StoredValue(value: string): string | null {
@@ -123,6 +135,7 @@ export function parseMultipartAsset(req: IncomingMessage): Promise<
     let rawType = "";
     let fileName = "upload";
     let mimeType = "application/octet-stream";
+    let fileTooLarge = false;
     const chunks: Buffer[] = [];
 
     const bb = busboy({
@@ -142,6 +155,7 @@ export function parseMultipartAsset(req: IncomingMessage): Promise<
       fileName = sanitizeFileName(info.filename || "upload");
       mimeType = info.mimeType || "application/octet-stream";
       file.on("data", (d: Buffer) => chunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
+      file.on("limit", () => { fileTooLarge = true; });
     });
 
     bb.on("error", (err: Error) => resolve({ ok: false, error: err.message || "Upload parse error" }));
@@ -151,11 +165,15 @@ export function parseMultipartAsset(req: IncomingMessage): Promise<
     bb.on("finish", () => {
       const assetType = parseType(rawType);
       if (!assetType) return resolve({ ok: false, error: "Invalid asset_type" });
+      if (fileTooLarge) return resolve({ ok: false, error: `File exceeds the ${Math.floor(ASSET_LIMITS[assetType] / (1024 * 1024))} MB upload limit.` });
       const fileData = Buffer.concat(chunks);
       if (!fileData.length) return resolve({ ok: false, error: "Missing file" });
       if (fileData.length > ASSET_LIMITS[assetType]) return resolve({ ok: false, error: "File too large" });
       const contentError = validateContent(assetType, fileName, mimeType);
       if (contentError) return resolve({ ok: false, error: contentError });
+      if (assetType === "demo-video" && !hasMp4Signature(fileData)) {
+        return resolve({ ok: false, error: "This file does not contain a valid MP4 video signature." });
+      }
       resolve({ ok: true, assetType, fileName, mimeType, fileData });
     });
 
@@ -195,4 +213,20 @@ export async function signedR2PitchDeckUrl(key: string): Promise<string> {
     new GetObjectCommand({ Bucket: bucketFor("pitch-deck"), Key: key }),
     { expiresIn: 60 * 60 },
   );
+}
+
+/** Fetch a private pitch-deck object for an authenticated server-side proxy. */
+export async function getR2PitchDeckObject(key: string, range?: string) {
+  return s3().send(new GetObjectCommand({
+    Bucket: bucketFor("pitch-deck"),
+    Key: key,
+    ...(range ? { Range: range } : {}),
+  })) as Promise<{
+    Body?: unknown;
+    ContentLength?: number;
+    ContentRange?: string;
+    ContentType?: string;
+    AcceptRanges?: string;
+    ETag?: string;
+  }>;
 }

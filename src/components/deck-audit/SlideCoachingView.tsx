@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Lightbulb, MessageSquareWarning, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, Lightbulb, MessageSquareWarning, ChevronLeft, ChevronRight } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import type { SlideAnalysis } from "./types";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { withTimeout } from "@/lib/withTimeout";
@@ -95,8 +96,8 @@ export function SlideCoachingView({ slides, deckUrl }: SlideCoachingViewProps) {
                 className="w-full h-full object-contain"
               />
             ) : renderingSlides ? (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin" />
+              <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                <BouncingDots />
                 <span className="text-[10px] font-medium">Rendering slides…</span>
               </div>
             ) : (

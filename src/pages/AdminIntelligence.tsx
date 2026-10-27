@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import {
-  Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
+  Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
   TicketCheck,
 } from "lucide-react";
@@ -96,6 +97,7 @@ export default function AdminIntelligence() {
   const [systemStatus, setSystemStatus] = useState<SystemStatusId>("normal");
   const [focusFirm, setFocusFirm] = useState<{ id: string; name: string } | null>(null);
   const [focusPerson, setFocusPerson] = useState<{ id: string; name: string } | null>(null);
+  const [focusCompany, setFocusCompany] = useState<{ id: string; name: string } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const status = SYSTEM_STATUSES.find((item) => item.id === systemStatus) ?? SYSTEM_STATUSES[0];
 
@@ -107,7 +109,7 @@ export default function AdminIntelligence() {
   if (loading || adminLoading) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+        <BouncingDots />
       </div>
     );
   }
@@ -210,13 +212,21 @@ export default function AdminIntelligence() {
           <AdminAnalytics
             onOpenFirmRecord={(id, name) => {
               setFocusPerson(null);
+              setFocusCompany(null);
               setFocusFirm({ id, name });
               openView("firm-records");
             }}
             onOpenPersonRecord={(id, name) => {
               setFocusFirm(null);
+              setFocusCompany(null);
               setFocusPerson({ id, name });
               openView("firm-records");
+            }}
+            onOpenCompanyRecord={(id, name) => {
+              setFocusFirm(null);
+              setFocusPerson(null);
+              setFocusCompany({ id, name });
+              openView("market-intel");
             }}
           />
         )}
@@ -224,7 +234,7 @@ export default function AdminIntelligence() {
         {activeView === "waitlist"       && <AdminWaitlist />}
         {activeView === "referral-codes" && <AdminReferralCodes />}
         {activeView === "firm-records"   && <AdminFirmRecords focusFirm={focusFirm} focusPerson={focusPerson} />}
-        {activeView === "market-intel"   && <AdminMarketIntelligence />}
+        {activeView === "market-intel"   && <AdminMarketIntelligence focusCompany={focusCompany} />}
         {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={openView} />}
         {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
         {activeView === "record-updates" && <AdminRecordUpdates />}

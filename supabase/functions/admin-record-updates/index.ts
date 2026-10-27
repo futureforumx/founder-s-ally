@@ -45,6 +45,21 @@ export interface RecordUpdateRow {
   updatedAt: string;
   /** Firm record id. Set for VC firms and for investors so the editor can open the parent firm. */
   firmId?: string | null;
+  /** Catalog startups can be opened in the company editor. Workspace-only rows cannot. */
+  source?: "startup";
+  change?: "created" | "updated" | "linked";
+  linkedTo?: string | null;
+  origin?: string | null;
+}
+
+/** `startups.updated_at` is timestamp without time zone; treat the wall clock as UTC. */
+function asUtcIso(value: string | null | undefined): string | null | undefined {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/[zZ]$/.test(trimmed) || /[+-]\d{2}:?\d{2}$/.test(trimmed)) return trimmed;
+  const normalized = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
+  return `${normalized}Z`;
 }
 
 function effectiveTs(updatedAt: string | null | undefined, createdAt: string | null | undefined): string {
@@ -55,7 +70,115 @@ function effectiveTs(updatedAt: string | null | undefined, createdAt: string | n
   return new Date(0).toISOString();
 }
 
-type FirmRow = { id: string; firm_name: string; updated_at?: string | null; created_at?: string | null };
+const CREATED_WINDOW_MS = 2 * 60 * 1000;
+
+function wasCreated(createdAt: string | null | undefined, updatedAt: string | null | undefined): boolean {
+  const created = Date.parse(asUtcIso(createdAt) ?? "");
+  if (Number.isNaN(created)) return false;
+  const updated = Date.parse(asUtcIso(updatedAt) ?? "");
+  if (Number.isNaN(updated)) return true;
+  return Math.abs(updated - created) <= CREATED_WINDOW_MS;
+}
+
+function recordChange(
+  createdAt: string | null | undefined,
+  updatedAt: string | null | undefined,
+  linkedTo?: string | null,
+): { change: "created" | "updated" | "linked"; linkedTo: string | null } {
+  if (wasCreated(createdAt, updatedAt)) return { change: "created", linkedTo: null };
+  const target = linkedTo?.trim() || null;
+  if (target) return { change: "linked", linkedTo: target };
+  return { change: "updated", linkedTo: null };
+}
+
+function labelOrigin(raw: string | null | undefined): string | null {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  const key = value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (key.includes("firecrawl")) return "Firecrawl";
+  if (key === "user") return "User";
+  if (key === "admin" || key === "manual") return "Admin";
+  const known: Record<string, string> = {
+    yc: "YC",
+    crunchbase: "Crunchbase",
+    cbinsights: "CB Insights",
+    tracxn: "Tracxn",
+    seedtable: "Seedtable",
+    topstartups: "Top Startups",
+    tinyteams: "Tiny Teams",
+    nextplay: "Next Play",
+    startupsgallery: "Startups Gallery",
+    signalnfx: "Signal NFX",
+    alexandriafullenrich: "FullEnrich",
+    fullenrich: "FullEnrich",
+    alexandriafireround: "FireRound",
+    fireround: "FireRound",
+    ninjapear: "Ninjapear",
+    prisma: "Prisma",
+    openvc: "OpenVC",
+    other: "Other",
+  };
+  return known[key] ?? value.replace(/[_:]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function companyAnalysisId(externalIds: unknown): string | null {
+  if (!externalIds || typeof externalIds !== "object" || Array.isArray(externalIds)) return null;
+  const id = (externalIds as { company_analysis_id?: unknown }).company_analysis_id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function startupOrigin(row: {
+  id: string;
+  primary_data_source?: string | null;
+  external_ids?: unknown;
+}): string | null {
+  if (companyAnalysisId(row.external_ids)) return "User";
+  const primary = row.primary_data_source?.trim() || null;
+  if (!primary && row.id.startsWith("cs_")) return "Admin";
+  return labelOrigin(primary);
+}
+
+function firmOrigin(row: {
+  signal_nfx_url?: string | null;
+  crunchbase_url?: string | null;
+  prisma_firm_id?: string | null;
+}, provenance: string | null): string | null {
+  if (provenance) return labelOrigin(provenance);
+  if (row.signal_nfx_url?.trim()) return "Signal NFX";
+  if (row.crunchbase_url?.trim()) return "Crunchbase";
+  if (row.prisma_firm_id?.trim()) return "Prisma";
+  return null;
+}
+
+async function latestProvenance(adminClient: SupabaseClient, ids: string[]): Promise<Map<string, string>> {
+  const origins = new Map<string, string>();
+  const unique = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (!unique.length) return origins;
+  const { data, error } = await adminClient
+    .from("enrichment_field_provenance")
+    .select("entity_id, source_platform, created_at")
+    .in("entity_id", unique)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (error || !data) return origins;
+  for (const row of data as Array<{ entity_id?: string; source_platform?: string }>) {
+    const id = row.entity_id?.trim();
+    const platform = row.source_platform?.trim();
+    if (!id || !platform || origins.has(id)) continue;
+    origins.set(id, platform);
+  }
+  return origins;
+}
+
+type FirmRow = {
+  id: string;
+  firm_name: string;
+  updated_at?: string | null;
+  created_at?: string | null;
+  signal_nfx_url?: string | null;
+  crunchbase_url?: string | null;
+  prisma_firm_id?: string | null;
+};
 type PartnerRow = {
   id: string;
   full_name: string;
@@ -64,15 +187,26 @@ type PartnerRow = {
   updated_at?: string | null;
   created_at?: string | null;
 };
-type CompanyRow = { id: string; company_name: string; user_id: string; updated_at?: string | null; created_at?: string | null };
+type StartupRow = {
+  id: string;
+  company_name: string;
+  hq_city?: string | null;
+  hq_state?: string | null;
+  hq_country?: string | null;
+  record_status?: string | null;
+  primary_data_source?: string | null;
+  external_ids?: unknown;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
 type ProfileRow = { user_id: string; full_name: string; user_type: string; updated_at?: string | null; created_at?: string | null };
 
 async function fetchFirms(adminClient: SupabaseClient, limit: number): Promise<FirmRow[]> {
-  const attempts = [
+    const attempts = [
     () =>
       adminClient
         .from("firm_records")
-        .select("id, firm_name, updated_at, created_at")
+        .select("id, firm_name, updated_at, created_at, signal_nfx_url, crunchbase_url, prisma_firm_id")
         .is("deleted_at", null)
         .order("updated_at", { ascending: false })
         .limit(limit),
@@ -111,21 +245,6 @@ async function fetchPartners(adminClient: SupabaseClient, limit: number): Promis
   return (fallback.data ?? []) as PartnerRow[];
 }
 
-async function fetchCompanies(adminClient: SupabaseClient, limit: number): Promise<CompanyRow[]> {
-  const res = await adminClient
-    .from("company_analyses")
-    .select("id, company_name, user_id, updated_at, created_at")
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-  if (!res.error && res.data) return res.data as CompanyRow[];
-  const fallback = await adminClient
-    .from("company_analyses")
-    .select("id, company_name, user_id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  return (fallback.data ?? []) as CompanyRow[];
-}
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function safeSearch(raw: unknown): string {
@@ -162,8 +281,8 @@ async function listFirmDirectory(
 ): Promise<{ updates: RecordUpdateRow[]; total: number }> {
   const run = async (withDeleted: boolean, orderCol: "updated_at" | "created_at") => {
     const cols = orderCol === "updated_at"
-      ? "id, firm_name, updated_at, created_at"
-      : "id, firm_name, created_at";
+      ? "id, firm_name, updated_at, created_at, signal_nfx_url, crunchbase_url, prisma_firm_id"
+      : "id, firm_name, created_at, signal_nfx_url, crunchbase_url, prisma_firm_id";
     let q = adminClient.from("firm_records").select(cols, { count: "exact" });
     if (withDeleted) q = q.is("deleted_at", null);
     if (UUID_RE.test(search)) q = q.eq("id", search);
@@ -184,13 +303,17 @@ async function listFirmDirectory(
       if (res.error?.message) lastError = res.error.message;
       continue;
     }
-    const updates = (res.data as FirmRow[]).map((f) => ({
+    const firms = res.data as FirmRow[];
+    const provenance = await latestProvenance(adminClient, firms.map((firm) => firm.id));
+    const updates = firms.map((f) => ({
       kind: "vc_firm" as const,
       recordId: f.id,
       firmId: f.id,
       name: f.firm_name || "Unnamed firm",
       subtitle: null,
       updatedAt: effectiveTs(f.updated_at, f.created_at),
+      ...recordChange(f.created_at, f.updated_at),
+      origin: firmOrigin(f, provenance.get(f.id) ?? null),
     }));
     return { updates, total: res.count ?? updates.length };
   }
@@ -260,17 +383,60 @@ async function listInvestorDirectory(
     for (const f of firms ?? []) firmNameById.set(f.id, f.firm_name);
   }
 
-  const updates = partners.map((p) => ({
-    kind: "vc_investor" as const,
-    recordId: p.id,
-    firmId: p.firm_id,
-    name: p.full_name || "Unnamed",
-    subtitle: [firmNameById.get(p.firm_id) ?? null, p.title ?? null]
-      .filter(Boolean)
-      .join(" · ") || null,
-    updatedAt: effectiveTs(p.updated_at, p.created_at),
-  }));
+  const provenance = await latestProvenance(adminClient, partners.map((partner) => partner.id));
+  const updates = partners.map((p) => {
+    const firmName = firmNameById.get(p.firm_id) ?? null;
+    const change = recordChange(p.created_at, p.updated_at, firmName);
+    return {
+      kind: "vc_investor" as const,
+      recordId: p.id,
+      firmId: p.firm_id,
+      name: p.full_name || "Unnamed",
+      subtitle: p.title?.trim() || null,
+      updatedAt: effectiveTs(p.updated_at, p.created_at),
+      ...change,
+      origin: labelOrigin(provenance.get(p.id) ?? null),
+    };
+  });
   return { updates, total };
+}
+
+function startupSubtitle(row: StartupRow): string | null {
+  const place = [row.hq_city?.trim(), row.hq_state?.trim() || row.hq_country?.trim()]
+    .filter(Boolean)
+    .join(", ");
+  const status = row.record_status?.trim().replace(/_/g, " ");
+  const parts = [place || null, status || null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+async function fetchStartups(adminClient: SupabaseClient, limit: number): Promise<StartupRow[]> {
+  const attempts = [
+    () =>
+      adminClient
+        .from("startups")
+        .select("id, company_name, hq_city, hq_state, hq_country, record_status, primary_data_source, external_ids, updated_at, created_at")
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+    () =>
+      adminClient
+        .from("startups")
+        .select("id, company_name, updated_at, created_at")
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+    () =>
+      adminClient
+        .from("startups")
+        .select("id, company_name, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit),
+  ];
+  for (const run of attempts) {
+    const res = await run();
+    if (!res.error && res.data) return res.data as StartupRow[];
+  }
+  return [];
 }
 
 async function fetchProfiles(adminClient: SupabaseClient, limit: number): Promise<ProfileRow[]> {
@@ -337,10 +503,10 @@ Deno.serve(async (req) => {
 
     const perSource = 250;
 
-    const [firms, partners, companies, profiles] = await Promise.all([
+    const [firms, partners, startups, profiles] = await Promise.all([
       fetchFirms(adminClient, perSource),
       fetchPartners(adminClient, perSource),
-      fetchCompanies(adminClient, perSource),
+      fetchStartups(adminClient, perSource),
       fetchProfiles(adminClient, perSource * 2),
     ]);
 
@@ -356,6 +522,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    const provenance = await latestProvenance(adminClient, [
+      ...firms.map((firm) => firm.id),
+      ...partners.map((partner) => partner.id),
+    ]);
     const updates: RecordUpdateRow[] = [];
 
     for (const f of firms) {
@@ -366,27 +536,35 @@ Deno.serve(async (req) => {
         name: f.firm_name || "Unnamed firm",
         subtitle: null,
         updatedAt: effectiveTs(f.updated_at as string | null | undefined, f.created_at as string | null | undefined),
+        ...recordChange(f.created_at, f.updated_at),
+        origin: firmOrigin(f, provenance.get(f.id) ?? null),
       });
     }
 
     for (const p of partners) {
+      const firmName = firmNameById.get(p.firm_id) ?? null;
       updates.push({
         kind: "vc_investor",
         recordId: p.id,
         firmId: p.firm_id,
         name: p.full_name || "Unnamed",
-        subtitle: firmNameById.get(p.firm_id) ?? null,
+        subtitle: null,
         updatedAt: effectiveTs(p.updated_at as string | null | undefined, p.created_at as string | null | undefined),
+        ...recordChange(p.created_at, p.updated_at, firmName),
+        origin: labelOrigin(provenance.get(p.id) ?? null),
       });
     }
 
-    for (const c of companies) {
+    for (const startup of startups) {
       updates.push({
         kind: "company",
-        recordId: c.id,
-        name: c.company_name || "Unnamed company",
-        subtitle: c.user_id ? `Owner ${c.user_id}` : null,
-        updatedAt: effectiveTs(c.updated_at as string | null | undefined, c.created_at as string | null | undefined),
+        source: "startup",
+        recordId: startup.id,
+        name: startup.company_name || "Unnamed company",
+        subtitle: startupSubtitle(startup),
+        updatedAt: effectiveTs(asUtcIso(startup.updated_at), asUtcIso(startup.created_at)),
+        ...recordChange(startup.created_at, startup.updated_at),
+        origin: startupOrigin(startup),
       });
     }
 
@@ -402,8 +580,10 @@ Deno.serve(async (req) => {
         kind,
         recordId: pr.user_id,
         name: pr.full_name?.trim() || "Unnamed user",
-        subtitle: `user_type: ${pr.user_type || "—"}`,
+        subtitle: null,
         updatedAt: effectiveTs(pr.updated_at as string | null | undefined, pr.created_at as string | null | undefined),
+        ...recordChange(pr.created_at, pr.updated_at),
+        origin: "User",
       });
     }
 

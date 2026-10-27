@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ExternalLink, Loader2, Save } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { getSupabaseBearerForFunctions, isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TOOL_CATEGORY_INTROS } from "@/features/tools/lib/tools";
@@ -178,8 +179,8 @@ export function AdminAiAgentsToolPage() {
       ) : null}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-white/45">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-white/45">
+          <BouncingDots />
           Loading…
         </div>
       ) : (

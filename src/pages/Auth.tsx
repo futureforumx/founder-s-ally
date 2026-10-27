@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Lock, Mail, Shield } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { RegisterAccessForm } from "@/components/auth/RegisterAccessForm";
 import { GoogleGlyph, LinkedInGlyph } from "@/components/auth/oauthGlyphs";
 import { useAuth, type OAuthProvider } from "@/hooks/useAuth";
@@ -150,7 +151,7 @@ export default function Auth() {
     if (loading) {
       return (
         <div className="flex flex-1 items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+          <BouncingDots />
         </div>
       );
     }

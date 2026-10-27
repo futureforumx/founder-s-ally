@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeckAuditView } from "./DeckAuditView";
 import { CompanyPanel } from "./data-room/CompanyPanel";
@@ -9,6 +8,7 @@ import { MarketPanel } from "./data-room/MarketPanel";
 import { SharePanel } from "./data-room/SharePanel";
 import { BestMatchesPanel } from "./data-room/BestMatchesPanel";
 import { RecentActivityPanel } from "./data-room/RecentActivityPanel";
+import { AnalyticsPanel } from "./data-room/AnalyticsPanel";
 import { useStoredCompanyProfile } from "@/hooks/useStoredCompanyProfile";
 import { useCompanyProfileFields } from "@/hooks/useCompanyProfileFields";
 import { companyGeoFromProfile } from "@/lib/resolveCompanyGeo";
@@ -35,26 +35,6 @@ function readDeckAuditResult(): AuditResult | null {
   }
 }
 
-function ComingSoonPanel({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof BarChart3;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 min-h-[40vh] text-center">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-card/70">
-        <Icon className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
 interface DataHubPageProps {
   /** Tab to open on. Entry points that used to lead to the standalone deck audit pass "assessment". */
   initialTab?: DataRoomTabId;
@@ -62,6 +42,7 @@ interface DataHubPageProps {
 
 export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
   const [activeTab, setActiveTab] = useState<DataRoomTabId>(initialTab);
+  const [shareDeckId, setShareDeckId] = useState<string | undefined>();
   const companyProfile = useStoredCompanyProfile();
   const auditResult = activeTab === "assessment" ? readDeckAuditResult() : null;
   // The raw stored fields, so Best Matches tracks the Company Details card even
@@ -71,7 +52,7 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
   return (
     <div className={cn(
       "mx-auto w-full px-4 py-8 sm:px-6 lg:px-8",
-      activeTab === "overview" || activeTab === "files"
+      activeTab === "overview" || activeTab === "files" || activeTab === "analytics"
         ? "max-w-[1312px]"
         : activeTab === "market" || activeTab === "metrics"
           ? "max-w-6xl"
@@ -139,15 +120,11 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
         ) : activeTab === "market" ? (
           <MarketPanel profile={companyProfile} />
         ) : activeTab === "share" ? (
-          <SharePanel />
+          <SharePanel initialDeckId={shareDeckId} />
         ) : activeTab === "analytics" ? (
-          <ComingSoonPanel
-            icon={BarChart3}
-            title="Analytics is coming soon"
-            description="You'll be able to track views, engagement, and investor activity on your shared materials here."
-          />
+          <AnalyticsPanel onCreateLink={(deckId) => { setShareDeckId(deckId); setActiveTab("share"); }} />
         ) : (
-          <DeckAuditView activeSection={activeTab} />
+          <DeckAuditView activeSection={activeTab} onShareDeck={(deckId) => { setShareDeckId(deckId); setActiveTab("share"); }} />
         )}
       </div>
     </div>

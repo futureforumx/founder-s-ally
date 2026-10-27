@@ -174,7 +174,8 @@ GRANT EXECUTE ON FUNCTION public.waitlist_signup(
   text, text, text, text, text, text[], text, text, text, text, text, text, text, jsonb
 ) TO anon, authenticated;
 
-CREATE OR REPLACE VIEW public.v_waitlist_admin AS
+DROP VIEW IF EXISTS public.v_waitlist_admin;
+CREATE VIEW public.v_waitlist_admin AS
 SELECT
   wu.id,
   wu.created_at,

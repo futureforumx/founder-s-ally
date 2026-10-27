@@ -26,7 +26,7 @@ EXCEPTION WHEN undefined_column THEN NULL; END $$;
 
 DO $$ BEGIN
   UPDATE public.firm_records
-  SET lead_or_follow = COALESCE(lead_or_follow, lead_behavior)
+  SET lead_or_follow = COALESCE(lead_or_follow, lead_behavior::text)
   WHERE lead_behavior IS NOT NULL AND lead_or_follow IS NULL;
 EXCEPTION WHEN undefined_column THEN NULL; END $$;
 

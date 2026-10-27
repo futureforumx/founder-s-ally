@@ -50,20 +50,29 @@ SET
   updated_at = NOW()
 WHERE lower(btrim(vf.name)) = '2020 ventures';
 
-UPDATE public.vc_people vp
-SET
-  first_name = 'David',
-  last_name = 'Williams',
-  email = 'dw@2020.co',
-  title = COALESCE(NULLIF(TRIM(vp.title), ''), 'Founder'),
-  updated_at = NOW()
-FROM (
-  SELECT vp2.id
-  FROM public.vc_people vp2
-  INNER JOIN public.vc_firms vf ON vf.id = vp2.firm_id
-  WHERE vp2.deleted_at IS NULL
-    AND lower(btrim(vf.name)) = '2020 ventures'
-  ORDER BY vp2.created_at ASC NULLS LAST
-  LIMIT 1
-) pick
-WHERE vp.id = pick.id;
+-- vc_people is not created by this migration history.
+DO $$
+BEGIN
+  IF to_regclass('public.vc_people') IS NULL THEN
+    RAISE NOTICE 'vc_people is not present; skipping 2020 Ventures person update';
+    RETURN;
+  END IF;
+
+  UPDATE public.vc_people vp
+  SET
+    first_name = 'David',
+    last_name = 'Williams',
+    email = 'dw@2020.co',
+    title = COALESCE(NULLIF(TRIM(vp.title), ''), 'Founder'),
+    updated_at = NOW()
+  FROM (
+    SELECT vp2.id
+    FROM public.vc_people vp2
+    INNER JOIN public.vc_firms vf ON vf.id = vp2.firm_id
+    WHERE vp2.deleted_at IS NULL
+      AND lower(btrim(vf.name)) = '2020 ventures'
+    ORDER BY vp2.created_at ASC NULLS LAST
+    LIMIT 1
+  ) pick
+  WHERE vp.id = pick.id;
+END $$;

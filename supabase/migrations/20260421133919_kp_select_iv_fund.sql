@@ -7,6 +7,10 @@
 -- KP Select IV vehicle row while preserving the official announcement URL and
 -- source text for traceability.
 
+-- Added again, idempotently, in 20260501000000_vc_funds_manually_verified.sql.
+ALTER TABLE public.vc_funds
+  ADD COLUMN IF NOT EXISTS manually_verified boolean NOT NULL DEFAULT false;
+
 DO $$
 DECLARE
   v_firm_record_id uuid;

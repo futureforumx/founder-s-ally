@@ -5,6 +5,7 @@ import { CatalystTeardown } from "@/components/trending-startups/CatalystTeardow
 import { SignalAttribution } from "@/components/trending-startups/SignalAttribution";
 import { TrajectoryCharts } from "@/components/trending-startups/TrajectoryCharts";
 import { Button } from "@/components/ui/button";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { StartupLogo } from "@/components/trending-startups/StartupLogo";
 import { useTrendingStartup } from "@/hooks/useTrendingStartups";
 import { compositeScoreTextClass, formatStartupCategoryStageHq } from "@/lib/trendingStartups/display";
@@ -39,7 +40,10 @@ export default function TrendingStartupDetailPage() {
 
   if (isLoading && !startup) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-16 text-sm text-muted-foreground">Loading startup signals…</div>
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-3 px-4 py-16 text-sm text-muted-foreground">
+        <BouncingDots />
+        Loading startup signals…
+      </div>
     );
   }
 

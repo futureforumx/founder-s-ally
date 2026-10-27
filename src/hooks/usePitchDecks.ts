@@ -4,6 +4,7 @@ import { getSupabaseAccessToken } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { deleteR2PitchDeck, getR2PitchDeckSignedUrl, isR2PrivateUrl, uploadR2UserAsset } from "@/lib/r2UserAssets";
+import { readStoredProfileFields } from "@/hooks/useCompanyProfileFields";
 
 export interface PitchDeck {
   id: string;
@@ -73,6 +74,9 @@ export function usePitchDecks() {
 
   const uploadDeck = useCallback(async (file: File, options?: UploadDeckOptions): Promise<PitchDeck | null> => {
     try {
+      if (!readStoredProfileFields().stage?.trim()) {
+        throw new Error("Set your fundraising round in your company profile before uploading a pitch deck.");
+      }
       const rlsUserId = await resolveRlsUserId();
       if (!rlsUserId) throw new Error("Not authenticated");
 

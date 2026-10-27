@@ -251,6 +251,59 @@ WHERE deleted_at IS NULL;
 -- --------------------------------------------------------
 ALTER TABLE public.investor_database RENAME TO firm_records;
 
+-- plpgsql stores the table name as text, so the rename does not update
+-- reveal_contact_info. Point it at firm_records.
+CREATE OR REPLACE FUNCTION public.reveal_contact_info(_investor_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _user_id text := auth.jwt()->>'sub';
+  _credits int;
+  _tier text;
+  _email text;
+  _firm text;
+BEGIN
+  IF _user_id IS NULL OR _user_id = '' THEN
+    RETURN jsonb_build_object('error', 'Not authenticated');
+  END IF;
+
+  INSERT INTO public.user_credits (user_id)
+  VALUES (_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT credits_remaining, tier INTO _credits, _tier
+  FROM public.user_credits
+  WHERE user_id = _user_id;
+
+  IF _tier NOT IN ('pro', 'admin') THEN
+    IF _credits <= 0 THEN
+      RETURN jsonb_build_object('error', 'No credits remaining. Upgrade to Pro for unlimited reveals.');
+    END IF;
+
+    UPDATE public.user_credits
+    SET credits_remaining = credits_remaining - 1, updated_at = now()
+    WHERE user_id = _user_id;
+  END IF;
+
+  SELECT i.email, i.firm_name INTO _email, _firm
+  FROM public.firm_records i
+  WHERE i.id = _investor_id;
+
+  IF _email IS NULL THEN
+    RETURN jsonb_build_object('error', 'No contact info available for this investor', 'firm_name', _firm);
+  END IF;
+
+  RETURN jsonb_build_object(
+    'email', _email,
+    'firm_name', _firm,
+    'credits_remaining', CASE WHEN _tier IN ('pro', 'admin') THEN -1 ELSE _credits - 1 END
+  );
+END;
+$$;
+
 -- Rename indexes to match new table name
 ALTER INDEX IF EXISTS idx_investor_database_prisma_firm_id RENAME TO idx_firm_records_prisma_firm_id;
 ALTER INDEX IF EXISTS idx_investor_database_hq RENAME TO idx_firm_records_hq;

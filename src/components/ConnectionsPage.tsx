@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import {
   Users, Star, TrendingUp, MessageCircle, Mail, Clock,
   ArrowRight, ThumbsUp, ThumbsDown, Newspaper, MessagesSquare, Share2,
-  MessageSquare, Building2, Sparkles, Loader2,
+  MessageSquare, Building2, Sparkles,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveContext } from "@/context/ActiveContext";
@@ -163,8 +164,8 @@ export function ConnectionsPage({
       {activeTab === "networks" ? (
         <Suspense
           fallback={
-            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground text-sm">
+              <BouncingDots />
               Loading networks…
             </div>
           }

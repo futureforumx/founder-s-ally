@@ -21,7 +21,7 @@ AS $$
     FROM public.vc_funds vf
     INNER JOIN public.firm_records fr
       ON fr.id = vf.firm_record_id
-    CROSS JOIN LATERAL unnest(COALESCE(vf.sector_focus, ARRAY[]::text[]])) AS u(tag)
+    CROSS JOIN LATERAL unnest(COALESCE(vf.sector_focus, ARRAY[]::text[])) AS u(tag)
     WHERE vf.deleted_at IS NULL
       AND (
         COALESCE(vf.announced_date, vf.close_date, (vf.created_at AT TIME ZONE 'UTC')::date)

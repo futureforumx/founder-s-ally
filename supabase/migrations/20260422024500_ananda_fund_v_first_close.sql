@@ -36,7 +36,10 @@ BEGIN
   LIMIT 1;
 
   IF v_firm_record_id IS NULL THEN
-    RAISE EXCEPTION 'Could not resolve firm_records.id for Ananda Impact Ventures';
+    -- Curated row exists on the linked database. A clean local replay has no
+    -- Ananda firm_records row, so skip instead of aborting the migration.
+    RAISE NOTICE 'Ananda Impact Ventures is not in firm_records; skipping Fund V backfill';
+    RETURN;
   END IF;
 
   SELECT vf.id

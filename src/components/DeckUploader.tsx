@@ -72,8 +72,8 @@ export function DeckUploader({ onUpload }: DeckUploaderProps) {
   const handleFile = useCallback(async (file: File) => {
     setError(null);
 
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File too large. Maximum size is 50 MB.");
+    if (file.size > 25 * 1024 * 1024) {
+      setError("File too large. Maximum size is 25 MB.");
       return;
     }
 

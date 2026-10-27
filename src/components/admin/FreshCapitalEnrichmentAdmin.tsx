@@ -14,6 +14,7 @@ import {
   Save,
   Plus,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -424,7 +425,7 @@ export function FreshCapitalEnrichmentAdmin() {
 
       {loading && !sources.length && (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#2EE6A6" }} />
+          <BouncingDots />
         </div>
       )}
 

@@ -19,7 +19,12 @@
  * PATCH ?entity=<any>&id=<id>  body: { field: value, … }
  *   → { row }   (updated record)
  *
- * POST ?entity=fresh-funds|deals|firms|firm-people|fi-sources|fc-public-paths  body: { … }  → { row }  (create)
+ * POST ?entity=fresh-funds|deals|firms|firm-people|fi-sources|fc-public-paths|company-investors|company-funding-rounds|firm-duplicates  body: { … }  → { row }  (create)
+ *   - firm-duplicates: GET scans similar firm names. POST { primary_id, merge_ids } keeps the primary name and stores the others as aliases.
+ *   - company-investors: links a startup to an existing firm (portfolio + investment). One link per person per round_name. Optional led_round marks that firm as the lead for that round and clears the flag on other firms. POST { action: "unlink", startup_id, firm_id, link_id? } removes that link without dropping the firm while other people or rounds remain. Check size is no longer written from the company editor. New people are created with POST entity=investors.
+ *   - company-funding-rounds: GET ?startup_id= lists admin-entered rounds. POST { startup_id, rounds: [{ id?, round_type, amount_usd }] } replaces that company's rounds only.
+ * GET  ?entity=company-investors&startup_id=<text>  → { rows } including relationships that already exist.
+ * GET  ?entity=company-funding-rounds&startup_id=<text>  → { rows }
  *   - firms: requires `firm_name`; optional `website_url`, `slug`, `legal_name`. New rows default to needs-review / not live.
  *   - firm-people: requires `full_name` plus `firm_id` and/or `vc_fund_id` (fund infers firm). Optional title, email, linkedin_url, role.
  *
@@ -42,6 +47,9 @@ import {
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
 import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
+import { linkCompanyInvestor, listCompanyInvestors, unlinkCompanyInvestor } from "./company-investors.ts";
+import { listCompanyFundingRounds, saveCompanyFundingRounds } from "./company-funding-rounds.ts";
+import { dismissFirmDuplicates, listFirmDuplicateClusters, mergeFirmDuplicateRecords } from "./firm-duplicates.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -177,13 +185,13 @@ async function assertAdmin(
 
 /** Columns must exist on `public.startups` (see generated types — no legacy `hq` / `twitter_url`). */
 const COMPANY_COLS = [
-  "id","company_name","sector","stage","status",
+  "id","company_name","sector","stage","status","record_status",
   "hq_city","hq_state","hq_country","location",
   "total_raised_usd","last_round_type","last_round_date","last_round_size_usd",
   "headcount","momentum_score","investor_fit_score",
   "company_url","description_short","description_long","yc_batch",
   "linkedin_url","x_url","founded_year",
-  "lead_investor_names","investor_names","logo_url","created_at","updated_at",
+  "lead_investor_names","investor_names","logo_url","brand_icon_url","created_at","updated_at",
 ].join(", ");
 
 const FOUNDER_COLS = [
@@ -197,7 +205,7 @@ const FOUNDER_COLS = [
 const OPERATOR_COLS = [
   "id","full_name","title","sector_focus","expertise","prior_companies",
   "completeness_score","enrichment_status","is_available","ready_for_live",
-  "city","state","country","linkedin_url","x_url","website_url","avatar_url","email","stage_focus","source","updated_at","created_at",
+  "city","state","country","linkedin_url","x_url","website_url","avatar_url","email","stage_focus","source","startup_id","updated_at","created_at",
 ].join(", ");
 
 const FIRM_COLS = [
@@ -245,7 +253,7 @@ const FIRM_INVESTOR_DIRECTORY_COLS = [
 const FIRM_PORTFOLIO_COLS = [
   "id","firm_id","company_name","normalized_company_name","amount","stage","date_announced",
   "investment_status","is_notable","portfolio_company_website","portfolio_company_linkedin",
-  "source_name","source_url","source_confidence","updated_at",
+  "source_name","source_url","source_confidence","led_rounds","updated_at",
 ].join(", ");
 
 const DEAL_COLS = [
@@ -650,6 +658,9 @@ function normalizeAdminEntity(e: string): string {
     "fresh-capital-public-paths": "fc-public-paths",
     toolcategorypages: "tool-category-page",
     toolcategorypage: "tool-category-page",
+    companyinvestors: "company-investors",
+    companyfundingrounds: "company-funding-rounds",
+    firmduplicates: "firm-duplicates",
   };
   return aliases[e] ?? e;
 }
@@ -1141,6 +1152,34 @@ Deno.serve(async (req) => {
       return json({ row: inserted });
     }
 
+    if (entity === "company-investors") {
+      if (body.action === "unlink") {
+        const result = await unlinkCompanyInvestor(db, body);
+        if ("error" in result) return err(result.error, result.status);
+        return json({ ok: true });
+      }
+      const result = await linkCompanyInvestor(db, body);
+      if ("error" in result) return err(result.error, result.status);
+      return json({ row: result.row, created: result.created });
+    }
+
+    if (entity === "company-funding-rounds") {
+      const result = await saveCompanyFundingRounds(db, body);
+      if ("error" in result) return err(result.error, result.status);
+      return json({ rows: result.rows, total: result.rows.length });
+    }
+
+    if (entity === "firm-duplicates") {
+      if (body.action === "dismiss") {
+        const result = await dismissFirmDuplicates(db, body);
+        if ("error" in result) return err(result.error, result.status);
+        return json({ row: result.row });
+      }
+      const result = await mergeFirmDuplicateRecords(db, body);
+      if ("error" in result) return err(result.error, result.status);
+      return json({ row: result.row });
+    }
+
     return err(`POST not supported for entity: ${entity}`, 400);
   }
 
@@ -1320,6 +1359,10 @@ Deno.serve(async (req) => {
       }
       delete patch.needs_enrichment;
       delete patch.enrichment_status;
+      if ("record_status" in patch) {
+        const raw = typeof patch.record_status === "string" ? patch.record_status.trim() : "";
+        patch.record_status = raw === "needs_review" || raw === "archived" ? raw : "live";
+      }
     }
     if (table === "startup_founders") {
       delete patch.enrichment_status;
@@ -1338,7 +1381,8 @@ Deno.serve(async (req) => {
   // ── GET ────────────────────────────────────────────────────────────────────
 
   const recordId = url.searchParams.get("id")?.trim() ?? "";
-  if (recordId && looksLikeUuid(recordId)) {
+  const startupRecordId = entity === "companies" && /^[A-Za-z0-9_-]{1,80}$/.test(recordId);
+  if (recordId && (looksLikeUuid(recordId) || startupRecordId)) {
     const table = resolveEntityTable(entity);
     if (table) {
       const { data, error } = await db.from(table).select("*").eq("id", recordId).maybeSingle();
@@ -1675,6 +1719,31 @@ Deno.serve(async (req) => {
     const { data, error } = await db.from("fresh_capital_enrichment_settings").select("*").eq("id", "default").maybeSingle();
     if (error) return err(error.message, 500);
     return json({ row: data ?? null });
+  }
+
+  if (entity === "company-investors") {
+    const startupId = url.searchParams.get("startup_id")?.trim() ?? "";
+    if (!startupId) return err("startup_id is required", 400);
+    const result = await listCompanyInvestors(db, startupId);
+    if ("error" in result) return err(result.error, result.status);
+    return json({ rows: result.rows, total: result.rows.length });
+  }
+
+  if (entity === "company-funding-rounds") {
+    const startupId = url.searchParams.get("startup_id")?.trim() ?? "";
+    if (!startupId) return err("startup_id is required", 400);
+    const result = await listCompanyFundingRounds(db, startupId);
+    if ("error" in result) return err(result.error, result.status);
+    return json({ rows: result.rows, total: result.rows.length });
+  }
+
+  if (entity === "firm-duplicates") {
+    const offsetRaw = Number(url.searchParams.get("offset") ?? "0");
+    const offset = Number.isFinite(offsetRaw) && offsetRaw > 0 ? Math.min(Math.floor(offsetRaw), 5000) : 0;
+    const query = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    const result = await listFirmDuplicateClusters(db, offset, query);
+    if ("error" in result) return err(result.error, result.status);
+    return json(result.scan ?? { scanned: 0, total_clusters: 0, skipped_large: 0, clusters: [] });
   }
 
   if (entity === "fc-public-paths") {

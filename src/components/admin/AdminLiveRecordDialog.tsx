@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, Search, Sparkles, X } from "lucide-react";
+import { Search, Sparkles, X } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -485,7 +486,7 @@ export function AdminLiveRecordDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <BouncingDots />
             </div>
           ) : error ? (
             <p className="py-8 text-center text-sm text-destructive">{error}</p>

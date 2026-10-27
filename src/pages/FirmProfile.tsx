@@ -8,6 +8,7 @@ import { fetchVCFirmDetail, type VCFirmDetail, type VcFundRow } from "@/lib/vcFi
 import { fetchVcRatingsForFirm } from "@/lib/vcRatingsQueries";
 import { aggregateVcRatings, INTERACTION_DISPLAY, type VcRatingRow } from "@/lib/vcRatingsAggregate";
 import { useEnrichFirmTeam } from "@/hooks/useEnrichFirmTeam";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,7 +134,8 @@ const FirmProfile = () => {
 
   if (query.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">
+        <BouncingDots />
         <p className="text-sm text-muted-foreground">Loading firm…</p>
       </div>
     );

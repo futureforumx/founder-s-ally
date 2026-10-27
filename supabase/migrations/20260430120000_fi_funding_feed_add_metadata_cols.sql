@@ -23,6 +23,7 @@ BEGIN
   IF to_regclass('public.funding_deals') IS NOT NULL
      AND to_regclass('public.fi_deals_canonical') IS NOT NULL
   THEN
+    EXECUTE 'DROP FUNCTION IF EXISTS public.get_recent_funding_feed(integer)';
     EXECUTE $fn$
 
 CREATE OR REPLACE FUNCTION public.get_recent_funding_feed(p_limit integer DEFAULT 80)

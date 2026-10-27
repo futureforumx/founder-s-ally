@@ -1,7 +1,8 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search, ExternalLink, X, Building2, User, Tag, Layers, Calendar, Plus, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle, HelpCircle, ArrowUpRight, TrendingUp, ChevronDown, Sparkles, Search, ExternalLink, X, Building2, User, Tag, Layers, Calendar, Plus } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -499,8 +500,8 @@ function MissingProfileModal({
               exit={{ opacity: 0, y: -8 }}
               className="p-6 text-center"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              <div className="mx-auto mb-4 flex justify-center">
+                <BouncingDots />
               </div>
               <h3 className="text-lg font-bold text-foreground mb-2">Generating Profile</h3>
               <Progress value={progress} className="h-2 mb-4" />
@@ -668,7 +669,7 @@ export function PortfolioTab({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <BouncingDots />
         <p className="text-sm">Loading portfolio data…</p>
       </div>
     );

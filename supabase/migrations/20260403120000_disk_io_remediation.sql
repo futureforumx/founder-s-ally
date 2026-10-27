@@ -51,7 +51,9 @@ DROP INDEX IF EXISTS public.idx_firm_investors_co_investors;
 -- Dead: GIN index on networks ARRAY — 1,040 kB, never queried
 DROP INDEX IF EXISTS public.idx_firm_investors_networks;
 
--- Dead: Unique index on prisma_person_id — 800 kB, never queried (duplicate of below)
+-- Dead: Unique index on prisma_person_id — 800 kB, never queried (duplicate of below).
+-- The rename from investor_partners keeps this as a table constraint, which owns the index.
+ALTER TABLE public.firm_investors DROP CONSTRAINT IF EXISTS investor_partners_prisma_person_id_key;
 DROP INDEX IF EXISTS public.investor_partners_prisma_person_id_key;
 
 -- Dead: B-tree index on prisma_person_id — 800 kB, never queried
@@ -75,6 +77,7 @@ DROP INDEX IF EXISTS public.idx_investor_sector_embedding;
 DROP INDEX IF EXISTS public.idx_firm_records_unique_firm_name;
 
 -- Dead: Unique index on prisma_firm_id — 368 kB (duplicate of below)
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS investor_database_prisma_firm_id_key;
 DROP INDEX IF EXISTS public.investor_database_prisma_firm_id_key;
 
 -- Dead: B-tree index on prisma_firm_id — 368 kB, never queried
@@ -105,10 +108,12 @@ DROP INDEX IF EXISTS public.idx_orgs_name;
 -- Dead: Unique index on domain — 312 kB, never queried
 -- NOTE [B]: If domain-based deduplication is used in any import script, verify
 -- before dropping. No app-layer query was found touching this index.
+ALTER TABLE public.organizations DROP CONSTRAINT IF EXISTS organizations_domain_key;
 DROP INDEX IF EXISTS public.organizations_domain_key;
 
 -- Dead: Unique index on ycId — 248 kB, never queried
-DROP INDEX IF EXISTS public.organizations_ycId_key;
+ALTER TABLE public.organizations DROP CONSTRAINT IF EXISTS "organizations_ycId_key";
+DROP INDEX IF EXISTS public."organizations_ycId_key";
 
 
 -- =============================================================================

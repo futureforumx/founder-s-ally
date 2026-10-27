@@ -11,6 +11,7 @@ import { ensureCompanyWorkspace } from "@/lib/ensureCompanyWorkspace";
 import { EMPTY_FORM, type CompanyData } from "@/components/company-profile/types";
 import { defaultOnboardingState, type OnboardingState } from "@/components/onboarding-wizard/types";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { ProgressBar } from "./ProgressBar";
 import { StepWelcome } from "./StepWelcome";
 import { StepPersonalDetails } from "./StepPersonalDetails";
@@ -471,11 +472,9 @@ export function OnboardingWizard() {
 
   if (!resumeReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-          Restoring your progress…
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">
+        <BouncingDots />
+        <p className="text-sm text-muted-foreground">Restoring your progress…</p>
       </div>
     );
   }

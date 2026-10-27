@@ -881,7 +881,7 @@ export const CompanyProfile = forwardRef<CompanyProfileHandle, CompanyProfilePro
   const handleFileSelect = useCallback(async (file: File) => {
     const name = file.name.toLowerCase();
     if (!name.endsWith(".pdf") && !name.endsWith(".txt")) { setError("Please upload a PDF or TXT file."); return; }
-    if (file.size > 50 * 1024 * 1024) { setError("File too large. Maximum 50 MB."); return; }
+    if (file.size > 25 * 1024 * 1024) { setError("File too large. Maximum 25 MB."); return; }
     setError(null);
     setDeckFile(file);
     if (analysisComplete) setHasNewInputs(true);

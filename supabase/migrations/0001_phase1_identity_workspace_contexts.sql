@@ -91,18 +91,8 @@ CREATE TRIGGER workspaces_touch_updated_at
   BEFORE UPDATE ON public.workspaces
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
--- RLS
+-- RLS. The member-select policy is created after workspace_memberships exists.
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "workspaces_select_member"
-  ON public.workspaces FOR SELECT TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.workspace_memberships wm
-      WHERE wm.workspace_id = workspaces.id
-        AND wm.user_id = (auth.jwt()->>'sub')
-    )
-  );
 
 CREATE POLICY "workspaces_insert_own"
   ON public.workspaces FOR INSERT TO authenticated
@@ -134,6 +124,16 @@ CREATE INDEX IF NOT EXISTS idx_workspace_memberships_user_id
   ON public.workspace_memberships (user_id);
 CREATE INDEX IF NOT EXISTS idx_workspace_memberships_workspace_id
   ON public.workspace_memberships (workspace_id);
+
+CREATE POLICY "workspaces_select_member"
+  ON public.workspaces FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.workspace_memberships wm
+      WHERE wm.workspace_id = workspaces.id
+        AND wm.user_id = (auth.jwt()->>'sub')
+    )
+  );
 
 -- RLS
 ALTER TABLE public.workspace_memberships ENABLE ROW LEVEL SECURITY;
@@ -236,6 +236,24 @@ CREATE INDEX IF NOT EXISTS idx_identity_links_owner_context_id
 CREATE INDEX IF NOT EXISTS idx_identity_links_person_id
   ON public.identity_links (person_id);
 
+-- Defined before the policies that call it. owner_contexts and
+-- workspace_memberships already exist at this point.
+CREATE OR REPLACE FUNCTION public.my_owner_context_ids()
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT id FROM public.owner_contexts
+  WHERE user_id = (auth.jwt()->>'sub')
+  UNION
+  SELECT oc.id FROM public.owner_contexts oc
+  JOIN public.workspace_memberships wm
+    ON wm.workspace_id = oc.workspace_id
+  WHERE wm.user_id = (auth.jwt()->>'sub');
+$$;
+
 -- RLS
 ALTER TABLE public.identity_links ENABLE ROW LEVEL SECURITY;
 
@@ -260,23 +278,6 @@ CREATE POLICY "identity_links_delete"
 -- ---------------------------------------------------------------------------
 -- 6. Functions
 -- ---------------------------------------------------------------------------
-
--- 6a. my_owner_context_ids() — all context IDs visible to the current user
-CREATE OR REPLACE FUNCTION public.my_owner_context_ids()
-RETURNS SETOF uuid
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT id FROM public.owner_contexts
-  WHERE user_id = (auth.jwt()->>'sub')
-  UNION
-  SELECT oc.id FROM public.owner_contexts oc
-  JOIN public.workspace_memberships wm
-    ON wm.workspace_id = oc.workspace_id
-  WHERE wm.user_id = (auth.jwt()->>'sub');
-$$;
 
 -- 6b. handle_new_user() — syncs auth.users row into public.users
 --     NOTE: With Clerk auth this trigger fires only if Supabase Auth is also

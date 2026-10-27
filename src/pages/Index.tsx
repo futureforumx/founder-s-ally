@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense, type CSSProperties } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { AppSidebar } from "@/components/AppSidebar";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { type CompanyData, type AnalysisResult } from "@/components/CompanyProfile";
 import { getCompletionPercent, EMPTY_FORM, sanitizeCompanyData } from "@/components/company-profile/types";
 import { getPrimaryCompanyLogoUrl } from "@/lib/company-logo";
@@ -106,7 +107,8 @@ function getStoredCompanyLogoUrl(): string | null {
 
 function SectionLoader({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border/60 bg-card/70 px-6 py-10 text-sm text-muted-foreground">
+    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-card/70 px-6 py-10 text-sm text-muted-foreground">
+      <BouncingDots />
       {label}
     </div>
   );

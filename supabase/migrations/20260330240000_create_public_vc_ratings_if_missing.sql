@@ -59,7 +59,7 @@ BEGIN
     END IF;
   END IF;
 EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  WHEN duplicate_object OR datatype_mismatch THEN NULL;
 END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS vc_ratings_one_draft_per_author_firm_person

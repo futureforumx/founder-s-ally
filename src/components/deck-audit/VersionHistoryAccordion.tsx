@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FileText, MoreHorizontal, Download, CheckCircle2, Trash2, Loader2 } from "lucide-react";
+import { FileText, MoreHorizontal, Download, CheckCircle2, Trash2, Loader2, Share2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import type { PitchDeck } from "@/hooks/usePitchDecks";
@@ -81,6 +81,7 @@ function DeckRow({
   onDownload,
   onRename,
   onMakeActive,
+  onShare,
   onDelete,
 }: {
   deck: PitchDeck;
@@ -88,6 +89,7 @@ function DeckRow({
   onDownload: (d: PitchDeck) => void;
   onRename: (d: PitchDeck, newFileName: string) => void;
   onMakeActive: (d: PitchDeck) => void;
+  onShare: (d: PitchDeck) => void;
   onDelete: (d: PitchDeck) => void;
 }) {
   return (
@@ -133,6 +135,11 @@ function DeckRow({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {deck.file_name.toLowerCase().endsWith(".pdf") && (
+            <DropdownMenuItem onClick={() => onShare(deck)}>
+              <Share2 className="mr-2 h-3.5 w-3.5" /> Share deck
+            </DropdownMenuItem>
+          )}
           {!deck.is_active && (
             <DropdownMenuItem onClick={() => onMakeActive(deck)}>
               <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Make active
@@ -157,6 +164,7 @@ export function VersionHistoryAccordion({
   onDownload,
   onRename,
   onMakeActive,
+  onShare,
   onDelete,
 }: {
   decks: PitchDeck[];
@@ -165,6 +173,7 @@ export function VersionHistoryAccordion({
   onDownload: (deck: PitchDeck) => void;
   onRename: (deck: PitchDeck, newFileName: string) => void;
   onMakeActive: (deck: PitchDeck) => void;
+  onShare: (deck: PitchDeck) => void;
   onDelete: (deck: PitchDeck) => void;
 }) {
   return (
@@ -202,6 +211,7 @@ export function VersionHistoryAccordion({
               onDownload={onDownload}
               onRename={onRename}
               onMakeActive={onMakeActive}
+              onShare={onShare}
               onDelete={onDelete}
             />
           ))}

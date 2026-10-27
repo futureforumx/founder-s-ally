@@ -1,61 +1,35 @@
 -- Allow public (anon key) read of active VC directory rows so the app works without
 -- passing a Clerk JWT that Supabase can verify. Publishable key is already public in the browser.
 -- RLS must be enabled (no-op if already on from a prior migration).
+-- Relations created later in this history, or absent outside the Prisma directory, are skipped.
 
-ALTER TABLE public.vc_firms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_funds ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_people ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_investments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_source_links ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_signals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.vc_score_snapshots ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Anon read active vc_firms" ON public.vc_firms;
-DROP POLICY IF EXISTS "Anon read active vc_funds" ON public.vc_funds;
-DROP POLICY IF EXISTS "Anon read active vc_people" ON public.vc_people;
-DROP POLICY IF EXISTS "Anon read active vc_investments" ON public.vc_investments;
-DROP POLICY IF EXISTS "Anon read active vc_source_links" ON public.vc_source_links;
-DROP POLICY IF EXISTS "Anon read active vc_signals" ON public.vc_signals;
-DROP POLICY IF EXISTS "Anon read active vc_score_snapshots" ON public.vc_score_snapshots;
-
-CREATE POLICY "Anon read active vc_firms"
-  ON public.vc_firms
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_funds"
-  ON public.vc_funds
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_people"
-  ON public.vc_people
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_investments"
-  ON public.vc_investments
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_source_links"
-  ON public.vc_source_links
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_signals"
-  ON public.vc_signals
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
-
-CREATE POLICY "Anon read active vc_score_snapshots"
-  ON public.vc_score_snapshots
-  FOR SELECT
-  TO anon
-  USING (deleted_at IS NULL);
+DO $$
+DECLARE
+  rel text;
+BEGIN
+  FOREACH rel IN ARRAY ARRAY[
+    'vc_firms',
+    'vc_funds',
+    'vc_people',
+    'vc_investments',
+    'vc_source_links',
+    'vc_signals',
+    'vc_score_snapshots'
+  ]
+  LOOP
+    IF to_regclass('public.' || rel) IS NULL THEN
+      CONTINUE;
+    END IF;
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', rel);
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      'Anon read active ' || rel,
+      rel
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR SELECT TO anon USING (deleted_at IS NULL)',
+      'Anon read active ' || rel,
+      rel
+    );
+  END LOOP;
+END $$;

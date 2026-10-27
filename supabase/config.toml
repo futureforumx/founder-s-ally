@@ -87,6 +87,10 @@ verify_jwt = false
 [functions.admin-market-intel]
 verify_jwt = false
 
+[functions.admin-create-company]
+# Same auth as admin-market-intel: anon key in Authorization, user JWT in X-User-Auth.
+verify_jwt = false
+
 [functions.admin-record-updates]
 # Clerk session JWTs are verified inside the function by resolveAdminCaller.
 verify_jwt = false

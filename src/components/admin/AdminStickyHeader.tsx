@@ -28,12 +28,15 @@ export function AdminStickyHeader({
   className,
   stacked = false,
   collapsible = !stacked,
+  trailing,
 }: {
   children: ReactNode;
   className?: string;
   stacked?: boolean;
   /** Main page headers can fold away; stacked section headers stay put. */
   collapsible?: boolean;
+  /** Sits in the same right-hand group as the collapse control, at every width. */
+  trailing?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -57,8 +60,10 @@ export function AdminStickyHeader({
     };
   }, [expanded, stacked]);
 
+  const groupedActions = trailing != null;
+
   useLayoutEffect(() => {
-    if (!collapsible || !expanded) return;
+    if (!collapsible || !expanded || groupedActions) return;
     const header = ref.current;
     const content = contentRef.current;
     const row = content?.firstElementChild;
@@ -77,32 +82,51 @@ export function AdminStickyHeader({
     observer.observe(header);
 
     return () => observer.disconnect();
-  }, [collapsible, expanded]);
+  }, [collapsible, expanded, groupedActions]);
+
+  const collapseButton = collapsible ? (
+    <button
+      type="button"
+      onClick={() => setExpanded((open) => !open)}
+      aria-expanded={expanded}
+      aria-label={expanded ? "Collapse header" : "Expand header"}
+      className={cn(
+        "z-10 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/10 hover:text-white",
+        groupedActions ? undefined : "absolute right-8 -translate-y-1/2",
+      )}
+      style={groupedActions ? undefined : { top: expanded && toggleTop != null ? toggleTop : "50%" }}
+    >
+      {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+    </button>
+  ) : null;
 
   return (
     <div
       ref={ref}
       className={cn(
         "relative sticky -mx-8 border-b border-white/[0.06] bg-[#050505] pl-8",
-        stacked ? "z-20 py-3 pr-8" : cn("z-30", collapsible ? "pr-20" : "pr-8", expanded ? "py-4" : "min-h-12 py-2"),
+        stacked ? "z-20 py-3 pr-8" : cn("z-30", collapsible && !groupedActions ? "pr-20" : "pr-8", expanded ? "py-4" : "min-h-12 py-2"),
       )}
       style={{ top: stacked ? `var(${CHROME}, 0px)` : 0 }}
     >
-      {collapsible && (
-        <button
-          type="button"
-          onClick={() => setExpanded((open) => !open)}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Collapse header" : "Expand header"}
-          className="absolute right-8 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md border border-white/15 bg-white/[0.03] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          style={{ top: expanded && toggleTop != null ? toggleTop : "50%" }}
-        >
-          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
+      {groupedActions ? (
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div ref={contentRef} className={cn("min-w-0 flex-1", className, expanded ? undefined : "hidden")}>
+            {children}
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {expanded && trailing}
+            {collapseButton}
+          </div>
+        </div>
+      ) : (
+        <>
+          {collapseButton}
+          <div ref={contentRef} className={cn(className, expanded ? undefined : "hidden")}>
+            {children}
+          </div>
+        </>
       )}
-      <div ref={contentRef} className={cn(className, expanded ? undefined : "hidden")}>
-        {children}
-      </div>
     </div>
   );
 }

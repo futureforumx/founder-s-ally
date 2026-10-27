@@ -28,7 +28,11 @@ import {
   uploadR2UserAsset,
 } from "./api/_r2UserAssets";
 import { readJsonBody } from "./api/_readJsonBody";
-import { clientIpFromHeaders, resolveDeckShareView } from "./api/_deckShareViewLogic";
+import deckSharesHandler from "./api/deck-shares";
+import deckShareViewHandler from "./api/deck-share-view";
+import deckShareFileHandler from "./api/deck-share-file";
+import deckShareEventsHandler from "./api/deck-share-events";
+import deckShareAnalyticsHandler from "./api/deck-share-analytics";
 import { getSupabaseServiceClient } from "./api/_supabaseServiceClient";
 import { readTrendingCache, trendingCacheControlHeader } from "./src/lib/trendingStartups/cache";
 import { emptyTrendingCatalog, findTrendingStartup } from "./src/lib/trendingStartups/catalog";
@@ -1012,6 +1016,34 @@ function r2UserAssetsDevPlugin() {
   return {
     name: "r2-user-assets-dev",
     configureServer(server: any) {
+      const mountDeckShareApi = (routePath: string, handler: (req: any, res: any) => Promise<unknown>) => {
+        server.middlewares.use(routePath, async (req: any, res: any) => {
+          const url = new URL(req.url || routePath, "http://localhost");
+          req.query = Object.fromEntries(url.searchParams.entries());
+          req.cookies = Object.fromEntries((req.headers.cookie || "").split(";").filter(Boolean).map((part: string) => {
+            const [name, ...value] = part.trim().split("=");
+            try { return [name, decodeURIComponent(value.join("="))]; } catch { return [name, value.join("=")]; }
+          }));
+          const response: any = res;
+          response.status = (code: number) => { res.statusCode = code; return response; };
+          response.json = (payload: unknown) => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(payload)); return response; };
+          try {
+            if (["POST", "PATCH", "DELETE"].includes(req.method || "") && req.body == null) {
+              req.body = await readJsonBody(req);
+            }
+            await handler(req, response);
+            if (!res.writableEnded && !res.headersSent) res.end();
+          } catch (error) {
+            if (!res.headersSent) { res.statusCode = 500; res.setHeader("Content-Type", "application/json"); }
+            if (!res.writableEnded) res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Deck sharing request failed." }));
+          }
+        });
+      };
+      mountDeckShareApi("/api/deck-shares", deckSharesHandler as any);
+      mountDeckShareApi("/api/deck-share-view", deckShareViewHandler as any);
+      mountDeckShareApi("/api/deck-share-file", deckShareFileHandler as any);
+      mountDeckShareApi("/api/deck-share-events", deckShareEventsHandler as any);
+      mountDeckShareApi("/api/deck-share-analytics", deckShareAnalyticsHandler as any);
       server.middlewares.use("/api/r2-user-assets/upload", async (req: any, res: any) => {
         if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
         if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
@@ -1091,26 +1123,6 @@ function r2UserAssetsDevPlugin() {
         }
       });
 
-      // Public: the share token is the only credential.
-      server.middlewares.use("/api/deck-share-view", async (req: any, res: any) => {
-        if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
-        if (req.method !== "POST") { res.writeHead(405, cors); res.end(JSON.stringify({ error: "Method not allowed" })); return; }
-
-        try {
-          const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
-          const result = await resolveDeckShareView({
-            token: typeof body.token === "string" ? body.token : "",
-            userAgent: req.headers["user-agent"] ?? null,
-            referrer: typeof body.referrer === "string" ? body.referrer : null,
-            ip: clientIpFromHeaders(req.headers["x-forwarded-for"], req.socket?.remoteAddress ?? null),
-          });
-          res.writeHead(result.status, cors);
-          res.end(JSON.stringify(result.body));
-        } catch (error) {
-          res.writeHead(500, cors);
-          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to open share link" }));
-        }
-      });
     },
   };
 }
@@ -1197,6 +1209,22 @@ function trendingStartupsDevPlugin() {
   };
 }
 
+/** A dropped browser connection makes Vite write after the response ended and kills the process. */
+function ignoreClientAbortDevPlugin() {
+  return {
+    name: "ignore-client-abort",
+    configureServer(server: any) {
+      server.middlewares.use((_req: any, res: any, next: () => void) => {
+        res.on("error", (err: NodeJS.ErrnoException) => {
+          if (err?.code === "ERR_STREAM_WRITE_AFTER_END" || err?.code === "ECONNRESET" || err?.code === "EPIPE") return;
+          throw err;
+        });
+        next();
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   // Load ALL env vars (including non-VITE_ server-only vars) for use in plugins/middleware
@@ -1210,6 +1238,7 @@ export default defineConfig(async ({ mode }) => {
     }
   }
   const plugins = [
+    mode === "development" && ignoreClientAbortDevPlugin(),
     react(),
     mode === "development" && componentTagger(),
     mode === "development" && saveProfileDevPlugin(env),

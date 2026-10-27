@@ -9,6 +9,7 @@ import { useTrendingStartups } from "@/hooks/useTrendingStartups";
 import { TRENDING_REVALIDATE_SECONDS } from "@/lib/trendingStartups/types";
 import { trendingStartupsSignupHref } from "@/lib/trendingStartups/signup";
 import { cn } from "@/lib/utils";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 
 /** Emergency fallback TTL. Analog of Next.js `export const revalidate = 86400`. */
 export const revalidate = TRENDING_REVALIDATE_SECONDS;
@@ -85,7 +86,10 @@ export default function TrendingStartupsPage() {
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
           <div className={PANEL}>
             {isLoading && rows.length === 0 ? (
-              <div className="px-4 py-16 text-center text-sm text-zinc-500">Loading the daily board…</div>
+              <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center text-sm text-zinc-500">
+                <BouncingDots />
+                Loading the daily board…
+              </div>
             ) : rows.length === 0 ? (
               <div className="px-4 py-16 text-center text-sm text-zinc-500">
                 The leaderboard updates at 00:00 UTC. No cached ranks yet.

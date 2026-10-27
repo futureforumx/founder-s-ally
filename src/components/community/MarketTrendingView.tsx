@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { TrendingLeaderboard } from "@/components/trending-startups/TrendingLeaderboard";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { useTrendingStartups } from "@/hooks/useTrendingStartups";
 import { PLATFORM_WEIGHTS } from "@/lib/trendingStartups/types";
 
@@ -22,7 +23,10 @@ export function MarketTrendingView() {
 
       <div className="overflow-hidden rounded-xl border border-border/60 bg-card/50 shadow-sm">
         {isLoading && rows.length === 0 ? (
-          <div className="px-4 py-16 text-center text-sm text-muted-foreground">Loading the daily board…</div>
+          <div className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-center text-sm text-muted-foreground">
+            <BouncingDots />
+            Loading the daily board…
+          </div>
         ) : rows.length === 0 ? (
           <div className="px-4 py-16 text-center text-sm text-muted-foreground">
             The leaderboard updates at 00:00 UTC. No cached ranks yet.

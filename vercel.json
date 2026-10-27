@@ -3,10 +3,17 @@
     {
       "path": "/api/cron/update-leaderboard",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-domain-ratings",
+      "schedule": "15 * * * *"
     }
   ],
   "functions": {
     "api/firm-website-team.ts": {
+      "maxDuration": 120
+    },
+    "api/deck-share-file.ts": {
       "maxDuration": 120
     },
     "api/cron/update-leaderboard.ts": {

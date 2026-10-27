@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Clock, ExternalLink, Loader2, RefreshCcw, Search, Send, X } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "sonner";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
@@ -7,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
-type ReviewStatus = "pending" | "approved" | "rejected";
+export type ReviewStatus = "pending" | "approved" | "rejected";
 
-interface WaitlistApplicant {
+export interface WaitlistApplicant {
   id: string;
   created_at: string;
   updated_at: string;
@@ -156,7 +157,11 @@ function formatSource(applicant: WaitlistApplicant) {
   };
 }
 
-export function AdminWaitlist() {
+export function AdminWaitlist({
+  loadApplicants,
+}: {
+  loadApplicants?: () => WaitlistApplicant[] | Promise<WaitlistApplicant[]>;
+} = {}) {
   const [applicants, setApplicants] = useState<WaitlistApplicant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -170,6 +175,10 @@ export function AdminWaitlist() {
   const fetchApplicants = async () => {
     setLoading(true);
     try {
+      if (loadApplicants) {
+        setApplicants(await loadApplicants());
+        return;
+      }
       const { data, error } = await invokeAdminWaitlist({ action: "list" });
       if (error) throw error;
       const payload = data as WaitlistListResponse | null;
@@ -211,6 +220,24 @@ export function AdminWaitlist() {
   const updateStatus = async (applicant: WaitlistApplicant, status: ReviewStatus) => {
     setUpdatingId(applicant.id);
     try {
+      if (loadApplicants) {
+        const now = new Date().toISOString();
+        const updated: WaitlistApplicant = {
+          ...applicant,
+          status,
+          updated_at: now,
+          reviewed_at: status === "pending" ? null : now,
+          reviewed_by: status === "pending" ? null : "demo-admin",
+          reviewed_by_email: status === "pending" ? null : "matthew@vekta.so",
+        };
+        setApplicants((current) => current.map((item) => item.id === updated.id ? updated : item));
+        toast.success(status === "approved"
+          ? "Applicant approved, emailed, and added to Approved Users"
+          : status === "rejected"
+            ? "Applicant rejected, emailed, and removed from Approved Users"
+            : "Applicant returned to pending and removed from Approved Users");
+        return;
+      }
       const { data, error } = await invokeAdminWaitlist({
         action: "update_status",
         id: applicant.id,
@@ -257,6 +284,10 @@ export function AdminWaitlist() {
   const syncApprovedApplicant = async (applicant: WaitlistApplicant) => {
     setSyncingId(applicant.id);
     try {
+      if (loadApplicants) {
+        toast.success("Synced with Approved Users");
+        return;
+      }
       const { data, error } = await invokeAdminWaitlist({
         action: "sync_approved_list",
         id: applicant.id,
@@ -284,6 +315,17 @@ export function AdminWaitlist() {
     if (draft === (applicant.admin_notes ?? "").trim()) return;
     setSavingNoteId(applicant.id);
     try {
+      if (loadApplicants) {
+        const updated: WaitlistApplicant = { ...applicant, admin_notes: draft, updated_at: new Date().toISOString() };
+        setApplicants((current) => current.map((item) => item.id === updated.id ? updated : item));
+        setNoteDrafts((current) => {
+          const next = { ...current };
+          delete next[applicant.id];
+          return next;
+        });
+        toast.success("Note saved");
+        return;
+      }
       const { data, error } = await invokeAdminWaitlist({
         action: "update_notes",
         id: applicant.id,
@@ -315,6 +357,11 @@ export function AdminWaitlist() {
     }
     setDeletingId(applicant.id);
     try {
+      if (loadApplicants) {
+        setApplicants((current) => current.filter((item) => item.id !== applicant.id));
+        toast.success("Applicant deleted");
+        return;
+      }
       const { error } = await invokeAdminWaitlist({ action: "delete", id: applicant.id });
       if (error) throw error;
       setApplicants((current) => current.filter((item) => item.id !== applicant.id));
@@ -397,8 +444,8 @@ export function AdminWaitlist() {
       <div className="overflow-x-auto rounded-lg border border-white/[0.07]">
         <div className="min-w-[1120px]">
         {loading ? (
-          <div className="flex min-h-64 items-center justify-center text-white/40">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading waitlist…
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-white/40">
+            <BouncingDots /> Loading waitlist…
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex min-h-64 items-center justify-center text-sm text-white/35">No matching applicants.</div>

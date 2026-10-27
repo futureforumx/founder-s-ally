@@ -17,6 +17,7 @@ import {
   Youtube,
   type LucideIcon,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -966,8 +967,8 @@ export function FreshCapitalLiveFeed({
 
             <div className={cn("min-w-0 overflow-x-hidden", ACCESS_CARD)}>
               {loading ? (
-                <div className="flex min-h-[220px] items-center justify-center gap-2 text-sm text-[#b3b3b3]">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+                <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-sm text-[#b3b3b3]">
+                  <BouncingDots />
                   Loading latest funds…
                 </div>
               ) : misconfigured ? (

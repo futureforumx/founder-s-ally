@@ -1,11 +1,61 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase, getSupabaseAccessToken } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { parseSmartNumber, smartBlurCurrency } from "@/components/data-room/metricsFormatting";
 
 export type ActiveUsersMode = "mau" | "dau";
 export type RunwayUnit = "days" | "months";
+export type MetricsBusinessModel = "saas" | "usage" | "marketplace" | "pre_revenue";
+export type GrowthRateMode = "yoy" | "mom";
+export type PaybackUnit = "days" | "months";
+export type RevenueMagnitude = "k" | "m" | "b";
 
-export interface CompanyMetricsData {
+export interface AdaptiveMetricsData {
+  businessModel: MetricsBusinessModel;
+  arr: string;
+  mrr: string;
+  mrrIsOverridden: boolean;
+  ltvCacRatioIsOverridden: boolean;
+  growthRate: string;
+  yoyGrowth: string;
+  momGrowth: string;
+  growthRateMode: GrowthRateMode;
+  churnPeriod: "monthly" | "annual";
+  annualChurnRate: string;
+  committedArr: string;
+  recurringRevenuePercent: string;
+  customerConcentration: string;
+  paidComputeVolume: string;
+  gmv: string;
+  takeRate: string;
+  netRevenue: string;
+  netRevenueIsOverridden: boolean;
+  gmvGrowth: string;
+  transactingAccounts: string;
+  activeBuyers: string;
+  activeSellers: string;
+  transactingAccountType: "buyers" | "sellers";
+  averageOrderValue: string;
+  signedPipeline: string;
+  designPartners: string;
+  targetContractValue: string;
+  targetLaunchDate: string;
+  projectedYear1Revenue: string;
+  activeLogos: string;
+  cacPaybackUnit: PaybackUnit;
+  cacNotTracked: boolean;
+  ltvNotTracked: boolean;
+  nrrNotTracked: boolean;
+  churnNotTracked: boolean;
+  keyOpenHires: string;
+  revenueMagnitude: RevenueMagnitude;
+  cashMagnitude: RevenueMagnitude;
+  burnMagnitude: RevenueMagnitude;
+  debtMagnitude: RevenueMagnitude;
+  marketMagnitude: RevenueMagnitude;
+}
+
+export interface CompanyMetricsData extends AdaptiveMetricsData {
   // Team
   headcount: string;
   background: string;
@@ -24,17 +74,61 @@ export interface CompanyMetricsData {
   // Unit Economics
   cac: string;
   ltv: string;
+  ltvCacRatioOverride: string;
   cacPaybackDays: string;
   // Financial Health
   monthlyBurnRate: string;
   runway: string;
   runwayUnit: RunwayUnit;
+  runwayIsOverride: boolean;
   grossMargin: string;
   cashOnHand: string;
   totalDebt: string;
 }
 
 export const EMPTY_METRICS: CompanyMetricsData = {
+  businessModel: "saas",
+  arr: "",
+  mrr: "",
+  mrrIsOverridden: false,
+  ltvCacRatioIsOverridden: false,
+  growthRate: "",
+  yoyGrowth: "",
+  momGrowth: "",
+  growthRateMode: "yoy",
+  churnPeriod: "monthly",
+  annualChurnRate: "",
+  committedArr: "",
+  recurringRevenuePercent: "",
+  customerConcentration: "",
+  paidComputeVolume: "",
+  gmv: "",
+  takeRate: "",
+  netRevenue: "",
+  netRevenueIsOverridden: false,
+  gmvGrowth: "",
+  transactingAccounts: "",
+  activeBuyers: "",
+  activeSellers: "",
+  transactingAccountType: "buyers",
+  averageOrderValue: "",
+  signedPipeline: "",
+  designPartners: "",
+  targetContractValue: "",
+  targetLaunchDate: "",
+  projectedYear1Revenue: "",
+  activeLogos: "",
+  cacPaybackUnit: "months",
+  cacNotTracked: false,
+  ltvNotTracked: false,
+  nrrNotTracked: false,
+  churnNotTracked: false,
+  keyOpenHires: "",
+  revenueMagnitude: "k",
+  cashMagnitude: "k",
+  burnMagnitude: "k",
+  debtMagnitude: "k",
+  marketMagnitude: "m",
   headcount: "",
   background: "",
   tam: "",
@@ -48,19 +142,29 @@ export const EMPTY_METRICS: CompanyMetricsData = {
   burnMultiple: "",
   cac: "",
   ltv: "",
+  ltvCacRatioOverride: "",
   cacPaybackDays: "",
   monthlyBurnRate: "",
   runway: "",
   runwayUnit: "months",
+  runwayIsOverride: false,
   grossMargin: "",
   cashOnHand: "",
   totalDebt: "",
 };
 
 const LOCAL_STORAGE_KEY = "vekta-company-metrics";
-const SAVE_DEBOUNCE_MS = 700;
+const SAVE_DEBOUNCE_MS = 600;
+const ADAPTIVE_METRIC_KEYS: (keyof AdaptiveMetricsData)[] = [
+  "businessModel", "arr", "mrr", "mrrIsOverridden", "ltvCacRatioIsOverridden", "growthRate", "yoyGrowth", "momGrowth", "growthRateMode", "churnPeriod", "annualChurnRate", "committedArr",
+  "recurringRevenuePercent", "customerConcentration", "paidComputeVolume", "gmv", "takeRate", "netRevenue",
+  "netRevenueIsOverridden", "gmvGrowth", "transactingAccounts", "activeBuyers", "activeSellers", "transactingAccountType", "averageOrderValue",
+  "signedPipeline", "designPartners", "targetContractValue", "targetLaunchDate", "projectedYear1Revenue",
+  "activeLogos", "cacPaybackUnit", "cacNotTracked", "ltvNotTracked", "nrrNotTracked", "churnNotTracked",
+  "keyOpenHires", "revenueMagnitude", "cashMagnitude", "burnMagnitude", "debtMagnitude", "marketMagnitude",
+];
 
-type MetricsRow = Record<string, string | null>;
+type MetricsRow = Record<string, unknown>;
 
 /**
  * Only the values the row actually holds. Blank columns are dropped rather than returned as
@@ -68,8 +172,12 @@ type MetricsRow = Record<string, string | null>;
  * not — a deck pre-fill written moments before the fetch resolved, for instance.
  */
 function rowToMetrics(row: MetricsRow): Partial<CompanyMetricsData> {
-  const text = (value: string | null | undefined) => (value?.trim() ? value : undefined);
+  const text = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value : undefined;
   const stored: Partial<CompanyMetricsData> = {
+    ...(row.extra_metrics && typeof row.extra_metrics === "object" && !Array.isArray(row.extra_metrics)
+      ? row.extra_metrics as Partial<AdaptiveMetricsData>
+      : {}),
     headcount: text(row.headcount),
     background: text(row.background),
     tam: text(row.tam),
@@ -84,10 +192,12 @@ function rowToMetrics(row: MetricsRow): Partial<CompanyMetricsData> {
     burnMultiple: text(row.burn_multiple),
     cac: text(row.cac),
     ltv: text(row.ltv),
+    ltvCacRatioOverride: text(row.ltv_cac_ratio_override),
     cacPaybackDays: text(row.cac_payback_days),
     monthlyBurnRate: text(row.monthly_burn_rate),
     runway: text(row.runway),
     runwayUnit: text(row.runway) ? (row.runway_unit === "days" ? "days" : "months") : undefined,
+    runwayIsOverride: typeof row.runway_is_override === "boolean" ? row.runway_is_override : undefined,
     grossMargin: text(row.gross_margin),
     cashOnHand: text(row.cash_on_hand),
     totalDebt: text(row.total_debt),
@@ -99,6 +209,7 @@ function rowToMetrics(row: MetricsRow): Partial<CompanyMetricsData> {
 }
 
 function metricsToRow(m: CompanyMetricsData, userId: string) {
+  const extraMetrics = Object.fromEntries(ADAPTIVE_METRIC_KEYS.map((key) => [key, m[key]]));
   return {
     user_id: userId,
     headcount: m.headcount || null,
@@ -113,10 +224,13 @@ function metricsToRow(m: CompanyMetricsData, userId: string) {
     burn_multiple: m.burnMultiple || null,
     cac: m.cac || null,
     ltv: m.ltv || null,
+    ltv_cac_ratio_override: m.ltvCacRatioOverride || null,
     cac_payback_days: m.cacPaybackDays || null,
     monthly_burn_rate: m.monthlyBurnRate || null,
     runway: m.runway || null,
     runway_unit: m.runwayUnit,
+    runway_is_override: m.runwayIsOverride,
+    extra_metrics: extraMetrics,
     gross_margin: m.grossMargin || null,
     cash_on_hand: m.cashOnHand || null,
     total_debt: m.totalDebt || null,
@@ -124,11 +238,45 @@ function metricsToRow(m: CompanyMetricsData, userId: string) {
   };
 }
 
+function withComputedMetrics(metrics: CompanyMetricsData): CompanyMetricsData {
+  const next = { ...metrics };
+  if (!next.runwayIsOverride) {
+    const cash = parseSmartNumber(next.cashOnHand);
+    const burn = parseSmartNumber(next.monthlyBurnRate);
+    next.runway = next.cashOnHand.trim() && cash >= 0 && burn > 0
+      ? (Math.round((cash / burn) * 10) / 10).toFixed(1)
+      : "";
+  }
+  if (!next.mrrIsOverridden) {
+    const arr = parseSmartNumber(next.arr);
+    next.mrr = arr > 0 ? smartBlurCurrency(String(Math.round(arr / 12))) : "";
+  }
+  if (!next.netRevenueIsOverridden) {
+    const gmv = parseSmartNumber(next.gmv);
+    const takeRate = parseSmartNumber(next.takeRate);
+    next.netRevenue = next.gmv.trim() && next.takeRate.trim() && gmv >= 0 && takeRate >= 0
+      ? smartBlurCurrency(String(Math.round(gmv * (takeRate / 100))) )
+      : "";
+  }
+  return next;
+}
+
 function readLocalMetrics(): CompanyMetricsData {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) return EMPTY_METRICS;
-    return { ...EMPTY_METRICS, ...JSON.parse(raw) };
+    const saved = JSON.parse(raw) as Partial<CompanyMetricsData>;
+    return withComputedMetrics({
+      ...EMPTY_METRICS,
+      ...saved,
+      // Older local records only have a runway value; keep treating it as a founder override.
+      runwayIsOverride: typeof saved.runwayIsOverride === "boolean"
+        ? saved.runwayIsOverride
+        : Boolean(saved.runway?.trim()),
+      ltvCacRatioIsOverridden: typeof saved.ltvCacRatioIsOverridden === "boolean"
+        ? saved.ltvCacRatioIsOverridden
+        : Boolean(saved.ltvCacRatioOverride?.trim()),
+    });
   } catch {
     return EMPTY_METRICS;
   }
@@ -162,6 +310,7 @@ export function useCompanyMetrics() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rlsUserIdRef = useRef<string | null>(null);
   const hydratedRef = useRef(false);
+  const nextSaveDelayRef = useRef<number | null>(null);
 
   const resolveRlsUserId = useCallback(async (): Promise<string | null> => {
     if (rlsUserIdRef.current) return rlsUserIdRef.current;
@@ -190,7 +339,17 @@ export function useCompanyMetrics() {
           return;
         }
         if (data) {
-          setMetrics((prev) => ({ ...prev, ...rowToMetrics(data as unknown as MetricsRow) }));
+          setMetrics((prev) => {
+            const row = data as unknown as MetricsRow;
+            const extra = row.extra_metrics;
+            const hasRatioOverrideFlag = typeof extra === "object" && extra !== null && !Array.isArray(extra)
+              && Object.prototype.hasOwnProperty.call(extra, "ltvCacRatioIsOverridden");
+            const merged = { ...prev, ...rowToMetrics(row) };
+            if (!hasRatioOverrideFlag) {
+              merged.ltvCacRatioIsOverridden = Boolean(merged.ltvCacRatioOverride.trim());
+            }
+            return withComputedMetrics(merged);
+          });
         }
       } catch (err) {
         console.warn("[useCompanyMetrics] fetch error:", err);
@@ -206,9 +365,15 @@ export function useCompanyMetrics() {
     };
   }, [resolveRlsUserId]);
 
-  const update = useCallback((patch: Partial<CompanyMetricsData>) => {
+  const update = useCallback((patch: Partial<CompanyMetricsData>, options?: { immediate?: boolean }) => {
+    if (options?.immediate) nextSaveDelayRef.current = 0;
     setMetrics((prev) => {
-      const next = { ...prev, ...patch };
+      const merged = { ...prev, ...patch };
+      if ("mrr" in patch && merged.mrrIsOverridden) {
+        const mrr = parseSmartNumber(merged.mrr);
+        merged.arr = mrr > 0 ? smartBlurCurrency(String(Math.round(mrr * 12))) : "";
+      }
+      const next = withComputedMetrics(merged);
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(next));
       } catch {
@@ -216,6 +381,11 @@ export function useCompanyMetrics() {
       }
       return next;
     });
+  }, []);
+
+  const retry = useCallback(() => {
+    nextSaveDelayRef.current = 0;
+    setMetrics((current) => ({ ...current }));
   }, []);
 
   useEffect(() => {
@@ -239,12 +409,13 @@ export function useCompanyMetrics() {
         console.warn("[useCompanyMetrics] save error:", err);
         setSaveState("error");
       }
-    }, SAVE_DEBOUNCE_MS);
+    }, nextSaveDelayRef.current ?? SAVE_DEBOUNCE_MS);
+    nextSaveDelayRef.current = null;
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metrics, resolveRlsUserId]);
 
-  return { metrics, update, loading, saveState };
+  return { metrics, update, loading, saveState, retry };
 }

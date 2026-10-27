@@ -91,9 +91,20 @@ ALTER TABLE public.firm_records
   ADD COLUMN IF NOT EXISTS source_last_verified_at  TIMESTAMPTZ;
 
 DO $$ BEGIN
-  ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_lead_chk;
-  ALTER TABLE public.firm_records ADD CONSTRAINT firm_records_lead_chk
-    CHECK (lead_behavior IS NULL OR lead_behavior IN ('lead','co_lead','follow_on','flexible'));
+  -- 20260418150000 already stores this column as lead_behavior_enum
+  -- ('lead','co_lead','follow','flexible'). A text check cannot accept that type.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'firm_records'
+      AND column_name = 'lead_behavior'
+      AND udt_name = 'lead_behavior_enum'
+  ) THEN
+    ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_lead_chk;
+    ALTER TABLE public.firm_records ADD CONSTRAINT firm_records_lead_chk
+      CHECK (lead_behavior IS NULL OR lead_behavior IN ('lead','co_lead','follow_on','flexible'));
+  END IF;
 
   ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS firm_records_review_chk;
   ALTER TABLE public.firm_records ADD CONSTRAINT firm_records_review_chk

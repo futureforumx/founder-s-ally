@@ -3,6 +3,7 @@ import {
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Save, RotateCcw,
   Loader2, Layers, GripVertical,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "@/hooks/use-toast";
 import { useOnboardingWorkflow } from "@/hooks/useOnboardingWorkflow";
 import { WorkflowStepPreview } from "@/components/onboarding-wizard/WorkflowStepPreview";
@@ -17,7 +18,7 @@ import {
   type StepDef,
 } from "@/config/onboardingWorkflow";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
-import { OnboardingAnalytics } from "@/components/admin/OnboardingAnalytics";
+import { OnboardingAnalytics, type OnboardingAnalyticsPayload, type OnboardingAnalyticsRange } from "@/components/admin/OnboardingAnalytics";
 import { OnboardingSectionTabs, type OnboardingSection } from "@/components/admin/OnboardingSectionTabs";
 
 const FIELD_TYPES: FieldType[] = [
@@ -33,14 +34,18 @@ function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
-export function AdminOnboarding() {
-  const [section, setSection] = useState<OnboardingSection>("edit");
+export function AdminOnboarding({
+  loadOnboardingAnalytics,
+}: {
+  loadOnboardingAnalytics?: (range: OnboardingAnalyticsRange) => OnboardingAnalyticsPayload | Promise<OnboardingAnalyticsPayload>;
+} = {}) {
+  const [section, setSection] = useState<OnboardingSection>(loadOnboardingAnalytics ? "analytics" : "edit");
   const tabs = <OnboardingSectionTabs section={section} onChange={setSection} />;
 
   return (
     <>
       <OnboardingEdit active={section === "edit"} tabs={tabs} />
-      {section === "analytics" ? <OnboardingAnalytics tabs={tabs} /> : null}
+      {section === "analytics" ? <OnboardingAnalytics tabs={tabs} loadPayload={loadOnboardingAnalytics} /> : null}
     </>
   );
 }
@@ -196,7 +201,7 @@ function OnboardingEdit({ active, tabs }: { active: boolean; tabs: ReactNode }) 
   if (loading && !definition) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+        <BouncingDots />
       </div>
     );
   }

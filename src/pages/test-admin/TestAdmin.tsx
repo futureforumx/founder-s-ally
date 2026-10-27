@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import {
-  Loader2, Activity, Wifi, ScrollText, Brain, Users, History,
+  Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
 } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { loadDemoAnalyticsPayload } from "@/pages/test-admin/dummyAnalytics";
+import { loadDemoOnboardingAnalytics, loadDemoUserDirectory, loadDemoWaitlistApplicants } from "@/pages/test-admin/dummyDirectory";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
@@ -79,7 +81,7 @@ export default function TestAdmin() {
   if (loading || adminLoading) {
     return (
       <div className="flex h-screen items-center justify-center" style={{ background: "#050505" }}>
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+        <BouncingDots />
       </div>
     );
   }
@@ -108,7 +110,7 @@ export default function TestAdmin() {
             </span>
           </div>
           <p className="mt-2 text-[10px] leading-relaxed text-white/30">
-            Dummy analytics. Live admin stays at /admin.
+            Dummy directory. Live admin stays at /admin.
           </p>
         </div>
 
@@ -183,8 +185,8 @@ export default function TestAdmin() {
         {activeView === "analytics" && (
           <AdminAnalytics loadPayload={loadDemoAnalyticsPayload} />
         )}
-        {activeView === "users" && <AdminUserManagement />}
-        {activeView === "waitlist" && <AdminWaitlist />}
+        {activeView === "users" && <AdminUserManagement loadDirectory={loadDemoUserDirectory} />}
+        {activeView === "waitlist" && <AdminWaitlist loadApplicants={loadDemoWaitlistApplicants} />}
         {activeView === "firm-records" && <AdminFirmRecords />}
         {activeView === "market-intel" && <AdminMarketIntelligence />}
         {activeView === "fresh-capital" && <AdminFreshCapital onNavigate={openView} />}
@@ -193,7 +195,7 @@ export default function TestAdmin() {
         {activeView === "api-health" && <AdminApiHealth />}
         {activeView === "sync-logs" && <AdminSyncLogs />}
         {activeView === "ai-debugger" && <AdminAiDebugger />}
-        {activeView === "onboarding" && <AdminOnboarding />}
+        {activeView === "onboarding" && <AdminOnboarding loadOnboardingAnalytics={loadDemoOnboardingAnalytics} />}
       </main>
     </div>
   );

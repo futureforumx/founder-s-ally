@@ -625,6 +625,40 @@ async function syncToGoogleSheet(parsed: ParsedPayload, rpcPayload: Record<strin
   }
 }
 
+// Slack incoming webhook notification for newly created waitlist entries.
+// Configure WAITLIST_SLACK_WEBHOOK_URL as an Edge Function secret.
+async function notifySlackWaitlistSignup(parsed: ParsedPayload, email: string, referralCode: unknown): Promise<void> {
+  const webhookUrl = Deno.env.get("WAITLIST_SLACK_WEBHOOK_URL");
+  if (!webhookUrl) {
+    console.log("[waitlist-signup] Slack notification skipped: WAITLIST_SLACK_WEBHOOK_URL not set");
+    return;
+  }
+
+  const escapeSlackText = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const name = parsed.name?.trim() || "Not provided";
+  const code = typeof referralCode === "string" ? referralCode.trim() : "";
+  const text = [
+    ":tada: *New waitlist signup*",
+    `*Name:* ${escapeSlackText(name)}`,
+    `*Email:* ${escapeSlackText(email)}`,
+    `*Referral code:* ${code ? escapeSlackText(code) : "None"}`,
+  ].join("\n");
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      console.error(`[waitlist-signup] Slack webhook failed (${response.status}): ${detail.slice(0, 200)}`);
+    }
+  } catch (error) {
+    console.error("[waitlist-signup] Slack webhook request failed:", error);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // HubSpot sync — private app token approach
 // Set HUBSPOT_ACCESS_TOKEN to your HubSpot private app token.
@@ -1039,6 +1073,9 @@ serve(async (req) => {
         companyName: parsed.company_name,
         alreadySent: confirmationAlreadySent,
       }),
+      rpcPayload.status === "created"
+        ? notifySlackWaitlistSignup(parsed, email, normalizedReferral)
+        : Promise.resolve(),
     ]);
     await recordWaitlistConfirmationEmailResult(supabase, rpcPayload.id, confirmationEmail);
     console.log("[waitlist-signup] sync-done");

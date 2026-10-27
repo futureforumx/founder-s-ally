@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { useFreshCapitalPublicDestination } from "@/hooks/useFreshCapitalPublicDestination";
 import {
   isReservedAppPathSlug,
@@ -12,11 +12,9 @@ const NotFound = lazy(() => import("./NotFound.tsx"));
 
 function RouteLoader() {
   return (
-    <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-border/60 bg-card/70 text-muted-foreground">
-      <div className="flex items-center gap-2 text-sm">
-        <Loader2 className="h-4 w-4 animate-spin text-accent" />
-        <span>Loading…</span>
-      </div>
+    <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-card/70 text-muted-foreground">
+      <BouncingDots />
+      <span className="text-sm">Loading…</span>
     </div>
   );
 }

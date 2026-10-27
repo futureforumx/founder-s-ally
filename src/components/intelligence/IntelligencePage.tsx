@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -623,7 +624,7 @@ export function IntelligencePage({ variant }: IntelligencePageProps) {
 
           {loading ? (
             <div className="flex justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <BouncingDots />
             </div>
           ) : events.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">

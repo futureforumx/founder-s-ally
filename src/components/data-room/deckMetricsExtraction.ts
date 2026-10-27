@@ -17,10 +17,13 @@ import {
 export type ExtractedMetrics = Partial<CompanyMetricsData>;
 
 type MetricField = keyof CompanyMetricsData;
-/** Every field except the free-text background and the two unit toggles. */
-type NumericField = Exclude<MetricField, "background" | "activeUsersMode" | "runwayUnit">;
+/** Fields the deck extractor currently recognizes. Adaptive metrics still accept attributions. */
+type NumericField =
+  | "headcount" | "tam" | "sam" | "som" | "nrr" | "activeUsers" | "dau" | "churnRate"
+  | "burnMultiple" | "cac" | "ltv" | "cacPaybackDays" | "monthlyBurnRate" | "runway"
+  | "grossMargin" | "cashOnHand" | "totalDebt";
 
-const FIELD_LABELS: Record<MetricField, string> = {
+const FIELD_LABELS: Partial<Record<MetricField, string>> = {
   headcount: "Headcount",
   background: "Background",
   tam: "TAM",
@@ -582,9 +585,10 @@ export function metricsPrefillPatch(
 
   for (const [field, value] of Object.entries(incoming) as [MetricField, string | undefined][]) {
     if (!value || field === "activeUsersMode" || field === "runwayUnit") continue;
-    if (current[field]?.trim()) continue;
+    const existing = current[field];
+    if (typeof existing === "string" && existing.trim()) continue;
     (patch as Record<string, string>)[field] = value;
-    labels.push(FIELD_LABELS[field]);
+    labels.push(FIELD_LABELS[field] ?? String(field));
   }
 
   // A unit toggle is only written alongside the number it describes.

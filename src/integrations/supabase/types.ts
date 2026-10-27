@@ -664,6 +664,44 @@ export type Database = {
           },
         ]
       }
+      company_funding_rounds: {
+        Row: {
+          amount_usd: number | null
+          created_at: string
+          id: string
+          round_type: string
+          sort_order: number
+          startup_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_usd?: number | null
+          created_at?: string
+          id?: string
+          round_type: string
+          sort_order?: number
+          startup_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_usd?: number | null
+          created_at?: string
+          id?: string
+          round_type?: string
+          sort_order?: number
+          startup_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_funding_rounds_startup_id_fkey"
+            columns: ["startup_id"]
+            isOneToOne: false
+            referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_members: {
         Row: {
           company_id: string
@@ -704,6 +742,7 @@ export type Database = {
           file_name: string
           file_size_bytes: number | null
           file_url: string
+          fundraising_document_id: string | null
           id: string
           is_active: boolean
           slide_count: number | null
@@ -714,6 +753,7 @@ export type Database = {
           file_name: string
           file_size_bytes?: number | null
           file_url: string
+          fundraising_document_id?: string | null
           id?: string
           is_active?: boolean
           slide_count?: number | null
@@ -724,13 +764,116 @@ export type Database = {
           file_name?: string
           file_size_bytes?: number | null
           file_url?: string
+          fundraising_document_id?: string | null
           id?: string
           is_active?: boolean
           slide_count?: number | null
           uploaded_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_pitch_decks_fundraising_document_id_fkey"
+            columns: ["fundraising_document_id"]
+            isOneToOne: false
+            referencedRelation: "fundraising_file_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fundraising_file_documents: {
+        Row: {
+          category: "Pitch Deck" | "One Pager" | "Demo"
+          created_at: string
+          current_version_id: string | null
+          display_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: "Pitch Deck" | "One Pager" | "Demo"
+          created_at?: string
+          current_version_id?: string | null
+          display_name: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: "Pitch Deck" | "One Pager" | "Demo"
+          created_at?: string
+          current_version_id?: string | null
+          display_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fundraising_file_documents_current_version_fkey"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "fundraising_file_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fundraising_file_versions: {
+        Row: {
+          change_note: string | null
+          created_at: string
+          document_id: string
+          external_url: string | null
+          id: string
+          mime_type: string | null
+          original_filename: string | null
+          size_bytes: number | null
+          source_kind: "upload" | "video_link"
+          storage_ref: string | null
+          uploaded_by: string
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          change_note?: string | null
+          created_at?: string
+          document_id: string
+          external_url?: string | null
+          id?: string
+          mime_type?: string | null
+          original_filename?: string | null
+          size_bytes?: number | null
+          source_kind: "upload" | "video_link"
+          storage_ref?: string | null
+          uploaded_by: string
+          user_id: string
+          version_number: number
+        }
+        Update: {
+          change_note?: string | null
+          created_at?: string
+          document_id?: string
+          external_url?: string | null
+          id?: string
+          mime_type?: string | null
+          original_filename?: string | null
+          size_bytes?: number | null
+          source_kind?: "upload" | "video_link"
+          storage_ref?: string | null
+          uploaded_by?: string
+          user_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fundraising_file_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "fundraising_file_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       competitors: {
         Row: {
@@ -2988,6 +3131,7 @@ export type Database = {
           source_name: string | null
           source_url: string | null
           stage: string | null
+          led_rounds: string[]
           updated_at: string | null
         }
         Insert: {
@@ -3010,6 +3154,7 @@ export type Database = {
           source_name?: string | null
           source_url?: string | null
           stage?: string | null
+          led_rounds?: string[]
           updated_at?: string | null
         }
         Update: {
@@ -3032,6 +3177,7 @@ export type Database = {
           source_name?: string | null
           source_url?: string | null
           stage?: string | null
+          led_rounds?: string[]
           updated_at?: string | null
         }
         Relationships: [
@@ -6569,6 +6715,7 @@ export type Database = {
           sector_focus: string[] | null
           source: string | null
           source_id: string | null
+          startup_id: string | null
           stage_focus: string | null
           state: string | null
           title: string | null
@@ -6601,6 +6748,7 @@ export type Database = {
           sector_focus?: string[] | null
           source?: string | null
           source_id?: string | null
+          startup_id?: string | null
           stage_focus?: string | null
           state?: string | null
           title?: string | null
@@ -6633,6 +6781,7 @@ export type Database = {
           sector_focus?: string[] | null
           source?: string | null
           source_id?: string | null
+          startup_id?: string | null
           stage_focus?: string | null
           state?: string | null
           title?: string | null
@@ -8544,6 +8693,7 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           logo_url: string | null
+          brand_icon_url: string | null
           market_category: string | null
           market_subcategory: string | null
           momentum_score: number | null
@@ -8552,6 +8702,7 @@ export type Database = {
             | Database["public"]["Enums"]["StartupDataSource"]
             | null
           quality_of_backers_score: number | null
+          record_status: "live" | "needs_review" | "archived"
           revenue_range: Database["public"]["Enums"]["RevenueRange"] | null
           secondary_sectors: string[] | null
           sector: Database["public"]["Enums"]["SectorFocus"] | null
@@ -8613,6 +8764,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
+          brand_icon_url?: string | null
           market_category?: string | null
           market_subcategory?: string | null
           momentum_score?: number | null
@@ -8621,6 +8773,7 @@ export type Database = {
             | Database["public"]["Enums"]["StartupDataSource"]
             | null
           quality_of_backers_score?: number | null
+          record_status?: "live" | "needs_review" | "archived"
           revenue_range?: Database["public"]["Enums"]["RevenueRange"] | null
           secondary_sectors?: string[] | null
           sector?: Database["public"]["Enums"]["SectorFocus"] | null
@@ -8682,6 +8835,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           logo_url?: string | null
+          brand_icon_url?: string | null
           market_category?: string | null
           market_subcategory?: string | null
           momentum_score?: number | null
@@ -8690,6 +8844,7 @@ export type Database = {
             | Database["public"]["Enums"]["StartupDataSource"]
             | null
           quality_of_backers_score?: number | null
+          record_status?: "live" | "needs_review" | "archived"
           revenue_range?: Database["public"]["Enums"]["RevenueRange"] | null
           secondary_sectors?: string[] | null
           sector?: Database["public"]["Enums"]["SectorFocus"] | null
@@ -10473,6 +10628,23 @@ export type Database = {
       }
     }
     Functions: {
+      add_fundraising_file_version: {
+        Args: {
+          p_change_note?: string | null
+          p_document_id: string
+          p_external_url?: string | null
+          p_mime_type?: string | null
+          p_original_filename?: string | null
+          p_size_bytes?: number | null
+          p_source_kind: string
+          p_storage_ref?: string | null
+        }
+        Returns: Database["public"]["Tables"]["fundraising_file_versions"]["Row"]
+      }
+      make_fundraising_file_version_current: {
+        Args: { p_document_id: string; p_version_id: string }
+        Returns: undefined
+      }
       admin_update_waitlist_status: {
         Args: {
           p_reviewed_by: string

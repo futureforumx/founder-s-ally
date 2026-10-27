@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
-  Copy, DollarSign, ExternalLink, Loader2, MapPin, Plus, RefreshCw, Save, Search, Sparkles,
+  Copy, DollarSign, ExternalLink, GitMerge, Loader2, MapPin, Plus, RefreshCw, Save, Search, Sparkles,
   UserRound, Users, X, XCircle,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 import { FirmLogo } from "@/components/ui/firm-logo";
@@ -155,6 +156,7 @@ type FirmPortfolioRow = {
   amount: string | null; stage: string | null; date_announced: string | null; investment_status: string | null;
   is_notable: boolean | null; portfolio_company_website: string | null; portfolio_company_linkedin: string | null;
   source_name: string | null; source_url: string | null; source_confidence: number | null; updated_at: string | null;
+  led_rounds?: string[] | null;
 };
 
 type FirmModalTab = "profile" | "funds" | "people" | "portfolio";
@@ -228,6 +230,83 @@ async function createFirm(body: Record<string, unknown>): Promise<{ row?: FirmRo
     const json = await res.json().catch(() => ({})) as { row?: FirmRow; error?: string };
     if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
     return { row: json.row };
+  } catch (e: unknown) {
+    return { error: (e as Error)?.message };
+  }
+}
+
+type FirmDuplicateMember = {
+  id: string;
+  firm_name: string;
+  legal_name: string | null;
+  website_url: string | null;
+  aliases: string[];
+  completeness_score: number | null;
+  ready_for_live: boolean;
+};
+
+type FirmDuplicateCluster = {
+  id: string;
+  member_count: number;
+  members: FirmDuplicateMember[];
+};
+
+type FirmDuplicateScan = {
+  scanned: number;
+  total_clusters: number;
+  skipped_large: number;
+  clusters: FirmDuplicateCluster[];
+};
+
+type FirmMergeResult = {
+  primary_id: string;
+  firm_name: string;
+  aliases: string[];
+  merged_ids: string[];
+};
+
+async function fetchFirmDuplicates(offset = 0, query = ""): Promise<{ scan?: FirmDuplicateScan; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  try {
+    const params = new URLSearchParams({ entity: "firm-duplicates", offset: String(offset) });
+    if (query.trim()) params.set("q", query.trim());
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params.toString()}`, { headers: await adminHeaders() });
+    const json = await res.json().catch(() => ({})) as FirmDuplicateScan & { error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    if (!Array.isArray(json.clusters)) return { error: "Could not read similar firm names" };
+    return { scan: json };
+  } catch (e: unknown) {
+    return { error: (e as Error)?.message };
+  }
+}
+
+async function mergeFirmDuplicates(primaryId: string, mergeIds: string[]): Promise<{ row?: FirmMergeResult; error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firm-duplicates`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: JSON.stringify({ primary_id: primaryId, merge_ids: mergeIds }),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: FirmMergeResult; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) {
+    return { error: (e as Error)?.message };
+  }
+}
+
+async function dismissFirmDuplicates(firmIds: string[]): Promise<{ error?: string }> {
+  if (!SUPABASE_URL) return { error: "Supabase not configured" };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firm-duplicates`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: JSON.stringify({ action: "dismiss", firm_ids: firmIds }),
+    });
+    const json = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return {};
   } catch (e: unknown) {
     return { error: (e as Error)?.message };
   }
@@ -1388,6 +1467,9 @@ function FirmEditPanel({
                     <TF label="Source Name" value={item.source_name} onChange={v => updatePortfolio(item.id, "source_name", v)} />
                     <BF label="Notable" value={item.is_notable} onChange={v => updatePortfolio(item.id, "is_notable", v)} />
                   </div>
+                  <p className="mt-2 text-[12px]" style={{ color: (item.led_rounds ?? []).length ? "#2EE6A6" : "rgba(255,255,255,0.4)" }}>
+                    Led rounds: {(item.led_rounds ?? []).length ? item.led_rounds!.join(", ") : "—"}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1435,7 +1517,7 @@ export function AdminFirmEditor({
               <button type="button" onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}>Close</button>
             </div>
           ) : (
-            <Loader2 className="mx-auto h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} />
+            <BouncingDots className="mx-auto" />
           )}
         </div>
       </div>
@@ -1827,6 +1909,311 @@ function AddPersonModal({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+function DeduplicateFirmsModal({
+  open,
+  onClose,
+  onMerged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onMerged: (result: FirmMergeResult) => void;
+}) {
+  const [scan, setScan] = useState<FirmDuplicateScan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [run, setRun] = useState(0);
+  const [mergingId, setMergingId] = useState<string | null>(null);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [picks, setPicks] = useState<Record<string, { checked: string[]; primaryId: string | null }>>({});
+  const [loaded, setLoaded] = useState(0);
+  const [query, setQuery] = useState("");
+  const [dQuery, setDQuery] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => setDQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [open, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setPicks({});
+    setLoaded(0);
+    void fetchFirmDuplicates(0, dQuery).then((res) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (res.error || !res.scan) {
+        setError(res.error ?? "Could not compare firm names");
+        return;
+      }
+      setScan(res.scan);
+      setLoaded(res.scan.clusters.length);
+    });
+    return () => { cancelled = true; };
+  }, [open, run, dQuery]);
+
+  if (!open) return null;
+
+  const toggleMember = (clusterId: string, memberId: string) => {
+    setPicks((prev) => {
+      const current = prev[clusterId] ?? { checked: [], primaryId: null };
+      const on = current.checked.includes(memberId);
+      const checked = on ? current.checked.filter((id) => id !== memberId) : [...current.checked, memberId];
+      let primaryId = current.primaryId;
+      if (!on && !primaryId) primaryId = memberId;
+      if (on && primaryId === memberId) primaryId = checked[0] ?? null;
+      return { ...prev, [clusterId]: { checked, primaryId } };
+    });
+  };
+
+  const choosePrimary = (clusterId: string, memberId: string) => {
+    setPicks((prev) => {
+      const current = prev[clusterId] ?? { checked: [], primaryId: null };
+      const checked = current.checked.includes(memberId) ? current.checked : [...current.checked, memberId];
+      return { ...prev, [clusterId]: { checked, primaryId: memberId } };
+    });
+  };
+
+  const mergeCluster = async (cluster: FirmDuplicateCluster) => {
+    const pick = picks[cluster.id];
+    const primaryId = pick?.primaryId;
+    if (!primaryId || !pick.checked.includes(primaryId)) return;
+    const mergeIds = pick.checked.filter((id) => id !== primaryId);
+    if (mergeIds.length < 1) return;
+    const primary = cluster.members.find((member) => member.id === primaryId);
+    setMergingId(cluster.id);
+    const { row, error: mergeError } = await mergeFirmDuplicates(primaryId, mergeIds);
+    setMergingId(null);
+    if (mergeError || !row) {
+      toast.error("Could not merge these firms", { description: mergeError });
+      return;
+    }
+    const aliases = Array.isArray(row.aliases) ? row.aliases : [];
+    toast.success(`Kept ${row.firm_name || primary?.firm_name || "the primary name"}`, {
+      description: aliases.length
+        ? `Search also matches ${aliases.slice(0, 6).join(", ")}`
+        : "The other records were merged into this firm.",
+    });
+    setScan((prev) => prev ? {
+      ...prev,
+      total_clusters: Math.max(0, prev.total_clusters - 1),
+      clusters: prev.clusters.filter((item) => item.id !== cluster.id),
+    } : prev);
+    onMerged(row);
+  };
+
+  const dismissCluster = async (cluster: FirmDuplicateCluster) => {
+    const pick = picks[cluster.id];
+    const selected = pick?.checked ?? [];
+    const firmIds = selected.length >= 2 ? selected : cluster.members.map((member) => member.id);
+    if (firmIds.length < 2) return;
+    setDismissingId(cluster.id);
+    const { error: dismissError } = await dismissFirmDuplicates(firmIds);
+    setDismissingId(null);
+    if (dismissError) {
+      toast.error("Could not mark these as separate firms", { description: dismissError });
+      return;
+    }
+    const names = cluster.members.filter((member) => firmIds.includes(member.id)).map((member) => member.firm_name);
+    toast.success("Marked as not duplicates", {
+      description: names.slice(0, 4).join(", "),
+    });
+    setScan((prev) => {
+      if (!prev) return prev;
+      const remaining = cluster.members.filter((member) => !firmIds.includes(member.id));
+      const clusters = remaining.length >= 2
+        ? prev.clusters.map((item) => item.id === cluster.id ? { ...item, member_count: remaining.length, members: remaining } : item)
+        : prev.clusters.filter((item) => item.id !== cluster.id);
+      return {
+        ...prev,
+        total_clusters: remaining.length >= 2 ? prev.total_clusters : Math.max(0, prev.total_clusters - 1),
+        clusters,
+      };
+    });
+    setPicks((prev) => {
+      const next = { ...prev };
+      delete next[cluster.id];
+      return next;
+    });
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    const { scan: next, error: moreError } = await fetchFirmDuplicates(loaded, dQuery);
+    setLoadingMore(false);
+    if (moreError || !next) {
+      toast.error("Could not load more groups", { description: moreError });
+      return;
+    }
+    setScan((prev) => {
+      if (!prev) return next;
+      const seen = new Set(prev.clusters.map((cluster) => cluster.id));
+      const extra = next.clusters.filter((cluster) => !seen.has(cluster.id));
+      return { ...prev, total_clusters: next.total_clusters, clusters: [...prev.clusters, ...extra] };
+    });
+    setLoaded((value) => value + next.clusters.length);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="dedupe-firm-title">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div
+        className="relative flex max-h-[86vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-2xl"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") event.stopPropagation();
+        }}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div>
+            <h2 id="dedupe-firm-title" className="text-[15px] font-semibold text-white/90">Deduplicate firm names</h2>
+            <p className="mt-1 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
+              Check the records that are the same firm, then choose the primary name. The other names are saved as aliases and show up in search.
+            </p>
+          </div>
+          <button type="button" aria-label="Close deduplicate dialog" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/45 hover:bg-white/10 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="border-b border-white/10 px-5 py-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search firm names in these groups"
+              aria-label="Search similar firm names"
+              className="h-8 pl-8 text-[12px]"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#e0e0e0" }}
+            />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {loading && !scan && (
+            <div className="flex items-center gap-2 py-10 text-[13px] text-white/55">
+              <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#5B5CFF" }} />
+              Comparing firm names…
+            </div>
+          )}
+          {error && (
+            <div className="rounded-xl border border-white/10 px-4 py-3 text-[13px] text-white/70">
+              {error}
+              <button type="button" onClick={() => setRun((value) => value + 1)} className="ml-3 text-[12px] font-semibold" style={{ color: "#5B5CFF" }}>Try again</button>
+            </div>
+          )}
+          {scan && (
+            <div className="flex flex-col gap-3">
+              <p className="font-mono text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                {loading ? "Searching…" : `${scan.scanned.toLocaleString()} names compared · ${scan.total_clusters.toLocaleString()} similar groups${scan.clusters.length < scan.total_clusters ? ` · showing ${scan.clusters.length}` : ""}`}
+              </p>
+              {scan.clusters.length === 0 && !loading && (
+                <p className="py-8 text-[13px] text-white/50">
+                  {dQuery ? `No similar names match “${dQuery}”.` : "No similar firm names in this pass."}
+                </p>
+              )}
+              {scan.clusters.map((cluster) => {
+                const pick = picks[cluster.id] ?? { checked: [], primaryId: null };
+                const primary = cluster.members.find((member) => member.id === pick.primaryId);
+                const otherNames = cluster.members
+                  .filter((member) => pick.checked.includes(member.id) && member.id !== pick.primaryId)
+                  .map((member) => member.firm_name);
+                const canMerge = Boolean(pick.primaryId && pick.checked.includes(pick.primaryId) && otherNames.length > 0);
+                return (
+                  <div key={cluster.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                    <div className="flex flex-col gap-2">
+                      {cluster.members.map((member) => {
+                        const checked = pick.checked.includes(member.id);
+                        const isPrimary = pick.primaryId === member.id;
+                        return (
+                          <div key={member.id} className="flex items-start gap-3 rounded-lg px-1 py-1">
+                            <input
+                              type="checkbox"
+                              aria-label={`Include ${member.firm_name}`}
+                              checked={checked}
+                              onChange={() => toggleMember(cluster.id, member.id)}
+                              className="mt-1 accent-[#5B5CFF]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[13px] font-medium text-white/90">{member.firm_name}</span>
+                                {member.ready_for_live && (
+                                  <span className="rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold" style={{ color: "#2EE6A6", borderColor: "rgba(46,230,166,0.35)" }}>LIVE</span>
+                                )}
+                                <span className="font-mono text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{member.completeness_score ?? 0}%</span>
+                              </div>
+                              <p className="truncate text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                                {[member.legal_name, member.website_url].filter(Boolean).join(" · ") || "No website on file"}
+                              </p>
+                            </div>
+                            <label className="inline-flex shrink-0 items-center gap-1.5 text-[11px]" style={{ color: isPrimary ? "#2EE6A6" : "rgba(255,255,255,0.45)" }}>
+                              <input
+                                type="radio"
+                                name={`primary-${cluster.id}`}
+                                checked={isPrimary}
+                                onChange={() => choosePrimary(cluster.id, member.id)}
+                                className="accent-[#2EE6A6]"
+                              />
+                              Primary
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
+                      <p className="min-w-0 text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        {otherNames.length > 0 && primary
+                          ? `Aliases: ${otherNames.join(", ")}`
+                          : "Select at least two records and a primary name."}
+                      </p>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={dismissingId === cluster.id || mergingId === cluster.id || cluster.members.length < 2}
+                          onClick={() => void dismissCluster(cluster)}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.14)" }}
+                        >
+                          {dismissingId === cluster.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          Not Duplicates
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canMerge || mergingId === cluster.id || dismissingId === cluster.id}
+                          onClick={() => void mergeCluster(cluster)}
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40"
+                          style={{ background: "#5B5CFF", color: "#fff" }}
+                        >
+                          {mergingId === cluster.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitMerge className="h-3.5 w-3.5 shrink-0" />}
+                          <span className="truncate">{primary ? `Merge into ${primary.firm_name}` : "Merge"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {scan.clusters.length < scan.total_clusters && (
+                <button
+                  type="button"
+                  disabled={loadingMore || loading}
+                  onClick={() => void loadMore()}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold disabled:opacity-50"
+                  style={{ background: "rgba(91,92,255,0.16)", color: "#d7d7ff", border: "1px solid rgba(91,92,255,0.45)" }}
+                >
+                  {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Show more similar names
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminFirmRecords({
   focusFirm,
   focusPerson,
@@ -1854,6 +2241,7 @@ export function AdminFirmRecords({
   const [selected, setSelected]   = useState<FirmRow | null>(null);
   const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
   const [addOpen, setAddOpen]     = useState(false);
+  const [dedupeOpen, setDedupeOpen] = useState(false);
   const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [openingPersonId, setOpeningPersonId] = useState<string | null>(null);
 
@@ -2075,6 +2463,14 @@ export function AdminFirmRecords({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
+            onClick={() => setDedupeOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold"
+            style={{ background: "rgba(91,92,255,0.16)", color: "#d7d7ff", border: "1px solid rgba(91,92,255,0.45)" }}
+          >
+            <GitMerge className="h-4 w-4" /> Deduplicate
+          </button>
+          <button
+            type="button"
             onClick={() => setAddOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold"
             style={{ background: "rgba(46,230,166,0.14)", color: "#2EE6A6", border: "1px solid rgba(46,230,166,0.35)" }}
@@ -2213,7 +2609,7 @@ export function AdminFirmRecords({
           </div>
         )}
 
-        {loading && <div className="flex items-center justify-center py-16"><Loader2 className="h-5 w-5 animate-spin" style={{ color: "#2EE6A6" }} /></div>}
+        {loading && <div className="flex items-center justify-center py-16"><BouncingDots /></div>}
         {!loading && error && <div className="flex items-center gap-2 px-4 py-10 text-[13px]" style={{ color: "#ef4444" }}><AlertCircle className="h-4 w-4" /> {error}</div>}
         {!loading && !error && showingPeople && people.length === 0 && <div className="py-14 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>No people found</div>}
         {!loading && !error && !showingPeople && rows.length === 0 && <div className="py-14 text-center text-[13px]" style={{ color: "rgba(255,255,255,0.3)" }}>No firm records found</div>}
@@ -2331,6 +2727,20 @@ export function AdminFirmRecords({
       )}
 
       <AddFirmModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleFirmCreated} />
+      <DeduplicateFirmsModal
+        open={dedupeOpen}
+        onClose={() => setDedupeOpen(false)}
+        onMerged={(result) => {
+          if (selected && result.merged_ids.includes(selected.id)) {
+            setSelected(null);
+            setFocusPersonId(null);
+          }
+          void queryClient.invalidateQueries({ queryKey: ["investor-directory"] });
+          void queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] });
+          void loadRows();
+          void loadMetrics();
+        }}
+      />
       <AddPersonModal open={addPersonOpen} onClose={() => setAddPersonOpen(false)} onCreated={handlePersonCreated} />
 
       {/* slide-in edit panel */}

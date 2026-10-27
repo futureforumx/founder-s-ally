@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Mail,
-  Loader2,
   MapPin,
   Linkedin,
   Twitter,
@@ -10,6 +9,7 @@ import {
   Instagram,
   Youtube,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { extractXHandle } from "@/lib/extractXHandle";
 import { IntroPathfinder } from "./IntroPathfinder";
 import { Badge } from "@/components/ui/badge";
@@ -192,9 +192,9 @@ export function ConnectionsTab({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Scanning network…</span>
+      <div className="flex flex-col items-center justify-center gap-3 py-16">
+        <BouncingDots />
+        <span className="text-sm text-muted-foreground">Scanning network…</span>
       </div>
     );
   }

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import {
-  Ban, Check, ChevronDown, ChevronRight, Copy, CreditCard, Download, ExternalLink, Fingerprint, Loader2, MoreHorizontal, Search, Shield, Trash2, Users,
+  Ban, Check, ChevronDown, ChevronRight, Copy, CreditCard, Download, ExternalLink, Fingerprint, MoreHorizontal, Search, Shield, Trash2, Users,
 } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
-interface EnrichedUser {
+export interface EnrichedUser {
   id: string;
   email: string;
   last_sign_in_at: string | null;
@@ -44,7 +45,7 @@ interface EnrichedUser {
   subscription?: SubscriptionPlan;
 }
 
-interface WaitlistApplicant {
+export interface AdminUserApplicant {
   id: string;
   created_at: string;
   email: string;
@@ -79,6 +80,8 @@ type SubscriptionFilter = "all" | SubscriptionPlan;
 type Lifecycle = "active" | "invited" | "waitlisted" | "never" | "inactive";
 
 type RoleKey = "founder" | "investor" | "operator" | "admin" | "other";
+
+type WaitlistApplicant = AdminUserApplicant;
 
 type DirectoryRow =
   | { kind: "account"; id: string; user: EnrichedUser }
@@ -494,7 +497,14 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
   );
 }
 
-export function AdminUserManagement() {
+export function AdminUserManagement({
+  loadDirectory,
+}: {
+  loadDirectory?: () => (
+    | { users: EnrichedUser[]; applicants: WaitlistApplicant[] }
+    | Promise<{ users: EnrichedUser[]; applicants: WaitlistApplicant[] }>
+  );
+} = {}) {
   const [users, setUsers] = useState<EnrichedUser[]>([]);
   const [applicants, setApplicants] = useState<WaitlistApplicant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -511,6 +521,14 @@ export function AdminUserManagement() {
 
   const load = useCallback(async () => {
     setLoading(true);
+
+    if (loadDirectory) {
+      const directory = await loadDirectory();
+      setUsers(directory.users);
+      setApplicants(directory.applicants);
+      setLoading(false);
+      return;
+    }
 
     const [userResult, waitlistResult] = await Promise.all([
       invokeEdgeFunction("admin-list-users", { preferClerkSessionToken: true }),
@@ -530,7 +548,7 @@ export function AdminUserManagement() {
     }
 
     setLoading(false);
-  }, []);
+  }, [loadDirectory]);
 
   useEffect(() => {
     void load();
@@ -585,6 +603,12 @@ export function AdminUserManagement() {
     setUpdatingId(userId);
 
     try {
+      if (loadDirectory) {
+        setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, permission } : user)));
+        toast.success("Permission updated", { description: `Set to ${permission}` });
+        setUpdatingId(null);
+        return;
+      }
       const { error } = await invokeEdgeFunction("admin-update-permission", {
         preferClerkSessionToken: true,
         body: { target_user_id: userId, permission },
@@ -613,6 +637,14 @@ export function AdminUserManagement() {
     setBanningId(user.id);
 
     try {
+      if (loadDirectory) {
+        setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
+        toast.success("Access revoked", {
+          description: `Blocked ${user.email || "account"}${user.ip_addresses?.length ? ` and ${user.ip_addresses.length} IP address(es)` : ""}.`,
+        });
+        setBanningId(null);
+        return;
+      }
       const { data, error } = await invokeEdgeFunction("admin-ban-user", {
         preferClerkSessionToken: true,
         body: {
@@ -636,6 +668,10 @@ export function AdminUserManagement() {
   };
 
   const revokeAccess = async (user: EnrichedUser) => {
+    if (loadDirectory) {
+      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
+      return { banned_email: user.email, banned_ips: user.ip_addresses ?? [] };
+    }
     const { data, error } = await invokeEdgeFunction("admin-ban-user", {
       preferClerkSessionToken: true,
       body: {
@@ -652,6 +688,10 @@ export function AdminUserManagement() {
   };
 
   const deleteApplicant = async (applicant: WaitlistApplicant) => {
+    if (loadDirectory) {
+      setApplicants((current) => current.filter((item) => item.id !== applicant.id));
+      return;
+    }
     const { error } = await invokeAdminWaitlist({ action: "delete", id: applicant.id });
 
     if (error) throw error;
@@ -790,6 +830,15 @@ export function AdminUserManagement() {
   };
 
   const updateApplicantStatus = async (applicant: WaitlistApplicant, status: "approved" | "rejected" | "pending") => {
+    if (loadDirectory) {
+      const updated: WaitlistApplicant = {
+        ...applicant,
+        status,
+        reviewed_at: status === "pending" ? null : new Date().toISOString(),
+      };
+      setApplicants((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+      return { sent: true, status: "sent" };
+    }
     const { data, error } = await invokeAdminWaitlist({
       action: "update_status",
       id: applicant.id,
@@ -944,7 +993,7 @@ export function AdminUserManagement() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-300" />
+          <BouncingDots />
         </div>
       ) : (
         <div className={`overflow-x-auto rounded-lg border border-neutral-800/80 bg-neutral-950 ${selectedIds.length > 0 ? "mb-2" : ""}`}>

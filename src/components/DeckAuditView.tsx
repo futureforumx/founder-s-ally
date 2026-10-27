@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { DeckUploader } from "./DeckUploader";
-import { BobbingDots } from "@/components/loading-ui/bobbing-dots";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { usePitchDecks, type PitchDeck } from "@/hooks/usePitchDecks";
+import { usePitchDecks } from "@/hooks/usePitchDecks";
 import { useCompanyMetrics } from "@/hooks/useCompanyMetrics";
 import {
   extractMetricsReport,
@@ -22,7 +21,7 @@ import { storedCompanyProfileOrEmpty } from "@/hooks/useStoredCompanyProfile";
 import { KPIRibbon } from "./deck-audit/KPIRibbon";
 import { SlideCoachingView } from "./deck-audit/SlideCoachingView";
 import { VersionComparison } from "./deck-audit/VersionComparison";
-import { VersionHistoryAccordion } from "./deck-audit/VersionHistoryAccordion";
+import { FundraisingFilesTab } from "./data-room/FundraisingFilesTab";
 import type { AuditResult } from "./deck-audit/types";
 
 type AuditState = "upload" | "processing" | "report" | "error";
@@ -31,6 +30,7 @@ const MAX_AUDIT_DECK_TEXT_CHARS = 30000;
 interface DeckAuditViewProps {
   /** Which Data Room tab this view is being rendered inside of. */
   activeSection: "files" | "assessment";
+  onShareDeck?: (deckId: string) => void;
 }
 
 /** Convert legacy edge-function response to the full AuditResult schema */
@@ -79,7 +79,7 @@ function normalizeAuditResponse(raw: any): AuditResult {
   };
 }
 
-export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
+export function DeckAuditView({ activeSection, onShareDeck }: DeckAuditViewProps) {
   const [state, setState] = useState<AuditState>(() => {
     try {
       const cached = sessionStorage.getItem("deck-audit-result");
@@ -95,8 +95,7 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
     return null;
   });
   const [compareMode, setCompareMode] = useState(false);
-  const { decks, activeDeck, loading, uploadDeck, makeActive, renameDeck, deleteDeck, getDownloadUrl } = usePitchDecks();
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const { activeDeck, uploadDeck, getDownloadUrl } = usePitchDecks();
   const [activeDeckSignedUrl, setActiveDeckSignedUrl] = useState<string | null>(null);
   const { metrics: savedMetrics, update: updateMetrics } = useCompanyMetrics();
   // Read at upload time rather than captured in the upload callback, so a prefill
@@ -181,65 +180,19 @@ export function DeckAuditView({ activeSection }: DeckAuditViewProps) {
 
   const handleReset = useCallback(() => { setState("upload"); setResult(null); setCompareMode(false); try { sessionStorage.removeItem("deck-audit-result"); } catch {} }, []);
 
-  const handleDownload = async (deck: PitchDeck) => {
-    setActionLoading(deck.id);
-    const url = await getDownloadUrl(deck.file_url);
-    if (url) {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = deck.file_name;
-      a.click();
-    }
-    setActionLoading(null);
-  };
-
-  const handleRename = async (deck: PitchDeck, newFileName: string) => {
-    if (newFileName.trim() === deck.file_name) return;
-    setActionLoading(deck.id);
-    await renameDeck(deck.id, newFileName);
-    setActionLoading(null);
-  };
-
-  const handleMakeActive = async (deck: PitchDeck) => {
-    setActionLoading(deck.id);
-    await makeActive(deck.id);
-    setActionLoading(null);
-  };
-
-  const handleDelete = async (deck: PitchDeck) => {
-    setActionLoading(deck.id);
-    await deleteDeck(deck.id);
-    setActionLoading(null);
-  };
-
   const companyProfile = storedCompanyProfileOrEmpty();
   const profileGeo = companyGeoFromProfile(companyProfile);
+
+  // Files uses its own document/version flow and should not be blocked by an
+  // assessment that is still processing in another tab.
+  if (activeSection === "files") return <FundraisingFilesTab onShareDeck={onShareDeck} />;
 
   // ── Processing State (shown regardless of active tab) ──
   if (state === "processing") {
     return (
       <div className="flex flex-col items-center justify-center gap-4 min-h-[40vh]">
-        <BobbingDots className="w-16 text-primary" />
+        <BouncingDots className="w-16" />
         <p className="text-sm font-medium text-muted-foreground">Loading</p>
-      </div>
-    );
-  }
-
-  // ── Files Tab: upload + manage deck versions ──
-  if (activeSection === "files") {
-    return (
-      <div className="space-y-9">
-        <DeckUploader onUpload={handleUpload} />
-
-        <VersionHistoryAccordion
-          decks={decks}
-          loading={loading}
-          actionLoading={actionLoading}
-          onDownload={handleDownload}
-          onRename={handleRename}
-          onMakeActive={handleMakeActive}
-          onDelete={handleDelete}
-        />
       </div>
     );
   }

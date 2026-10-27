@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Building2, ExternalLink, Globe, MapPin } from "lucide-react";
 
 import { supabasePublicDirectory, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobsTab } from "@/components/dashboard/founder-detail/JobsTab";
@@ -106,7 +107,8 @@ export default function OrganizationProfile() {
 
   if (query.isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-sm text-muted-foreground">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
+        <BouncingDots />
         Loading company…
       </div>
     );

@@ -2,10 +2,25 @@
 -- Assets are stored in Cloudflare R2; metadata tracked here.
 -- approval_state gates what's shown in the product (only 'approved' assets are displayed).
 
-CREATE TYPE IF NOT EXISTS image_format_enum AS ENUM ('svg', 'png', 'webp', 'jpg', 'gif');
-CREATE TYPE IF NOT EXISTS image_source_enum AS ENUM ('signal_nfx', 'clearbit', 'linkedin', 'manual', 'gravatar', 'unavatar', 'other');
-CREATE TYPE IF NOT EXISTS image_quality_enum AS ENUM ('original', 'high', 'compressed');
-CREATE TYPE IF NOT EXISTS approval_state_enum AS ENUM ('pending', 'approved', 'rejected');
+DO $$ BEGIN
+  CREATE TYPE public.image_format_enum AS ENUM ('svg', 'png', 'webp', 'jpg', 'gif');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.image_source_enum AS ENUM ('signal_nfx', 'clearbit', 'linkedin', 'manual', 'gravatar', 'unavatar', 'other');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.image_quality_enum AS ENUM ('original', 'high', 'compressed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.approval_state_enum AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ── Firm logo assets ──────────────────────────────────────────────────────────
 

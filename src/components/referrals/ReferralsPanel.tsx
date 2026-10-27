@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Check, ChevronDown, Copy, Loader2, Mail, Share2, Sparkles, TrendingUp } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -460,7 +461,7 @@ export function ReferralsPanel() {
           role="status"
           aria-live="polite"
         >
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+          <BouncingDots />
           <p className="text-sm font-medium text-[#a1a1aa]">Pulling your waitlist status…</p>
         </div>
       ) : null}

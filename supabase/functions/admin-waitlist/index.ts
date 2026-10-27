@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
     if (action === "list_referral_codes") {
       const { data, error } = await adminClient
         .from("referral_codes")
-        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .select("id, code, label, is_active, type, waitlist_user_id, created_by, created_at")
         .order("created_at", { ascending: false })
         .limit(2000);
       if (error) throw error;
@@ -316,8 +316,8 @@ Deno.serve(async (req) => {
       }
       const { data, error } = await adminClient
         .from("referral_codes")
-        .insert({ code, label, source: "admin", created_by: resolved.email ?? resolved.id })
-        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .insert({ code, label, type: "organization", created_by: resolved.email ?? resolved.id })
+        .select("id, code, label, is_active, type, waitlist_user_id, created_by, created_at")
         .single();
       if (error?.code === "23505") throw new Error("That referral code already exists");
       if (error) throw error;
@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
         .from("referral_codes")
         .update({ is_active: body.is_active })
         .eq("id", id)
-        .select("id, code, label, is_active, source, waitlist_user_id, created_by, created_at")
+        .select("id, code, label, is_active, type, waitlist_user_id, created_by, created_at")
         .maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Referral code not found");
@@ -345,11 +345,11 @@ Deno.serve(async (req) => {
         .from("referral_codes")
         .delete()
         .eq("id", id)
-        .eq("source", "admin")
+        .eq("type", "organization")
         .select("id")
         .maybeSingle();
       if (error) throw error;
-      if (!data) throw new Error("Only manually added referral codes can be deleted");
+      if (!data) throw new Error("Only organization referral codes can be deleted");
       return new Response(JSON.stringify({ deleted: true, id }), { headers: jsonHeaders });
     }
 

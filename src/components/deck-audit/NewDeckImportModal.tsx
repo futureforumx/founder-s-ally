@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Upload, Link2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { BobbingDots } from "@/components/loading-ui/bobbing-dots";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { inspectPdf } from "@/lib/pdfInspector";
 import { withTimeout } from "@/lib/withTimeout";
@@ -138,8 +138,8 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
 
   const handleFile = useCallback(async (file: File) => {
     setError(null);
-    if (file.size > 50 * 1024 * 1024) {
-      setError("File too large. Maximum size is 50 MB.");
+    if (file.size > 25 * 1024 * 1024) {
+      setError("File too large. Maximum size is 25 MB.");
       return;
     }
 
@@ -287,7 +287,7 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
                 }`}
               >
                 {isExtracting ? (
-                  <BobbingDots className="w-16 text-primary" />
+                  <BouncingDots className="w-16" />
                 ) : (
                   <div className={`h-12 w-12 rounded-xl flex items-center justify-center transition-colors ${
                     isDragging ? "bg-primary/10" : "bg-muted"
@@ -299,7 +299,7 @@ export function NewDeckImportModal({ open, onOpenChange, onImport }: NewDeckImpo
                   <p className="text-sm font-medium text-foreground">
                     {isExtracting ? "Reading your deck..." : "Drag and drop PDF or PPTX, or click to browse"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">PDF or TXT · Max 50 MB</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">PDF or TXT · Max 25 MB</p>
                 </div>
               </div>
 

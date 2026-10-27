@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Calendar, Check, Eye, Loader2, Mail, TriangleAlert } from "lucide-react";
+import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { invokeEdgeFunction } from "@/lib/invokeEdgeFunction";
 import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { FilterSelect } from "@/components/admin/FilterSelect";
@@ -14,7 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-type AnalyticsRange = "1d" | "3d" | "7d" | "30d" | "90d" | "all";
+export type OnboardingAnalyticsRange = "1d" | "3d" | "7d" | "30d" | "90d" | "all";
+type AnalyticsRange = OnboardingAnalyticsRange;
 
 type StepRow = {
   index: number;
@@ -50,7 +52,7 @@ type DraftFields = {
   step: unknown;
 };
 
-type StalledRow = {
+export type OnboardingStalledRow = {
   id: string;
   name: string;
   email: string;
@@ -66,7 +68,7 @@ type StalledRow = {
   draft: DraftFields;
 };
 
-type AnalyticsPayload = {
+export type OnboardingAnalyticsPayload = {
   range: AnalyticsRange;
   kpis: {
     started: number;
@@ -77,8 +79,10 @@ type AnalyticsPayload = {
   };
   steps: StepRow[];
   personas: PersonaRow[];
-  stalled: StalledRow[];
+  stalled: OnboardingStalledRow[];
 };
+type AnalyticsPayload = OnboardingAnalyticsPayload;
+type StalledRow = OnboardingStalledRow;
 
 const RANGES: { value: AnalyticsRange; label: string }[] = [
   { value: "1d", label: "1D" },
@@ -285,7 +289,13 @@ function DraftDialog({
   );
 }
 
-export function OnboardingAnalytics({ tabs }: { tabs: ReactNode }) {
+export function OnboardingAnalytics({
+  tabs,
+  loadPayload,
+}: {
+  tabs: ReactNode;
+  loadPayload?: (range: AnalyticsRange) => AnalyticsPayload | Promise<AnalyticsPayload>;
+}) {
   const [range, setRange] = useState<AnalyticsRange>("30d");
   const [payload, setPayload] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -296,6 +306,12 @@ export function OnboardingAnalytics({ tabs }: { tabs: ReactNode }) {
   const load = useCallback(async (nextRange: AnalyticsRange) => {
     setLoading(true);
     setError(null);
+
+    if (loadPayload) {
+      setPayload(await loadPayload(nextRange));
+      setLoading(false);
+      return;
+    }
 
     const { data, error: invokeError } = await invokeEdgeFunction("admin-onboarding-analytics", {
       preferClerkSessionToken: true,
@@ -320,7 +336,7 @@ export function OnboardingAnalytics({ tabs }: { tabs: ReactNode }) {
 
     setPayload(body);
     setLoading(false);
-  }, []);
+  }, [loadPayload]);
 
   useEffect(() => {
     void load(range);
@@ -334,6 +350,17 @@ export function OnboardingAnalytics({ tabs }: { tabs: ReactNode }) {
     }
 
     setBusyId(`${action}:${row.id}`);
+
+    if (loadPayload) {
+      if (action === "force_approve") {
+        setPayload((current) => current
+          ? { ...current, stalled: current.stalled.filter((item) => item.id !== row.id) }
+          : current);
+      }
+      toast.success(action === "nudge" ? "Nudge sent" : "Account activated");
+      setBusyId(null);
+      return;
+    }
 
     const { data, error: invokeError } = await invokeEdgeFunction("admin-onboarding-analytics", {
       preferClerkSessionToken: true,
@@ -397,7 +424,7 @@ export function OnboardingAnalytics({ tabs }: { tabs: ReactNode }) {
 
       {loading && !payload ? (
         <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-300" />
+          <BouncingDots />
         </div>
       ) : null}
 

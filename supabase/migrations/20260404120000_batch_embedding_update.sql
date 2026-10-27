@@ -52,6 +52,7 @@ DROP INDEX IF EXISTS public.idx_firm_investors_past_investments;
 DROP INDEX IF EXISTS public.idx_firm_investors_prisma_person_id;
 
 -- UNIQUE btree on prisma_person_id: ~800 kB, 0 scans (duplicate of above)
+ALTER TABLE public.firm_investors DROP CONSTRAINT IF EXISTS investor_partners_prisma_person_id_key;
 DROP INDEX IF EXISTS public.investor_partners_prisma_person_id_key;
 
 -- Partial btree on needs_review: ~16 kB, 0 scans
@@ -66,6 +67,7 @@ DROP INDEX IF EXISTS public.idx_firm_investors_needs_review;
 DROP INDEX IF EXISTS public.idx_investor_sector_embedding;
 
 -- UNIQUE btree on prisma_firm_id: ~368 kB, 0 scans
+ALTER TABLE public.firm_records DROP CONSTRAINT IF EXISTS investor_database_prisma_firm_id_key;
 DROP INDEX IF EXISTS public.investor_database_prisma_firm_id_key;
 
 -- btree on prisma_firm_id: ~368 kB, 0 scans (non-unique duplicate of above)

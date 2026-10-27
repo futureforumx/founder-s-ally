@@ -756,7 +756,7 @@ AS $$
       fr.last_fund_announcement_date IS NULL
       OR fr.last_fund_announcement_date >= CURRENT_DATE - GREATEST(COALESCE(p_days, 365), 1)
     )
-    AND (p_stage IS NULL OR vf.stage_focus && p_stage OR fr.stage_focus && p_stage)
+    AND (p_stage IS NULL OR vf.stage_focus && p_stage OR fr.stage_focus::text[] && p_stage)
     AND (p_sector IS NULL OR vf.sector_focus && p_sector OR fr.thesis_verticals && p_sector)
     AND (p_geography IS NULL OR vf.geography_focus && p_geography OR fr.active_geo_focus && p_geography)
     AND (p_fund_size_min IS NULL OR fr.latest_fund_size_usd >= p_fund_size_min)
