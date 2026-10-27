@@ -154,7 +154,6 @@ Deno.serve(async (req) => {
     const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
     const appUserMap = new Map((appUsers || []).map((u) => [u.id, u]));
     const roleMap = new Map((roles || []).map((r) => [r.user_id, r.permission]));
-    const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
 
     // Newest-first IPs per user (query is already ordered by last_seen_at desc).
     const ipMap = new Map<string, string[]>();
@@ -282,6 +281,7 @@ Deno.serve(async (req) => {
     const { data: activity } = await adminClient
       .from("user_activity")
       .select("user_id, total_time_seconds, api_calls_count, last_active_at");
+    const activityMap = new Map((activity || []).map((a) => [a.user_id, a]));
 
     const userIds = [...idSet];
     const { data: storageUsage, error: storageUsageError } = await adminClient
