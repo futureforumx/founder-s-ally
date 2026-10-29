@@ -562,30 +562,6 @@ export default function DeckSharePage() {
   const [viewerEmail, setViewerEmail] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const existingIcon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-    const previousHref = existingIcon?.getAttribute("href");
-    const previousType = existingIcon?.getAttribute("type");
-    const previousRel = existingIcon?.getAttribute("rel");
-    const icon = existingIcon ?? document.createElement("link");
-    icon.rel = "icon";
-    icon.type = "image/png";
-    icon.href = "/brand/deck-share-favicon.png?v=1";
-    if (!existingIcon) document.head.appendChild(icon);
-    return () => {
-      if (!existingIcon) {
-        icon.remove();
-        return;
-      }
-      if (previousHref) icon.setAttribute("href", previousHref);
-      else icon.removeAttribute("href");
-      if (previousType) icon.setAttribute("type", previousType);
-      else icon.removeAttribute("type");
-      if (previousRel) icon.setAttribute("rel", previousRel);
-      else icon.removeAttribute("rel");
-    };
-  }, []);
-
   const load = useCallback(async (candidate?: { password: string; email: string }) => {
     setLoading(true); setError("");
     try {

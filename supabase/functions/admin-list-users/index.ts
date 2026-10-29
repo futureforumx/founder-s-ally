@@ -305,10 +305,12 @@ Deno.serve(async (req) => {
       const ipAddresses = ipMap.get(id) ?? [];
       const email = u?.email || appUser?.email || "";
       const emailLower = email.toLowerCase();
+      const emailBanned = !!emailLower && bannedEmails.has(emailLower);
+      const bannedIpAddresses = ipAddresses.filter((ip) => bannedIps.has(ip));
       const banned =
         bannedUserIds.has(id) ||
-        (!!emailLower && bannedEmails.has(emailLower)) ||
-        ipAddresses.some((ip) => bannedIps.has(ip));
+        emailBanned ||
+        bannedIpAddresses.length > 0;
       return {
         id,
         email,
@@ -336,6 +338,8 @@ Deno.serve(async (req) => {
         ip_addresses: ipAddresses,
         last_ip: ipAddresses[0] ?? null,
         banned,
+        banned_email: emailBanned,
+        banned_ip_addresses: bannedIpAddresses,
         subscription: planByUserId.get(id) ?? (emailLower ? planByEmail.get(emailLower) : undefined) ?? "free",
       };
     });

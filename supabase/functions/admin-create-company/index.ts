@@ -3,8 +3,8 @@
  *
  * Creates a name-only company for the admin Market Intel picker.
  * Auth matches admin-market-intel: anon key in Authorization, user JWT in X-User-Auth.
- * New rows are always status UNKNOWN. Live companies are status ACTIVE, so a
- * name-only company does not count as live.
+ * New rows are always status UNKNOWN and record_status needs_review. Live
+ * companies use status ACTIVE, so a name-only company does not count as live.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -132,8 +132,9 @@ Deno.serve(async (req) => {
       company_name: trimmed,
       status: "UNKNOWN",
       stage: "UNKNOWN",
+      record_status: "needs_review",
     })
-    .select("id, company_name, status")
+    .select("id, company_name, status, record_status")
     .single();
 
   if (error || !data) {

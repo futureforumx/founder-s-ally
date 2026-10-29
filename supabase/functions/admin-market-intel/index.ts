@@ -47,6 +47,7 @@ import {
   type AppPermission,
 } from "../_shared/app-admin-email.ts";
 import { resolveAdminCaller } from "../_shared/admin-resolve-caller.ts";
+import { clerkDisplayName, clerkGetUser, clerkPrimaryEmail } from "../_shared/clerk-backend.ts";
 import { linkCompanyInvestor, listCompanyInvestors, unlinkCompanyInvestor } from "./company-investors.ts";
 import { listCompanyFundingRounds, saveCompanyFundingRounds } from "./company-funding-rounds.ts";
 import { dismissFirmDuplicates, listFirmDuplicateClusters, mergeFirmDuplicateRecords } from "./firm-duplicates.ts";
@@ -219,6 +220,8 @@ const FIRM_COLS = [
   "preferred_stage","stage_focus","thesis_verticals","strategy_classifications",
   "firm_type","entity_type","min_check_size","max_check_size","total_headcount",
   "market_sentiment","recent_deals","is_actively_deploying",
+  "match_score","reputation_score","founder_reputation_score","industry_reputation",
+  "responsiveness_score","value_add_score","network_strength","data_confidence_score","community_rating",
   "enrichment_status","completeness_score",
   "status","needs_review","ready_for_live","manual_review_status","updated_at",
 ].join(", ");
@@ -253,8 +256,98 @@ const FIRM_INVESTOR_DIRECTORY_COLS = [
 const FIRM_PORTFOLIO_COLS = [
   "id","firm_id","company_name","normalized_company_name","amount","stage","date_announced",
   "investment_status","is_notable","portfolio_company_website","portfolio_company_linkedin",
-  "source_name","source_url","source_confidence","led_rounds","updated_at",
+  "source_name","source_url","source_confidence","led_rounds","raw_payload","updated_at",
 ].join(", ");
+
+const PORTFOLIO_COMPANY_STAGES = new Set(["PRE_SEED", "SEED", "SERIES_A", "series_b", "SERIES_C", "GROWTH", "PUBLIC", "ACQUIRED", "UNKNOWN"]);
+const PORTFOLIO_COMPANY_SECTORS = new Set([
+  "FINTECH", "ENTERPRISE_SAAS", "AI", "HEALTHTECH", "BIOTECH", "CONSUMER", "CLIMATE", "MOBILITY",
+  "INDUSTRIAL", "CYBERSECURITY", "MEDIA", "WEB3", "EDTECH", "GOVTECH", "HARDWARE", "ROBOTICS",
+  "MARKETPLACE", "AGRITECH", "PROPTECH", "OTHER",
+]);
+
+function portfolioFundingRoundName(stage: unknown): string | null {
+  if (typeof stage !== "string") return null;
+  const key = stage.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  const labels: Record<string, string> = {
+    "pre seed": "Pre-Seed",
+    seed: "Seed",
+    "series a": "Series A",
+    "series b": "Series B",
+    "series c": "Series C",
+    growth: "Growth",
+  };
+  return labels[key] ?? null;
+}
+
+function portfolioAmountUsd(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value : null;
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim().replace(/[$€£¥,\s]/g, "");
+  const match = cleaned.match(/^(\d+(?:\.\d*)?|\.\d+)([kmb])?$/i);
+  if (!match) return null;
+  const n = Number(match[1]);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const suffix = match[2]?.toLowerCase();
+  const multiplier = suffix === "k" ? 1_000 : suffix === "m" ? 1_000_000 : suffix === "b" ? 1_000_000_000 : 1;
+  const amount = n * multiplier;
+  return Number.isFinite(amount) ? amount : null;
+}
+
+async function syncPortfolioFundingRound(
+  db: SupabaseClient,
+  startupId: string,
+  stage: unknown,
+  amount: unknown,
+): Promise<{ error?: string }> {
+  const roundType = portfolioFundingRoundName(stage);
+  if (!roundType) return {};
+
+  const { data: existing, error: existingError } = await db
+    .from("company_funding_rounds")
+    .select("id, amount_usd")
+    .eq("startup_id", startupId)
+    .eq("round_type", roundType)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingError) return { error: existingError.message };
+
+  const { data: lastRound, error: lastRoundError } = await db
+    .from("company_funding_rounds")
+    .select("sort_order")
+    .eq("startup_id", startupId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastRoundError) return { error: lastRoundError.message };
+
+  const parsedAmount = portfolioAmountUsd(amount);
+  const amountUsd = parsedAmount ?? (typeof existing?.amount_usd === "number" ? existing.amount_usd : null);
+  const sortOrder = Number(lastRound?.sort_order ?? -1) + 1;
+  const now = new Date().toISOString();
+  const save = existing
+    ? await db.from("company_funding_rounds").update({ amount_usd: amountUsd, sort_order: sortOrder, updated_at: now }).eq("id", existing.id)
+    : await db.from("company_funding_rounds").insert({ startup_id: startupId, round_type: roundType, amount_usd: amountUsd, sort_order: sortOrder });
+  if (save.error) return { error: save.error.message };
+
+  const { error: startupError } = await db
+    .from("startups")
+    .update({ last_round_type: roundType, last_round_size_usd: amountUsd, updated_at: now })
+    .eq("id", startupId);
+  if (startupError) return { error: startupError.message };
+  return {};
+}
+
+function portfolioStartupId(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const id = (payload as Record<string, unknown>).startup_id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+}
+
+function normalizedPortfolioName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 const DEAL_COLS = [
   "id","company_name","company_domain","company_website","company_logo_url",
@@ -760,6 +853,12 @@ Deno.serve(async (req) => {
   if (req.method === "DELETE") {
     const id = url.searchParams.get("id")?.trim() ?? "";
     if (!id) return err("Missing id", 400);
+    if (entity === "vc-ratings") {
+      const { data, error } = await db.from("vc_ratings").delete().eq("id", id).select("id").maybeSingle();
+      if (error) return err(error.message, 500);
+      if (!data) return err("Review not found", 404);
+      return json({ ok: true });
+    }
     return adminDeleteResource(db, entity, id);
   }
 
@@ -773,6 +872,73 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+    if (entity === "firm-portfolio") {
+      const firmId = typeof body.firm_id === "string" ? body.firm_id.trim() : "";
+      const startupId = typeof body.startup_id === "string" ? body.startup_id.trim() : "";
+      if (!firmId || !startupId) return err("firm_id and startup_id are required", 400);
+
+      const { data: firm, error: firmError } = await db.from("firm_records").select("id").eq("id", firmId).maybeSingle();
+      if (firmError) return err(firmError.message, 500);
+      if (!firm) return err("Firm not found", 404);
+      const { data: startup, error: startupError } = await db.from("startups")
+        .select("id, company_name, stage, sector, last_round_date, status")
+        .eq("id", startupId).is("deleted_at", null).maybeSingle();
+      if (startupError) return err(startupError.message, 500);
+      if (!startup) return err("Company record not found", 404);
+
+      const stage = typeof body.stage === "string" ? body.stage.trim() : "";
+      const sector = typeof body.sector === "string" ? body.sector.trim() : "";
+      const announcedDate = typeof body.date_announced === "string" ? body.date_announced.trim() : "";
+      if (stage && !PORTFOLIO_COMPANY_STAGES.has(stage)) return err("Invalid company stage", 400);
+      if (sector && !PORTFOLIO_COMPANY_SECTORS.has(sector)) return err("Invalid company sector", 400);
+      if (announcedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(announcedDate) || Number.isNaN(Date.parse(`${announcedDate}T00:00:00Z`)))) return err("date_announced must use YYYY-MM-DD", 400);
+
+      const startupPatch: Record<string, unknown> = {};
+      if (stage) startupPatch.stage = stage;
+      if (sector) startupPatch.sector = sector;
+      if (announcedDate) startupPatch.last_round_date = announcedDate;
+      if (Object.keys(startupPatch).length) {
+        startupPatch.updated_at = new Date().toISOString();
+        const { error } = await db.from("startups").update(startupPatch).eq("id", startupId);
+        if (error) return err(error.message, 500);
+      }
+
+      const companyName = startup.company_name;
+      const normalizedName = normalizedPortfolioName(companyName);
+      const dealPatch: Record<string, unknown> = {
+        firm_id: firmId,
+        company_name: companyName,
+        normalized_company_name: normalizedName,
+        stage: stage || startup.stage,
+        date_announced: announcedDate || startup.last_round_date,
+        source_name: "manual",
+        source_confidence: 1,
+        raw_payload: { startup_id: startupId, manually_linked: true },
+        updated_at: new Date().toISOString(),
+      };
+      const { data: existing, error: existingError } = await db.from("firm_recent_deals")
+        .select("id, raw_payload")
+        .eq("firm_id", firmId)
+        .eq("normalized_company_name", normalizedName)
+        .maybeSingle();
+      if (existingError) return err(existingError.message, 500);
+
+      const result = existing
+        ? await db.from("firm_recent_deals").update({
+            ...dealPatch,
+            raw_payload: {
+              ...(existing.raw_payload && typeof existing.raw_payload === "object" && !Array.isArray(existing.raw_payload) ? existing.raw_payload as Record<string, unknown> : {}),
+              startup_id: startupId,
+              manually_linked: true,
+            },
+          }).eq("id", existing.id).select(FIRM_PORTFOLIO_COLS).single()
+        : await db.from("firm_recent_deals").insert(dealPatch).select(FIRM_PORTFOLIO_COLS).single();
+      if (result.error) return err(result.error.message, 500);
+      const roundSync = await syncPortfolioFundingRound(db, startupId, stage || startup.stage, body.amount);
+      if (roundSync.error) return err(roundSync.error, 500);
+      return json({ row: { ...result.data, startup_id: startupId, sector: sector || startup.sector, stage: stage || startup.stage, date_announced: announcedDate || startup.last_round_date } });
+    }
 
     if (entity === "fresh-funds") {
       const firmRecordId = typeof body.firm_record_id === "string" ? body.firm_record_id.trim() : "";
@@ -1186,6 +1352,152 @@ Deno.serve(async (req) => {
   // ── PATCH: universal update ────────────────────────────────────────────────
   if (req.method === "PATCH") {
     const id    = url.searchParams.get("id");
+    if (entity === "vc-ratings") {
+      if (!id) return err("Missing id", 400);
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const textKeys = ["comment", "interaction_detail"] as const;
+      const scoreKeys = ["score_resp", "score_respect", "score_feedback", "score_follow_thru", "score_value_add"] as const;
+      for (const key of textKeys) {
+        if (body[key] === undefined) continue;
+        if (body[key] !== null && typeof body[key] !== "string") return err(`${key} must be text or null`, 400);
+        patch[key] = typeof body[key] === "string" ? body[key].slice(0, 10000) : null;
+      }
+      for (const key of scoreKeys) {
+        if (body[key] === undefined) continue;
+        const value = body[key] === null ? null : Number(body[key]);
+        if (value !== null && (!Number.isInteger(value) || value < 1 || value > 5)) return err(`${key} must be an integer from 1 to 5 or null`, 400);
+        patch[key] = value;
+      }
+      if (body.star_ratings !== undefined) {
+        if (!body.star_ratings || typeof body.star_ratings !== "object" || Array.isArray(body.star_ratings)) return err("star_ratings must be a JSON object", 400);
+        if (JSON.stringify(body.star_ratings).length > 50_000) return err("star_ratings is too large", 400);
+        patch.star_ratings = body.star_ratings;
+      }
+      if (body.nps !== undefined) {
+        const value = body.nps === null ? null : Number(body.nps);
+        if (value !== null && (!Number.isInteger(value) || value < 0 || value > 10)) return err("nps must be an integer from 0 to 10 or null", 400);
+        patch.nps = value;
+      }
+      for (const key of ["anonymous", "verified", "is_draft"] as const) {
+        if (body[key] === undefined) continue;
+        if (typeof body[key] !== "boolean") return err(`${key} must be a boolean`, 400);
+        patch[key] = body[key];
+      }
+      if (body.archived_at !== undefined) {
+        if (body.archived_at === null) patch.archived_at = null;
+        else if (typeof body.archived_at === "string" && !Number.isNaN(Date.parse(body.archived_at))) patch.archived_at = new Date(body.archived_at).toISOString();
+        else return err("archived_at must be a valid timestamp or null", 400);
+      }
+      if (!Object.keys(patch).length) return err("No editable review fields supplied", 400);
+      const { data, error } = await db.from("vc_ratings").update(patch).eq("id", id).select("*").maybeSingle();
+      if (error) return err(error.message, 500);
+      if (!data) return err("Review not found", 404);
+      return json({ row: data });
+    }
+
+    if (entity === "firm-portfolio") {
+      if (!id) return err("Missing id", 400);
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+      const { data: existing, error: existingError } = await db.from("firm_recent_deals")
+        .select("id, firm_id, company_name, normalized_company_name, raw_payload")
+        .eq("id", id).maybeSingle();
+      if (existingError) return err(existingError.message, 500);
+      if (!existing) return err("Portfolio company link not found", 404);
+
+      const dealPatch: Record<string, unknown> = {};
+      const editable = ["company_name", "normalized_company_name", "amount", "stage", "date_announced", "investment_status", "is_notable", "portfolio_company_website", "portfolio_company_linkedin", "source_name", "source_url", "source_confidence", "led_rounds"];
+      for (const key of editable) if (body[key] !== undefined) dealPatch[key] = body[key];
+      let startupId = portfolioStartupId(existing.raw_payload);
+      if (!startupId && existing.company_name) {
+        const { data: possibleMatches, error: matchError } = await db.from("startups")
+          .select("id, company_name, stage, sector, last_round_date")
+          .is("deleted_at", null)
+          .in("company_name", [existing.company_name]);
+        if (matchError) return err(matchError.message, 500);
+        startupId = possibleMatches?.find(row => normalizedPortfolioName(row.company_name) === normalizedPortfolioName(existing.company_name))?.id ?? null;
+      }
+      let startup: { id: string; stage: string; sector: string | null; last_round_date: string | null } | null = null;
+      if (startupId) {
+        const { data, error } = await db.from("startups").select("id, stage, sector, last_round_date, company_name").eq("id", startupId).maybeSingle();
+        if (error) return err(error.message, 500);
+        if (!data) return err("Linked company record not found", 404);
+        const startupPatch: Record<string, unknown> = {};
+        if (body.stage !== undefined) {
+          const stage = typeof body.stage === "string" ? body.stage.trim() : "";
+          const normalizedStage = stage || "UNKNOWN";
+          if (!PORTFOLIO_COMPANY_STAGES.has(normalizedStage)) return err("Invalid company stage", 400);
+          startupPatch.stage = normalizedStage;
+          dealPatch.stage = normalizedStage;
+        }
+        if (body.sector !== undefined) {
+          const sector = typeof body.sector === "string" ? body.sector.trim() : "";
+          if (sector && !PORTFOLIO_COMPANY_SECTORS.has(sector)) return err("Invalid company sector", 400);
+          startupPatch.sector = sector || null;
+        }
+        if (body.date_announced !== undefined) {
+          const date = typeof body.date_announced === "string" ? body.date_announced.trim() : "";
+          if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`)))) return err("date_announced must use YYYY-MM-DD", 400);
+          startupPatch.last_round_date = date || null;
+          dealPatch.date_announced = date || null;
+        }
+        if (body.portfolio_company_website !== undefined) {
+          if (body.portfolio_company_website != null && typeof body.portfolio_company_website !== "string") {
+            return err("portfolio_company_website must be text or null", 400);
+          }
+          startupPatch.company_url = typeof body.portfolio_company_website === "string" ? body.portfolio_company_website.trim() || null : null;
+        }
+        if (body.portfolio_company_linkedin !== undefined) {
+          if (body.portfolio_company_linkedin != null && typeof body.portfolio_company_linkedin !== "string") {
+            return err("portfolio_company_linkedin must be text or null", 400);
+          }
+          startupPatch.linkedin_url = typeof body.portfolio_company_linkedin === "string" ? body.portfolio_company_linkedin.trim() || null : null;
+        }
+        if (body.company_name !== undefined) {
+          if (typeof body.company_name !== "string" || !body.company_name.trim()) return err("company_name is required", 400);
+          const name = body.company_name.trim().slice(0, 300);
+          startupPatch.company_name = name;
+          dealPatch.company_name = name;
+          dealPatch.normalized_company_name = normalizedPortfolioName(name);
+        }
+        if (Object.keys(startupPatch).length) {
+          startupPatch.updated_at = new Date().toISOString();
+          const { error: updateError } = await db.from("startups").update(startupPatch).eq("id", startupId);
+          if (updateError) return err(updateError.message, 500);
+        }
+        startup = {
+          id: data.id,
+          stage: String(startupPatch.stage ?? data.stage),
+          sector: (startupPatch.sector === undefined ? data.sector : startupPatch.sector) as string | null,
+          last_round_date: (startupPatch.last_round_date === undefined ? data.last_round_date : startupPatch.last_round_date) as string | null,
+        };
+      }
+      if (!Object.keys(dealPatch).length) return err("No editable portfolio fields supplied", 400);
+      if (startupId) {
+        const oldPayload = existing.raw_payload && typeof existing.raw_payload === "object" && !Array.isArray(existing.raw_payload) ? existing.raw_payload as Record<string, unknown> : {};
+        dealPatch.raw_payload = { ...oldPayload, startup_id: startupId };
+      }
+      dealPatch.updated_at = new Date().toISOString();
+      const { data: updated, error: updateError } = await db.from("firm_recent_deals").update(dealPatch).eq("id", id).select(FIRM_PORTFOLIO_COLS).single();
+      if (updateError) return err(updateError.message, 500);
+      if (startupId) {
+        const roundSync = await syncPortfolioFundingRound(
+          db,
+          startupId,
+          body.stage === undefined ? existing.stage : body.stage,
+          body.amount === undefined ? existing.amount : body.amount,
+        );
+        if (roundSync.error) return err(roundSync.error, 500);
+      }
+      return json({ row: {
+        ...updated,
+        startup_id: startupId,
+        stage: startup?.stage ?? updated.stage,
+        sector: startup?.sector ?? null,
+        date_announced: startup ? startup.last_round_date : updated.date_announced,
+      } });
+    }
+
     if (entity === "fresh-funds") {
       if (!id) return err("Missing id");
       const body = await req.json().catch(() => ({})) as Record<string, unknown>;
@@ -1349,6 +1661,13 @@ Deno.serve(async (req) => {
 
     // Admin UI legacy field names → real columns (startups table has no `hq` / `twitter_url`).
     if (table === "startups") {
+      // The admin company editor labels this field "Website URL" while startups
+      // stores it as company_url. Accept the conventional website_url key too so
+      // callers cannot silently send an unmapped website field.
+      if ("website_url" in patch) {
+        if (!("company_url" in patch)) patch.company_url = patch.website_url;
+        delete patch.website_url;
+      }
       if ("hq" in patch) {
         patch.location = patch.hq;
         delete patch.hq;
@@ -1356,6 +1675,12 @@ Deno.serve(async (req) => {
       if ("twitter_url" in patch) {
         patch.x_url = patch.twitter_url;
         delete patch.twitter_url;
+      }
+      for (const key of ["company_url", "linkedin_url", "x_url", "logo_url", "brand_icon_url"] as const) {
+        if (!(key in patch)) continue;
+        const value = patch[key];
+        if (value != null && typeof value !== "string") return err(`${key} must be text or null`, 400);
+        patch[key] = typeof value === "string" ? value.trim() || null : null;
       }
       delete patch.needs_enrichment;
       delete patch.enrichment_status;
@@ -1379,6 +1704,127 @@ Deno.serve(async (req) => {
   }
 
   // ── GET ────────────────────────────────────────────────────────────────────
+
+  if (entity === "vc-ratings") {
+    const draftFilter = url.searchParams.get("draft");
+    const archiveFilter = url.searchParams.get("archive") ?? "active";
+    let q = db.from("vc_ratings").select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (archiveFilter === "active") q = q.is("archived_at", null);
+    else if (archiveFilter === "archived") q = q.not("archived_at", "is", null);
+    if (draftFilter === "true") q = q.eq("is_draft", true);
+    if (draftFilter === "false") q = q.eq("is_draft", false);
+    const { data, error, count } = await q;
+    if (error) return err(error.message, 500);
+
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    // vc_ratings stores target ids as text; historical rows may contain a domain or another
+    // lookup hint (for example "01a.com"). vc_firms.id is UUID in the live project, so only
+    // send UUID-shaped values to PostgREST's UUID column filter.
+    const firmIds = [...new Set(rows
+      .map((row) => row.vc_firm_id)
+      .filter((value): value is string => typeof value === "string" && looksLikeUuid(value)))];
+    const personIds = [...new Set(rows.map((row) => row.vc_person_id).filter((value): value is string => typeof value === "string" && value.length > 0))];
+    const authorIds = [...new Set(rows.map((row) => row.author_user_id).filter((value): value is string => typeof value === "string" && value.length > 0))];
+    const [firmsResult, peopleResult] = await Promise.all([
+      firmIds.length ? db.from("vc_firms").select("id, name").in("id", firmIds) : Promise.resolve({ data: [], error: null }),
+      personIds.length ? db.from("vc_people").select("id, first_name, last_name, preferred_name").in("id", personIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (firmsResult.error) return err(firmsResult.error.message, 500);
+    if (peopleResult.error) return err(peopleResult.error.message, 500);
+
+    const [profilesResult, usersResult] = await Promise.all([
+      authorIds.length ? db.from("profiles").select("user_id, full_name").in("user_id", authorIds) : Promise.resolve({ data: [], error: null }),
+      authorIds.length ? db.from("users").select("id, email, display_name").in("id", authorIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (profilesResult.error) console.warn("[admin-market-intel] Could not resolve review author profiles:", profilesResult.error.message);
+    if (usersResult.error) console.warn("[admin-market-intel] Could not resolve review author users:", usersResult.error.message);
+    const firmNames = new Map((firmsResult.data ?? []).map((row) => [row.id, row.name]));
+    const personNames = new Map((peopleResult.data ?? []).map((row) => [
+      row.id,
+      [row.preferred_name || row.first_name, row.last_name].filter(Boolean).join(" "),
+    ]));
+
+    const profileById = new Map((profilesResult.data ?? []).map((row) => [row.user_id, row]));
+    const userById = new Map((usersResult.data ?? []).map((row) => [row.id, row]));
+    const authorById = new Map<string, { name: string | null; email: string | null }>();
+    for (const authorId of authorIds) {
+      const profile = profileById.get(authorId);
+      const user = userById.get(authorId);
+      const fullName = typeof profile?.full_name === "string" && profile.full_name.trim()
+        ? profile.full_name.trim()
+        : typeof user?.display_name === "string" && user.display_name.trim() ? user.display_name.trim() : null;
+      const email = typeof user?.email === "string" && user.email.trim() ? user.email.trim() : null;
+      authorById.set(authorId, { name: fullName, email });
+    }
+
+    // Clerk users are not guaranteed to have rows in the app's `users` table.
+    // Resolve missing identities only for the current page, and only when Clerk is configured.
+    const clerkSecret = Deno.env.get("CLERK_SECRET_KEY")?.trim() ?? "";
+    const unresolvedClerkIds = authorIds.filter((authorId) => {
+      const author = authorById.get(authorId);
+      return authorId.startsWith("user_") && clerkSecret && (!author?.name || !author.email);
+    });
+    const clerkResults = await Promise.all(unresolvedClerkIds.map(async (authorId) => {
+      try {
+        const clerkUser = await clerkGetUser(clerkSecret, authorId);
+        return clerkUser ? {
+          id: authorId,
+          name: clerkDisplayName(clerkUser) || null,
+          email: clerkPrimaryEmail(clerkUser) || null,
+        } : null;
+      } catch (lookupError) {
+        console.warn("[admin-market-intel] Could not resolve Clerk review author:", (lookupError as Error).message);
+        return null;
+      }
+    }));
+    for (const clerkAuthor of clerkResults) {
+      if (!clerkAuthor) continue;
+      const current = authorById.get(clerkAuthor.id) ?? { name: null, email: null };
+      authorById.set(clerkAuthor.id, {
+        name: current.name ?? clerkAuthor.name,
+        email: current.email ?? clerkAuthor.email,
+      });
+    }
+
+    // Legacy rows may use Supabase Auth UUIDs rather than Clerk ids.
+    const unresolvedAuthIds = authorIds.filter((authorId) => looksLikeUuid(authorId) && (!authorById.get(authorId)?.name || !authorById.get(authorId)?.email));
+    const authResults = await Promise.all(unresolvedAuthIds.map(async (authorId) => {
+      try {
+        const { data, error } = await db.auth.admin.getUserById(authorId);
+        if (error || !data.user) return null;
+        const meta = data.user.user_metadata as Record<string, unknown> | null;
+        const metaName = typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
+        return {
+          id: authorId,
+          name: metaName || null,
+          email: data.user.email || null,
+        };
+      } catch {
+        return null;
+      }
+    }));
+    for (const authAuthor of authResults) {
+      if (!authAuthor) continue;
+      const current = authorById.get(authAuthor.id) ?? { name: null, email: null };
+      authorById.set(authAuthor.id, {
+        name: current.name ?? authAuthor.name,
+        email: current.email ?? authAuthor.email,
+      });
+    }
+
+    return json({
+      rows: rows.map((row) => ({
+        ...row,
+        target_firm_name: typeof row.vc_firm_id === "string" ? firmNames.get(row.vc_firm_id) ?? row.vc_firm_id : null,
+        target_person_name: typeof row.vc_person_id === "string" ? personNames.get(row.vc_person_id) ?? null : null,
+        author_name: typeof row.author_user_id === "string" ? authorById.get(row.author_user_id)?.name ?? null : null,
+        author_email: typeof row.author_user_id === "string" ? authorById.get(row.author_user_id)?.email ?? null : null,
+      })),
+      total: count ?? 0,
+    });
+  }
 
   const recordId = url.searchParams.get("id")?.trim() ?? "";
   const startupRecordId = entity === "companies" && /^[A-Za-z0-9_-]{1,80}$/.test(recordId);
@@ -1632,7 +2078,42 @@ Deno.serve(async (req) => {
     if (search) q = q.ilike("company_name", `%${search}%`);
     const { data, error, count } = await q;
     if (error) return err(error.message, 500);
-    return json({ rows: data ?? [], total: count ?? 0 });
+    const deals = data ?? [];
+    const startupIds = [...new Set(deals.map(row => portfolioStartupId(row.raw_payload)).filter((id): id is string => Boolean(id)))];
+    const startupsById = new Map<string, { id: string; stage: string | null; sector: string | null; last_round_date: string | null }>();
+    const startupsByName = new Map<string, { id: string; stage: string | null; sector: string | null; last_round_date: string | null }>();
+    if (startupIds.length) {
+      const { data: startups, error: startupsError } = await db.from("startups")
+        .select("id, company_name, stage, sector, last_round_date")
+        .in("id", startupIds);
+      if (startupsError) return err(startupsError.message, 500);
+      for (const startup of startups ?? []) {
+        startupsById.set(startup.id, startup);
+        startupsByName.set(normalizedPortfolioName(startup.company_name), startup);
+      }
+    }
+    const unlinkedNames = [...new Set(deals.filter(row => !portfolioStartupId(row.raw_payload)).map(row => row.company_name).filter((name): name is string => Boolean(name)))];
+    if (unlinkedNames.length) {
+      const { data: startups, error: startupsError } = await db.from("startups")
+        .select("id, company_name, stage, sector, last_round_date")
+        .is("deleted_at", null)
+        .in("company_name", unlinkedNames);
+      if (startupsError) return err(startupsError.message, 500);
+      for (const startup of startups ?? []) startupsByName.set(normalizedPortfolioName(startup.company_name), startup);
+    }
+    const rows = deals.map(row => {
+      const linkedId = portfolioStartupId(row.raw_payload);
+      const startup = linkedId ? startupsById.get(linkedId) : startupsByName.get(normalizedPortfolioName(row.company_name));
+      const startupId = linkedId ?? startup?.id ?? null;
+      return {
+        ...row,
+        startup_id: startupId,
+        stage: startup?.stage ?? row.stage,
+        sector: startup?.sector ?? null,
+        date_announced: startup ? startup.last_round_date : row.date_announced,
+      };
+    });
+    return json({ rows, total: count ?? 0 });
   }
 
   if (entity === "deals") {

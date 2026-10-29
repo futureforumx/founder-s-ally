@@ -10,6 +10,7 @@ export async function fetchVcRatingsForFirm(firmId: string): Promise<VcRatingRow
     .select(RATING_SELECT)
     .eq("vc_firm_id", firmId)
     .not("is_draft", "eq", true)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as VcRatingRow[];

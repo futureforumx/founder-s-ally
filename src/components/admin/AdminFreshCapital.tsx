@@ -17,7 +17,9 @@ import { Input } from "@/components/ui/input";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 import { getSupabaseBearerForFunctions } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { CurrencyNumberInput, CurrencyStringInput } from "@/components/admin/CurrencyInputs";
 import { FreshCapitalEnrichmentAdmin } from "./FreshCapitalEnrichmentAdmin";
+import { isTestAdminSampleId } from "@/lib/testAdminSample";
 import { FreshCapitalPublicPathsAdmin } from "./FreshCapitalPublicPathsAdmin";
 import { AdminStickyFilters, AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
@@ -107,7 +109,7 @@ const DEFAULT_SECTOR_OPTIONS = [
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type DealRow = {
+export type DealRow = {
   id: string;
   company_name: string;
   company_domain: string | null;
@@ -141,7 +143,7 @@ type DealRow = {
   updated_at: string | null;
 };
 
-type FreshFundRow = {
+export type FreshFundRow = {
   id: string;
   firm_record_id: string;
   firm_name: string | null;
@@ -432,6 +434,16 @@ function TF({ label, value, onChange, type = "text", placeholder }: {
   );
 }
 
+function CTF({ label, value, onChange, placeholder }: {
+  label: string; value: string | null; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <FL label={label}>
+      <CurrencyStringInput className={IC} style={IS} focusStyle={IF} value={value} onChange={onChange} placeholder={placeholder} />
+    </FL>
+  );
+}
+
 function LinkField({ label, value, onChange, placeholder }: {
   label: string;
   value: string | null;
@@ -500,6 +512,16 @@ function NF({ label, value, onChange, step = 1 }: {
         onFocus={e => Object.assign(e.currentTarget.style, IF)}
         onBlur={e  => Object.assign(e.currentTarget.style, IS)}
       />
+    </FL>
+  );
+}
+
+function CNF({ label, value, onChange }: {
+  label: string; value: number | null; onChange: (v: number | null) => void;
+}) {
+  return (
+    <FL label={label}>
+      <CurrencyNumberInput className={IC} style={IS} focusStyle={IF} value={value} onChange={onChange} />
     </FL>
   );
 }
@@ -799,6 +821,13 @@ function DealEditPanel({
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      const updated = { ...draft, updated_at: new Date().toISOString() };
+      toast.success("Deal saved in the test console");
+      onSaved(updated);
+      setSaving(false);
+      return;
+    }
     const { id, created_at, updated_at, source_count, ...rest } = draft;
     const { row: updated, error } = await patchDeal(row.id, rest);
     setSaving(false);
@@ -817,6 +846,11 @@ function DealEditPanel({
         `Permanently delete this funding round?\n\n${name}\n\nThis removes the row from fi_deals_canonical and cannot be undone.`,
       )
     ) {
+      return;
+    }
+    if (isTestAdminSampleId(row.id)) {
+      toast.success("Funding round deleted in the test console");
+      onDeleted(row.id);
       return;
     }
     setDeleting(true);
@@ -894,10 +928,10 @@ function DealEditPanel({
         />
         <TF label="Round Type Raw" value={draft.round_type_raw} onChange={v => set("round_type_raw", v)} />
         <div className="grid grid-cols-2 gap-3">
-          <NF label="Amount (USD)" value={amountDollars} onChange={setAmountDollars} step={1000} />
+          <CNF label="Amount (USD)" value={amountDollars} onChange={setAmountDollars} />
           <TF label="Currency" value={draft.currency} onChange={v => set("currency", v)} />
         </div>
-        <TF label="Amount Label" value={draft.amount_raw} onChange={v => set("amount_raw", v)} placeholder="$12M" />
+        <CTF label="Amount Label" value={draft.amount_raw} onChange={v => set("amount_raw", v)} placeholder="$12M" />
         <TF label="Announced Date" value={draft.announced_date} onChange={v => set("announced_date", v)} type="date" />
 
         <Sect title="Investors" />
@@ -990,6 +1024,12 @@ function FreshFundEditPanel({
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      toast.success("Fresh Capital fund saved in the test console");
+      onSaved({ ...draft, updated_at: new Date().toISOString() });
+      setSaving(false);
+      return;
+    }
     const ws = draft.firm_website_url?.trim() ?? "";
     const dom = draft.firm_domain?.trim() ?? "";
     const websiteUrlFromDomain =
@@ -1139,8 +1179,8 @@ function FreshFundEditPanel({
           <TF label="HQ Country" value={draft.firm_hq_country} onChange={v => set("firm_hq_country", v)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <TF label="AUM Raw" value={draft.firm_aum} onChange={v => set("firm_aum", v)} placeholder="7000000000" />
-          <NF label="AUM USD" value={draft.firm_aum_usd} onChange={v => set("firm_aum_usd", v)} step={1000000} />
+          <CTF label="AUM Raw" value={draft.firm_aum} onChange={v => set("firm_aum", v)} placeholder="7b" />
+          <CNF label="AUM USD" value={draft.firm_aum_usd} onChange={v => set("firm_aum_usd", v)} />
         </div>
 
         <Sect title="Fund" />
@@ -1150,12 +1190,12 @@ function FreshFundEditPanel({
           <SFld label="Status" value={draft.status} onChange={v => set("status", v)} options={[...VC_FUND_STATUSES]} allowEmpty={false} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <NF label="Target Size USD" value={draft.target_size_usd} onChange={v => set("target_size_usd", v)} step={1000000} />
-          <NF label="Final Size USD" value={draft.final_size_usd} onChange={v => set("final_size_usd", v)} step={1000000} />
+          <CNF label="Target Size USD" value={draft.target_size_usd} onChange={v => set("target_size_usd", v)} />
+          <CNF label="Final Size USD" value={draft.final_size_usd} onChange={v => set("final_size_usd", v)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <NF label="Est. Check Min (USD)" value={draft.estimated_check_min_usd} onChange={v => set("estimated_check_min_usd", v)} step={25000} />
-          <NF label="Est. Check Max (USD)" value={draft.estimated_check_max_usd} onChange={v => set("estimated_check_max_usd", v)} step={25000} />
+          <CNF label="Est. Check Min (USD)" value={draft.estimated_check_min_usd} onChange={v => set("estimated_check_min_usd", v)} />
+          <CNF label="Est. Check Max (USD)" value={draft.estimated_check_max_usd} onChange={v => set("estimated_check_max_usd", v)} />
         </div>
         <div className="grid grid-cols-3 gap-3">
           <NF label="Fund #" value={draft.fund_sequence_number} onChange={v => set("fund_sequence_number", v)} />
@@ -1285,10 +1325,12 @@ function AddFundModal({
   open,
   onClose,
   onCreated,
+  demoMode = false,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (row: FreshFundRow) => void;
+  demoMode?: boolean;
 }) {
   const [firmRecordId, setFirmRecordId] = useState("");
   const [fundName, setFundName] = useState("");
@@ -1329,6 +1371,55 @@ function AddFundModal({
       if (Number.isFinite(n)) payload.vintage_year = n;
     }
     if (announcedDate.trim()) payload.announced_date = announcedDate.trim();
+    if (demoMode) {
+      const now = new Date().toISOString();
+      onCreated({
+        id: `demo-fund-${Date.now()}`,
+        firm_record_id: fid,
+        firm_name: null,
+        firm_website_url: null,
+        firm_logo_url: null,
+        firm_domain: null,
+        firm_location: null,
+        firm_hq_city: null,
+        firm_hq_state: null,
+        firm_hq_country: null,
+        firm_aum: null,
+        firm_aum_usd: null,
+        has_fresh_capital: true,
+        fresh_capital_priority_score: 70,
+        fund_name: fn,
+        fund_type: "Venture",
+        fund_sequence_number: null,
+        vintage_year: typeof payload.vintage_year === "number" ? payload.vintage_year : null,
+        announced_date: announcedDate.trim() || null,
+        close_date: null,
+        target_size_usd: null,
+        final_size_usd: null,
+        currency: "USD",
+        status,
+        source_confidence: 0.8,
+        source_count: 1,
+        announcement_url: null,
+        announcement_title: null,
+        stage_focus: ["Seed"],
+        sector_focus: null,
+        geography_focus: null,
+        likely_actively_deploying: true,
+        active_deployment_window_start: null,
+        active_deployment_window_end: null,
+        manually_verified: false,
+        verification_status: "pending",
+        estimated_check_min_usd: null,
+        estimated_check_max_usd: null,
+        created_at: now,
+        updated_at: now,
+      });
+      setSaving(false);
+      toast.success("Fund added in the test console");
+      onClose();
+      return;
+    }
     const { row, error } = await createFreshFund(payload);
     setSaving(false);
     if (error) {
@@ -1410,10 +1501,12 @@ function AddDealModal({
   open,
   onClose,
   onCreated,
+  demoMode = false,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (row: DealRow) => void;
+  demoMode?: boolean;
 }) {
   const [companyName, setCompanyName] = useState("");
   const [roundType, setRoundType] = useState("series_a");
@@ -1459,6 +1552,46 @@ function AddDealModal({
     if (amountRaw.trim()) payload.amount_raw = amountRaw.trim();
     if (leadInvestor.trim()) payload.lead_investor = leadInvestor.trim();
     if (companyWebsite.trim()) payload.company_website = companyWebsite.trim();
+    if (demoMode) {
+      const now = new Date().toISOString();
+      onCreated({
+        id: `demo-deal-${Date.now()}`,
+        company_name: cn,
+        company_domain: null,
+        company_website: companyWebsite.trim() || null,
+        company_logo_url: null,
+        company_linkedin_url: null,
+        company_location: null,
+        sector_raw: null,
+        sector_normalized: null,
+        round_type_raw: roundType.replace(/_/g, " "),
+        round_type_normalized: roundType,
+        amount_raw: amountRaw.trim() || null,
+        amount_minor_units: null,
+        currency: "USD",
+        announced_date: announcedDate.trim() || null,
+        lead_investor: leadInvestor.trim() || null,
+        lead_investor_normalized: leadInvestor.trim() || null,
+        co_investors: null,
+        extracted_summary: null,
+        needs_review: needsReview,
+        review_reason: null,
+        is_rumor: false,
+        confidence_score: 0.86,
+        source_count: 1,
+        primary_source_name: "Test console",
+        primary_source_url: null,
+        primary_press_url: null,
+        source_type: sourceType,
+        extraction_method: "manual",
+        created_at: now,
+        updated_at: now,
+      });
+      setSaving(false);
+      toast.success("Funding round added in the test console");
+      onClose();
+      return;
+    }
     const { row, error } = await createDealRecord(payload);
     setSaving(false);
     if (error) {
@@ -1501,7 +1634,7 @@ function AddDealModal({
           <TF label="Company name" value={companyName} onChange={setCompanyName} placeholder="PortfolioCo Inc." />
           <SFld label="Round type" value={roundType} onChange={setRoundType} options={[...ROUND_TYPES]} allowEmpty={false} />
           <TF label="Announced date" value={announcedDate} onChange={setAnnouncedDate} type="date" />
-          <TF label="Amount (display)" value={amountRaw} onChange={setAmountRaw} placeholder="$25M, €10m, …" />
+          <CTF label="Amount (display)" value={amountRaw} onChange={setAmountRaw} placeholder="$25m, €10m, …" />
           <TF label="Lead investor" value={leadInvestor} onChange={setLeadInvestor} />
           <TF label="Company website" value={companyWebsite} onChange={setCompanyWebsite} placeholder="https://…" />
           <SFld label="Source type" value={sourceType} onChange={setSourceType} options={[...SOURCE_TYPES]} allowEmpty={false} />
@@ -1542,7 +1675,13 @@ function AddDealModal({
 
 // ── Fund Watch Component ───────────────────────────────────────────────────────
 
-function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }) {
+function FreshFundsAdmin({
+  onNavigate,
+  demoFunds = null,
+}: {
+  onNavigate?: (view: string) => void;
+  demoFunds?: FreshFundRow[] | null;
+}) {
   const [rows, setRows] = useState<FreshFundRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -1554,6 +1693,19 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
   const [addFundOpen, setAddFundOpen] = useState(false);
 
   const load = useCallback(async () => {
+    if (demoFunds) {
+      const needle = search.trim().toLowerCase();
+      const matched = demoFunds.filter((row) => {
+        if (stage !== "all" && !(row.stage_focus ?? []).includes(stage)) return false;
+        if (!needle) return true;
+        return [row.fund_name, row.firm_name, row.firm_hq_city].some((value) => value?.toLowerCase().includes(needle));
+      });
+      setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+      setTotal(matched.length);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     const { rows: r, total: t, error: e } = await fetchFreshFunds({ page, search, stage });
@@ -1561,7 +1713,7 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
     if (e) { setError(e); return; }
     setRows(r);
     setTotal(t);
-  }, [page, search, stage]);
+  }, [demoFunds, page, search, stage]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -1738,6 +1890,7 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
       )}
 
       <AddFundModal
+        demoMode={demoFunds != null}
         open={addFundOpen}
         onClose={() => setAddFundOpen(false)}
         onCreated={(row) => {
@@ -1752,7 +1905,7 @@ function FreshFundsAdmin({ onNavigate }: { onNavigate?: (view: string) => void }
 
 // ── Latest Funding Component ──────────────────────────────────────────────────
 
-function LatestFundingDealsAdmin() {
+function LatestFundingDealsAdmin({ demoDeals = null }: { demoDeals?: DealRow[] | null }) {
   const [rows,       setRows]       = useState<DealRow[]>([]);
   const [total,      setTotal]      = useState(0);
   const [page,       setPage]       = useState(0);
@@ -1765,6 +1918,21 @@ function LatestFundingDealsAdmin() {
   const [addDealOpen, setAddDealOpen] = useState(false);
 
   const load = useCallback(async () => {
+    if (demoDeals) {
+      const needle = search.trim().toLowerCase();
+      const matched = demoDeals.filter((row) => {
+        if (needsReview === "true" && !row.needs_review) return false;
+        if (needsReview === "false" && row.needs_review) return false;
+        if (roundFilter !== "all" && row.round_type_normalized !== roundFilter) return false;
+        if (!needle) return true;
+        return [row.company_name, row.lead_investor, row.sector_normalized].some((value) => value?.toLowerCase().includes(needle));
+      });
+      setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+      setTotal(matched.length);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     const { rows: r, total: t, error: e } = await fetchDeals({
@@ -1774,7 +1942,7 @@ function LatestFundingDealsAdmin() {
     if (e) { setError(e); return; }
     setRows(r);
     setTotal(t);
-  }, [page, search, needsReview, roundFilter]);
+  }, [demoDeals, page, search, needsReview, roundFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -2007,6 +2175,7 @@ function LatestFundingDealsAdmin() {
       )}
 
       <AddDealModal
+        demoMode={demoDeals != null}
         open={addDealOpen}
         onClose={() => setAddDealOpen(false)}
         onCreated={(row) => {
@@ -2019,7 +2188,15 @@ function LatestFundingDealsAdmin() {
   );
 }
 
-export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) => void } = {}) {
+export function AdminFreshCapital({
+  onNavigate,
+  demoFunds = null,
+  demoDeals = null,
+}: {
+  onNavigate?: (view: string) => void;
+  demoFunds?: FreshFundRow[] | null;
+  demoDeals?: DealRow[] | null;
+} = {}) {
   const [view, setView] = useState<"funds" | "deals" | "enrichment">("funds");
 
   return (
@@ -2052,8 +2229,8 @@ export function AdminFreshCapital({ onNavigate }: { onNavigate?: (view: string) 
         })}
       </div>
       </AdminStickyHeader>
-      {view === "funds" && <FreshFundsAdmin onNavigate={onNavigate} />}
-      {view === "deals" && <LatestFundingDealsAdmin />}
+      {view === "funds" && <FreshFundsAdmin onNavigate={onNavigate} demoFunds={demoFunds} />}
+      {view === "deals" && <LatestFundingDealsAdmin demoDeals={demoDeals} />}
       {view === "enrichment" && <FreshCapitalEnrichmentAdmin />}
     </div>
   );

@@ -75,7 +75,11 @@ async function saveViaEdgeFunction(body: Record<string, string | null>): Promise
   return { ok: true };
 }
 
-export function AdminAiAgentsToolPage() {
+export function AdminAiAgentsToolPage({
+  sample = null,
+}: {
+  sample?: { title: string; description: string; meta: string } | null;
+} = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -85,6 +89,15 @@ export function AdminAiAgentsToolPage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (sample) {
+      setTitle(sample.title);
+      setDescription(sample.description);
+      setMeta(sample.meta);
+      setUpdatedAt(new Date().toISOString());
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError(null);
     const { row, error } = await fetchRow();
@@ -101,13 +114,20 @@ export function AdminAiAgentsToolPage() {
       setUpdatedAt(null);
     }
     setLoading(false);
-  }, []);
+  }, [sample]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const save = async () => {
+    if (sample) {
+      setSaving(true);
+      setUpdatedAt(new Date().toISOString());
+      setSaving(false);
+      toast.success("AI Agents page saved in the test console");
+      return;
+    }
     setSaving(true);
     try {
       if (!isSupabaseConfigured) throw new Error("Supabase not configured");

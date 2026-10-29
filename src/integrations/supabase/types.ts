@@ -9614,6 +9614,7 @@ export type Database = {
       }
       vc_ratings: {
         Row: {
+          archived_at: string | null
           anonymous: boolean
           author_user_id: string | null
           comment: string | null
@@ -9635,6 +9636,7 @@ export type Database = {
           verified: boolean
         }
         Insert: {
+          archived_at?: string | null
           anonymous?: boolean
           author_user_id?: string | null
           comment?: string | null
@@ -9656,6 +9658,7 @@ export type Database = {
           verified?: boolean
         }
         Update: {
+          archived_at?: string | null
           anonymous?: boolean
           author_user_id?: string | null
           comment?: string | null
@@ -11492,6 +11495,7 @@ export type Database = {
         | "SEED"
         | "SERIES_A"
         | "SERIES_B"
+        | "series_b"
         | "SERIES_C"
         | "GROWTH"
         | "PUBLIC"
@@ -11874,6 +11878,7 @@ export const Constants = {
         "SEED",
         "SERIES_A",
         "SERIES_B",
+        "series_b",
         "SERIES_C",
         "GROWTH",
         "PUBLIC",

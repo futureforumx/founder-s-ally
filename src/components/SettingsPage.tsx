@@ -1943,6 +1943,7 @@ function ActivityTab() {
             .select("id, vc_firm_id, vc_person_id, interaction_type, comment, created_at, star_ratings, is_draft")
             .eq("author_user_id", user!.id)
             .eq("is_draft", false)
+            .is("archived_at", null)
             .order("created_at", { ascending: false })
             .limit(100);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity, AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
@@ -15,6 +15,9 @@ import { AdminStickyFilters, AdminStickyHeader } from "@/components/admin/AdminS
 import type { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { EXTERNAL_SOURCE_LINK_ATTRS, formatOutboundUrl } from "@/lib/utils/formatOutboundUrl";
+import { isTestAdminSampleId } from "@/lib/testAdminSample";
+import { CurrencyNumberInput, CurrencyStringInput } from "@/components/admin/CurrencyInputs";
+import { formatCanonicalHqLine } from "@/lib/formatCanonicalHqLine";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -85,7 +88,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type FirmRow = {
+export type FirmRow = {
   id: string; firm_name: string; legal_name: string | null; aliases: string[] | null; alternate_names: string[] | null; slug: string | null;
   team_people_url?: string | null;
   tagline: string | null; elevator_pitch: string | null; description: string | null; sentiment_detail: string | null;
@@ -100,6 +103,9 @@ type FirmRow = {
   preferred_stage: string | null; stage_focus: string[] | null; thesis_verticals: string[] | null; strategy_classifications: string[] | null;
   firm_type: string | null; entity_type: string | null; min_check_size: number | null; max_check_size: number | null; total_headcount: number | null;
   market_sentiment: string | null; recent_deals: string[] | null; is_actively_deploying: boolean | null;
+  reputation_score: number | null; founder_reputation_score: number | null; industry_reputation: number | null;
+  responsiveness_score: number | null; value_add_score: number | null; network_strength: number | null;
+  match_score: number | null; data_confidence_score: number | null; community_rating: number | null;
   enrichment_status: string; completeness_score: number; status: string | null;
   needs_review: boolean; ready_for_live: boolean;
   manual_review_status: string | null; updated_at: string | null;
@@ -142,7 +148,7 @@ type PersonLinkedFund = {
   role: string;
 };
 
-type PersonDirectoryRow = FirmPersonRow & {
+export type PersonDirectoryRow = FirmPersonRow & {
   firm_name: string | null;
   firm_logo_url: string | null;
   firm_favicon_url: string | null;
@@ -151,18 +157,21 @@ type PersonDirectoryRow = FirmPersonRow & {
 
 type RecordKind = "firm" | "person";
 
-type FirmPortfolioRow = {
+export type FirmPortfolioRow = {
   id: string; firm_id: string; company_name: string; normalized_company_name: string | null;
   amount: string | null; stage: string | null; date_announced: string | null; investment_status: string | null;
+  startup_id?: string | null; sector?: string | null;
   is_notable: boolean | null; portfolio_company_website: string | null; portfolio_company_linkedin: string | null;
   source_name: string | null; source_url: string | null; source_confidence: number | null; updated_at: string | null;
   led_rounds?: string[] | null;
+  led_round?: boolean;
+  led_round_dirty?: boolean;
 };
 
 type FirmModalTab = "profile" | "funds" | "people" | "portfolio";
 
 /** Row shape from GET `entity=fresh-funds` (see `freshFundRow` in admin-market-intel). */
-type FirmLinkedFundRow = {
+export type FirmLinkedFundRow = {
   id: string;
   firm_record_id: string;
   fund_name: string | null;
@@ -185,6 +194,199 @@ type FirmLinkedFundRow = {
   estimated_check_min_usd: number | null;
   estimated_check_max_usd: number | null;
 };
+
+export type AdminFirmDemoDirectory = {
+  firms: FirmRow[];
+  people: PersonDirectoryRow[];
+  funds: FirmLinkedFundRow[];
+  portfolio: FirmPortfolioRow[];
+};
+
+export function blankFirmRow(partial: Partial<FirmRow> & Pick<FirmRow, "id" | "firm_name">): FirmRow {
+  return {
+    legal_name: null,
+    aliases: null,
+    alternate_names: null,
+    slug: null,
+    team_people_url: null,
+    tagline: null,
+    elevator_pitch: null,
+    description: null,
+    sentiment_detail: null,
+    location: null,
+    address: null,
+    hq_city: null,
+    hq_state: null,
+    hq_zip_code: null,
+    hq_country: null,
+    locations: null,
+    website_url: null,
+    logo_url: null,
+    favicon_url: null,
+    linkedin_url: null,
+    x_url: null,
+    facebook_url: null,
+    instagram_url: null,
+    youtube_url: null,
+    substack_url: null,
+    medium_url: null,
+    crunchbase_url: null,
+    signal_nfx_url: null,
+    cb_insights_url: null,
+    openvc_url: null,
+    pitchbook_url: null,
+    vcsheet_url: null,
+    contact_page_url: null,
+    email: null,
+    phone: null,
+    aum: null,
+    aum_usd: null,
+    founded_year: null,
+    current_fund_name: null,
+    lead_partner: null,
+    lead_or_follow: null,
+    preferred_stage: null,
+    stage_focus: null,
+    thesis_verticals: null,
+    strategy_classifications: null,
+    firm_type: null,
+    entity_type: null,
+    min_check_size: null,
+    max_check_size: null,
+    total_headcount: null,
+    market_sentiment: null,
+    recent_deals: null,
+    is_actively_deploying: null,
+    reputation_score: null,
+    founder_reputation_score: null,
+    industry_reputation: null,
+    responsiveness_score: null,
+    value_add_score: null,
+    network_strength: null,
+    match_score: null,
+    data_confidence_score: null,
+    community_rating: null,
+    enrichment_status: "enriched",
+    completeness_score: 80,
+    status: "live",
+    needs_review: false,
+    ready_for_live: true,
+    manual_review_status: "live",
+    updated_at: null,
+    ...partial,
+  };
+}
+
+export function blankPersonRow(
+  partial: Partial<PersonDirectoryRow> & Pick<PersonDirectoryRow, "id" | "firm_id" | "full_name">,
+): PersonDirectoryRow {
+  return {
+    created_at: null,
+    updated_at: null,
+    deleted_at: null,
+    first_name: null,
+    last_name: null,
+    preferred_name: null,
+    alternate_names: null,
+    slug: null,
+    title: null,
+    seniority: null,
+    investor_type: null,
+    email: null,
+    phone: null,
+    linkedin_url: null,
+    x_url: null,
+    website_url: null,
+    personal_website: null,
+    firm_bio_page_url: null,
+    facebook_url: null,
+    instagram_url: null,
+    youtube_url: null,
+    tiktok_url: null,
+    medium_url: null,
+    substack_url: null,
+    tracxn_url: null,
+    city: null,
+    state: null,
+    country: null,
+    timezone: null,
+    avatar_url: null,
+    headshot_url: null,
+    avatar_source_url: null,
+    avatar_source_type: null,
+    avatar_confidence: null,
+    avatar_last_verified_at: null,
+    avatar_needs_review: false,
+    is_active: true,
+    is_actively_investing: true,
+    cold_outreach_ok: false,
+    warm_intro_preferred: true,
+    needs_review: false,
+    ready_for_live: true,
+    stage_focus: null,
+    sector_focus: null,
+    personal_thesis_tags: null,
+    portfolio_companies: null,
+    geographic_focus: null,
+    domain_expertise: null,
+    investing_themes: null,
+    current_areas_of_interest: null,
+    notable_investments: null,
+    networks: null,
+    board_seats: null,
+    prior_firms: null,
+    prior_firm_associations: null,
+    stage_concentration: null,
+    geographic_concentration: null,
+    thematic_concentration: null,
+    sub_sectors: null,
+    short_summary: null,
+    bio: null,
+    background_summary: null,
+    education_summary: null,
+    founder_background: null,
+    operator_background: null,
+    recent_focus: null,
+    avg_deal_size: null,
+    check_size_min: null,
+    check_size_max: null,
+    sweet_spot: null,
+    lead_vs_follow: null,
+    investment_pace: null,
+    investment_style: null,
+    total_known_investments: null,
+    recent_deal_count: null,
+    last_active_date: null,
+    last_capital_signal_at: null,
+    last_enriched_at: null,
+    match_score: null,
+    network_strength: null,
+    reputation_score: null,
+    responsiveness_score: null,
+    value_add_score: null,
+    capital_freshness_boost_score: null,
+    completeness_score: 78,
+    enrichment_status: "enriched",
+    source_count: 4,
+    prisma_person_id: null,
+    articles: null,
+    blog_posts: null,
+    interviews: null,
+    podcasts: null,
+    past_investments: null,
+    recent_investments: null,
+    recent_news: null,
+    last_3_investments: null,
+    last_5_investments: null,
+    co_investors: null,
+    prior_roles: null,
+    firm_name: null,
+    firm_logo_url: null,
+    firm_favicon_url: null,
+    funds: [],
+    ...partial,
+  };
+}
 
 // ── API ────────────────────────────────────────────────────────────────────────
 
@@ -372,6 +574,76 @@ async function fetchFirmLinkedRows<T>(entity: "firm-investors" | "firm-portfolio
   } catch (e: unknown) { return { rows: [], total: 0, error: (e as Error)?.message }; }
 }
 
+type PortfolioCompanyOption = { id: string; company_name: string; status: string | null };
+const COMPANY_STAGE_OPTIONS = ["PRE_SEED", "SEED", "SERIES_A", "series_b", "SERIES_C", "GROWTH", "PUBLIC", "ACQUIRED", "UNKNOWN"];
+const INVESTMENT_STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "exited", label: "Exited" },
+  { value: "acquired", label: "Acquired" },
+  { value: "ipo", label: "IPO" },
+  { value: "unknown", label: "Unknown" },
+];
+const companyStageLabel = (value: string) => value.toLowerCase().replaceAll("_", " ");
+function portfolioRoundName(stage: string | null | undefined): string | null {
+  const key = (stage ?? "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  const labels: Record<string, string> = {
+    "pre seed": "Pre-Seed", seed: "Seed", "series a": "Series A", "series b": "Series B", "series c": "Series C", growth: "Growth",
+  };
+  return labels[key] ?? null;
+}
+function portfolioRoundKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+function portfolioRoundIsLed(row: Pick<FirmPortfolioRow, "stage" | "led_rounds">): boolean {
+  const roundName = portfolioRoundName(row.stage);
+  return Boolean(roundName && (row.led_rounds ?? []).some(round => portfolioRoundKey(round) === portfolioRoundKey(roundName)));
+}
+const COMPANY_SECTOR_OPTIONS = Constants.public.Enums.SectorFocus.map(value => ({ value, label: value.replaceAll("_", " ") }));
+
+async function searchPortfolioCompanies(search: string): Promise<{ rows: PortfolioCompanyOption[]; error?: string }> {
+  const params = new URLSearchParams({ entity: "companies", search, limit: "50" });
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, { headers: await adminHeaders() });
+    const json = await res.json().catch(() => ({})) as { rows?: PortfolioCompanyOption[]; error?: string };
+    if (!res.ok) return { rows: [], error: json.error ?? `HTTP ${res.status}` };
+    return { rows: json.rows ?? [] };
+  } catch (e: unknown) { return { rows: [], error: (e as Error)?.message }; }
+}
+
+async function createPortfolioCompany(name: string): Promise<{ row?: PortfolioCompanyOption; error?: string }> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-company`, {
+      method: "POST", headers: await adminHeaders(), body: JSON.stringify({ company_name: name }),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: PortfolioCompanyOption; error?: string };
+    if (!res.ok || !json.row) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
+}
+
+async function linkPortfolioCompany(firmId: string, company: PortfolioCompanyOption, fields: { stage: string; date_announced: string; sector: string }): Promise<{ row?: FirmPortfolioRow; error?: string }> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firm-portfolio`, {
+      method: "POST", headers: await adminHeaders(),
+      body: JSON.stringify({ firm_id: firmId, startup_id: company.id, company_name: company.company_name, ...fields }),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: FirmPortfolioRow; error?: string };
+    if (!res.ok || !json.row) return { error: json.error ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
+}
+
+async function savePortfolioRoundLead(input: { startup_id: string; firm_id: string; round_name: string; led_round: boolean }): Promise<{ error?: string }> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=company-investors`, {
+      method: "POST", headers: await adminHeaders(), body: JSON.stringify({ ...input, amount_usd: null }),
+    });
+    const json = await res.json().catch(() => ({})) as { error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    return {};
+  } catch (e: unknown) { return { error: (e as Error)?.message }; }
+}
+
 export async function fetchAdminFirmById(id: string): Promise<{ row?: FirmRow; error?: string }> {
   if (!SUPABASE_URL) return { error: "Supabase not configured" };
   const fid = id.trim();
@@ -453,6 +725,9 @@ function FL({ label, children }: { label: string; children: React.ReactNode }) {
 }
 function TF({ label, value, onChange, type = "text", placeholder }: { label: string; value: string | null | undefined; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return <FL label={label}><input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={IC} style={IS} onFocus={e => Object.assign(e.target.style, IF)} onBlur={e => Object.assign(e.target.style, IS)} /></FL>;
+}
+function CTF({ label, value, onChange, placeholder }: { label: string; value: string | null | undefined; onChange: (v: string) => void; placeholder?: string }) {
+  return <FL label={label}><CurrencyStringInput value={value} onChange={onChange} placeholder={placeholder} className={IC} style={IS} focusStyle={IF} /></FL>;
 }
 function RF({ label, value }: { label: string; value: string | number | boolean | null | undefined }) {
   return (
@@ -565,6 +840,9 @@ function BrandAssetPreview({
 }
 function NF({ label, value, onChange, placeholder }: { label: string; value: number | null | undefined; onChange: (v: number | null) => void; placeholder?: string }) {
   return <FL label={label}><input type="number" value={value ?? ""} onChange={e => onChange(e.target.value === "" ? null : Number(e.target.value))} placeholder={placeholder} className={IC} style={IS} onFocus={e => Object.assign(e.target.style, IF)} onBlur={e => Object.assign(e.target.style, IS)} /></FL>;
+}
+function CNF({ label, value, onChange, placeholder }: { label: string; value: number | null | undefined; onChange: (v: number | null) => void; placeholder?: string }) {
+  return <FL label={label}><CurrencyNumberInput value={value} onChange={onChange} placeholder={placeholder} className={IC} style={IS} focusStyle={IF} /></FL>;
 }
 function TA({ label, value, onChange, rows = 3 }: { label: string; value: string | null | undefined; onChange: (v: string) => void; rows?: number }) {
   return <FL label={label}><textarea value={value ?? ""} onChange={e => onChange(e.target.value)} rows={rows} className={`${IC} resize-none`} style={IS} onFocus={e => Object.assign(e.target.style, IF)} onBlur={e => Object.assign(e.target.style, IS)} /></FL>;
@@ -699,7 +977,7 @@ function fmtFundDate(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 function displayLocation(row: FirmRow): string {
-  return row.location || [row.hq_city, row.hq_state ?? row.hq_country].filter(Boolean).join(", ") || "—";
+  return formatCanonicalHqLine(row.hq_city, row.hq_state, row.hq_country) || row.location || "—";
 }
 function displayPersonLocation(row: PersonDirectoryRow): string {
   return [row.city, row.state, row.country].filter(Boolean).join(", ") || "—";
@@ -760,14 +1038,22 @@ function FirmEditPanel({
   row,
   onClose,
   onSaved,
+  onOpenCompanyRecord,
   initialTab = "profile",
   focusPersonId = null,
+  sampleLinks = null,
 }: {
   row: FirmRow;
   onClose: () => void;
   onSaved: (r: FirmRow) => void;
+  onOpenCompanyRecord?: (companyId: string, companyName: string) => void;
   initialTab?: FirmModalTab;
   focusPersonId?: string | null;
+  sampleLinks?: {
+    funds: FirmLinkedFundRow[];
+    people: FirmPersonRow[];
+    portfolio: FirmPortfolioRow[];
+  } | null;
 }) {
   const [draft, setDraft] = useState<FirmRow>({ ...row });
   const [activeTab, setActiveTab] = useState<FirmModalTab>(initialTab);
@@ -775,6 +1061,15 @@ function FirmEditPanel({
   const [fundDrafts, setFundDrafts] = useState<Record<string, { min: number | null; max: number | null; saving: boolean }>>({});
   const [people, setPeople] = useState<FirmPersonRow[]>([]);
   const [portfolio, setPortfolio] = useState<FirmPortfolioRow[]>([]);
+  const [portfolioCompanySearch, setPortfolioCompanySearch] = useState("");
+  const [portfolioCompanyResults, setPortfolioCompanyResults] = useState<PortfolioCompanyOption[]>([]);
+  const [selectedPortfolioCompany, setSelectedPortfolioCompany] = useState<PortfolioCompanyOption | null>(null);
+  const [portfolioCompanyStage, setPortfolioCompanyStage] = useState("");
+  const [portfolioCompanyDate, setPortfolioCompanyDate] = useState("");
+  const [portfolioCompanySector, setPortfolioCompanySector] = useState("");
+  const [portfolioCompanySearching, setPortfolioCompanySearching] = useState(false);
+  const [portfolioCompanySaving, setPortfolioCompanySaving] = useState(false);
+  const [portfolioCompanyError, setPortfolioCompanyError] = useState<string | null>(null);
   const [linkedLoading, setLinkedLoading] = useState(false);
   const [linkedError, setLinkedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -784,7 +1079,6 @@ function FirmEditPanel({
   const locationLine = displayLocation(draft);
   const stageLine = draft.preferred_stage || draft.stage_focus?.join(", ") || "—";
   const focusLine = draft.firm_type || draft.lead_or_follow || draft.entity_type || "—";
-  const visiblePitch = draft.elevator_pitch || draft.description || draft.sentiment_detail || "";
   const investmentCount = draft.recent_deals?.length ?? null;
   const firmStatus = getFirmAdminStatus(draft);
 
@@ -798,7 +1092,25 @@ function FirmEditPanel({
     }));
   };
 
+  const sampleLinksRef = useRef(sampleLinks);
+  sampleLinksRef.current = sampleLinks;
+
   useEffect(() => {
+    if (isTestAdminSampleId(row.id)) {
+      const links = sampleLinksRef.current;
+      setFunds(links?.funds ?? []);
+      const initialDrafts: Record<string, { min: number | null; max: number | null; saving: boolean }> = {};
+      for (const fund of links?.funds ?? []) {
+        initialDrafts[fund.id] = { min: fund.estimated_check_min_usd ?? null, max: fund.estimated_check_max_usd ?? null, saving: false };
+      }
+      setFundDrafts(initialDrafts);
+      setPeople(links?.people ?? []);
+      setPortfolio((links?.portfolio ?? []).map(item => ({ ...item, led_round: portfolioRoundIsLed(item), led_round_dirty: false })));
+      setLinkedError(null);
+      setLinkedLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLinkedLoading(true);
     setLinkedError(null);
@@ -818,12 +1130,31 @@ function FirmEditPanel({
       }
       setFundDrafts(initialDrafts);
       setPeople(peopleRes.rows);
-      setPortfolio(portfolioRes.rows);
+      setPortfolio(portfolioRes.rows.map(item => ({ ...item, led_round: portfolioRoundIsLed(item), led_round_dirty: false })));
     }).finally(() => {
       if (!cancelled) setLinkedLoading(false);
     });
     return () => { cancelled = true; };
   }, [row.id]);
+
+  useEffect(() => {
+    const query = portfolioCompanySearch.trim();
+    if (activeTab !== "portfolio" || query.length < 2 || isTestAdminSampleId(row.id)) {
+      setPortfolioCompanyResults([]);
+      setPortfolioCompanySearching(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setPortfolioCompanySearching(true);
+      searchPortfolioCompanies(query).then(result => {
+        if (cancelled) return;
+        setPortfolioCompanyResults(result.rows);
+        setPortfolioCompanyError(result.error ?? null);
+      }).finally(() => { if (!cancelled) setPortfolioCompanySearching(false); });
+    }, 250);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [portfolioCompanySearch, activeTab, row.id]);
 
   useEffect(() => {
     if (!focusPersonId || linkedLoading || activeTab !== "people") return;
@@ -833,7 +1164,19 @@ function FirmEditPanel({
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      const updated = {
+        ...draft,
+        location: formatCanonicalHqLine(draft.hq_city, draft.hq_state, draft.hq_country),
+        updated_at: new Date().toISOString(),
+      };
+      toast.success("Saved in the test console");
+      onSaved(updated);
+      setSaving(false);
+      return;
+    }
     const { id, created_at, deleted_at, sector_embedding, updated_at, ...patch } = draft as FirmRow & { created_at?: unknown; deleted_at?: unknown; sector_embedding?: unknown };
+    patch.location = formatCanonicalHqLine(patch.hq_city, patch.hq_state, patch.hq_country);
     const { row: updated, error } = await patchFirm(row.id, patch as Record<string, unknown>);
     if (error) { toast.error("Save failed", { description: error }); }
     else { toast.success("Saved"); if (updated) onSaved(updated); }
@@ -844,6 +1187,15 @@ function FirmEditPanel({
     const d = fundDrafts[fundId];
     if (!d) return;
     setFundDrafts(prev => ({ ...prev, [fundId]: { ...prev[fundId], saving: true } }));
+    if (isTestAdminSampleId(fundId) || isTestAdminSampleId(row.id)) {
+      toast.success("Check size saved in the test console");
+      setFunds(prev => prev.map(f => f.id === fundId
+        ? { ...f, estimated_check_min_usd: d.min, estimated_check_max_usd: d.max }
+        : f
+      ));
+      setFundDrafts(prev => ({ ...prev, [fundId]: { ...prev[fundId], saving: false } }));
+      return;
+    }
     const { error } = await patchFund(fundId, {
       estimated_check_min_usd: d.min,
       estimated_check_max_usd: d.max,
@@ -869,14 +1221,79 @@ function FirmEditPanel({
     }
   };
 
-  const savePortfolioCompany = async (item: FirmPortfolioRow) => {
-    const { id, firm_id, updated_at, ...patch } = item;
+  const savePortfolioCompany = async (item: FirmPortfolioRow, openCompanyAfterSave = false) => {
+    const { id, firm_id, updated_at, startup_id, led_round, led_round_dirty, ...patch } = item;
     const { row: updated, error } = await patchLinkedRow<FirmPortfolioRow>("firm-portfolio", id, patch);
     if (error) toast.error("Portfolio save failed", { description: error });
     else {
+      let saved = updated ?? item;
+      if (led_round_dirty) {
+        const companyId = startup_id ?? updated?.startup_id;
+        const roundName = portfolioRoundName(item.stage);
+        if (!companyId || !roundName) {
+          toast.error("Led round could not be saved", { description: "This company needs a linked company record and a valid stage." });
+          setPortfolio(prev => prev.map(r => r.id === item.id ? { ...saved, led_round_dirty: true } : r));
+          return;
+        }
+        const leadResult = await savePortfolioRoundLead({ startup_id: companyId, firm_id, round_name: roundName, led_round: led_round === true });
+        if (leadResult.error) {
+          toast.error("Led round could not be saved", { description: leadResult.error });
+          setPortfolio(prev => prev.map(r => r.id === item.id ? { ...saved, led_round_dirty: true } : r));
+          return;
+        }
+        const roundKey = portfolioRoundKey(roundName);
+        const previousRounds = (saved.led_rounds ?? []).filter(value => portfolioRoundKey(value) !== roundKey);
+        saved = { ...saved, led_rounds: led_round ? [...previousRounds, roundName] : previousRounds, led_round, led_round_dirty: false };
+      }
       toast.success("Portfolio company saved");
-      if (updated) setPortfolio(prev => prev.map(r => r.id === updated.id ? updated : r));
+      setPortfolio(prev => prev.map(r => r.id === saved.id ? { ...saved, led_round_dirty: false } : r));
+      if (openCompanyAfterSave) {
+        const companyId = startup_id ?? saved.startup_id;
+        if (!companyId) {
+          toast.error("Company record not found", { description: "Link this portfolio company to a company record first." });
+          return;
+        }
+        onOpenCompanyRecord?.(companyId, saved.company_name);
+      }
     }
+  };
+
+  const attachPortfolioCompany = async (company: PortfolioCompanyOption) => {
+    setPortfolioCompanySaving(true);
+    setPortfolioCompanyError(null);
+    const { row: linked, error } = await linkPortfolioCompany(row.id, company, {
+      stage: portfolioCompanyStage,
+      date_announced: portfolioCompanyDate,
+      sector: portfolioCompanySector,
+    });
+    if (error) {
+      setPortfolioCompanyError(error);
+      toast.error("Company link failed", { description: error });
+    } else if (linked) {
+      setPortfolio(prev => [{ ...linked, led_round: portfolioRoundIsLed(linked), led_round_dirty: false }, ...prev.filter(item => item.id !== linked.id)]);
+      setSelectedPortfolioCompany(null);
+      setPortfolioCompanySearch("");
+      setPortfolioCompanyResults([]);
+      setPortfolioCompanyStage("");
+      setPortfolioCompanyDate("");
+      setPortfolioCompanySector("");
+      toast.success("Portfolio company linked");
+    }
+    setPortfolioCompanySaving(false);
+  };
+
+  const createAndAttachPortfolioCompany = async () => {
+    const name = portfolioCompanySearch.trim();
+    if (!name) return;
+    setPortfolioCompanySaving(true);
+    setPortfolioCompanyError(null);
+    const { row: company, error } = await createPortfolioCompany(name);
+    if (!company || error) {
+      setPortfolioCompanyError(error ?? "Could not create the company record.");
+      setPortfolioCompanySaving(false);
+      return;
+    }
+    await attachPortfolioCompany(company);
   };
 
   function updatePerson<K extends keyof FirmPersonRow>(id: string, key: K, value: FirmPersonRow[K]) {
@@ -885,6 +1302,23 @@ function FirmEditPanel({
 
   function updatePortfolio<K extends keyof FirmPortfolioRow>(id: string, key: K, value: FirmPortfolioRow[K]) {
     setPortfolio(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
+  }
+
+  function updatePortfolioLedRound(item: FirmPortfolioRow, led: boolean) {
+    const roundName = portfolioRoundName(item.stage);
+    if (!roundName) return;
+    const key = portfolioRoundKey(roundName);
+    const remaining = (item.led_rounds ?? []).filter(value => portfolioRoundKey(value) !== key);
+    updatePortfolio(item.id, "led_rounds", led ? [...remaining, roundName] : remaining);
+    updatePortfolio(item.id, "led_round", led);
+    updatePortfolio(item.id, "led_round_dirty", true);
+  }
+
+  function updatePortfolioStage(item: FirmPortfolioRow, stage: string) {
+    const next = { ...item, stage };
+    setPortfolio(prev => prev.map(r => r.id === item.id
+      ? { ...r, stage, led_round: portfolioRoundIsLed(next), led_round_dirty: false }
+      : r));
   }
 
   return (
@@ -916,11 +1350,12 @@ function FirmEditPanel({
                 <CheckCircle2 className="h-[15px] w-[15px] shrink-0 fill-emerald-400/15 text-emerald-400" />
               </div>
               <textarea
-                value={visiblePitch}
-                onChange={e => set("elevator_pitch")(e.target.value)}
+                aria-label="Description"
+                value={draft.description ?? ""}
+                onChange={e => set("description")(e.target.value)}
                 rows={3}
                 className="mb-2.5 w-full resize-none border-0 bg-transparent p-0 text-[12px] leading-snug text-white/55 outline-none placeholder:text-white/25"
-                placeholder="Editable elevator pitch shown under the firm name"
+                placeholder="Description shown under the firm name"
               />
               <div className="flex min-w-0 flex-nowrap items-center gap-0 overflow-hidden text-[11px] leading-snug text-white/70">
                 <span className="flex min-w-0 max-w-[42%] items-center gap-1.5 overflow-hidden pr-2">
@@ -1007,15 +1442,14 @@ function FirmEditPanel({
               <TagF label="Aliases" value={draft.aliases} onChange={set("aliases")} />
               <TagF label="Alternate Names" value={draft.alternate_names} onChange={set("alternate_names")} />
               <TF label="Tagline" value={draft.tagline} onChange={set("tagline")} />
-              <TA label="Description" value={draft.description} onChange={set("description")} rows={4} />
               <TA label="Sentiment Detail" value={draft.sentiment_detail} onChange={set("sentiment_detail")} rows={3} />
 
               <Sect title="Investment Card Fields" />
               <div className="grid grid-cols-2 gap-3">
-                <TF label="AUM Display" value={draft.aum} onChange={set("aum")} placeholder="$1.2B" />
-                <NF label="AUM (USD)" value={draft.aum_usd} onChange={set("aum_usd")} placeholder="1200000000" />
-                <NF label="Min Check Size" value={draft.min_check_size} onChange={set("min_check_size")} />
-                <NF label="Max Check Size" value={draft.max_check_size} onChange={set("max_check_size")} />
+                <CTF label="AUM Display" value={draft.aum} onChange={set("aum")} placeholder="$1.2B" />
+                <CNF label="AUM (USD)" value={draft.aum_usd} onChange={set("aum_usd")} placeholder="1200000000" />
+                <CNF label="Min Check Size" value={draft.min_check_size} onChange={set("min_check_size")} />
+                <CNF label="Max Check Size" value={draft.max_check_size} onChange={set("max_check_size")} />
                 <NF label="Team Headcount" value={draft.total_headcount} onChange={set("total_headcount")} />
                 <NF label="Founded Year" value={draft.founded_year} onChange={set("founded_year")} />
               </div>
@@ -1062,7 +1496,6 @@ function FirmEditPanel({
               </div>
 
               <Sect title="Location" />
-              <TF label="Location Display" value={draft.location} onChange={set("location")} placeholder="San Francisco, CA" />
               <TF label="Address" value={draft.address} onChange={set("address")} />
               <div className="grid grid-cols-4 gap-2">
                 <TF label="City" value={draft.hq_city} onChange={set("hq_city")} />
@@ -1111,6 +1544,18 @@ function FirmEditPanel({
               <TA label="Market Sentiment" value={draft.market_sentiment} onChange={set("market_sentiment")} rows={2} />
               <div className="grid grid-cols-2 gap-3">
                 <BF label="Actively Deploying" value={draft.is_actively_deploying} onChange={set("is_actively_deploying")} />
+              </div>
+              <Sect title="Firm Scores" />
+              <div className="grid grid-cols-2 gap-3">
+                <NF label="Match Score" value={draft.match_score} onChange={set("match_score")} />
+                <NF label="Reputation Score" value={draft.reputation_score} onChange={set("reputation_score")} />
+                <NF label="Founder Reputation" value={draft.founder_reputation_score} onChange={set("founder_reputation_score")} />
+                <NF label="Industry Reputation" value={draft.industry_reputation} onChange={set("industry_reputation")} />
+                <NF label="Responsiveness Score" value={draft.responsiveness_score} onChange={set("responsiveness_score")} />
+                <NF label="Value Add Score" value={draft.value_add_score} onChange={set("value_add_score")} />
+                <NF label="Network Strength" value={draft.network_strength} onChange={set("network_strength")} />
+                <NF label="Data Confidence" value={draft.data_confidence_score} onChange={set("data_confidence_score")} />
+                <NF label="Community Rating" value={draft.community_rating} onChange={set("community_rating")} />
               </div>
             </div>
           </div>
@@ -1216,26 +1661,24 @@ function FirmEditPanel({
                   <div className="mt-3 flex items-end gap-3 border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                     <div className="flex-1">
                       <label className="block font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.32)" }}>Est. Check Min (USD)</label>
-                      <input
-                        type="number"
+                      <CurrencyNumberInput
                         className="w-full rounded px-2.5 py-1.5 text-[12px] text-white/80 focus:outline-none"
                         style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
-                        value={fundDrafts[fund.id]?.min ?? ""}
-                        onChange={e => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], min: e.target.value === "" ? null : Number(e.target.value) } }))}
-                        placeholder="e.g. 250000"
-                        step={25000}
+                        focusStyle={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(46,230,166,0.4)" }}
+                        value={fundDrafts[fund.id]?.min ?? null}
+                        onChange={value => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], min: value } }))}
+                        placeholder="e.g. 250k"
                       />
                     </div>
                     <div className="flex-1">
                       <label className="block font-mono text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.32)" }}>Est. Check Max (USD)</label>
-                      <input
-                        type="number"
+                      <CurrencyNumberInput
                         className="w-full rounded px-2.5 py-1.5 text-[12px] text-white/80 focus:outline-none"
                         style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
-                        value={fundDrafts[fund.id]?.max ?? ""}
-                        onChange={e => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], max: e.target.value === "" ? null : Number(e.target.value) } }))}
-                        placeholder="e.g. 1000000"
-                        step={25000}
+                        focusStyle={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(46,230,166,0.4)" }}
+                        value={fundDrafts[fund.id]?.max ?? null}
+                        onChange={value => setFundDrafts(prev => ({ ...prev, [fund.id]: { ...prev[fund.id], max: value } }))}
+                        placeholder="e.g. 1m"
                       />
                     </div>
                     <button
@@ -1379,10 +1822,10 @@ function FirmEditPanel({
 
                   <Sect title="Investment Behavior" />
                   <div className="mt-3 grid gap-3 lg:grid-cols-4">
-                    <TF label="Avg Deal Size" value={item.avg_deal_size} onChange={v => updatePerson(item.id, "avg_deal_size", v)} />
-                    <NF label="Check Size Min" value={item.check_size_min} onChange={v => updatePerson(item.id, "check_size_min", v)} />
-                    <NF label="Check Size Max" value={item.check_size_max} onChange={v => updatePerson(item.id, "check_size_max", v)} />
-                    <NF label="Sweet Spot" value={item.sweet_spot} onChange={v => updatePerson(item.id, "sweet_spot", v)} />
+                    <CTF label="Avg Deal Size" value={item.avg_deal_size} onChange={v => updatePerson(item.id, "avg_deal_size", v)} />
+                    <CNF label="Check Size Min" value={item.check_size_min} onChange={v => updatePerson(item.id, "check_size_min", v)} />
+                    <CNF label="Check Size Max" value={item.check_size_max} onChange={v => updatePerson(item.id, "check_size_max", v)} />
+                    <CNF label="Sweet Spot" value={item.sweet_spot} onChange={v => updatePerson(item.id, "sweet_spot", v)} />
                     <TF label="Lead vs Follow" value={item.lead_vs_follow} onChange={v => updatePerson(item.id, "lead_vs_follow", v)} />
                     <TF label="Investment Pace" value={item.investment_pace} onChange={v => updatePerson(item.id, "investment_pace", v)} />
                     <TF label="Investment Style" value={item.investment_style} onChange={v => updatePerson(item.id, "investment_style", v)} />
@@ -1438,16 +1881,47 @@ function FirmEditPanel({
             </div>
           ) : (
             <div className="space-y-3">
-              <Sect title="Portfolio Companies" />
+              <div className="flex items-center justify-between gap-3">
+                <Sect title="Portfolio Companies" />
+                <span className="font-mono text-[9px] uppercase tracking-widest text-white/30">Link or add company</span>
+              </div>
+              {!isTestAdminSampleId(row.id) && (
+                <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
+                  <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
+                    <FL label="Find company"><input value={portfolioCompanySearch} onChange={e => { setPortfolioCompanySearch(e.target.value); setSelectedPortfolioCompany(null); }} placeholder="Search company records…" className={IC} style={IS} /></FL>
+                    <SF label="Stage" value={portfolioCompanyStage} onChange={setPortfolioCompanyStage} options={COMPANY_STAGE_OPTIONS.map(value => ({ value, label: companyStageLabel(value) }))} />
+                    <TF label="Date" value={portfolioCompanyDate} onChange={setPortfolioCompanyDate} type="date" />
+                    <SF label="Sector" value={portfolioCompanySector} onChange={setPortfolioCompanySector} options={COMPANY_SECTOR_OPTIONS} />
+                  </div>
+                  {portfolioCompanySearching && <div className="mt-2 text-[11px] text-white/40">Searching companies…</div>}
+                  {portfolioCompanyResults.length > 0 && !selectedPortfolioCompany && (
+                    <div className="mt-2 max-h-36 overflow-y-auto rounded border border-white/10 bg-[#101010]">
+                      {portfolioCompanyResults.map(company => (
+                        <button key={company.id} type="button" onClick={() => setSelectedPortfolioCompany(company)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[12px] text-white/75 hover:bg-white/[0.06]">
+                          <span>{company.company_name}</span><span className="font-mono text-[9px] uppercase text-white/35">{company.status ?? "unknown"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedPortfolioCompany && <div className="mt-2 flex items-center justify-between rounded border border-emerald-400/20 bg-emerald-400/[0.05] px-3 py-2 text-[12px] text-emerald-200"><span>Selected: {selectedPortfolioCompany.company_name}</span><button type="button" onClick={() => setSelectedPortfolioCompany(null)} className="text-white/45 hover:text-white">Change</button></div>}
+                  {portfolioCompanyError && <div className="mt-2 text-[11px] text-red-300">{portfolioCompanyError}</div>}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedPortfolioCompany && <button type="button" disabled={portfolioCompanySaving} onClick={() => attachPortfolioCompany(selectedPortfolioCompany)} className="inline-flex h-[31px] items-center gap-1.5 rounded px-3 text-[12px] font-semibold disabled:opacity-50" style={{ background: "#2EE6A6", color: "#020403" }}><Plus className="h-3.5 w-3.5" />{portfolioCompanySaving ? "Linking…" : "Link company"}</button>}
+                    {portfolioCompanySearch.trim().length >= 2 && !selectedPortfolioCompany && !portfolioCompanySearching && !portfolioCompanyResults.some(company => company.company_name.toLowerCase() === portfolioCompanySearch.trim().toLowerCase()) && <button type="button" disabled={portfolioCompanySaving} onClick={createAndAttachPortfolioCompany} className="inline-flex h-[31px] items-center gap-1.5 rounded border border-emerald-400/25 px-3 text-[12px] text-emerald-300 disabled:opacity-50"><Plus className="h-3.5 w-3.5" />{portfolioCompanySaving ? "Creating…" : `Create & link “${portfolioCompanySearch.trim()}” (not live)`}</button>}
+                    {!selectedPortfolioCompany && portfolioCompanySearch.trim().length < 2 && <span className="text-[11px] text-white/30">Search for a company, or enter a new name to create a non-live record.</span>}
+                  </div>
+                </div>
+              )}
               {linkedLoading && <div className="flex items-center gap-2 py-8 text-[12px] text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> Loading portfolio companies…</div>}
               {linkedError && <div className="rounded border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">{linkedError}</div>}
               {!linkedLoading && !linkedError && portfolio.length === 0 && <div className="rounded border border-white/10 bg-white/[0.03] px-4 py-8 text-center text-[12px] text-white/35">No linked portfolio companies found</div>}
               {portfolio.map(item => (
                 <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                  <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto]">
+                  <div className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr_0.9fr_0.9fr_auto]">
                     <TF label="Company Name" value={item.company_name} onChange={v => updatePortfolio(item.id, "company_name", v)} />
-                    <TF label="Stage" value={item.stage} onChange={v => updatePortfolio(item.id, "stage", v)} />
-                    <TF label="Amount" value={item.amount} onChange={v => updatePortfolio(item.id, "amount", v)} />
+                    <SF label="Stage" value={item.stage} onChange={v => updatePortfolioStage(item, v)} options={[...new Set([...COMPANY_STAGE_OPTIONS, ...(item.stage ? [item.stage] : [])])].map(value => ({ value, label: companyStageLabel(value) }))} />
+                    <SF label="Sector" value={item.sector} onChange={v => updatePortfolio(item.id, "sector", v)} options={COMPANY_SECTOR_OPTIONS} />
+                    <CTF label="Amount" value={item.amount} onChange={v => updatePortfolio(item.id, "amount", v)} />
                     <TF label="Date Announced" value={item.date_announced} onChange={v => updatePortfolio(item.id, "date_announced", v)} type="date" />
                     <button type="button" onClick={() => savePortfolioCompany(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
                       <Save className="h-3.5 w-3.5" /> Save
@@ -1455,7 +1929,17 @@ function FirmEditPanel({
                   </div>
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
                     <TF label="Normalized Name" value={item.normalized_company_name} onChange={v => updatePortfolio(item.id, "normalized_company_name", v)} />
-                    <TF label="Investment Status" value={item.investment_status} onChange={v => updatePortfolio(item.id, "investment_status", v)} />
+                    <SF
+                      label="Investment Status"
+                      value={item.investment_status}
+                      onChange={v => updatePortfolio(item.id, "investment_status", v)}
+                      options={[
+                        ...INVESTMENT_STATUS_OPTIONS,
+                        ...(item.investment_status && !INVESTMENT_STATUS_OPTIONS.some(option => option.value === item.investment_status)
+                          ? [{ value: item.investment_status, label: item.investment_status }]
+                          : []),
+                      ]}
+                    />
                     <NF label="Source Confidence" value={item.source_confidence} onChange={v => updatePortfolio(item.id, "source_confidence", v)} />
                   </div>
                   <div className="mt-3 grid gap-3 lg:grid-cols-3">
@@ -1467,9 +1951,23 @@ function FirmEditPanel({
                     <TF label="Source Name" value={item.source_name} onChange={v => updatePortfolio(item.id, "source_name", v)} />
                     <BF label="Notable" value={item.is_notable} onChange={v => updatePortfolio(item.id, "is_notable", v)} />
                   </div>
-                  <p className="mt-2 text-[12px]" style={{ color: (item.led_rounds ?? []).length ? "#2EE6A6" : "rgba(255,255,255,0.4)" }}>
-                    Led rounds: {(item.led_rounds ?? []).length ? item.led_rounds!.join(", ") : "—"}
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                    <FL label="Led this round?">
+                      <div role="radiogroup" aria-label={`Led ${portfolioRoundName(item.stage) ?? "current"} round`} className="flex h-[31px] items-center gap-4 rounded px-3" style={IS}>
+                        {[{ value: true, label: "Yes" }, { value: false, label: "No" }].map(option => (
+                          <label key={String(option.value)} className={`flex items-center gap-1.5 text-[11px] ${portfolioRoundName(item.stage) ? "cursor-pointer" : "cursor-not-allowed opacity-40"}`}>
+                            <input type="radio" name={`led-round-${item.id}`} checked={item.led_round === option.value} disabled={!portfolioRoundName(item.stage)} onChange={() => updatePortfolioLedRound(item, option.value)} className="accent-emerald-400" />
+                            <span className={item.led_round === option.value ? "text-emerald-300" : "text-white/45"}>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </FL>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(item.led_rounds ?? []).length > 0 && <span className="text-[10px] text-white/35">Led rounds: {item.led_rounds!.join(", ")}</span>}
+                      {item.startup_id && onOpenCompanyRecord && <button type="button" onClick={() => savePortfolioCompany(item, true)} className="inline-flex h-[31px] items-center gap-1.5 rounded border border-white/10 px-3 text-[11px] font-medium text-white/65 transition-colors hover:border-emerald-400/30 hover:text-emerald-300"><ExternalLink className="h-3.5 w-3.5" /> Save & open company record</button>}
+                    </div>
+                  </div>
+                  {item.startup_id && <p className="mt-1 font-mono text-[9px] text-white/25">Company record: {item.startup_id}</p>}
                 </div>
               ))}
             </div>
@@ -1485,16 +1983,29 @@ export function AdminFirmEditor({
   initialTab = "profile",
   focusPersonId = null,
   onClose,
+  sampleFirm = null,
+  sampleLinks = null,
 }: {
   firmId: string;
   initialTab?: FirmModalTab;
   focusPersonId?: string | null;
   onClose: () => void;
+  sampleFirm?: FirmRow | null;
+  sampleLinks?: {
+    funds: FirmLinkedFundRow[];
+    people: FirmPersonRow[];
+    portfolio: FirmPortfolioRow[];
+  } | null;
 }) {
   const [row, setRow] = useState<FirmRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (sampleFirm?.id === firmId) {
+      setRow(sampleFirm);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setRow(null);
     setError(null);
@@ -1504,7 +2015,7 @@ export function AdminFirmEditor({
       else setRow(res.row);
     });
     return () => { cancelled = true; };
-  }, [firmId]);
+  }, [firmId, sampleFirm]);
 
   if (!row) {
     return (
@@ -1531,6 +2042,7 @@ export function AdminFirmEditor({
       focusPersonId={focusPersonId}
       onClose={onClose}
       onSaved={setRow}
+      sampleLinks={sampleLinks}
     />
   );
 }
@@ -1539,10 +2051,12 @@ function AddFirmModal({
   open,
   onClose,
   onCreated,
+  demoMode = false,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (row: FirmRow) => void | Promise<void>;
+  demoMode?: boolean;
 }) {
   const [firmName, setFirmName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -1576,6 +2090,27 @@ function AddFirmModal({
     if (w) body.website_url = w;
     if (s) body.slug = s;
     if (l) body.legal_name = l;
+    if (demoMode) {
+      const row = blankFirmRow({
+        id: `demo-firm-${Date.now()}`,
+        firm_name: name,
+        website_url: w || null,
+        slug: s || null,
+        legal_name: l || null,
+        enrichment_status: "pending",
+        completeness_score: 24,
+        status: "needs_review",
+        needs_review: true,
+        ready_for_live: false,
+        manual_review_status: "needs_review",
+        updated_at: new Date().toISOString(),
+      });
+      setSubmitting(false);
+      toast.success("Firm created in the test console");
+      await Promise.resolve(onCreated(row));
+      onClose();
+      return;
+    }
     const { row, error } = await createFirm(body);
     setSubmitting(false);
     if (error) {
@@ -1645,10 +2180,14 @@ function AddPersonModal({
   open,
   onClose,
   onCreated,
+  demoFirms = null,
+  demoFunds = null,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (row: PersonDirectoryRow) => void | Promise<void>;
+  demoFirms?: FirmRow[] | null;
+  demoFunds?: FirmLinkedFundRow[] | null;
 }) {
   const [fullName, setFullName] = useState("");
   const [title, setTitle] = useState("");
@@ -1696,6 +2235,12 @@ function AddPersonModal({
     }
 
     const t = setTimeout(() => {
+      if (demoFirms) {
+        const needle = q.toLowerCase();
+        setFirmResults(demoFirms.filter((firm) => firm.firm_name.toLowerCase().includes(needle) || firm.id === q).slice(0, 8));
+        setFirmSearching(false);
+        return;
+      }
       setFirmSearching(true);
       void fetchFirms({ search: q, limit: "8" }).then((res) => {
         setFirmResults(res.rows);
@@ -1704,13 +2249,19 @@ function AddPersonModal({
     }, 250);
 
     return () => clearTimeout(t);
-  }, [firmQuery, open, pickedFirm]);
+  }, [demoFirms, firmQuery, open, pickedFirm]);
 
   useEffect(() => {
     if (!pickedFirm) {
       setFunds([]);
       setPickedFundId("");
 
+      return;
+    }
+
+    if (demoFunds) {
+      setFunds(demoFunds.filter((fund) => fund.firm_record_id === pickedFirm.id));
+      setFundsLoading(false);
       return;
     }
 
@@ -1726,7 +2277,7 @@ function AddPersonModal({
     return () => {
       cancelled = true;
     };
-  }, [pickedFirm]);
+  }, [demoFunds, pickedFirm]);
 
   if (!open) return null;
 
@@ -1765,6 +2316,30 @@ function AddPersonModal({
     if (pickedFundId) {
       body.vc_fund_id = pickedFundId;
       body.role = role;
+    }
+
+    if (demoFirms) {
+      const fund = (demoFunds ?? []).find((item) => item.id === pickedFundId);
+      const row = blankPersonRow({
+        id: `demo-person-${Date.now()}`,
+        firm_id: pickedFirm.id,
+        firm_name: pickedFirm.firm_name,
+        full_name: name,
+        title: t || null,
+        email: e || null,
+        linkedin_url: li || null,
+        enrichment_status: "pending",
+        completeness_score: 32,
+        needs_review: true,
+        ready_for_live: false,
+        updated_at: new Date().toISOString(),
+        funds: fund ? [{ id: fund.id, name: fund.fund_name, role }] : [],
+      });
+      setSubmitting(false);
+      toast.success("Person created in the test console");
+      await Promise.resolve(onCreated(row));
+      onClose();
+      return;
     }
 
     const { row, error, warning } = await createPerson(body);
@@ -1913,10 +2488,12 @@ function DeduplicateFirmsModal({
   open,
   onClose,
   onMerged,
+  localScan = null,
 }: {
   open: boolean;
   onClose: () => void;
   onMerged: (result: FirmMergeResult) => void;
+  localScan?: FirmDuplicateScan | null;
 }) {
   const [scan, setScan] = useState<FirmDuplicateScan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1938,6 +2515,18 @@ function DeduplicateFirmsModal({
 
   useEffect(() => {
     if (!open) return;
+    if (localScan) {
+      const needle = dQuery.trim().toLowerCase();
+      const clusters = needle
+        ? localScan.clusters.filter((cluster) => cluster.members.some((member) => member.firm_name.toLowerCase().includes(needle)))
+        : localScan.clusters;
+      setScan({ ...localScan, clusters, total_clusters: clusters.length });
+      setLoaded(clusters.length);
+      setLoading(false);
+      setError(null);
+      setPicks({});
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -1954,7 +2543,7 @@ function DeduplicateFirmsModal({
       setLoaded(res.scan.clusters.length);
     });
     return () => { cancelled = true; };
-  }, [open, run, dQuery]);
+  }, [localScan, open, run, dQuery]);
 
   if (!open) return null;
 
@@ -1985,6 +2574,27 @@ function DeduplicateFirmsModal({
     const mergeIds = pick.checked.filter((id) => id !== primaryId);
     if (mergeIds.length < 1) return;
     const primary = cluster.members.find((member) => member.id === primaryId);
+    if (localScan) {
+      const aliases = cluster.members
+        .filter((member) => mergeIds.includes(member.id))
+        .map((member) => member.firm_name);
+      const row: FirmMergeResult = {
+        primary_id: primaryId,
+        firm_name: primary?.firm_name ?? "Primary firm",
+        aliases,
+        merged_ids: mergeIds,
+      };
+      toast.success(`Kept ${row.firm_name}`, {
+        description: aliases.length ? `Search also matches ${aliases.join(", ")}` : "The other records were merged into this firm.",
+      });
+      setScan((prev) => prev ? {
+        ...prev,
+        total_clusters: Math.max(0, prev.total_clusters - 1),
+        clusters: prev.clusters.filter((item) => item.id !== cluster.id),
+      } : prev);
+      onMerged(row);
+      return;
+    }
     setMergingId(cluster.id);
     const { row, error: mergeError } = await mergeFirmDuplicates(primaryId, mergeIds);
     setMergingId(null);
@@ -2011,6 +2621,16 @@ function DeduplicateFirmsModal({
     const selected = pick?.checked ?? [];
     const firmIds = selected.length >= 2 ? selected : cluster.members.map((member) => member.id);
     if (firmIds.length < 2) return;
+    if (localScan) {
+      const names = cluster.members.filter((member) => firmIds.includes(member.id)).map((member) => member.firm_name);
+      toast.success("Marked as not duplicates", { description: names.slice(0, 4).join(", ") });
+      setScan((prev) => prev ? {
+        ...prev,
+        total_clusters: Math.max(0, prev.total_clusters - 1),
+        clusters: prev.clusters.filter((item) => item.id !== cluster.id),
+      } : prev);
+      return;
+    }
     setDismissingId(cluster.id);
     const { error: dismissError } = await dismissFirmDuplicates(firmIds);
     setDismissingId(null);
@@ -2217,9 +2837,13 @@ function DeduplicateFirmsModal({
 export function AdminFirmRecords({
   focusFirm,
   focusPerson,
+  onOpenCompanyRecord,
+  demoDirectory = null,
 }: {
   focusFirm?: { id: string; name: string } | null;
   focusPerson?: { id: string; name: string } | null;
+  onOpenCompanyRecord?: (companyId: string, companyName: string) => void;
+  demoDirectory?: AdminFirmDemoDirectory | null;
 }) {
   const queryClient = useQueryClient();
   const [recordKind, setRecordKind] = useState<RecordKind>("firm");
@@ -2244,6 +2868,9 @@ export function AdminFirmRecords({
   const [dedupeOpen, setDedupeOpen] = useState(false);
   const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [openingPersonId, setOpeningPersonId] = useState<string | null>(null);
+  const [demoFirms, setDemoFirms] = useState<FirmRow[]>(() => demoDirectory?.firms ?? []);
+  const [demoPeople, setDemoPeople] = useState<PersonDirectoryRow[]>(() => demoDirectory?.people ?? []);
+  const demoMode = demoDirectory != null;
 
   useEffect(() => {
     const t = setTimeout(() => { setDSearch(search); setPage(0); }, 350);
@@ -2257,10 +2884,15 @@ export function AdminFirmRecords({
     setRecordKind("firm");
     setSearch(focusFirm.name);
     setFocusPersonId(null);
+    if (demoMode) {
+      const row = demoFirms.find((firm) => firm.id === focusFirm.id);
+      if (row) setSelected(row);
+      return;
+    }
     void fetchAdminFirmById(focusFirm.id).then((res) => {
       if (res.row) setSelected(res.row);
     });
-  }, [focusFirm]);
+  }, [demoFirms, demoMode, focusFirm]);
 
   useEffect(() => {
     if (!focusPerson?.id) return;
@@ -2272,6 +2904,24 @@ export function AdminFirmRecords({
   }, [focusPerson]);
 
   const loadMetrics = useCallback(async () => {
+    if (demoMode) {
+      const peopleView = recordKind === "person";
+      const list = peopleView ? demoPeople : demoFirms;
+      const live = list.filter((row) => row.ready_for_live).length;
+      const scoreSum = list.reduce((sum, row) => sum + (Number(row.completeness_score) || 0), 0);
+      const latest = list.reduce<string | null>((best, row) => {
+        if (!row.updated_at) return best;
+        if (!best || row.updated_at > best) return row.updated_at;
+        return best;
+      }, null);
+      setTotalCount(list.length);
+      setLiveCount(live);
+      setAvgCompleteness(list.length ? scoreSum / list.length : 0);
+      setLastUpdateAt(latest);
+      setMetricsLoading(false);
+      return;
+    }
+
     const table = recordKind === "person" ? "firm_people" : "firm_records";
     setMetricsLoading(true);
 
@@ -2355,11 +3005,45 @@ export function AdminFirmRecords({
     } finally {
       setMetricsLoading(false);
     }
-  }, [recordKind]);
+  }, [demoFirms, demoMode, demoPeople, recordKind]);
 
   const loadRows = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (demoMode) {
+      const needle = dSearch.trim().toLowerCase();
+      if (recordKind === "person") {
+        const matched = demoPeople.filter((row) => {
+          if (needle) {
+            const hay = [row.full_name, row.title, row.firm_name, row.id].filter(Boolean).join(" ").toLowerCase();
+            if (!hay.includes(needle)) return false;
+          }
+          if (filterEnrich !== "all" && row.enrichment_status !== filterEnrich) return false;
+          if (filterStatus === "live" && !row.ready_for_live) return false;
+          if (filterStatus === "needs_review" && !row.needs_review) return false;
+          if (filterStatus === "archive" && row.is_active) return false;
+          return true;
+        });
+        setPeople(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+        setTotal(matched.length);
+      } else {
+        const matched = demoFirms.filter((row) => {
+          if (needle) {
+            const hay = [row.firm_name, row.slug, row.legal_name, row.id].filter(Boolean).join(" ").toLowerCase();
+            if (!hay.includes(needle)) return false;
+          }
+          if (filterEnrich !== "all" && row.enrichment_status !== filterEnrich) return false;
+          if (filterStatus === "live" && !row.ready_for_live) return false;
+          if (filterStatus === "needs_review" && !row.needs_review) return false;
+          if (filterStatus === "archive" && getFirmAdminStatus(row) !== "archive") return false;
+          return true;
+        });
+        setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+        setTotal(matched.length);
+      }
+      setLoading(false);
+      return;
+    }
     const params: Record<string, string> = { limit: String(PAGE_SIZE), offset: String(page * PAGE_SIZE) };
 
     if (dSearch) params.search = dSearch;
@@ -2391,19 +3075,21 @@ export function AdminFirmRecords({
     }
 
     setLoading(false);
-  }, [dSearch, filterEnrich, filterStatus, page, recordKind]);
+  }, [dSearch, demoFirms, demoMode, demoPeople, filterEnrich, filterStatus, page, recordKind]);
 
   useEffect(() => { loadRows(); }, [loadRows]);
   useEffect(() => { void loadMetrics(); }, [loadMetrics]);
 
   const handleSaved = (updated: FirmRow) => {
     setRows(prev => prev.map(r => r.id === updated.id ? updated : r));
+    if (demoMode) setDemoFirms(prev => prev.map(r => r.id === updated.id ? updated : r));
     setSelected(updated);
     void loadMetrics();
   };
 
   const handleFirmCreated = useCallback(
     (row: FirmRow) => {
+      if (demoMode) setDemoFirms((prev) => [row, ...prev.filter((firm) => firm.id !== row.id)]);
       setRecordKind("firm");
       setPage(0);
       setFocusPersonId(null);
@@ -2411,10 +3097,20 @@ export function AdminFirmRecords({
       void loadRows();
       void loadMetrics();
     },
-    [loadMetrics, loadRows],
+    [demoMode, loadMetrics, loadRows],
   );
 
   const openPerson = useCallback(async (row: PersonDirectoryRow) => {
+    if (demoMode) {
+      const firm = demoFirms.find((item) => item.id === row.firm_id);
+      if (!firm) {
+        toast.error("Could not open this person's firm");
+        return;
+      }
+      setFocusPersonId(row.id);
+      setSelected(firm);
+      return;
+    }
     setOpeningPersonId(row.id);
     const { row: firm, error: firmError } = await fetchAdminFirmById(row.firm_id);
     setOpeningPersonId(null);
@@ -2427,10 +3123,11 @@ export function AdminFirmRecords({
 
     setFocusPersonId(row.id);
     setSelected(firm);
-  }, []);
+  }, [demoFirms, demoMode]);
 
   const handlePersonCreated = useCallback(
     async (row: PersonDirectoryRow) => {
+      if (demoMode) setDemoPeople((prev) => [row, ...prev.filter((person) => person.id !== row.id)]);
       void queryClient.invalidateQueries({ queryKey: ["investor-profile", row.firm_id] });
       void queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] });
       void queryClient.invalidateQueries({ queryKey: ["fallback-firm-people-by-name"] });
@@ -2441,7 +3138,7 @@ export function AdminFirmRecords({
       void loadRows();
       void loadMetrics();
     },
-    [loadMetrics, loadRows, openPerson, queryClient],
+    [demoMode, loadMetrics, loadRows, openPerson, queryClient],
   );
 
   const handleRecordKindChange = (value: string) => {
@@ -2454,6 +3151,45 @@ export function AdminFirmRecords({
 
   const pages = Math.ceil(total / PAGE_SIZE);
   const showingPeople = recordKind === "person";
+  const selectedLinks = useMemo(() => {
+    if (!demoDirectory || !selected) return null;
+    return {
+      funds: demoDirectory.funds.filter((fund) => fund.firm_record_id === selected.id),
+      people: demoPeople.filter((person) => person.firm_id === selected.id),
+      portfolio: demoDirectory.portfolio.filter((company) => company.firm_id === selected.id),
+    };
+  }, [demoDirectory, demoPeople, selected]);
+  const localDuplicateScan = useMemo<FirmDuplicateScan | null>(() => {
+    if (!demoDirectory) return null;
+    const groups = new Map<string, FirmRow[]>();
+    for (const firm of demoFirms) {
+      const key = firm.firm_name.toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\b(capital|ventures|venture|partners|partner)\b/g, "").trim();
+      const bucket = groups.get(key) ?? [];
+      bucket.push(firm);
+      groups.set(key, bucket);
+    }
+    const clusters = [...groups.entries()]
+      .filter(([, members]) => members.length > 1)
+      .map(([key, members]) => ({
+        id: `demo-cluster-${key.replace(/\s+/g, "-") || "names"}`,
+        member_count: members.length,
+        members: members.map((firm) => ({
+          id: firm.id,
+          firm_name: firm.firm_name,
+          legal_name: firm.legal_name,
+          website_url: firm.website_url,
+          aliases: firm.aliases ?? [],
+          completeness_score: firm.completeness_score,
+          ready_for_live: firm.ready_for_live,
+        })),
+      }));
+    return {
+      scanned: demoFirms.length,
+      total_clusters: clusters.length,
+      skipped_large: 0,
+      clusters,
+    };
+  }, [demoDirectory, demoFirms]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -2726,14 +3462,23 @@ export function AdminFirmRecords({
         </div>
       )}
 
-      <AddFirmModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleFirmCreated} />
+      <AddFirmModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleFirmCreated} demoMode={demoMode} />
       <DeduplicateFirmsModal
         open={dedupeOpen}
         onClose={() => setDedupeOpen(false)}
+        localScan={localDuplicateScan}
         onMerged={(result) => {
           if (selected && result.merged_ids.includes(selected.id)) {
             setSelected(null);
             setFocusPersonId(null);
+          }
+          if (demoMode) {
+            setDemoFirms((prev) => prev.filter((firm) => !result.merged_ids.includes(firm.id)));
+            setDemoPeople((prev) => prev.map((person) => (
+              result.merged_ids.includes(person.firm_id)
+                ? { ...person, firm_id: result.primary_id, firm_name: result.firm_name }
+                : person
+            )));
           }
           void queryClient.invalidateQueries({ queryKey: ["investor-directory"] });
           void queryClient.invalidateQueries({ queryKey: ["investor-profile-name"] });
@@ -2741,7 +3486,13 @@ export function AdminFirmRecords({
           void loadMetrics();
         }}
       />
-      <AddPersonModal open={addPersonOpen} onClose={() => setAddPersonOpen(false)} onCreated={handlePersonCreated} />
+      <AddPersonModal
+        open={addPersonOpen}
+        onClose={() => setAddPersonOpen(false)}
+        onCreated={handlePersonCreated}
+        demoFirms={demoMode ? demoFirms : null}
+        demoFunds={demoMode ? demoDirectory?.funds ?? [] : null}
+      />
 
       {/* slide-in edit panel */}
       {selected && (
@@ -2750,6 +3501,8 @@ export function AdminFirmRecords({
           row={selected}
           initialTab={focusPersonId ? "people" : "profile"}
           focusPersonId={focusPersonId}
+          sampleLinks={selectedLinks}
+          onOpenCompanyRecord={onOpenCompanyRecord}
           onClose={() => { setSelected(null); setFocusPersonId(null); }}
           onSaved={handleSaved}
         />

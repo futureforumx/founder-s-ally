@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 
-interface SyncLog {
+export interface SyncLog {
   id: string;
   provider: string;
   status: "SUCCESS" | "FAILED";
@@ -34,15 +34,17 @@ const LOG_STATUSES = [
   { value: "FAILED", label: "Failed" },
 ] as const;
 
-const LOG_SERVICES = [
-  { value: "all", label: "All" },
-  ...Array.from(new Set(MOCK_LOGS.map((log) => log.provider))).map((provider) => ({
-    value: provider,
-    label: provider,
-  })),
-];
-
-export function AdminSyncLogs() {
+export function AdminSyncLogs({ entries = MOCK_LOGS }: { entries?: SyncLog[] } = {}) {
+  const services = useMemo(
+    () => [
+      { value: "all", label: "All" },
+      ...Array.from(new Set(entries.map((log) => log.provider))).map((provider) => ({
+        value: provider,
+        label: provider,
+      })),
+    ],
+    [entries],
+  );
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [service, setService] = useState("all");
@@ -52,7 +54,7 @@ export function AdminSyncLogs() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
 
-    return MOCK_LOGS.filter((log) => {
+    return entries.filter((log) => {
       if (status !== "all" && log.status !== status) return false;
 
       if (service !== "all" && log.provider !== service) return false;
@@ -61,13 +63,13 @@ export function AdminSyncLogs() {
 
       return log.provider.toLowerCase().includes(q) || log.status.toLowerCase().includes(q) || log.id.toLowerCase().includes(q);
     });
-  }, [search, service, status]);
+  }, [entries, search, service, status]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      toast.success("Sync logs refreshed", { description: `${MOCK_LOGS.length} records loaded` });
+      toast.success("Sync logs refreshed", { description: `${entries.length} records loaded` });
     }, 1200);
   };
 
@@ -106,7 +108,7 @@ export function AdminSyncLogs() {
           label="Service"
           icon={Server}
           value={service}
-          options={LOG_SERVICES}
+          options={services}
           onValueChange={setService}
         />
       </div>

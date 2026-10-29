@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAdmin } from "@/hooks/useAppAdmin";
@@ -6,6 +6,7 @@ import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import {
   Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
+  TicketCheck, MessageSquareText,
 } from "lucide-react";
 import { AdminOverview } from "@/components/admin/AdminOverview";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
@@ -19,6 +20,8 @@ import { AdminMarketIntelligence } from "@/components/admin/AdminMarketIntellige
 import { AdminFreshCapital } from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage } from "@/components/admin/AdminAiAgentsToolPage";
 import { AdminWaitlist } from "@/components/admin/AdminWaitlist";
+import { AdminReferralCodes } from "@/components/admin/AdminReferralCodes";
+import { AdminReviews } from "@/components/admin/AdminReviews";
 import { AdminOnboarding } from "@/components/admin/AdminOnboarding";
 import {
   DropdownMenu,
@@ -28,12 +31,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { loadDemoAnalyticsPayload } from "@/pages/test-admin/dummyAnalytics";
 import { loadDemoOnboardingAnalytics, loadDemoUserDirectory, loadDemoWaitlistApplicants } from "@/pages/test-admin/dummyDirectory";
+import {
+  DEMO_AI_AGENTS_PAGE,
+  DEMO_AI_DENSITY,
+  DEMO_AI_SNIPPETS,
+  DEMO_API_PROVIDERS,
+  DEMO_OVERVIEW_STATS,
+  loadDemoFirmDirectory,
+  loadDemoFreshCapital,
+  loadDemoMarketCatalog,
+  loadDemoRecordUpdates,
+  loadDemoReferralCodes,
+  loadDemoReviews,
+  loadDemoSyncLogs,
+} from "@/pages/test-admin/dummyPlatform";
 
 const NAV_ITEMS = [
   { key: "overview", label: "Overview", icon: Activity },
   { key: "analytics", label: "Analytics", icon: LineChart },
+  { key: "reviews", label: "Reviews & Scores", icon: MessageSquareText },
   { key: "users", label: "Users", icon: Users },
   { key: "waitlist", label: "Waitlist", icon: ClipboardCheck },
+  { key: "referral-codes", label: "Referral Codes", icon: TicketCheck },
   { key: "firm-records", label: "Investor Records", icon: UserRound },
   { key: "market-intel", label: "Market Intel", icon: BarChart2 },
   { key: "fresh-capital", label: "Fresh Capital", icon: Flag },
@@ -68,8 +87,19 @@ export default function TestAdmin() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { isAppAdmin, loading: adminLoading } = useAppAdmin();
-  const [activeView, setActiveView] = useState<AdminView>("analytics");
+  const [activeView, setActiveView] = useState<AdminView>("overview");
   const [systemStatus, setSystemStatus] = useState<SystemStatusId>("normal");
+  const [focusFirm, setFocusFirm] = useState<{ id: string; name: string } | null>(null);
+  const [focusPerson, setFocusPerson] = useState<{ id: string; name: string } | null>(null);
+  const [focusCompany, setFocusCompany] = useState<{ id: string; name: string } | null>(null);
+  const [focusUserEmail, setFocusUserEmail] = useState<string | undefined>();
+  const directory = useMemo(() => loadDemoFirmDirectory(), []);
+  const catalog = useMemo(() => loadDemoMarketCatalog(), []);
+  const freshCapital = useMemo(() => loadDemoFreshCapital(directory), [directory]);
+  const reviews = useMemo(() => loadDemoReviews(directory), [directory]);
+  const recordUpdates = useMemo(() => loadDemoRecordUpdates(directory, catalog), [catalog, directory]);
+  const referralCodes = useMemo(() => loadDemoReferralCodes(), []);
+  const syncLogs = useMemo(() => loadDemoSyncLogs(), []);
   const mainRef = useRef<HTMLElement>(null);
   const status = SYSTEM_STATUSES.find((item) => item.id === systemStatus) ?? SYSTEM_STATUSES[0];
 
@@ -129,7 +159,7 @@ export default function TestAdmin() {
                 }}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
@@ -181,20 +211,64 @@ export default function TestAdmin() {
       </aside>
 
       <main ref={mainRef} className="relative flex-1 overflow-y-auto px-8 pb-8">
-        {activeView === "overview" && <AdminOverview onNavigate={openView} />}
+        {activeView === "overview" && <AdminOverview onNavigate={openView} stats={DEMO_OVERVIEW_STATS} />}
         {activeView === "analytics" && (
-          <AdminAnalytics loadPayload={loadDemoAnalyticsPayload} />
+          <AdminAnalytics
+            loadPayload={loadDemoAnalyticsPayload}
+            onOpenFirmRecord={(id, name) => {
+              setFocusPerson(null);
+              setFocusCompany(null);
+              setFocusFirm({ id, name });
+              openView("firm-records");
+            }}
+            onOpenPersonRecord={(id, name) => {
+              setFocusFirm(null);
+              setFocusCompany(null);
+              setFocusPerson({ id, name });
+              openView("firm-records");
+            }}
+            onOpenCompanyRecord={(id, name) => {
+              setFocusFirm(null);
+              setFocusPerson(null);
+              setFocusCompany({ id, name });
+              openView("market-intel");
+            }}
+          />
         )}
-        {activeView === "users" && <AdminUserManagement loadDirectory={loadDemoUserDirectory} />}
+        {activeView === "reviews" && (
+          <AdminReviews
+            sampleRatings={reviews}
+            onOpenUser={(email) => {
+              setFocusUserEmail(email);
+              openView("users");
+            }}
+          />
+        )}
+        {activeView === "users" && (
+          <AdminUserManagement loadDirectory={loadDemoUserDirectory} initialSearch={focusUserEmail} />
+        )}
         {activeView === "waitlist" && <AdminWaitlist loadApplicants={loadDemoWaitlistApplicants} />}
-        {activeView === "firm-records" && <AdminFirmRecords />}
-        {activeView === "market-intel" && <AdminMarketIntelligence />}
-        {activeView === "fresh-capital" && <AdminFreshCapital onNavigate={openView} />}
-        {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
-        {activeView === "record-updates" && <AdminRecordUpdates />}
-        {activeView === "api-health" && <AdminApiHealth />}
-        {activeView === "sync-logs" && <AdminSyncLogs />}
-        {activeView === "ai-debugger" && <AdminAiDebugger />}
+        {activeView === "referral-codes" && <AdminReferralCodes sampleCodes={referralCodes} />}
+        {activeView === "firm-records" && (
+          <AdminFirmRecords focusFirm={focusFirm} focusPerson={focusPerson} demoDirectory={directory} />
+        )}
+        {activeView === "market-intel" && (
+          <AdminMarketIntelligence focusCompany={focusCompany} demoCatalog={catalog} />
+        )}
+        {activeView === "fresh-capital" && (
+          <AdminFreshCapital onNavigate={openView} demoFunds={freshCapital.funds} demoDeals={freshCapital.deals} />
+        )}
+        {activeView === "ai-agents-page" && <AdminAiAgentsToolPage sample={DEMO_AI_AGENTS_PAGE} />}
+        {activeView === "record-updates" && (
+          <AdminRecordUpdates
+            sampleUpdates={recordUpdates}
+            demoDirectory={directory}
+            sampleCompanies={catalog.companies}
+          />
+        )}
+        {activeView === "api-health" && <AdminApiHealth providers={DEMO_API_PROVIDERS} />}
+        {activeView === "sync-logs" && <AdminSyncLogs entries={syncLogs} />}
+        {activeView === "ai-debugger" && <AdminAiDebugger density={DEMO_AI_DENSITY} snippets={DEMO_AI_SNIPPETS} />}
         {activeView === "onboarding" && <AdminOnboarding loadOnboardingAnalytics={loadDemoOnboardingAnalytics} />}
       </main>
     </div>

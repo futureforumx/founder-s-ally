@@ -14,6 +14,22 @@ export const COMPANY_FUNDING_ROUND_TYPES = [
 
 const ALLOWED = new Set<string>(COMPANY_FUNDING_ROUND_TYPES);
 
+function normalizeRoundType(value: string): string {
+  const key = value.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  const aliases: Record<string, string> = {
+    angel: "Angel",
+    accelerator: "Accelerator",
+    "pre seed": "Pre-Seed",
+    preseed: "Pre-Seed",
+    seed: "Seed",
+    "series a": "Series A",
+    "series b": "Series B",
+    "series c": "Series C",
+    growth: "Growth",
+  };
+  return aliases[key] ?? value.trim();
+}
+
 export type CompanyFundingRoundRow = {
   id: string;
   startup_id: string;
@@ -90,24 +106,21 @@ export async function saveCompanyFundingRounds(
   for (const raw of body.rounds) {
     if (!raw || typeof raw !== "object") return { error: "Each round must be an object", status: 400 };
     const rec = raw as Record<string, unknown>;
-    const roundType = typeof rec.round_type === "string" ? rec.round_type.trim() : "";
+    const roundType = typeof rec.round_type === "string" ? normalizeRoundType(rec.round_type) : "";
     if (!roundType) continue;
     if (!ALLOWED.has(roundType)) return { error: `Unknown round: ${roundType}`, status: 400 };
-    if (rec.amount_usd != null && rec.amount_usd !== "") {
-      const amount = asUsd(rec.amount_usd);
-      if (amount == null || amount < 0) return { error: "Money raised must be zero or greater", status: 400 };
-      cleaned.push({
-        id: typeof rec.id === "string" && isUuid(rec.id) ? rec.id : null,
-        round_type: roundType,
-        amount_usd: amount,
-      });
-    } else {
-      cleaned.push({
-        id: typeof rec.id === "string" && isUuid(rec.id) ? rec.id : null,
-        round_type: roundType,
-        amount_usd: null,
-      });
+    const id = typeof rec.id === "string" && isUuid(rec.id) ? rec.id : null;
+    const duplicate = cleaned.find((row) => row.round_type === roundType);
+    const amount = rec.amount_usd == null || rec.amount_usd === "" ? null : asUsd(rec.amount_usd);
+    if (rec.amount_usd != null && rec.amount_usd !== "" && (amount == null || amount < 0)) {
+      return { error: "Money raised must be zero or greater", status: 400 };
     }
+    if (duplicate) {
+      if (!duplicate.id && id) duplicate.id = id;
+      if (duplicate.amount_usd == null && amount != null) duplicate.amount_usd = amount;
+      continue;
+    }
+    cleaned.push({ id, round_type: roundType, amount_usd: amount });
   }
 
   const { data: existing, error: existingErr } = await db
@@ -163,6 +176,21 @@ export async function saveCompanyFundingRounds(
       .delete()
       .eq("startup_id", startupId)
       .in("id", drop);
+    if (error) return { error: error.message, status: 500 };
+  }
+
+  // Mirror the newest admin-entered round onto the canonical company record.
+  // The editor's submitted order is the round order and is persisted as sort_order.
+  const latestRound = cleaned.at(-1) ?? null;
+  if (latestRound) {
+    const { error } = await db
+      .from("startups")
+      .update({
+        last_round_type: latestRound.round_type,
+        last_round_size_usd: latestRound.amount_usd,
+        updated_at: now,
+      })
+      .eq("id", startupId);
     if (error) return { error: error.message, status: 500 };
   }
 

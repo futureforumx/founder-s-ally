@@ -6,7 +6,7 @@ import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import {
   Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
-  TicketCheck,
+  TicketCheck, MessageSquareText,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminAnalytics }          from "@/components/admin/AdminAnalytics";
@@ -21,6 +21,7 @@ import { AdminFreshCapital }       from "@/components/admin/AdminFreshCapital";
 import { AdminAiAgentsToolPage }   from "@/components/admin/AdminAiAgentsToolPage";
 import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
 import { AdminReferralCodes }      from "@/components/admin/AdminReferralCodes";
+import { AdminReviews }            from "@/components/admin/AdminReviews";
 import { AdminOnboarding }         from "@/components/admin/AdminOnboarding";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ import {
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
+  { key: "reviews",        label: "Reviews & Scores", icon: MessageSquareText },
   { key: "users",          label: "Users",           icon: Users      },
   { key: "waitlist",       label: "Waitlist",         icon: ClipboardCheck },
   { key: "referral-codes", label: "Referral Codes",   icon: TicketCheck },
@@ -98,6 +100,7 @@ export default function AdminIntelligence() {
   const [focusFirm, setFocusFirm] = useState<{ id: string; name: string } | null>(null);
   const [focusPerson, setFocusPerson] = useState<{ id: string; name: string } | null>(null);
   const [focusCompany, setFocusCompany] = useState<{ id: string; name: string } | null>(null);
+  const [focusUserEmail, setFocusUserEmail] = useState<string | undefined>();
   const mainRef = useRef<HTMLElement>(null);
   const status = SYSTEM_STATUSES.find((item) => item.id === systemStatus) ?? SYSTEM_STATUSES[0];
 
@@ -230,10 +233,20 @@ export default function AdminIntelligence() {
             }}
           />
         )}
-        {activeView === "users"          && <AdminUserManagement />}
+        {activeView === "reviews"        && <AdminReviews onOpenUser={(email) => { setFocusUserEmail(email); openView("users"); }} />}
+        {activeView === "users"          && <AdminUserManagement initialSearch={focusUserEmail} />}
         {activeView === "waitlist"       && <AdminWaitlist />}
         {activeView === "referral-codes" && <AdminReferralCodes />}
-        {activeView === "firm-records"   && <AdminFirmRecords focusFirm={focusFirm} focusPerson={focusPerson} />}
+        {activeView === "firm-records"   && <AdminFirmRecords
+          focusFirm={focusFirm}
+          focusPerson={focusPerson}
+          onOpenCompanyRecord={(id, name) => {
+            setFocusFirm(null);
+            setFocusPerson(null);
+            setFocusCompany({ id, name });
+            openView("market-intel");
+          }}
+        />}
         {activeView === "market-intel"   && <AdminMarketIntelligence focusCompany={focusCompany} />}
         {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={openView} />}
         {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}

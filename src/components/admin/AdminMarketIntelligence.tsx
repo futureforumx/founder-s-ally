@@ -29,6 +29,8 @@ import {
   type MoneyRaisedUnit,
 } from "@/lib/moneyRaisedAmount";
 import { totalRaisedFromFundingRounds } from "@/lib/totalRaisedFromFundingRounds";
+import { isTestAdminSampleId } from "@/lib/testAdminSample";
+import { CurrencyNumberInput, CurrencyStringInput, parseCurrencyAmount } from "@/components/admin/CurrencyInputs";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -100,7 +102,7 @@ type TabKey = "companies" | "founders" | "operators";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type CompanyRow = {
+export type CompanyRow = {
   id: string;
   company_name: string;
   company_url: string | null;
@@ -127,7 +129,7 @@ type CompanyRow = {
   created_at: string;
 };
 
-type FounderRow = {
+export type FounderRow = {
   id: string;
   full_name: string;
   role: string | null;
@@ -152,7 +154,7 @@ type FounderRow = {
   operator_country?: string | null;
 };
 
-type OperatorRow = {
+export type OperatorRow = {
   id: string;
   full_name: string;
   title: string | null;
@@ -415,6 +417,16 @@ function TF({ label, value, onChange, type = "text", placeholder }: {
   );
 }
 
+function CTF({ label, value, onChange, placeholder }: {
+  label: string; value: string | null; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <FL label={label}>
+      <CurrencyStringInput className={IC} style={IS} focusStyle={IF} value={value} onChange={onChange} placeholder={placeholder} />
+    </FL>
+  );
+}
+
 function NF({ label, value, onChange }: {
   label: string; value: number | null; onChange: (v: number | null) => void;
 }) {
@@ -427,6 +439,16 @@ function NF({ label, value, onChange }: {
         onFocus={e => Object.assign(e.currentTarget.style, IF)}
         onBlur={e  => Object.assign(e.currentTarget.style, IS)}
       />
+    </FL>
+  );
+}
+
+function CNF({ label, value, onChange }: {
+  label: string; value: number | null; onChange: (v: number | null) => void;
+}) {
+  return (
+    <FL label={label}>
+      <CurrencyNumberInput className={IC} style={IS} focusStyle={IF} value={value} onChange={onChange} />
     </FL>
   );
 }
@@ -489,7 +511,14 @@ function MoneyRaisedField({ label, value, onChange }: {
             const editing = e.currentTarget === document.activeElement;
             focusedRef.current = editing;
             if (editing) setFocused(true);
-            publish(sanitizeMoneyRaisedInput(raw), unit);
+            const parsed = parseCurrencyAmount(raw);
+            if (parsed.valid && parsed.suffix && parsed.amount != null) {
+              const nextUnit: MoneyRaisedUnit = parsed.suffix === "k" ? "K" : "M";
+              const divisor = nextUnit === "K" ? 1_000 : 1_000_000;
+              publish(String(parsed.amount / divisor), nextUnit);
+            } else {
+              publish(sanitizeMoneyRaisedInput(raw), unit);
+            }
           }}
           onFocus={(e) => {
             focusedRef.current = true;
@@ -852,6 +881,29 @@ const FUNDING_ROUND_OPTIONS = [
   { value: "Growth", label: "Growth" },
 ] as const;
 
+const FUNDING_ROUND_ALIASES: Record<string, string> = {
+  angel: "Angel",
+  accelerator: "Accelerator",
+  "pre seed": "Pre-Seed",
+  preseed: "Pre-Seed",
+  seed: "Seed",
+  "series a": "Series A",
+  "series b": "Series B",
+  "series c": "Series C",
+  growth: "Growth",
+};
+
+function normalizeFundingRoundName(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  return FUNDING_ROUND_ALIASES[key] ?? raw;
+}
+
+function fundingRoundKey(value: string | null | undefined): string {
+  return (normalizeFundingRoundName(value) ?? "").toLowerCase();
+}
+
 type FundingRoundDraft = {
   key: string;
   id: string | null;
@@ -864,7 +916,18 @@ function blankFundingRound(): FundingRoundDraft {
 }
 
 function normalizeFundingRounds(rows: FundingRoundDraft[]): FundingRoundDraft[] {
-  const filled = rows.filter((row) => row.round_type);
+  const filledByRound = new Map<string, FundingRoundDraft>();
+  for (const row of rows) {
+    const canonical = normalizeFundingRoundName(row.round_type);
+    if (!canonical) continue;
+    const key = fundingRoundKey(canonical);
+    const existing = filledByRound.get(key);
+    if (!existing) filledByRound.set(key, { ...row, round_type: canonical });
+    else if (existing.amount_usd == null && row.amount_usd != null) {
+      filledByRound.set(key, { ...existing, amount_usd: row.amount_usd });
+    }
+  }
+  const filled = [...filledByRound.values()];
   const empties = rows.filter((row) => !row.round_type);
   const pending = empties.length ? empties[empties.length - 1] : blankFundingRound();
   return [...filled, pending];
@@ -894,6 +957,25 @@ type FirmHit = { id: string; firm_name: string | null };
 type PersonHit = { id: string; full_name: string | null; firm_id: string | null; title: string | null; firm_name?: string | null };
 
 async function loadCompanyInvestorLinks(startupId: string): Promise<{ rows: InvestorLinkRow[]; error?: string }> {
+  if (isTestAdminSampleId(startupId)) {
+    return {
+      rows: [
+        {
+          id: `${startupId}-link`,
+          firm_id: "demo-sequoia",
+          firm_name: "Sequoia Capital",
+          firm_investor_id: "demo-botha",
+          investor_name: "Roelof Botha",
+          investor_title: "Partner",
+          round_name: "Series A",
+          amount_usd: 18_000_000,
+          amount_label: "$18M",
+          portfolio_note: "Led the round after a partner meeting.",
+          led_round: true,
+        },
+      ],
+    };
+  }
   if (!SUPABASE_URL) return { rows: [], error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -902,13 +984,19 @@ async function loadCompanyInvestorLinks(startupId: string): Promise<{ rows: Inve
     );
     const json = await res.json().catch(() => ({})) as { rows?: InvestorLinkRow[]; error?: string };
     if (!res.ok) return { rows: [], error: json.error ?? `HTTP ${res.status}` };
-    return { rows: json.rows ?? [] };
+    return {
+      rows: (json.rows ?? []).map((row) => ({
+        ...row,
+        round_name: normalizeFundingRoundName(row.round_name),
+      })),
+    };
   } catch (e: unknown) {
     return { rows: [], error: String(e) };
   }
 }
 
 async function unlinkCompanyInvestor(body: Record<string, unknown>): Promise<{ error?: string }> {
+  if (isTestAdminSampleId(String(body.startup_id ?? ""))) return {};
   if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -931,6 +1019,14 @@ type StoredFundingRound = {
 };
 
 async function loadCompanyFundingRounds(startupId: string): Promise<{ rows: StoredFundingRound[]; error?: string }> {
+  if (isTestAdminSampleId(startupId)) {
+    return {
+      rows: [
+        { id: `${startupId}-seed`, round_type: "seed", amount_usd: 4_500_000, sort_order: 0 },
+        { id: `${startupId}-a`, round_type: "series_a", amount_usd: 18_000_000, sort_order: 1 },
+      ],
+    };
+  }
   if (!SUPABASE_URL) return { rows: [], error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -949,6 +1045,16 @@ async function saveCompanyFundingRounds(
   startupId: string,
   rounds: FundingRoundDraft[],
 ): Promise<{ rows: StoredFundingRound[]; error?: string }> {
+  if (isTestAdminSampleId(startupId)) {
+    return {
+      rows: rounds.filter((row) => row.round_type).map((row, index) => ({
+        id: row.id ?? `${startupId}-round-${index}`,
+        round_type: row.round_type,
+        amount_usd: row.amount_usd,
+        sort_order: index,
+      })),
+    };
+  }
   if (!SUPABASE_URL) return { rows: [], error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -998,6 +1104,7 @@ async function createFirmInvestor(body: { firm_id: string; full_name: string; ti
 }
 
 async function saveCompanyInvestorLink(body: Record<string, unknown>): Promise<{ created?: boolean; error?: string }> {
+  if (isTestAdminSampleId(String(body.startup_id ?? ""))) return { created: true };
   if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -1271,9 +1378,11 @@ function enteredFundingRoundTypes(rounds: FundingRoundDraft[]): string[] {
   const seen = new Set<string>();
   const types: string[] = [];
   for (const row of rounds) {
-    if (!row.round_type || seen.has(row.round_type)) continue;
-    seen.add(row.round_type);
-    types.push(row.round_type);
+    const canonical = normalizeFundingRoundName(row.round_type);
+    const key = fundingRoundKey(canonical);
+    if (!canonical || seen.has(key)) continue;
+    seen.add(key);
+    types.push(canonical);
   }
   return types;
 }
@@ -1291,24 +1400,29 @@ function LedRoundControl({
 }) {
   const checked = Boolean(firmId) && ledFirmId === firmId;
   return (
-    <label
-      className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-[12px]"
-      style={{ color: "rgba(255,255,255,0.8)" }}
-      onClick={(e) => {
-        e.preventDefault();
+    <button
+      type="button"
+      aria-pressed={checked}
+      aria-label={`${checked ? "Unmark" : "Mark"} ${round} as led by this firm`}
+      className="ml-auto inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded px-1.5 text-[12px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+      style={{
+        color: checked ? "#2EE6A6" : "rgba(255,255,255,0.8)",
+        background: checked ? "rgba(46,230,166,0.08)" : "transparent",
+      }}
+      onClick={() => {
         if (!firmId) { toast.error("Pick a firm first"); return; }
         onLead(round, !checked);
       }}
     >
-      <input
-        type="radio"
-        name={`led-round-${round}`}
-        checked={checked}
-        onChange={() => { /* selection is controlled so a chosen lead can be cleared */ }}
-        style={{ accentColor: "#5B5CFF" }}
-      />
+      <span
+        aria-hidden="true"
+        className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border"
+        style={{ borderColor: checked ? "#2EE6A6" : "rgba(255,255,255,0.45)" }}
+      >
+        {checked && <span className="h-1.5 w-1.5 rounded-full" style={{ background: "#2EE6A6" }} />}
+      </span>
       Led Round
-    </label>
+    </button>
   );
 }
 
@@ -1438,7 +1552,7 @@ function investorLinkGroups(rows: InvestorLinkRow[]): InvestorLinkRow[][] {
 }
 
 function linkTargetKey(firmInvestorId: string | null, roundName: string | null): string {
-  return `${firmInvestorId ?? ""}|${(roundName ?? "").trim().toLowerCase()}`;
+  return `${firmInvestorId ?? ""}|${fundingRoundKey(roundName)}`;
 }
 
 function InvestorLinkCard({
@@ -1457,15 +1571,15 @@ function InvestorLinkCard({
   onSaved: () => void;
 }) {
   const link = links[0];
-  const savedRounds = [...new Set(links.map((item) => item.round_name).filter((name): name is string => Boolean(name)))];
-  const signature = links.map((item) => `${item.id ?? ""}:${item.firm_investor_id ?? ""}:${item.round_name ?? ""}:${item.led_round ? 1 : 0}`).join("|");
+  const savedRounds = [...new Set(links.map((item) => normalizeFundingRoundName(item.round_name)).filter((name): name is string => Boolean(name)))];
+  const signature = links.map((item) => `${item.id ?? ""}:${item.firm_investor_id ?? ""}:${fundingRoundKey(item.round_name)}:${item.led_round ? 1 : 0}`).join("|");
   const [rounds, setRounds] = useState<string[]>(savedRounds);
   const [people, setPeople] = useState<CardPerson[]>(() => peopleFromLinks(links));
   const [saving, setSaving] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
 
   useEffect(() => {
-    setRounds([...new Set(links.map((item) => item.round_name).filter((name): name is string => Boolean(name)))]);
+    setRounds([...new Set(links.map((item) => normalizeFundingRoundName(item.round_name)).filter((name): name is string => Boolean(name)))]);
     setPeople(peopleFromLinks(links));
     // signature is the saved link identity. Depending on `links` would reset in-progress edits on every parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1796,7 +1910,7 @@ function CompanyInvestors({ startupId, fundingRounds }: {
     setRows(result.rows);
     const next: Record<string, string> = {};
     for (const row of result.rows) {
-      if (row.led_round && row.round_name) next[row.round_name] = row.firm_id;
+      if (row.led_round && row.round_name) next[normalizeFundingRoundName(row.round_name) ?? row.round_name] = row.firm_id;
     }
     setLeadByRound(next);
   }, [startupId]);
@@ -1879,6 +1993,13 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      const updated = { ...d, updated_at: new Date().toISOString() };
+      toast.success("Company saved in the test console");
+      onSaved(updated);
+      setSaving(false);
+      return;
+    }
     const { id, created_at, updated_at, ...patch } = d;
     delete patch.location;
     patch.sector = patch.sector?.trim() || null;
@@ -1887,6 +2008,11 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
     patch.hq_city = patch.hq_city?.trim() || null;
     patch.hq_state = patch.hq_state?.trim() || null;
     patch.hq_country = patch.hq_country?.trim() || null;
+    // These URL fields are editable company-record data. Normalize them explicitly
+    // so empty inputs clear the stored value and the canonical website column is sent.
+    patch.company_url = patch.company_url?.trim() || null;
+    patch.linkedin_url = patch.linkedin_url?.trim() || null;
+    patch.x_url = patch.x_url?.trim() || null;
     patch.record_status = normalizeRecordStatus(patch.record_status);
     const persistCalculatedTotal = row.total_raised_usd == null && !totalRaisedManualRef.current;
     if (persistCalculatedTotal) {
@@ -1993,7 +2119,7 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
 
       <Sect title="Metrics" />
       <div className="grid grid-cols-2 gap-3">
-        <NF label="Total Raised (USD)" value={d.total_raised_usd} onChange={setTotalRaised} />
+        <CNF label="Total Raised (USD)" value={d.total_raised_usd} onChange={setTotalRaised} />
         <NF label="Headcount"          value={d.headcount}        onChange={v => set("headcount", v)} />
         <NF label="Founded Year"       value={d.founded_year}     onChange={v => set("founded_year", v)} />
       </div>
@@ -2009,15 +2135,22 @@ export function AdminStartupEditor({
   startupId,
   onClose,
   onSaved,
+  sampleRow = null,
 }: {
   startupId: string;
   onClose: () => void;
   onSaved: (row: CompanyRow) => void;
+  sampleRow?: CompanyRow | null;
 }) {
   const [row, setRow] = useState<CompanyRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (sampleRow?.id === startupId) {
+      setRow(sampleRow);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setRow(null);
     setError(null);
@@ -2032,7 +2165,7 @@ export function AdminStartupEditor({
     return () => {
       cancelled = true;
     };
-  }, [startupId]);
+  }, [sampleRow, startupId]);
 
   if (error) {
     return (
@@ -2075,6 +2208,12 @@ function FounderEditPanel({ row, onClose, onSaved }: {
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      toast.success("Founder saved in the test console");
+      onSaved({ ...d, updated_at: new Date().toISOString() });
+      setSaving(false);
+      return;
+    }
     if (row.source === "operator_profiles") {
       const locationChanged = (d.location ?? "") !== (row.location ?? "");
       const patch: Record<string, unknown> = {
@@ -2145,6 +2284,12 @@ function OperatorEditPanel({ row, onClose, onSaved }: {
 
   const handleSave = async () => {
     setSaving(true);
+    if (isTestAdminSampleId(row.id)) {
+      toast.success("Operator saved in the test console");
+      onSaved({ ...d, updated_at: new Date().toISOString() });
+      setSaving(false);
+      return;
+    }
     const { id, created_at, updated_at, ...patch } = d;
     const { row: u, error } = await patchRow<OperatorRow>("operators", row.id, patch);
     setSaving(false);
@@ -2329,8 +2474,10 @@ function MetricsTiles({
 
 function CompaniesTab({
   focusCompany = null,
+  demoCompanies = null,
 }: {
   focusCompany?: { id: string; name: string } | null;
+  demoCompanies?: CompanyRow[] | null;
 }) {
   const COL = "2fr 1fr 1fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<CompanyRow[]>([]);
@@ -2348,6 +2495,19 @@ function CompaniesTab({
   const [selected, setSelected] = useState<CompanyRow | null>(null);
 
   const load = useCallback(async () => {
+    if (demoCompanies) {
+      const needle = search.trim().toLowerCase();
+      const matched = demoCompanies.filter((row) => {
+        if (stage !== "all" && row.stage !== stage) return false;
+        if (!needle) return true;
+        return row.company_name.toLowerCase().includes(needle) || (row.company_url ?? "").toLowerCase().includes(needle);
+      });
+      setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+      setTotal(matched.length);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true); setError(null);
     const { rows: r, total: t, error: e } = await fetchRows<CompanyRow>("companies", {
       page, search, filter: { stage },
@@ -2355,9 +2515,30 @@ function CompaniesTab({
     setLoading(false);
     if (e) { setError(e); return; }
     setRows(r); setTotal(t);
-  }, [page, search, stage]);
+  }, [demoCompanies, page, search, stage]);
 
   const loadMetrics = useCallback(async () => {
+    if (demoCompanies) {
+      setTotalCompanies(demoCompanies.length);
+      setLiveCompanies(demoCompanies.filter((row) => isActiveCompanyStatus(row.status)).length);
+      let completenessSum = 0;
+      let maxUpdatedAt: string | null = null;
+      for (const row of demoCompanies) {
+        const hasHq = hasValue(row.location) || hasValue(row.hq_city) || hasValue(row.hq_state) || hasValue(row.hq_country);
+        const scoreFields = [
+          hasValue(row.company_url), hasValue(row.description_short), hasValue(row.description_long),
+          hasValue(row.sector), hasValue(row.stage), hasValue(row.status), hasHq,
+          row.total_raised_usd != null, row.headcount != null, hasValue(row.yc_batch),
+          hasValue(row.linkedin_url), hasValue(row.x_url), row.founded_year != null,
+        ];
+        completenessSum += (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+        if (row.updated_at && (!maxUpdatedAt || row.updated_at > maxUpdatedAt)) maxUpdatedAt = row.updated_at;
+      }
+      setAvgCompleteness(demoCompanies.length ? completenessSum / demoCompanies.length : 0);
+      setLastUpdateAt(maxUpdatedAt);
+      setMetricsLoading(false);
+      return;
+    }
     setMetricsLoading(true);
     try {
       const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<CompanyRow>("companies", {
@@ -2412,7 +2593,7 @@ function CompaniesTab({
     } finally {
       setMetricsLoading(false);
     }
-  }, []);
+  }, [demoCompanies]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { void loadMetrics(); }, [loadMetrics]);
@@ -2539,7 +2720,7 @@ function CompaniesTab({
 
 // ── Founders Tab ───────────────────────────────────────────────────────────────
 
-function FoundersTab() {
+function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | null }) {
   const COL = "2fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<FounderRow[]>([]);
   const [total, setTotal]       = useState(0);
@@ -2577,6 +2758,10 @@ function FoundersTab() {
   const pagePastStartup = startupReady && pageStart >= total;
 
   const loadReclassified = useCallback(async () => {
+    if (demoFounders) {
+      setReclassified([]);
+      return;
+    }
     const { rows: operatorRows, error: operatorErr } = await fetchAllRows<OperatorRow>("operators");
     if (operatorErr) {
       console.warn("[AdminMarketIntelligence] Founder-titled operators load failed:", operatorErr);
@@ -2586,12 +2771,28 @@ function FoundersTab() {
     setReclassified(
       withCompanies.filter((row) => titleContainsFounder(row.title)).map(operatorProfileToFounder),
     );
-  }, []);
+  }, [demoFounders]);
 
   const totalRef = useRef(0);
   const loadedSearchRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
+    if (demoFounders) {
+      const needle = search.trim().toLowerCase();
+      const matched = demoFounders.filter((row) => (
+        !needle
+        || row.full_name.toLowerCase().includes(needle)
+        || String(row.role ?? "").toLowerCase().includes(needle)
+      ));
+      totalRef.current = matched.length;
+      loadedSearchRef.current = search;
+      setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+      setTotal(matched.length);
+      setError(null);
+      setLoading(false);
+      setStartupReady(true);
+      return;
+    }
     if (loadedSearchRef.current === search && page * PAGE_SIZE >= totalRef.current) {
       setLoading(false);
       setError(null);
@@ -2606,9 +2807,39 @@ function FoundersTab() {
     totalRef.current = t;
     loadedSearchRef.current = search;
     setRows(r); setTotal(t);
-  }, [page, search]);
+  }, [demoFounders, page, search]);
 
   const loadMetrics = useCallback(async () => {
+    if (demoFounders) {
+      let liveCount = 0;
+      let completenessSum = 0;
+      let maxUpdatedAt: string | null = null;
+      let maxUpdatedMs = -Infinity;
+      for (const row of demoFounders) {
+        const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+        if (live) liveCount += 1;
+        const scoreFields = [
+          hasValue(row.role), hasValue(row.location), hasValue(row.linkedin_url), hasValue(row.email),
+          hasValue(row.founder_archetype), hasValue(row.domain_expertise), hasValue(row.prior_companies),
+        ];
+        completenessSum += (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
+        const updatedMs = parseIsoMs(row.updated_at);
+        if (updatedMs != null && updatedMs > maxUpdatedMs) {
+          maxUpdatedMs = updatedMs;
+          maxUpdatedAt = row.updated_at;
+        }
+      }
+      setStartupMetrics({
+        total: demoFounders.length,
+        live: liveCount,
+        completenessSum,
+        rowCount: demoFounders.length,
+        lastUpdateAt: maxUpdatedAt,
+        lastUpdateMs: maxUpdatedMs,
+      });
+      setMetricsLoading(false);
+      return;
+    }
     setMetricsLoading(true);
     try {
       const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<FounderRow>("founders");
@@ -2662,7 +2893,7 @@ function FoundersTab() {
     } finally {
       setMetricsLoading(false);
     }
-  }, []);
+  }, [demoFounders]);
 
   useEffect(() => {
     if (!startupMetrics) return;
@@ -2830,7 +3061,7 @@ function FoundersTab() {
 
 // ── Operators Tab ──────────────────────────────────────────────────────────────
 
-function OperatorsTab() {
+function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] | null }) {
   const COL = "2fr 1fr 1fr 1fr 1fr";
   const [catalog, setCatalog]   = useState<OperatorRow[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -2841,6 +3072,13 @@ function OperatorsTab() {
   const [selected, setSelected] = useState<OperatorRow | null>(null);
 
   const load = useCallback(async () => {
+    if (demoOperators) {
+      setCatalog(demoOperators);
+      setError(null);
+      setLoading(false);
+      setMetricsLoading(false);
+      return;
+    }
     setLoading(true);
     setMetricsLoading(true);
     setError(null);
@@ -2855,7 +3093,7 @@ function OperatorsTab() {
     }
     const withCompanies = await withOperatorStartupIds(allRows);
     setCatalog(withCompanies.filter((row) => !titleContainsFounder(row.title)));
-  }, []);
+  }, [demoOperators]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -3017,10 +3255,18 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "operators", label: "Operators", icon: Briefcase },
 ];
 
+export type AdminMarketDemoCatalog = {
+  companies: CompanyRow[];
+  founders: FounderRow[];
+  operators: OperatorRow[];
+};
+
 export function AdminMarketIntelligence({
   focusCompany = null,
+  demoCatalog = null,
 }: {
   focusCompany?: { id: string; name: string } | null;
+  demoCatalog?: AdminMarketDemoCatalog | null;
 }) {
   const [tab, setTab] = useState<TabKey>("companies");
 
@@ -3055,9 +3301,9 @@ export function AdminMarketIntelligence({
       </AdminStickyHeader>
 
       <div>
-        {tab === "companies" && <CompaniesTab focusCompany={focusCompany} />}
-        {tab === "founders"  && <FoundersTab />}
-        {tab === "operators" && <OperatorsTab />}
+        {tab === "companies" && <CompaniesTab focusCompany={focusCompany} demoCompanies={demoCatalog?.companies ?? null} />}
+        {tab === "founders"  && <FoundersTab demoFounders={demoCatalog?.founders ?? null} />}
+        {tab === "operators" && <OperatorsTab demoOperators={demoCatalog?.operators ?? null} />}
       </div>
     </div>
   );

@@ -43,6 +43,8 @@ export interface EnrichedUser {
   ip_addresses?: string[];
   last_ip?: string | null;
   banned?: boolean;
+  banned_email?: boolean;
+  banned_ip_addresses?: string[];
   subscription?: SubscriptionPlan;
 }
 
@@ -79,6 +81,7 @@ type SubscriptionPlan = "free" | "basic" | "premium" | "elite";
 type SubscriptionFilter = "all" | SubscriptionPlan;
 
 type Lifecycle = "active" | "invited" | "waitlisted" | "never" | "inactive";
+type BanScope = "email" | "ip" | "all";
 
 type RoleKey = "founder" | "investor" | "operator" | "admin" | "other";
 
@@ -515,7 +518,9 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
 
 export function AdminUserManagement({
   loadDirectory,
+  initialSearch,
 }: {
+  initialSearch?: string;
   loadDirectory?: () => (
     | { users: EnrichedUser[]; applicants: WaitlistApplicant[] }
     | Promise<{ users: EnrichedUser[]; applicants: WaitlistApplicant[] }>
@@ -534,6 +539,19 @@ export function AdminUserManagement({
   const [banningId, setBanningId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchBusy, setBatchBusy] = useState(false);
+
+  useEffect(() => {
+    if (!initialSearch) return;
+    setStage("accounts");
+    setSearch(initialSearch);
+    setExpandedId(null);
+  }, [initialSearch]);
+
+  useEffect(() => {
+    if (!initialSearch || loading) return;
+    const match = users.find((candidate) => candidate.email?.toLowerCase() === initialSearch.toLowerCase());
+    if (match) setExpandedId(match.id);
+  }, [initialSearch, loading, users]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -640,12 +658,23 @@ export function AdminUserManagement({
     setUpdatingId(null);
   };
 
-  const handleBan = async (user: EnrichedUser) => {
+  const handleBan = async (user: EnrichedUser, scope: BanScope) => {
+    const knownIps = user.ip_addresses ?? [];
+    const alreadyBannedIps = new Set(user.banned_ip_addresses ?? []);
+    const ipsToBan = scope === "email" ? [] : scope === "ip"
+      ? knownIps.filter((ip) => !alreadyBannedIps.has(ip))
+      : knownIps;
+    if (scope === "email" && (!user.email || user.banned_email)) return;
+    if (scope === "ip" && ipsToBan.length === 0) return;
+
+    const description = scope === "email"
+      ? `This blocks ${user.email} from signing in.`
+      : scope === "ip"
+        ? `This blocks ${ipsToBan.length} known IP address(es) from accessing the platform.`
+        : `This blocks their email${user.email ? ` (${user.email})` : ""} and known IP addresses from the platform.`;
     const confirmed = window.confirm(
-      `Revoke access for ${personLabel(user.full_name, user.email)}?\n\n` +
-        `This blocks their email${user.email ? ` (${user.email})` : ""} and ` +
-        `${user.ip_addresses?.length ? `${user.ip_addresses.length} known IP address(es)` : "any known IP addresses"} ` +
-        `from the platform. This can be reversed in the database.`,
+      `${scope === "all" ? "Revoke access" : `Ban ${scope}`} for ${personLabel(user.full_name, user.email)}?\n\n` +
+        `${description} This can be reversed in the database.`,
     );
 
     if (!confirmed) return;
@@ -654,10 +683,15 @@ export function AdminUserManagement({
 
     try {
       if (loadDirectory) {
-        setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
-        toast.success("Access revoked", {
-          description: `Blocked ${user.email || "account"}${user.ip_addresses?.length ? ` and ${user.ip_addresses.length} IP address(es)` : ""}.`,
-        });
+        setUsers((prev) => prev.map((item) => item.id === user.id ? {
+          ...item,
+          banned: true,
+          banned_email: scope !== "ip" || item.banned_email,
+          banned_ip_addresses: scope === "email"
+            ? item.banned_ip_addresses ?? []
+            : [...new Set([...(item.banned_ip_addresses ?? []), ...ipsToBan])],
+        } : item));
+        toast.success(scope === "all" ? "Access revoked" : `${scope === "email" ? "Email" : "IP"} banned`, { description });
         setBanningId(null);
         return;
       }
@@ -666,18 +700,33 @@ export function AdminUserManagement({
         body: {
           target_user_id: user.id,
           email: user.email || undefined,
-          ip_addresses: user.ip_addresses ?? [],
+          ip_addresses: ipsToBan,
+          ban_email: scope !== "ip",
+          ban_ip: scope !== "email",
         },
       });
 
       if (error) throw error;
-      setUsers((prev) => prev.map((item) => (item.id === user.id ? { ...item, banned: true } : item)));
+      setUsers((prev) => prev.map((item) => item.id === user.id ? {
+        ...item,
+        banned: true,
+        banned_email: scope !== "ip" || item.banned_email,
+        banned_ip_addresses: scope === "email"
+          ? item.banned_ip_addresses ?? []
+          : [...new Set([...(item.banned_ip_addresses ?? []), ...(data?.banned_ips ?? ipsToBan)])],
+      } : item));
       const ips: string[] = data?.banned_ips ?? [];
-      toast.success("Access revoked", {
-        description: `Blocked ${data?.banned_email || user.email || "account"}${ips.length ? ` and ${ips.length} IP address(es)` : ""}.`,
+      toast.success(scope === "all" ? "Access revoked" : `${scope === "email" ? "Email" : "IP"} banned`, {
+        description: scope === "email"
+          ? `Blocked ${data?.banned_email || user.email}.`
+          : scope === "ip"
+            ? `Blocked ${ips.length || ipsToBan.length} IP address(es).`
+            : `Blocked ${data?.banned_email || user.email || "account"}${ips.length ? ` and ${ips.length} IP address(es)` : ""}.`,
       });
     } catch (error: unknown) {
-      toast.error("Failed to revoke access", { description: await formatEdgeFunctionInvokeError(error) });
+      toast.error(`Failed to ${scope === "all" ? "revoke access" : `ban ${scope}`}`, {
+        description: await formatEdgeFunctionInvokeError(error),
+      });
     }
 
     setBanningId(null);
@@ -1076,8 +1125,8 @@ export function AdminUserManagement({
                     onPermission={(permission) => {
                       if (row.kind === "account") void handlePermissionChange(row.user.id, permission);
                     }}
-                    onBan={() => {
-                      if (row.kind === "account") void handleBan(row.user);
+                    onBan={(scope) => {
+                      if (row.kind === "account") void handleBan(row.user, scope);
                     }}
                   />
                 ))
@@ -1153,7 +1202,7 @@ function DirectoryTableRow({
   onReject: () => void;
   onResend: () => void;
   onPermission: (permission: string) => void;
-  onBan: () => void;
+  onBan: (scope: BanScope) => void;
 }) {
   const display = rowDisplayName(row);
   const email = rowEmail(row);
@@ -1258,9 +1307,12 @@ function RowMenu({
   onResend: () => void;
   onReject: () => void;
   onPermission: (permission: string) => void;
-  onBan: () => void;
+  onBan: (scope: BanScope) => void;
 }) {
   const name = rowName(row);
+  const knownIps = row.kind === "account" ? row.user.ip_addresses ?? [] : [];
+  const bannedIps = new Set(row.kind === "account" ? row.user.banned_ip_addresses ?? [] : []);
+  const allKnownIpsBanned = knownIps.length > 0 && knownIps.every((ip) => bannedIps.has(ip));
 
   return (
     <DropdownMenu>
@@ -1321,14 +1373,32 @@ function RowMenu({
         ) : null}
         <DropdownMenuSeparator />
         {row.kind === "account" ? (
-          <DropdownMenuItem
-            disabled={busy || row.user.banned}
-            onSelect={onBan}
-            className="text-red-300 focus:text-red-200"
-          >
-            <Ban className="mr-2 h-3.5 w-3.5" />
-            {row.user.banned ? "Access already revoked" : "Revoke access"}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              disabled={busy || !row.user.email || row.user.banned_email}
+              onSelect={() => onBan("email")}
+              className="text-red-300 focus:text-red-200"
+            >
+              <Ban className="mr-2 h-3.5 w-3.5" />
+              {row.user.banned_email ? "Email already banned" : "Ban email"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={busy || !knownIps.length || allKnownIpsBanned}
+              onSelect={() => onBan("ip")}
+              className="text-red-300 focus:text-red-200"
+            >
+              <Ban className="mr-2 h-3.5 w-3.5" />
+              {allKnownIpsBanned ? "IPs already banned" : `Ban IP${knownIps.length === 1 ? "" : "s"} (${knownIps.length})`}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={busy}
+              onSelect={() => onBan("all")}
+              className="text-red-300 focus:text-red-200"
+            >
+              <Ban className="mr-2 h-3.5 w-3.5" />
+              Revoke access
+            </DropdownMenuItem>
+          </>
         ) : (
           <DropdownMenuItem onSelect={onReject} className="text-red-300 focus:text-red-200">
             Reject application

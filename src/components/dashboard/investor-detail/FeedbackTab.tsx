@@ -109,6 +109,7 @@ export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, 
           .eq("author_user_id", userId!)
           .eq("vc_firm_id", vcFirmId)
           .eq("is_draft", false)
+          .is("archived_at", null)
           .order("created_at", { ascending: false });
         if (data?.length) return data as typeof rows;
       }
@@ -119,6 +120,7 @@ export function FeedbackTab({ investorName, vcFirmId, userId, onLogInteraction, 
         .select(SELECT)
         .eq("author_user_id", userId!)
         .eq("is_draft", false)
+        .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(50);
       return ((recent ?? []) as typeof rows).filter((row) => {

@@ -78,11 +78,14 @@ Deno.serve(async (req) => {
     const providedEmail: string | null =
       typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
     const providedIps: string[] = Array.isArray(body.ip_addresses)
-      ? body.ip_addresses.filter((x: unknown): x is string => typeof x === "string" && x.trim().length > 0)
+      ? body.ip_addresses.filter((x: unknown): x is string => typeof x === "string" && x.trim().length > 0).map((ip: string) => ip.trim())
       : [];
+    const banEmail = body.ban_email !== false;
+    const banIp = body.ban_ip !== false;
     const reason: string | null = typeof body.reason === "string" && body.reason.trim() ? body.reason.trim() : null;
 
     if (!targetUserId) throw new Error("Invalid payload: target_user_id is required");
+    if (!banEmail && !banIp) throw new Error("Invalid payload: choose an email or IP ban");
     if (targetUserId === resolved.id || resolved.identityUserIds.includes(targetUserId)) {
       throw new Error("You cannot ban your own account");
     }
@@ -110,23 +113,25 @@ Deno.serve(async (req) => {
     }
 
     // ── Collect IPs: client-provided + logged + best-effort Clerk sessions ──
-    const ipSet = new Set<string>(providedIps);
-    const { data: loggedIps } = await adminClient
-      .from("user_ip_log")
-      .select("ip_address")
-      .eq("user_id", targetUserId);
-    for (const row of loggedIps ?? []) {
-      if (row.ip_address) ipSet.add(row.ip_address);
-    }
-    if (clerkSecret) {
-      const sessionIps = await clerkGetUserSessionIps(clerkSecret, targetUserId);
-      for (const ip of sessionIps) ipSet.add(ip);
+    const ipSet = new Set<string>(banIp ? providedIps : []);
+    if (banIp) {
+      const { data: loggedIps } = await adminClient
+        .from("user_ip_log")
+        .select("ip_address")
+        .eq("user_id", targetUserId);
+      for (const row of loggedIps ?? []) {
+        if (row.ip_address) ipSet.add(row.ip_address);
+      }
+      if (clerkSecret) {
+        const sessionIps = await clerkGetUserSessionIps(clerkSecret, targetUserId);
+        for (const ip of sessionIps) ipSet.add(ip);
+      }
     }
     const ips = [...ipSet];
 
     // ── Record ban rows (email + each IP) ──────────────────────────────────
     const rows: Array<Record<string, unknown>> = [];
-    if (targetEmail) {
+    if (banEmail && targetEmail) {
       rows.push({
         kind: "email",
         value: targetEmail.toLowerCase(),
@@ -136,7 +141,7 @@ Deno.serve(async (req) => {
         banned_by: resolved.id,
       });
     }
-    for (const ip of ips) {
+    for (const ip of banIp ? ips : []) {
       rows.push({
         kind: "ip",
         value: ip,
@@ -158,7 +163,7 @@ Deno.serve(async (req) => {
 
     // ── Block the account itself (Clerk) so the email can't sign in ────────
     let accountBlocked = false;
-    if (clerkSecret && targetUserId.startsWith("user_")) {
+    if (banEmail && clerkSecret && targetUserId.startsWith("user_")) {
       try {
         await clerkBanUser(clerkSecret, targetUserId);
         accountBlocked = true;

@@ -17,6 +17,8 @@ import {
   type RecordUpdateKind,
   type RecordUpdateRow,
 } from "@/components/admin/recordUpdates";
+import type { AdminFirmDemoDirectory } from "@/components/admin/AdminFirmRecords";
+import type { CompanyRow } from "@/components/admin/AdminMarketIntelligence";
 
 export type { RecordUpdateKind, RecordUpdateRow };
 
@@ -51,7 +53,15 @@ type EditorTarget = {
   focusInvestorId: string | null;
 };
 
-export function AdminRecordUpdates() {
+export function AdminRecordUpdates({
+  sampleUpdates = null,
+  demoDirectory = null,
+  sampleCompanies = null,
+}: {
+  sampleUpdates?: RecordUpdateRow[] | null;
+  demoDirectory?: AdminFirmDemoDirectory | null;
+  sampleCompanies?: CompanyRow[] | null;
+} = {}) {
   const [rows, setRows] = useState<RecordUpdateRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -73,6 +83,24 @@ export function AdminRecordUpdates() {
   }, [search]);
 
   const load = useCallback(async () => {
+    if (sampleUpdates) {
+      const seq = ++requestSeq.current;
+      setLoading(true);
+      const needle = dSearch.trim().toLowerCase();
+      const matched = sampleUpdates.filter((row) => {
+        if (isDirectory && row.kind !== category) return false;
+        if (!isDirectory || !needle) return true;
+        return [row.name, row.subtitle, row.recordId, row.linkedTo].some((value) => value?.toLowerCase().includes(needle));
+      });
+      const start = isDirectory ? page * DIRECTORY_PAGE_SIZE : 0;
+      const slice = isDirectory ? matched.slice(start, start + DIRECTORY_PAGE_SIZE) : matched;
+      if (seq === requestSeq.current) {
+        setRows(slice);
+        setTotal(matched.length);
+        setLoading(false);
+      }
+      return;
+    }
     const seq = ++requestSeq.current;
     setLoading(true);
     try {
@@ -95,7 +123,7 @@ export function AdminRecordUpdates() {
       setTotal(0);
     }
     if (seq === requestSeq.current) setLoading(false);
-  }, [category, dSearch, isDirectory, page]);
+  }, [category, dSearch, isDirectory, page, sampleUpdates]);
 
   useEffect(() => {
     void load();
@@ -197,8 +225,8 @@ export function AdminRecordUpdates() {
             value={category}
             options={[
               { value: "all", label: "All" },
-              { value: "vc_firm", label: "VC firms" },
-              { value: "vc_investor", label: "VC investors" },
+              { value: "vc_firm", label: "Firms" },
+              { value: "vc_investor", label: "People / investors" },
               { value: "company", label: "Companies" },
               { value: "user_founder", label: "Founders" },
               { value: "user_operator", label: "Operators" },
@@ -334,14 +362,21 @@ export function AdminRecordUpdates() {
       {editor && (
         <AdminFirmEditor
           firmId={editor.firmId}
-          initialTab={editor.initialTab}
-          focusInvestorId={editor.focusInvestorId}
+          initialTab={editor.initialTab === "investors" ? "people" : "profile"}
+          focusPersonId={editor.focusInvestorId}
+          sampleFirm={demoDirectory?.firms.find((firm) => firm.id === editor.firmId) ?? null}
+          sampleLinks={demoDirectory ? {
+            funds: demoDirectory.funds.filter((fund) => fund.firm_record_id === editor.firmId),
+            people: demoDirectory.people.filter((person) => person.firm_id === editor.firmId),
+            portfolio: demoDirectory.portfolio.filter((company) => company.firm_id === editor.firmId),
+          } : null}
           onClose={() => setEditor(null)}
         />
       )}
       {startupId && (
         <AdminStartupEditor
           startupId={startupId}
+          sampleRow={sampleCompanies?.find((company) => company.id === startupId) ?? null}
           onClose={() => setStartupId(null)}
           onSaved={(saved) => {
             setRows((current) => current.map((row) => (

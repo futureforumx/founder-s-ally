@@ -1391,7 +1391,7 @@ function FounderCard({
           </div>
         </div>
         <div>
-          <h3 className="text-base font-bold text-foreground group-hover:text-accent transition-colors">{founder.name}</h3>
+          <h3 className="text-base font-bold text-foreground">{founder.name}</h3>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[11px] font-medium text-muted-foreground">{founder.model}</span>
             {founder._companyName && (
@@ -4353,7 +4353,7 @@ export function CommunityView({
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-foreground truncate group-hover:text-accent transition-colors">{entry.name}</p>
+                            <p className="text-sm font-semibold text-foreground truncate">{entry.name}</p>
                             {entry.matchReason && (
                               <span className="shrink-0 inline-flex items-center rounded-full bg-accent/10 border border-accent/20 px-1.5 py-0.5 text-[9px] font-semibold text-accent uppercase tracking-wide">
                                 match

@@ -4,7 +4,7 @@ import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 import { FilterSelect } from "@/components/admin/FilterSelect";
 import { toast } from "sonner";
 
-interface Provider {
+export interface Provider {
   name: string;
   logo: string;
   status: "live" | "down" | "degraded";
@@ -36,25 +36,27 @@ const HEALTH_STATUSES = [
   { value: "down", label: "Down" },
 ] as const;
 
-const HEALTH_SERVICES = [
-  { value: "all", label: "All" },
-  ...PROVIDERS.map((provider) => ({ value: provider.name, label: provider.name })),
-];
-
-export function AdminApiHealth() {
+export function AdminApiHealth({ providers = PROVIDERS }: { providers?: Provider[] } = {}) {
+  const services = useMemo(
+    () => [
+      { value: "all", label: "All" },
+      ...providers.map((provider) => ({ value: provider.name, label: provider.name })),
+    ],
+    [providers],
+  );
   const [syncing, setSyncing] = useState<string | null>(null);
   const [status, setStatus] = useState("all");
   const [service, setService] = useState("all");
 
   const visible = useMemo(
-    () => PROVIDERS.filter((provider) => {
+    () => providers.filter((provider) => {
       if (status !== "all" && provider.status !== status) return false;
 
       if (service !== "all" && provider.name !== service) return false;
 
       return true;
     }),
-    [service, status],
+    [providers, service, status],
   );
 
   const handleForceSync = useCallback((provider: string) => {
@@ -89,7 +91,7 @@ export function AdminApiHealth() {
           label="Service"
           icon={Server}
           value={service}
-          options={HEALTH_SERVICES}
+          options={services}
           onValueChange={setService}
         />
       </div>

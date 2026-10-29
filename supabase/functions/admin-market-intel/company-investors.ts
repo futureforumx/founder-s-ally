@@ -46,7 +46,30 @@ function normalizePortfolioName(name: string): string {
 }
 
 function roundKey(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
+  return (normalizeRoundName(value) ?? "").toLowerCase();
+}
+
+function normalizeRoundName(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const key = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  const aliases: Record<string, string> = {
+    angel: "Angel",
+    accelerator: "Accelerator",
+    "pre seed": "Pre-Seed",
+    preseed: "Pre-Seed",
+    seed: "Seed",
+    "series a": "Series A",
+    "series b": "Series B",
+    "series b+": "Series B+",
+    "series c": "Series C",
+    "series c+": "Series C+",
+    "series d": "Series D",
+    "series e": "Series E",
+    growth: "Growth",
+    bridge: "Bridge",
+  };
+  return aliases[key] ?? raw;
 }
 
 function asUsd(value: unknown): number | null {
@@ -253,7 +276,7 @@ export async function listCompanyInvestors(
       firm_investor_id: link.firm_investor_id,
       investor_name: person?.name ?? null,
       investor_title: person?.title ?? null,
-      round_name: link.round_name,
+      round_name: normalizeRoundName(link.round_name),
       amount_usd: asUsd(link.amount_usd),
       amount_label: asUsd(link.amount_usd) != null ? formatInvestmentAmount(asUsd(link.amount_usd)!) : null,
       portfolio_note: null,
@@ -271,7 +294,7 @@ export async function listCompanyInvestors(
       firm_investor_id: null,
       investor_name: null,
       investor_title: null,
-      round_name: investment.round_type ?? null,
+      round_name: normalizeRoundName(investment.round_type ?? null),
       amount_usd: amount,
       amount_label: amount != null ? formatInvestmentAmount(amount) : null,
       portfolio_note: null,
@@ -282,7 +305,7 @@ export async function listCompanyInvestors(
   for (const deal of dealRows.values()) {
     if (firmsSeen.has(deal.firm_id)) continue;
     const stage = deal.stage?.trim() || null;
-    const round = stage && isKnownRound(stage) ? stage : null;
+    const round = stage && isKnownRound(stage) ? normalizeRoundName(stage) : null;
     add({
       id: null,
       firm_id: deal.firm_id,
@@ -625,7 +648,7 @@ export async function linkCompanyInvestor(
   const startupId = typeof body.startup_id === "string" ? body.startup_id.trim() : "";
   const firmId = typeof body.firm_id === "string" ? body.firm_id.trim() : "";
   const investorRaw = typeof body.firm_investor_id === "string" ? body.firm_investor_id.trim() : "";
-  const roundName = typeof body.round_name === "string" && body.round_name.trim() ? body.round_name.trim() : null;
+  const roundName = normalizeRoundName(typeof body.round_name === "string" ? body.round_name : null);
   const ledRound = typeof body.led_round === "boolean" ? body.led_round : null;
   const amount = parseAmount(body.amount_usd);
   if (!startupId) return { error: "startup_id is required", status: 400 };
@@ -712,15 +735,21 @@ export async function linkCompanyInvestor(
     amount_usd: number | null;
     led_round: boolean | null;
   }>;
-  const prior = candidates.find((row) =>
+  const equivalent = candidates.filter((row) =>
     roundKey(row.round_name) === roundKey(roundName) && (row.firm_investor_id ?? "") === (firmInvestorId ?? "")
   );
+  const prior = equivalent.find((row) => row.round_name === roundName) ?? equivalent[0];
   const now = new Date().toISOString();
   const storedAmount = amount.value ?? asUsd(prior?.amount_usd);
 
   let linkId = prior?.id ?? null;
   let created = false;
-  const storedLead = ledRound ?? Boolean(prior?.led_round);
+  const storedLead = ledRound ?? equivalent.some((row) => Boolean(row.led_round));
+  const duplicateIds = equivalent.filter((row) => row.id !== prior?.id).map((row) => row.id);
+  if (duplicateIds.length) {
+    const { error } = await db.from("startup_investment_links").delete().in("id", duplicateIds);
+    if (error) return { error: error.message, status: 500 };
+  }
   if (prior) {
     const patch: Record<string, unknown> = {
       firm_investor_id: firmInvestorId,
@@ -828,7 +857,7 @@ export async function unlinkCompanyInvestor(
   const firmId = typeof body.firm_id === "string" ? body.firm_id.trim() : "";
   const linkId = typeof body.link_id === "string" ? body.link_id.trim() : "";
   const investorRaw = typeof body.firm_investor_id === "string" ? body.firm_investor_id.trim() : "";
-  const roundName = typeof body.round_name === "string" && body.round_name.trim() ? body.round_name.trim() : null;
+  const roundName = normalizeRoundName(typeof body.round_name === "string" ? body.round_name : null);
   if (!startupId) return { error: "startup_id is required", status: 400 };
   if (!firmId) return { error: "firm_id is required", status: 400 };
 

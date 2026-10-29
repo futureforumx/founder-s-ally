@@ -424,6 +424,7 @@ Deno.serve(async (req) => {
       .from("vc_ratings")
       .select("id, interaction_type, is_draft, created_at, vc_person_id, star_ratings, score_resp, score_respect, score_feedback, score_follow_thru, score_value_add")
       .eq("is_draft", false)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(ROW_LIMIT);
     const reviews = reviewsResult.error ? [] : reviewsResult.data ?? [];

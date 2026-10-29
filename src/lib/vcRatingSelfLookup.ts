@@ -78,7 +78,8 @@ export async function fetchSelfPublishedVcRatingHydration(opts: {
       .select(selectCols)
       .eq("author_user_id", userId)
       .eq("vc_firm_id", firm)
-      .eq("is_draft", false);
+      .eq("is_draft", false)
+      .is("archived_at", null);
     q = pid ? q.eq("vc_person_id", pid) : q.is("vc_person_id", null);
     const { data, error } = await q.order("created_at", { ascending: false }).limit(1);
 
@@ -96,6 +97,7 @@ export async function fetchSelfPublishedVcRatingHydration(opts: {
       .select(selectCols)
       .eq("author_user_id", userId)
       .eq("is_draft", false)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(80);
 

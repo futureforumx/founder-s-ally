@@ -129,7 +129,8 @@ serve(async (req) => {
       .from("vc_ratings")
       .update(payload)
       .eq("id", reviewRecordId)
-      .eq("author_user_id", userId);
+      .eq("author_user_id", userId)
+      .is("archived_at", null);
 
     if (!updateError) {
       return new Response(JSON.stringify({ ok: true, savedAsRevision: false }), {

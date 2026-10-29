@@ -12,9 +12,10 @@ type AdminView = "overview" | "analytics" | "users" | "record-updates" | "api-he
 
 interface AdminOverviewProps {
   onNavigate: (view: AdminView) => void;
+  stats?: Array<{ label: string; value: string; color: string }>;
 }
 
-export function AdminOverview({ onNavigate }: AdminOverviewProps) {
+export function AdminOverview({ onNavigate, stats = STATS }: AdminOverviewProps) {
   return (
     <div className="space-y-8">
       <AdminStickyHeader collapsible={false}>
@@ -23,7 +24,7 @@ export function AdminOverview({ onNavigate }: AdminOverviewProps) {
 
       {/* KPI Row */}
       <div className="grid grid-cols-4 gap-4">
-        {STATS.map((s) => (
+        {stats.map((s) => (
           <div
             key={s.label}
             className="rounded-xl border p-5"

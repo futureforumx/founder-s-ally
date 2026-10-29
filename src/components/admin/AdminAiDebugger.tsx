@@ -33,7 +33,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   Product: "#34D399",
 };
 
-export function AdminAiDebugger() {
+export function AdminAiDebugger({
+  density = DENSITY_DATA,
+  snippets = SNIPPETS,
+}: {
+  density?: typeof DENSITY_DATA;
+  snippets?: typeof SNIPPETS;
+} = {}) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = () => {
@@ -74,7 +80,7 @@ export function AdminAiDebugger() {
             Categories the AI is learning most about
           </p>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={DENSITY_DATA} layout="vertical" margin={{ left: 10, right: 10 }}>
+            <BarChart data={density} layout="vertical" margin={{ left: 10, right: 10 }}>
               <XAxis type="number" hide />
               <YAxis
                 type="category"
@@ -97,7 +103,7 @@ export function AdminAiDebugger() {
                 formatter={(value: number) => [`${value} vectors`, "Count"]}
               />
               <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={18}>
-                {DENSITY_DATA.map((entry, i) => (
+                {density.map((entry, i) => (
                   <Cell key={i} fill={entry.color} fillOpacity={0.7} />
                 ))}
               </Bar>
@@ -111,12 +117,12 @@ export function AdminAiDebugger() {
             <Sparkles className="h-4 w-4" style={{ color: "#FFB800" }} />
             <span className="text-sm font-semibold text-white/80">Intelligence Snippets</span>
             <span className="ml-auto font-mono text-[10px] rounded-full px-2 py-0.5" style={{ background: "rgba(255,184,0,0.1)", color: "#FFB800" }}>
-              {SNIPPETS.length} recent
+              {snippets.length} recent
             </span>
           </div>
 
           <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-            {SNIPPETS.map((s) => (
+            {snippets.map((s) => (
               <div
                 key={s.id}
                 className="rounded-lg border p-3 transition-colors hover:border-white/10"

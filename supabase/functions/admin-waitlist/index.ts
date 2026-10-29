@@ -266,6 +266,19 @@ Deno.serve(async (req) => {
         .limit(2000);
       if (error) throw error;
 
+      const memberIds = [...new Set((data ?? [])
+        .filter((referralCode) => referralCode.type === "member" && referralCode.waitlist_user_id)
+        .map((referralCode) => referralCode.waitlist_user_id as string))];
+      const memberEmailById = new Map<string, string>();
+      for (let offset = 0; offset < memberIds.length; offset += 500) {
+        const { data: members, error: membersError } = await adminClient
+          .from("waitlist_users")
+          .select("id, email")
+          .in("id", memberIds.slice(offset, offset + 500));
+        if (membersError) throw membersError;
+        (members ?? []).forEach((member) => memberEmailById.set(member.id, member.email));
+      }
+
       const usersByCode = new Map<string, Set<string>>();
       const addUsage = (code: string | null, userId: string) => {
         const normalizedCode = code?.trim().toUpperCase();
@@ -303,6 +316,9 @@ Deno.serve(async (req) => {
 
       const referralCodes = (data ?? []).map((referralCode) => ({
         ...referralCode,
+        target_email: referralCode.waitlist_user_id
+          ? memberEmailById.get(referralCode.waitlist_user_id) ?? null
+          : null,
         times_used: usersByCode.get(referralCode.code.trim().toUpperCase())?.size ?? 0,
       }));
       return new Response(JSON.stringify({ referralCodes }), { headers: jsonHeaders });

@@ -7,13 +7,14 @@ import { formatEdgeFunctionInvokeError } from "@/lib/supabaseFunctionErrors";
 import { Input } from "@/components/ui/input";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
-type ReferralCode = {
+export type ReferralCode = {
   id: string;
   code: string;
   label: string | null;
   is_active: boolean;
   type: "organization" | "member";
   waitlist_user_id: string | null;
+  target_email?: string | null;
   created_by: string | null;
   created_at: string;
   times_used: number;
@@ -40,8 +41,8 @@ function formatDate(value: string) {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function AdminReferralCodes() {
-  const [codes, setCodes] = useState<ReferralCode[]>([]);
+export function AdminReferralCodes({ sampleCodes = null }: { sampleCodes?: ReferralCode[] | null } = {}) {
+  const [codes, setCodes] = useState<ReferralCode[]>(() => sampleCodes ?? []);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -49,6 +50,10 @@ export function AdminReferralCodes() {
   const [label, setLabel] = useState("");
 
   const loadCodes = async () => {
+    if (sampleCodes) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data, error } = await invokeAdminWaitlist({ action: "list_referral_codes" });
@@ -62,12 +67,35 @@ export function AdminReferralCodes() {
   };
 
   useEffect(() => {
+    if (sampleCodes) {
+      setLoading(false);
+      return;
+    }
     void loadCodes();
   }, []);
 
   const addCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
+    if (sampleCodes) {
+      const created: ReferralCode = {
+        id: `demo-code-${Date.now()}`,
+        code: code.trim().toUpperCase(),
+        label: label.trim() || null,
+        is_active: true,
+        type: "organization",
+        waitlist_user_id: null,
+        created_by: "demo-admin",
+        created_at: new Date().toISOString(),
+        times_used: 0,
+      };
+      setCodes((current) => [created, ...current]);
+      setCode("");
+      setLabel("");
+      setSaving(false);
+      toast.success("Referral code added in the test console");
+      return;
+    }
     try {
       const { data, error } = await invokeAdminWaitlist({
         action: "create_referral_code",
@@ -90,6 +118,13 @@ export function AdminReferralCodes() {
 
   const setActive = async (item: ReferralCode) => {
     setUpdatingId(item.id);
+    if (sampleCodes) {
+      const updated = { ...item, is_active: !item.is_active };
+      setCodes((current) => current.map((candidate) => candidate.id === item.id ? updated : candidate));
+      setUpdatingId(null);
+      toast.success(updated.is_active ? "Referral code activated" : "Referral code deactivated");
+      return;
+    }
     try {
       const { data, error } = await invokeAdminWaitlist({
         action: "set_referral_code_active",
@@ -111,6 +146,12 @@ export function AdminReferralCodes() {
   const deleteCode = async (item: ReferralCode) => {
     if (!window.confirm(`Delete referral code ${item.code}?`)) return;
     setUpdatingId(item.id);
+    if (sampleCodes) {
+      setCodes((current) => current.filter((candidate) => candidate.id !== item.id));
+      setUpdatingId(null);
+      toast.success("Referral code deleted");
+      return;
+    }
     try {
       const { error } = await invokeAdminWaitlist({ action: "delete_referral_code", id: item.id });
       if (error) throw error;
@@ -186,7 +227,7 @@ export function AdminReferralCodes() {
       <div className="w-full overflow-hidden rounded-lg border border-white/[0.08]">
         <div className={`${tableGrid} py-3 text-xs font-medium text-white/55`}>
           <span>Code</span>
-          <span>Label</span>
+          <span>Target</span>
           <span className="whitespace-nowrap">Times used</span>
           <span>Type</span>
           <span>Status</span>
@@ -208,7 +249,13 @@ export function AdminReferralCodes() {
                     <span className="block truncate font-mono text-sm tracking-wide text-white">{item.code}</span>
                   </div>
                   <div className="min-w-0">
-                    <span className="block truncate text-sm text-white/55">{item.label || "—"}</span>
+                    {item.type === "member" ? (
+                      <span className="block truncate text-sm text-white/55" title={item.target_email || undefined}>
+                        {item.target_email || "—"}
+                      </span>
+                    ) : (
+                      <span className="block truncate text-sm text-white/55">{item.label || "—"}</span>
+                    )}
                   </div>
                   <div>
                     <span className="text-sm tabular-nums text-white/70">{item.times_used}</span>

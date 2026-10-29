@@ -83,11 +83,8 @@ function wasCreated(createdAt: string | null | undefined, updatedAt: string | nu
 function recordChange(
   createdAt: string | null | undefined,
   updatedAt: string | null | undefined,
-  linkedTo?: string | null,
-): { change: "created" | "updated" | "linked"; linkedTo: string | null } {
+): { change: "created" | "updated"; linkedTo: null } {
   if (wasCreated(createdAt, updatedAt)) return { change: "created", linkedTo: null };
-  const target = linkedTo?.trim() || null;
-  if (target) return { change: "linked", linkedTo: target };
   return { change: "updated", linkedTo: null };
 }
 
@@ -234,12 +231,14 @@ async function fetchPartners(adminClient: SupabaseClient, limit: number): Promis
   const res = await adminClient
     .from("firm_investors")
     .select("id, full_name, firm_id, updated_at, created_at")
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
   if (!res.error && res.data) return res.data as PartnerRow[];
   const fallback = await adminClient
     .from("firm_investors")
     .select("id, full_name, firm_id, created_at")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   return (fallback.data ?? []) as PartnerRow[];
@@ -376,17 +375,9 @@ async function listInvestorDirectory(
   }
   if (!matched) throw new Error(lastError);
 
-  const firmNameById = new Map<string, string>();
-  const firmIds = [...new Set(partners.map((p) => p.firm_id).filter(Boolean))];
-  if (firmIds.length) {
-    const { data: firms } = await adminClient.from("firm_records").select("id, firm_name").in("id", firmIds);
-    for (const f of firms ?? []) firmNameById.set(f.id, f.firm_name);
-  }
-
   const provenance = await latestProvenance(adminClient, partners.map((partner) => partner.id));
   const updates = partners.map((p) => {
-    const firmName = firmNameById.get(p.firm_id) ?? null;
-    const change = recordChange(p.created_at, p.updated_at, firmName);
+    const change = recordChange(p.created_at, p.updated_at);
     return {
       kind: "vc_investor" as const,
       recordId: p.id,
@@ -510,18 +501,6 @@ Deno.serve(async (req) => {
       fetchProfiles(adminClient, perSource * 2),
     ]);
 
-    const firmNameById = new Map(firms.map((f) => [f.id, f.firm_name]));
-    if (partners.length) {
-      const missingFirmIds = [...new Set(partners.map((p) => p.firm_id))].filter((id) => !firmNameById.has(id));
-      if (missingFirmIds.length) {
-        const { data: extraFirms } = await adminClient
-          .from("firm_records")
-          .select("id, firm_name")
-          .in("id", missingFirmIds);
-        for (const f of extraFirms ?? []) firmNameById.set(f.id, f.firm_name);
-      }
-    }
-
     const provenance = await latestProvenance(adminClient, [
       ...firms.map((firm) => firm.id),
       ...partners.map((partner) => partner.id),
@@ -542,7 +521,6 @@ Deno.serve(async (req) => {
     }
 
     for (const p of partners) {
-      const firmName = firmNameById.get(p.firm_id) ?? null;
       updates.push({
         kind: "vc_investor",
         recordId: p.id,
@@ -550,7 +528,7 @@ Deno.serve(async (req) => {
         name: p.full_name || "Unnamed",
         subtitle: null,
         updatedAt: effectiveTs(p.updated_at as string | null | undefined, p.created_at as string | null | undefined),
-        ...recordChange(p.created_at, p.updated_at, firmName),
+        ...recordChange(p.created_at, p.updated_at),
         origin: labelOrigin(provenance.get(p.id) ?? null),
       });
     }

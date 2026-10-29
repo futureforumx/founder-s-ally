@@ -29,8 +29,8 @@ export interface RecordUpdateRow {
 }
 
 export const KIND_LABEL: Record<RecordUpdateKind, string> = {
-  vc_firm: "VC firm",
-  vc_investor: "VC investor",
+  vc_firm: "Firm",
+  vc_investor: "Investor / Person",
   company: "Company",
   user_founder: "Founder",
   user_operator: "Operator",
@@ -41,6 +41,9 @@ export const KIND_LABEL: Record<RecordUpdateKind, string> = {
 export function changeTypeLabel(row: RecordUpdateRow): string {
   if (row.change === "created") return "Record created";
   if (row.change === "linked") {
+    // Investor rows carry a current firm_id; that association alone does not
+    // prove the relationship was created or changed at updatedAt.
+    if (row.kind === "vc_investor") return "Details updated";
     const target = row.linkedTo?.trim();
     return target ? `Linked to ${target}` : "Linked to record";
   }

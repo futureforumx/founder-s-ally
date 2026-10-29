@@ -1,6 +1,7 @@
 /** Row shape from `public.vc_ratings` (PostgREST / Prisma @@map). */
 export type VcRatingRow = {
   id: string;
+  archived_at?: string | null;
   author_user_id: string | null;
   interaction_type: string;
   interaction_date: string | null;
@@ -20,10 +21,10 @@ export type VcRatingRow = {
 
 export const INTERACTION_DISPLAY: Record<string, string> = {
   meeting: "Meeting / event",
-  email: "Email / outbound",
+  email: "Email interaction",
   intro: "Intro",
   passed: "Passed",
-  ongoing: "Ongoing",
+  ongoing: "Ongoing relationship",
   other: "Other",
   investor_relationship: "Investor relationship",
   review_draft: "Draft review",
