@@ -23,6 +23,59 @@ type SubscriptionPlan = "free" | "basic" | "premium" | "elite";
 
 const PLAN_RANK: Record<SubscriptionPlan, number> = { free: 0, basic: 1, premium: 2, elite: 3 };
 const ENTITLED_STATUSES = new Set(["active", "trialing", "past_due"]);
+const ONBOARDING_STALLED_MS = 86_400_000;
+const DEFAULT_ONBOARDING_STEPS = [
+  "Let’s confirm your details",
+  "Welcome to Vekta",
+  "Your Company",
+  "Bring your network into focus",
+  "Add the numbers investors ask for",
+];
+
+type OnboardingStatus = "completed" | "stalled" | "in_progress" | "not_started";
+
+function onboardingStepTitles(definition: unknown): string[] {
+  if (definition && typeof definition === "object" && !Array.isArray(definition)) {
+    const steps = (definition as { steps?: unknown }).steps;
+    if (Array.isArray(steps)) {
+      const titles = steps
+        .filter((step) => step && typeof step === "object" && (step as { enabled?: unknown }).enabled !== false)
+        .map((step) => (step as { title?: unknown }).title)
+        .filter((title): title is string => typeof title === "string" && title.trim().length > 0);
+      if (titles.length) return titles;
+    }
+  }
+  return DEFAULT_ONBOARDING_STEPS;
+}
+
+function onboardingSummary(
+  completed: boolean,
+  preferences: { onboarding_data: unknown; updated_at: string } | undefined,
+  stepTitles: string[],
+  now: number,
+): { status: OnboardingStatus; step: string | null; updated_at: string | null } {
+  if (completed) return { status: "completed", step: null, updated_at: preferences?.updated_at ?? null };
+  if (!preferences) return { status: "not_started", step: null, updated_at: null };
+
+  const data = preferences.onboarding_data && typeof preferences.onboarding_data === "object" && !Array.isArray(preferences.onboarding_data)
+    ? preferences.onboarding_data as Record<string, unknown>
+    : {};
+  const wizard = data.wizardState && typeof data.wizardState === "object" && !Array.isArray(data.wizardState)
+    ? data.wizardState as Record<string, unknown>
+    : {};
+  const currentStep = Number(wizard.step);
+  const stepIndex = Number.isFinite(currentStep) && currentStep >= 1
+    ? Math.min(stepTitles.length, Math.floor(currentStep))
+    : 1;
+  const updatedAtMs = Date.parse(preferences.updated_at);
+  const stalled = Number.isFinite(updatedAtMs) && now - updatedAtMs >= ONBOARDING_STALLED_MS;
+
+  return {
+    status: stalled ? "stalled" : "in_progress",
+    step: stepTitles[stepIndex - 1] ?? stepTitles[0] ?? null,
+    updated_at: preferences.updated_at,
+  };
+}
 
 function preferPlan(current: SubscriptionPlan | undefined, next: SubscriptionPlan): SubscriptionPlan {
   if (!current || PLAN_RANK[next] > PLAN_RANK[current]) return next;
@@ -113,7 +166,17 @@ Deno.serve(async (req) => {
     // Clerk (third-party) users are not in auth.users — listUsers is often empty. Use profiles as source of truth.
     const { data: profiles } = await adminClient
       .from("profiles")
-      .select("user_id, full_name, title, avatar_url, user_type, linkedin_url, twitter_url, location, created_at");
+      .select("user_id, full_name, title, avatar_url, user_type, linkedin_url, twitter_url, location, created_at, has_completed_onboarding");
+
+    const [{ data: preferenceRows }, { data: workflowRow }] = await Promise.all([
+      adminClient.from("user_preferences").select("user_id, onboarding_data, updated_at"),
+      adminClient.from("onboarding_workflow").select("definition").eq("id", "founder").maybeSingle(),
+    ]);
+    const onboardingByUserId = new Map(
+      (preferenceRows ?? []).map((row) => [row.user_id, row]),
+    );
+    const onboardingSteps = onboardingStepTitles(workflowRow?.definition);
+    const onboardingNow = Date.now();
 
     // App users table (email / display name) — used to enrich + as a fallback identity source
     // so the list is never empty even when the Clerk directory can't be read.
@@ -301,6 +364,12 @@ Deno.serve(async (req) => {
       const u = authById.get(id);
       const appUser = appUserMap.get(id);
       const act = activityMap.get(id);
+      const onboarding = onboardingSummary(
+        profile?.has_completed_onboarding === true,
+        onboardingByUserId.get(id),
+        onboardingSteps,
+        onboardingNow,
+      );
       const meta = u?.user_metadata as { full_name?: string } | undefined;
       const ipAddresses = ipMap.get(id) ?? [];
       const email = u?.email || appUser?.email || "";
@@ -335,6 +404,9 @@ Deno.serve(async (req) => {
         api_calls_count: act?.api_calls_count ?? 0,
         storage_bytes: storageBytesByUserId.get(id) ?? 0,
         last_active_at: act?.last_active_at ?? null,
+        onboarding_status: onboarding.status,
+        onboarding_step: onboarding.step,
+        onboarding_updated_at: onboarding.updated_at,
         ip_addresses: ipAddresses,
         last_ip: ipAddresses[0] ?? null,
         banned,

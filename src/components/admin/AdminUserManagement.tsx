@@ -40,6 +40,9 @@ export interface EnrichedUser {
   api_calls_count: number;
   storage_bytes: number;
   last_active_at: string | null;
+  onboarding_status?: "completed" | "stalled" | "in_progress" | "not_started";
+  onboarding_step?: string | null;
+  onboarding_updated_at?: string | null;
   ip_addresses?: string[];
   last_ip?: string | null;
   banned?: boolean;
@@ -1411,9 +1414,35 @@ function RowMenu({
 
 function AccountDetail({ user }: { user: EnrichedUser }) {
   const ips = user.ip_addresses ?? [];
+  const onboardingStatus = user.onboarding_status ?? "not_started";
+  const onboardingLabel = onboardingStatus === "completed"
+    ? "Completed"
+    : onboardingStatus === "stalled"
+      ? `Stalled · ${user.onboarding_step || "Onboarding"}`
+      : onboardingStatus === "in_progress"
+        ? `In progress · ${user.onboarding_step || "Onboarding"}`
+        : "Not started";
+  const onboardingTone = onboardingStatus === "completed"
+    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+    : onboardingStatus === "stalled"
+      ? "border-amber-500/20 bg-amber-500/10 text-amber-200"
+      : "border-neutral-700 bg-white/[0.03] text-neutral-300";
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-white/[0.02] px-3 py-2.5 sm:col-span-2 lg:col-span-4">
+        <div>
+          <p className="font-sans text-xs text-neutral-500">Onboarding</p>
+          {user.onboarding_updated_at ? (
+            <p className="mt-1 font-sans text-xs text-neutral-500">
+              Last saved {formatDistanceToNow(new Date(user.onboarding_updated_at), { addSuffix: true })}
+            </p>
+          ) : null}
+        </div>
+        <span className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 font-sans text-xs font-medium ${onboardingTone}`}>
+          {onboardingLabel}
+        </span>
+      </section>
       <Metric
         label="Last active"
         value={user.last_active_at ? formatDistanceToNow(new Date(user.last_active_at), { addSuffix: true }) : "Never"}
