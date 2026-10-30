@@ -1,3 +1,5 @@
+import { authRedirectUrl } from "@/lib/authRedirectUrl";
+
 export interface SignupWithOtpInput {
   email: string;
   password?: string;
@@ -54,7 +56,7 @@ export async function signupWithOtp(input: SignupWithOtpInput): Promise<SignupWi
       lastName: input.lastName,
       resend: Boolean(input.resend),
       token: input.token,
-      redirectTo: typeof window === "undefined" ? undefined : `${window.location.origin}/auth`,
+      redirectTo: authRedirectUrl(),
     }),
   });
 

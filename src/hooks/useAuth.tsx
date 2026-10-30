@@ -5,6 +5,7 @@ import { registerClerkSessionTokenGetter } from "@/lib/clerkSessionForEdge";
 import { mixpanelIdentify, mixpanelReset } from "@/lib/mixpanel";
 import { LoginOtpError, sendLoginOtp } from "@/lib/sendLoginOtp";
 import { signupWithOtp } from "@/lib/signupWithOtp";
+import { authRedirectUrl } from "@/lib/authRedirectUrl";
 
 export type SignUpInput = {
   email: string;
@@ -311,9 +312,9 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithOAuth = useCallback(async (provider: OAuthProvider, options?: OAuthOptions) => {
     try {
-      let redirectTo: string | undefined;
-      if (typeof window !== "undefined") {
-        const callbackUrl = new URL("/auth", window.location.origin);
+      let redirectTo = authRedirectUrl();
+      if (redirectTo) {
+        const callbackUrl = new URL(redirectTo);
         if (options?.intent === "request-access") {
           callbackUrl.searchParams.set("intent", "request-access");
           if (options.referralCode?.trim()) {
@@ -351,7 +352,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     try {
       // Return through the allowlisted /auth callback, which restores the session and
       // sends the user back to the app (onboarding resumes from its autosaved step).
-      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const redirectTo = authRedirectUrl();
       const { error } = await supabaseAuth.auth.linkIdentity({
         provider,
         options: { redirectTo },
@@ -383,7 +384,7 @@ function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+      const redirectTo = authRedirectUrl();
       const { error } = await supabaseAuth.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo,
       });

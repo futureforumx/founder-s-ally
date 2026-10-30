@@ -1,3 +1,5 @@
+import { authRedirectUrl } from "@/lib/authRedirectUrl";
+
 function publishableKey(): string {
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   return typeof key === "string" ? key.trim() : "";
@@ -19,11 +21,6 @@ function bearerToken(): string {
     if (trimmed && isLikelyJwt(trimmed)) return trimmed;
   }
   return publishableKey();
-}
-
-function authRedirectUrl(): string {
-  if (typeof window === "undefined") return "";
-  return `${window.location.origin}/auth`;
 }
 
 const OTP_REQUEST_TIMEOUT_MS = 30_000;
