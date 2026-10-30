@@ -578,7 +578,7 @@ export function OnboardingWizard() {
       <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(hsl(var(--foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground))_1px,transparent_1px)] [background-size:48px_48px]" />
 
       <header className="relative z-10 flex h-16 items-center justify-between border-b border-border/60 px-5 sm:px-8">
-        <img src="/brand/vekta-wordmark.png" alt="Vekta" className="h-9 w-24 object-contain" />
+        <img src="/brand/vekta-icon-white.svg" alt="Vekta" className="h-9 w-9 object-contain" />
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           <LockKeyhole className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Your setup is private</span>
