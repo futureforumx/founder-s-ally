@@ -147,6 +147,7 @@ export function StepInvestorMaterials({ state, update, onBack, onFinish, saving,
         onLegacyValueChange={legacyValueChange}
         onRequiredValidityChange={setRequiredReady}
         topContent={uploadPanel}
+        sectionTabs
       />
 
       {showSkipHint && <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-emerald-900/70 bg-emerald-950/30 px-3.5 py-2.5"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" /><p className="text-[11px] leading-relaxed text-neutral-300">The more metrics, the better the matches.</p></div>}

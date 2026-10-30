@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { AlertCircle, Check, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CompanyTeamMembersField } from "./CompanyTeamMembersField";
@@ -36,6 +36,7 @@ interface FounderMetricsSetupProps {
   onRequiredValidityChange?: (isReady: boolean) => void;
   showHeader?: boolean;
   topContent?: ReactNode;
+  sectionTabs?: boolean;
 }
 
 const MODELS: { value: MetricsBusinessModel; label: string }[] = [
@@ -44,6 +45,17 @@ const MODELS: { value: MetricsBusinessModel; label: string }[] = [
   { value: "marketplace", label: "🔄 Marketplace & Fintech" },
   { value: "pre_revenue", label: "🚀 Pre-Revenue & Stealth" },
 ];
+
+const METRIC_SECTIONS = [
+  { id: "revenue", label: "Revenue & Growth" },
+  { id: "traction", label: "Traction & Retention" },
+  { id: "unit-economics", label: "Unit Economics" },
+  { id: "capital", label: "Capital & Financial Health" },
+  { id: "market", label: "Market Opportunity" },
+  { id: "team", label: "Team & Background" },
+] as const;
+
+type MetricSectionId = (typeof METRIC_SECTIONS)[number]["id"];
 
 const MAGNITUDES: RevenueMagnitude[] = ["k", "m", "b"];
 const MAGNITUDE_VALUE: Record<RevenueMagnitude, number> = { k: 1e3, m: 1e6, b: 1e9 };
@@ -59,9 +71,25 @@ function AutosaveStatus({ state, retry }: { state: SaveState; retry: () => void 
   return <span className="inline-flex items-center gap-1.5 text-xs text-neutral-400"><Check className="h-3.5 w-3.5 text-emerald-400" />All changes saved</span>;
 }
 
-function Section({ title, children, description, className }: { title: string; children: ReactNode; description?: string; className?: string }) {
+function Section({ title, children, description, className, id, tabbed, labelledBy, hidden }: {
+  title: string;
+  children: ReactNode;
+  description?: string;
+  className?: string;
+  id?: string;
+  tabbed?: boolean;
+  labelledBy?: string;
+  hidden?: boolean;
+}) {
   return (
-    <section className={cn("space-y-3", className)}>
+    <section
+      id={id}
+      role={tabbed ? "tabpanel" : undefined}
+      aria-labelledby={tabbed ? labelledBy : undefined}
+      tabIndex={tabbed ? 0 : undefined}
+      hidden={hidden}
+      className={cn("space-y-3", className)}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-800 pb-2">
         <h3 className="font-sans text-sm font-semibold text-neutral-100">{title}</h3>
         {description && <p className="font-sans text-xs text-neutral-500">{description}</p>}
@@ -271,7 +299,8 @@ function GrowthToggle({ value, onChange, options }: { value: string; onChange: (
   );
 }
 
-export function FounderMetricsSetup({ metrics, update, saveState, retry, attributions, initialValues, onLegacyValueChange, onRequiredValidityChange, showHeader = true, topContent }: FounderMetricsSetupProps) {
+export function FounderMetricsSetup({ metrics, update, saveState, retry, attributions, initialValues, onLegacyValueChange, onRequiredValidityChange, showHeader = true, topContent, sectionTabs = false }: FounderMetricsSetupProps) {
+  const [activeMetricSection, setActiveMetricSection] = useState<MetricSectionId>(METRIC_SECTIONS[0].id);
   const hydratedInitialValues = useRef(false);
   useEffect(() => {
     if (hydratedInitialValues.current || !initialValues) return;
@@ -300,6 +329,25 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
   const at = (field: string) => attributionFor(field, attributions);
   const legacy = onLegacyValueChange;
 
+  const handleMetricTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    let nextIndex: number | undefined;
+
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % METRIC_SECTIONS.length;
+
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + METRIC_SECTIONS.length) % METRIC_SECTIONS.length;
+
+    if (event.key === "Home") nextIndex = 0;
+
+    if (event.key === "End") nextIndex = METRIC_SECTIONS.length - 1;
+
+    if (nextIndex === undefined) return;
+
+    event.preventDefault();
+    const nextSection = METRIC_SECTIONS[nextIndex].id;
+    setActiveMetricSection(nextSection);
+    document.getElementById(`founder-metric-tab-${nextSection}`)?.focus();
+  };
+
   return (
     <div className="space-y-7 font-sans">
       {showHeader && <header className="flex flex-col gap-3 border-b border-neutral-800 pb-5 sm:flex-row sm:items-end sm:justify-between">
@@ -323,7 +371,37 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
 
       {metrics.businessModel === "pre_revenue" && <div className="rounded-lg border border-amber-900/70 bg-amber-950/30 px-4 py-3 font-sans text-sm text-amber-200">Pre-revenue mode active. Historical ARR/MRR metrics are disabled; highlight commercial traction below.</div>}
 
-      <Section title="Revenue & Growth" description="Fields adapt to your business model; values stay saved when you switch models.">
+      {sectionTabs && (
+        <div role="tablist" aria-label="Metric sections" aria-orientation="horizontal" className="grid min-w-0 grid-cols-2 gap-1 rounded-xl border border-neutral-800 bg-neutral-950 p-1 sm:grid-cols-3 lg:grid-cols-6">
+          {METRIC_SECTIONS.map((section, index) => {
+            const selected = activeMetricSection === section.id;
+
+            return (
+              <button
+                key={section.id}
+                id={`founder-metric-tab-${section.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={`founder-metric-panel-${section.id}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setActiveMetricSection(section.id)}
+                onKeyDown={(event) => handleMetricTabKeyDown(event, index)}
+                className={cn(
+                  "flex min-h-10 min-w-0 items-center justify-center rounded-lg px-2 py-2 text-center font-sans text-[11px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:text-xs",
+                  selected
+                    ? "bg-neutral-800 text-neutral-100"
+                    : "text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200",
+                )}
+              >
+                {section.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <Section id={sectionTabs ? "founder-metric-panel-revenue" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-revenue" hidden={sectionTabs && activeMetricSection !== "revenue"} title="Revenue & Growth" description="Fields adapt to your business model; values stay saved when you switch models.">
         {metrics.businessModel === "saas" && <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field metrics={metrics} update={update} field="arr" label="ARR" value={metrics.arr} format="currency" prefix="$" required magnitudeKey="revenueMagnitude" magnitudeOptions={["k", "m"]} attribution={at("arr")} onLegacyValueChange={legacy} />
           <ComputedField label="MRR" value={mrrValue} helper="Auto-synced from ARR ÷ 12. Override to enter a different monthly value." overridden={metrics.mrrIsOverridden} onToggle={() => update({ mrrIsOverridden: !metrics.mrrIsOverridden }, { immediate: true })} onValueChange={(mrr) => update({ mrr })} field="mrr" attribution={at("mrr")} onLegacyValueChange={legacy} />
@@ -357,7 +435,7 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
         </div>}
       </Section>
 
-      <Section title="Traction & Retention" description="Engagement, customer retention, and active accounts.">
+      <Section id={sectionTabs ? "founder-metric-panel-traction" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-traction" hidden={sectionTabs && activeMetricSection !== "traction"} title="Traction & Retention" description="Engagement, customer retention, and active accounts.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field metrics={metrics} update={update} field="nrr" label="Net Revenue Retention (NRR)" value={metrics.nrr} format="percent" suffix="%" notTrackedKey="nrrNotTracked" helper="Common SaaS benchmark: above 110%." attribution={at("nrr")} onLegacyValueChange={legacy} />
           <div className="rounded-xl border border-neutral-800 bg-neutral-900/30 p-4"><div className="mb-2 flex items-center justify-between"><span className="font-sans text-xs font-medium text-neutral-200">Churn Rate</span><GrowthToggle value={metrics.churnPeriod} onChange={(period) => update({ churnPeriod: period as "monthly" | "annual" }, { immediate: true })} options={["monthly", "annual"]} /></div><Field metrics={metrics} update={update} field={metrics.churnPeriod === "monthly" ? "churnRate" : "annualChurnRate"} label={`${metrics.churnPeriod === "monthly" ? "Monthly" : "Annual"} churn`} value={metrics.churnPeriod === "monthly" ? metrics.churnRate : metrics.annualChurnRate} format="percent" suffix="%" notTrackedKey="churnNotTracked" attribution={at("churnRate")} onLegacyValueChange={legacy} /></div>
@@ -368,7 +446,7 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
         </div>
       </Section>
 
-      <Section title="Unit Economics" description="Customer-level acquisition and lifetime value.">
+      <Section id={sectionTabs ? "founder-metric-panel-unit-economics" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-unit-economics" hidden={sectionTabs && activeMetricSection !== "unit-economics"} title="Unit Economics" description="Customer-level acquisition and lifetime value.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field metrics={metrics} update={update} field="cac" label="Customer Acquisition Cost (CAC)" value={metrics.cac} format="currency" prefix="$" notTrackedKey="cacNotTracked" placeholder="250" attribution={at("cac")} onLegacyValueChange={legacy} />
           <Field metrics={metrics} update={update} field="ltv" label="Lifetime Value (LTV)" value={metrics.ltv} format="currency" prefix="$" notTrackedKey="ltvNotTracked" placeholder="5,000" attribution={at("ltv")} onLegacyValueChange={legacy} />
@@ -378,7 +456,7 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
         </div>
       </Section>
 
-      <Section title="Capital & Financial Health" description="Balance sheet and runway.">
+      <Section id={sectionTabs ? "founder-metric-panel-capital" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-capital" hidden={sectionTabs && activeMetricSection !== "capital"} title="Capital & Financial Health" description="Balance sheet and runway.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field metrics={metrics} update={update} field="cashOnHand" label="Cash on Hand" value={metrics.cashOnHand} format="currency" prefix="$" required magnitudeKey="cashMagnitude" magnitudeOptions={["k", "m"]} attribution={at("cashOnHand")} onLegacyValueChange={legacy} />
           <Field metrics={metrics} update={update} field="monthlyBurnRate" label="Monthly Net Burn" value={metrics.monthlyBurnRate} format="currency" prefix="$" required magnitudeKey="burnMagnitude" magnitudeOptions={["k", "m"]} attribution={at("monthlyBurnRate")} onLegacyValueChange={legacy} />
@@ -388,7 +466,7 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
         </div>
       </Section>
 
-      <Section title="Market Opportunity" description="Market sizing in the currency scale you report.">
+      <Section id={sectionTabs ? "founder-metric-panel-market" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-market" hidden={sectionTabs && activeMetricSection !== "market"} title="Market Opportunity" description="Market sizing in the currency scale you report.">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Field metrics={metrics} update={update} field="tam" label="TAM (Total Addressable Market)" value={metrics.tam} format="currency" prefix="$" required magnitudeKey="marketMagnitude" magnitudeOptions={["m", "b"]} attribution={at("tam")} onLegacyValueChange={legacy} />
           <Field metrics={metrics} update={update} field="sam" label="SAM (Serviceable Addressable Market)" value={metrics.sam} format="currency" prefix="$" magnitudeKey="marketMagnitude" magnitudeOptions={["m", "b"]} attribution={at("sam")} onLegacyValueChange={legacy} />
@@ -396,7 +474,7 @@ export function FounderMetricsSetup({ metrics, update, saveState, retry, attribu
         </div>
       </Section>
 
-      <Section title="Team & Background" description="Team size, open roles, and the experience behind the company.">
+      <Section id={sectionTabs ? "founder-metric-panel-team" : undefined} tabbed={sectionTabs} labelledBy="founder-metric-tab-team" hidden={sectionTabs && activeMetricSection !== "team"} title="Team & Background" description="Team size, open roles, and the experience behind the company.">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="space-y-4">
             <Field metrics={metrics} update={update} field="headcount" label="Total Headcount" value={metrics.headcount} format="integer" required placeholder="12" attribution={at("headcount")} onLegacyValueChange={legacy} />
