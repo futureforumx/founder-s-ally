@@ -22,12 +22,8 @@ export function ProgressBar({ currentStep, labels }: ProgressBarProps) {
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold transition-all duration-300",
-                  currentStep > s.num
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : currentStep === s.num
-                    ? "border-primary bg-primary text-primary-foreground ring-4 ring-primary/15"
-                    : "border-border bg-muted/50 text-muted-foreground"
+                  "flex h-7 w-7 items-center justify-center rounded-full border border-[#A487F5] bg-[#A487F5] text-[11px] font-semibold text-[#211936] transition-all duration-300",
+                  currentStep === s.num && "animate-onboarding-step-pulse",
                 )}
               >
                 {currentStep > s.num ? <Check className="h-4 w-4" /> : s.num}

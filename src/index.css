@@ -256,6 +256,26 @@
   animation: pulse-glow-purple 3s ease-in-out infinite;
 }
 
+@keyframes onboarding-step-soft-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(164, 135, 245, 0.16);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(164, 135, 245, 0.08), 0 0 14px rgba(164, 135, 245, 0.2);
+  }
+}
+
+.animate-onboarding-step-pulse {
+  animation: onboarding-step-soft-pulse 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-onboarding-step-pulse {
+    animation: none;
+  }
+}
+
 /** Referrals dashboard — hero tier pill (TOP 25, etc.) */
 @keyframes referrals-tier-chip-soft-pulse {
   0%,
