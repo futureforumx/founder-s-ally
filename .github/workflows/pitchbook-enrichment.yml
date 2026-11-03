@@ -1,0 +1,66 @@
+name: PitchBook enrichment
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Probe PitchBook access or continue the resumable enrichment queues"
+        type: choice
+        options: [probe, batch]
+        default: probe
+        required: true
+      batch_size:
+        description: "Maximum records per queue for this run (1–100)"
+        type: number
+        default: 50
+        required: true
+      dry_run:
+        description: "Read and report only; do not write database fields"
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pitchbook-enrichment
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PITCHBOOK_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
+      PITCHBOOK_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.batch_size || '50' }}
+      PITCHBOOK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Confirm Supabase secrets are configured
+        run: |
+          test -n "$SUPABASE_URL" || { echo "SUPABASE_URL secret is missing"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY secret is missing"; exit 1; }
+
+      - name: Run or probe PitchBook enrichment
+        run: node scripts/pitchbook-cloud-enrichment.mjs
