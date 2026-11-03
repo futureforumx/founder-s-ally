@@ -133,12 +133,20 @@ model Role {
 model SourceRecord {
   id             String   @id @default(uuid())
   sourceAdapter  String   // yc-companies | yc-people | founders-list | product-hunt | betalist
-  sourceUrl      String
+  sourceUrl      String?
   sourceId       String?  // ID from the originating source
   rawPayload     Json     // verbatim normalized-but-unmerged payload
   entityType     String   // organization | person
   fetchedAt      DateTime @default(now())
   normalizedAt   DateTime?
+  importJobId    String?  @db.Uuid @map("import_job_id")
+  processingStatus String @default("raw") @map("processing_status")
+  licenseScope   String?  @map("license_scope")
+  payloadHash    String?  @map("payload_hash")
+  parsingErrors  Json     @default("[]") @map("parsing_errors")
+  canonicalEntityType String? @map("canonical_entity_type")
+  sourceRetrievedAt DateTime? @map("source_retrieved_at")
+  usageExpiresAt DateTime? @map("usage_expires_at")
 
   organizationId String?
   personId       String?
@@ -167,6 +175,10 @@ model IngestionJob {
   completedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  config       Json     @default("{}")
+  checkpoint   Json     @default("{}")
+  pausedAt     DateTime? @map("pausedAt")
+  cancelledAt  DateTime? @map("cancelledAt")
 
   @@index([sourceAdapter])
   @@index([status])

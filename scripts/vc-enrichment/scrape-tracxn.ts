@@ -414,6 +414,16 @@ export async function runTracxnScraper(config: {
   resumeFromId?: string;
 }): Promise<SourceStats> {
   const stats = emptyStats();
+  if (process.env.TRACXN_BROWSER_EXTRACTION_WRITTEN_PERMISSION !== "1" || !process.env.TRACXN_LICENSE_SCOPE?.trim()) {
+    log("  Tracxn browser extraction disabled: written permission and TRACXN_LICENSE_SCOPE are required");
+    stats.errors = 1;
+    return stats;
+  }
+  if (!config.dryRun && process.env.TRACXN_CANONICAL_WRITES_APPROVED !== "1") {
+    log("  Tracxn writes disabled: configure explicit TRACXN_CANONICAL_WRITES_APPROVED or run a dry-run");
+    stats.errors = 1;
+    return stats;
+  }
   const supabase = getSupabase();
   const limiter = new RateLimiter(DELAY_MS);
 

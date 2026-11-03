@@ -60,7 +60,9 @@ const args        = process.argv.slice(2);
 const sourceFlag  = args.find(a => a.startsWith("--source="))?.split("=")[1];
 const RUN_CBI     = !sourceFlag || sourceFlag === "cbi";
 const RUN_NFX     = !sourceFlag || sourceFlag === "nfx";
-const RUN_TRACXN  = !sourceFlag || sourceFlag === "tracxn";
+const TRACXN_REQUESTED = !sourceFlag || sourceFlag === "tracxn";
+const RUN_TRACXN = TRACXN_REQUESTED && process.env.TRACXN_BROWSER_EXTRACTION_WRITTEN_PERMISSION === "1" && Boolean(process.env.TRACXN_LICENSE_SCOPE?.trim()) && (DRY_RUN || process.env.TRACXN_CANONICAL_WRITES_APPROVED === "1");
+if (TRACXN_REQUESTED && !RUN_TRACXN) console.warn("Tracxn browser extraction disabled: written permission and TRACXN_LICENSE_SCOPE are required.");
 
 if (!SUPABASE_KEY) { console.error("❌ Missing SUPABASE_SERVICE_ROLE_KEY"); process.exit(1); }
 

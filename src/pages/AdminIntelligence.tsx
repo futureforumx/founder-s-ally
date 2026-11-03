@@ -6,7 +6,7 @@ import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import {
   Activity, Wifi, ScrollText, Brain, Users, History,
   UserRound, BarChart2, Flag, Bot, ClipboardCheck, PanelsTopLeft, LineChart,
-  TicketCheck, MessageSquareText,
+  TicketCheck, MessageSquareText, Palette, Database,
 } from "lucide-react";
 import { AdminOverview }           from "@/components/admin/AdminOverview";
 import { AdminAnalytics }          from "@/components/admin/AdminAnalytics";
@@ -23,6 +23,8 @@ import { AdminWaitlist }           from "@/components/admin/AdminWaitlist";
 import { AdminReferralCodes }      from "@/components/admin/AdminReferralCodes";
 import { AdminReviews }            from "@/components/admin/AdminReviews";
 import { AdminOnboarding }         from "@/components/admin/AdminOnboarding";
+import { AdminDesignSystem }      from "@/components/admin/AdminDesignSystem";
+import { AdminDataIngestion }     from "@/components/admin/AdminDataIngestion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,7 @@ import {
 
 const NAV_ITEMS = [
   { key: "overview",       label: "Overview",       icon: Activity   },
+  { key: "design-system",  label: "Design System",  icon: Palette    },
   { key: "analytics",      label: "Analytics",      icon: LineChart  },
   { key: "reviews",        label: "Reviews & Scores", icon: MessageSquareText },
   { key: "users",          label: "Users",           icon: Users      },
@@ -39,6 +42,7 @@ const NAV_ITEMS = [
   { key: "referral-codes", label: "Referral Codes",   icon: TicketCheck },
   { key: "firm-records",   label: "Investor Records", icon: UserRound },
   { key: "market-intel",   label: "Market Intel",    icon: BarChart2  },
+  { key: "data-ingestion", label: "Data Ingestion", icon: Database  },
   { key: "fresh-capital",  label: "Fresh Capital",   icon: Flag       },
   { key: "ai-agents-page", label: "AI Agents page",  icon: Bot        },
   { key: "record-updates", label: "Record Updates",  icon: History    },
@@ -122,7 +126,7 @@ export default function AdminIntelligence() {
   }
 
   return (
-    <div className="flex h-screen font-sans" style={{ background: "#050505", color: "#e0e0e0" }}>
+    <div className="admin-console flex h-screen font-sans" style={{ background: "#050505", color: "#e0e0e0" }}>
       {/* sidebar */}
       <aside
         className="flex w-52 shrink-0 flex-col border-r py-6 px-3"
@@ -211,6 +215,7 @@ export default function AdminIntelligence() {
       {/* main */}
       <main ref={mainRef} className="relative flex-1 overflow-y-auto px-8 pb-8">
         {activeView === "overview"       && <AdminOverview onNavigate={openView} />}
+        {activeView === "design-system"  && <AdminDesignSystem />}
         {activeView === "analytics"      && (
           <AdminAnalytics
             onOpenFirmRecord={(id, name) => {
@@ -248,6 +253,7 @@ export default function AdminIntelligence() {
           }}
         />}
         {activeView === "market-intel"   && <AdminMarketIntelligence focusCompany={focusCompany} />}
+        {activeView === "data-ingestion" && <AdminDataIngestion />}
         {activeView === "fresh-capital"  && <AdminFreshCapital onNavigate={openView} />}
         {activeView === "ai-agents-page" && <AdminAiAgentsToolPage />}
         {activeView === "record-updates" && <AdminRecordUpdates />}

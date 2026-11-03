@@ -10,6 +10,24 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --vekta-space-base: 16px;
+  --vekta-motion-duration: 200ms;
+  --vekta-motion-easing: ease-in-out;
+}
+
+:where(button, a, input, select, textarea) {
+  transition-duration: var(--vekta-motion-duration);
+  transition-timing-function: var(--vekta-motion-easing);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, input, select, textarea) {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 4%;
@@ -177,6 +195,15 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  .admin-console select {
+    color-scheme: dark;
+  }
+
+  .admin-console select option {
+    color: #f3f3f3;
+    background-color: #171717;
   }
 
   html {

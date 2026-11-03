@@ -21,8 +21,8 @@
  *
  * POST ?entity=fresh-funds|deals|firms|firm-people|fi-sources|fc-public-paths|company-investors|company-funding-rounds|firm-duplicates  body: { … }  → { row }  (create)
  *   - firm-duplicates: GET scans similar firm names. POST { primary_id, merge_ids } keeps the primary name and stores the others as aliases.
- *   - company-investors: links a startup to an existing firm (portfolio + investment). One link per person per round_name. Optional led_round marks that firm as the lead for that round and clears the flag on other firms. POST { action: "unlink", startup_id, firm_id, link_id? } removes that link without dropping the firm while other people or rounds remain. Check size is no longer written from the company editor. New people are created with POST entity=investors.
- *   - company-funding-rounds: GET ?startup_id= lists admin-entered rounds. POST { startup_id, rounds: [{ id?, round_type, amount_usd }] } replaces that company's rounds only.
+ *   - company-investors: links a startup to a firm (portfolio + investment). One link per person per round_name. POST { action: "create_individual", full_name, title?, email? } creates an Angel firm profile plus its person record. POST { action: "unlink", startup_id, firm_id, link_id? } removes a link without dropping the firm while other people or rounds remain. Check size is no longer written from the company editor.
+ *   - company-funding-rounds: GET ?startup_id= lists admin-entered rounds. POST { startup_id, rounds: [{ id?, round_type, amount_usd, announcement_date? }] } replaces that company's rounds only.
  * GET  ?entity=company-investors&startup_id=<text>  → { rows } including relationships that already exist.
  * GET  ?entity=company-funding-rounds&startup_id=<text>  → { rows }
  *   - firms: requires `firm_name`; optional `website_url`, `slug`, `legal_name`. New rows default to needs-review / not live.
@@ -186,31 +186,36 @@ async function assertAdmin(
 
 /** Columns must exist on `public.startups` (see generated types — no legacy `hq` / `twitter_url`). */
 const COMPANY_COLS = [
-  "id","company_name","sector","stage","status","record_status",
+  "id","company_name","sector","industry_verticals","stage","status","record_status",
   "hq_city","hq_state","hq_country","location",
   "total_raised_usd","last_round_type","last_round_date","last_round_size_usd",
   "headcount","momentum_score","investor_fit_score",
   "company_url","description_short","description_long","yc_batch",
-  "linkedin_url","x_url","founded_year",
-  "lead_investor_names","investor_names","logo_url","brand_icon_url","created_at","updated_at",
+  "linkedin_url","x_url","facebook_url","instagram_url","tiktok_url","founded_year",
+  "lead_investor_names","investor_names","logo_url","brand_icon_url","deleted_at","created_at","updated_at",
 ].join(", ");
 
 const FOUNDER_COLS = [
-  "id","full_name","role","startup_id",
+  "id","full_name","role","bio","startup_id","company_profile_ids",
+  "employment_history",
+  "is_currently_at_startup","current_employer_name","current_employer_type","current_employer_title",
   "is_repeat_founder","has_prior_exit","operator_to_founder",
   "track_record_score","location","domain_expertise",
-  "prior_companies","founder_archetype","linkedin_url","x_url","email","avatar_url",
-  "created_at","updated_at",
+  "city","state","country","education",
+  "prior_companies","founder_archetype","founder_archetypes","linkedin_url","x_url","website_url","email","avatar_url",
+  "record_status","deleted_at","created_at","updated_at",
 ].join(", ");
 
 const OPERATOR_COLS = [
-  "id","full_name","title","sector_focus","expertise","prior_companies",
-  "completeness_score","enrichment_status","is_available","ready_for_live",
-  "city","state","country","linkedin_url","x_url","website_url","avatar_url","email","stage_focus","source","startup_id","updated_at","created_at",
+  "id","full_name","title","bio","sector_focus","expertise","prior_companies","company_profile_ids","founder_archetypes",
+  "employment_history",
+  "is_currently_at_startup","current_employer_name","current_employer_type","current_employer_title",
+  "completeness_score","enrichment_status","is_available","ready_for_live","education",
+  "city","state","country","linkedin_url","x_url","website_url","avatar_url","email","stage_focus","stage_focuses","source","startup_id","record_status","deleted_at","updated_at","created_at",
 ].join(", ");
 
 const FIRM_COLS = [
-  "id","firm_name","legal_name","aliases","alternate_names","slug","tagline","elevator_pitch","description","sentiment_detail",
+  "id","firm_name","legal_name","aliases","alternate_names","slug","tagline","elevator_pitch","description","sentiment_detail","deleted_at",
   "team_people_url",
   "location","address","hq_city","hq_state","hq_zip_code","hq_country","locations",
   "website_url","contact_page_url","logo_url","favicon_url","linkedin_url","x_url",
@@ -260,6 +265,21 @@ const FIRM_PORTFOLIO_COLS = [
 ].join(", ");
 
 const PORTFOLIO_COMPANY_STAGES = new Set(["PRE_SEED", "SEED", "SERIES_A", "series_b", "SERIES_C", "GROWTH", "PUBLIC", "ACQUIRED", "UNKNOWN"]);
+const OPERATOR_COMPANY_STAGES = new Set([
+  "PRE_SEED", "SEED", "SERIES_A", "series_b", "SERIES_B", "SERIES_C",
+  "GROWTH", "PUBLIC", "BOOTSTRAPPED", "ACQUIRED", "SHUTDOWN", "UNKNOWN",
+]);
+
+/** Accept legacy lowercase editor values, then write the exact Postgres enum label. */
+function normalizeOperatorCompanyStage(value: unknown): string | null {
+  if (value == null) return "UNKNOWN";
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return "UNKNOWN";
+  const normalized = raw.toLowerCase() === "series_b" ? "series_b" : raw.toUpperCase();
+  return OPERATOR_COMPANY_STAGES.has(normalized) ? normalized : null;
+}
+
 const PORTFOLIO_COMPANY_SECTORS = new Set([
   "FINTECH", "ENTERPRISE_SAAS", "AI", "HEALTHTECH", "BIOTECH", "CONSUMER", "CLIMATE", "MOBILITY",
   "INDUSTRIAL", "CYBERSECURITY", "MEDIA", "WEB3", "EDTECH", "GOVTECH", "HARDWARE", "ROBOTICS",
@@ -753,6 +773,7 @@ function normalizeAdminEntity(e: string): string {
     toolcategorypage: "tool-category-page",
     companyinvestors: "company-investors",
     companyfundingrounds: "company-funding-rounds",
+    companykeypeople: "company-key-people",
     firmduplicates: "firm-duplicates",
   };
   return aliases[e] ?? e;
@@ -822,6 +843,683 @@ async function adminDeleteResource(db: SupabaseClient, entity: string, id: strin
   return err(`Delete not supported for entity: ${entity}`, 400);
 }
 
+type CompanyKeyPersonInput = {
+  client_key?: unknown;
+  operator_profile_id?: unknown;
+  founder_profile_id?: unknown;
+  full_name?: unknown;
+  title?: unknown;
+  email?: unknown;
+  bio?: unknown;
+  avatar_url?: unknown;
+  profile_type?: unknown;
+};
+
+function normalizeKeyPersonName(value: unknown): string {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").toLocaleLowerCase() : "";
+}
+
+function normalizeKeyPersonEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
+}
+
+function keyPersonText(value: unknown, maxLength: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().slice(0, maxLength);
+  return trimmed || null;
+}
+
+async function listCompanyKeyPeople(db: SupabaseClient, startupId: string): Promise<{ rows?: Record<string, unknown>[]; error?: string; status?: number }> {
+  const { data: startup, error: startupError } = await db.from("startups")
+    .select("id").eq("id", startupId).is("deleted_at", null).maybeSingle();
+  if (startupError) return { error: startupError.message, status: 500 };
+  if (!startup) return { error: "Company not found", status: 404 };
+
+  const [operatorsResult, foundersResult] = await Promise.all([
+    db.from("operator_profiles")
+      .select("id, full_name, title, bio, email, avatar_url, startup_id")
+      .eq("startup_id", startupId).is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    db.from("startup_founders")
+      .select("id, professional_id, full_name, role, bio, email, avatar_url, startup_id")
+      .eq("startup_id", startupId).is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+  ]);
+  if (operatorsResult.error) return { error: operatorsResult.error.message, status: 500 };
+  if (foundersResult.error) return { error: foundersResult.error.message, status: 500 };
+
+  const operators = (operatorsResult.data ?? []) as Array<Record<string, unknown>>;
+  const founders = (foundersResult.data ?? []) as Array<Record<string, unknown>>;
+  const usedFounderIds = new Set<string>();
+  const rows = operators.map((operator) => {
+    const operatorId = String(operator.id ?? "");
+    const email = normalizeKeyPersonEmail(operator.email);
+    const name = normalizeKeyPersonName(operator.full_name);
+    const matchedFounder = founders.find((founder) =>
+      (!usedFounderIds.has(String(founder.id)) && String(founder.professional_id ?? "") === operatorId)
+      || (!usedFounderIds.has(String(founder.id)) && email && normalizeKeyPersonEmail(founder.email) === email)
+      || (!usedFounderIds.has(String(founder.id)) && name && normalizeKeyPersonName(founder.full_name) === name),
+    );
+    if (matchedFounder) usedFounderIds.add(String(matchedFounder.id));
+    const profileType = matchedFounder || /\b(?:co[- ]?)?founder\b/i.test(String(operator.title ?? "")) ? "founder" : "operator";
+    return {
+      client_key: operatorId,
+      operator_profile_id: operatorId,
+      founder_profile_id: matchedFounder ? String(matchedFounder.id) : null,
+      full_name: String(operator.full_name ?? ""),
+      title: String(operator.title ?? "").trim() || String(matchedFounder?.role ?? ""),
+      email: String(operator.email ?? matchedFounder?.email ?? ""),
+      bio: String(operator.bio ?? matchedFounder?.bio ?? ""),
+      avatar_url: String(operator.avatar_url ?? matchedFounder?.avatar_url ?? ""),
+      profile_type: profileType,
+    };
+  });
+  for (const founder of founders) {
+    if (usedFounderIds.has(String(founder.id))) continue;
+    rows.push({
+      client_key: String(founder.id),
+      operator_profile_id: null,
+      founder_profile_id: String(founder.id),
+      full_name: String(founder.full_name ?? ""),
+      title: String(founder.role ?? ""),
+      email: String(founder.email ?? ""),
+      bio: String(founder.bio ?? ""),
+      avatar_url: String(founder.avatar_url ?? ""),
+      profile_type: "founder",
+    });
+  }
+  return { rows: rows.sort((a, b) => String(a.full_name).localeCompare(String(b.full_name))) };
+}
+
+async function saveCompanyKeyPerson(
+  db: SupabaseClient,
+  startupId: string,
+  person: CompanyKeyPersonInput,
+): Promise<{ row?: Record<string, unknown>; error?: string; status?: number }> {
+  const fullName = keyPersonText(person.full_name, 240);
+  const title = keyPersonText(person.title, 180);
+  if (!fullName) return { error: "Name is required", status: 400 };
+  if (!title) return { error: "Title is required", status: 400 };
+  for (const key of ["email", "bio", "avatar_url"] as const) {
+    if (person[key] != null && typeof person[key] !== "string") return { error: `${key} must be text or null`, status: 400 };
+  }
+  const email = keyPersonText(person.email, 320);
+  const bio = keyPersonText(person.bio, 10000);
+  const avatarUrl = keyPersonText(person.avatar_url, 2048);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address", status: 400 };
+  if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) return { error: "Photo URL must start with http:// or https://", status: 400 };
+
+  const { data: startup, error: startupError } = await db.from("startups")
+    .select("id, company_name").eq("id", startupId).is("deleted_at", null).maybeSingle();
+  if (startupError) return { error: startupError.message, status: 500 };
+  if (!startup) return { error: "Company not found", status: 404 };
+
+  const operatorId = typeof person.operator_profile_id === "string" ? person.operator_profile_id.trim() : "";
+  let operator: Record<string, unknown> | null = null;
+  if (operatorId) {
+    const { data, error } = await db.from("operator_profiles").select("id, people_id")
+      .eq("id", operatorId).maybeSingle();
+    if (error) return { error: error.message, status: 500 };
+    if (!data) return { error: "Operator profile not found", status: 404 };
+    operator = data as Record<string, unknown>;
+  }
+  if (!operator && email) {
+    const escapedEmail = email.replace(/[\\%_]/g, "\\$&");
+    const { data, error } = await db.from("operator_profiles").select("id, people_id")
+      .ilike("email", escapedEmail).is("deleted_at", null).limit(1).maybeSingle();
+    if (error) return { error: error.message, status: 500 };
+    if (data) operator = data as Record<string, unknown>;
+  }
+  if (!operator) {
+    const escapedName = fullName.replace(/[\\%_]/g, "\\$&");
+    const { data, error } = await db.from("operator_profiles").select("id, people_id")
+      .eq("startup_id", startupId).ilike("full_name", escapedName).is("deleted_at", null).limit(1).maybeSingle();
+    if (error) return { error: error.message, status: 500 };
+    if (data) operator = data as Record<string, unknown>;
+  }
+
+  const nameParts = fullName.split(/\s+/);
+  const profilePatch = {
+    full_name: fullName,
+    first_name: nameParts[0] ?? fullName,
+    last_name: nameParts.slice(1).join(" ") || null,
+    title,
+    email,
+    bio,
+    avatar_url: avatarUrl,
+    startup_id: startupId,
+    current_company_name: startup.company_name,
+    updated_at: new Date().toISOString(),
+  };
+  const savedOperator = operator
+    ? await db.from("operator_profiles").update(profilePatch).eq("id", operator.id).select("id").single()
+    : await db.from("operator_profiles").insert(profilePatch).select("id").single();
+  if (savedOperator.error) return { error: savedOperator.error.message, status: 500 };
+  const savedOperatorId = String(savedOperator.data.id);
+  const isFounder = person.profile_type === "founder";
+  const founderId = typeof person.founder_profile_id === "string" ? person.founder_profile_id.trim() : "";
+  let savedFounderId: string | null = null;
+
+  if (isFounder) {
+    let founder: Record<string, unknown> | null = null;
+    if (founderId) {
+      const { data, error } = await db.from("startup_founders").select("id")
+        .eq("id", founderId).eq("startup_id", startupId).maybeSingle();
+      if (error) return { error: error.message, status: 500 };
+      if (data) founder = data as Record<string, unknown>;
+    }
+    if (!founder) {
+      const { data, error } = await db.from("startup_founders").select("id")
+        .eq("startup_id", startupId).eq("professional_id", savedOperatorId).limit(1).maybeSingle();
+      if (error) return { error: error.message, status: 500 };
+      if (data) founder = data as Record<string, unknown>;
+    }
+    if (!founder && email) {
+      const escapedEmail = email.replace(/[\\%_]/g, "\\$&");
+      const { data, error } = await db.from("startup_founders").select("id")
+        .eq("startup_id", startupId).ilike("email", escapedEmail).limit(1).maybeSingle();
+      if (error) return { error: error.message, status: 500 };
+      if (data) founder = data as Record<string, unknown>;
+    }
+    if (!founder) {
+      const escapedName = fullName.replace(/[\\%_]/g, "\\$&");
+      const { data, error } = await db.from("startup_founders").select("id")
+        .eq("startup_id", startupId).ilike("full_name", escapedName).limit(1).maybeSingle();
+      if (error) return { error: error.message, status: 500 };
+      if (data) founder = data as Record<string, unknown>;
+    }
+    const founderPatch = {
+      startup_id: startupId,
+      professional_id: savedOperatorId,
+      full_name: fullName,
+      role: title,
+      bio,
+      email,
+      avatar_url: avatarUrl,
+      updated_at: new Date().toISOString(),
+    };
+    const savedFounder = founder
+      ? await db.from("startup_founders").update(founderPatch).eq("id", founder.id).select("id").single()
+      : await db.from("startup_founders").insert({ id: crypto.randomUUID(), ...founderPatch }).select("id").single();
+    if (savedFounder.error) return { error: savedFounder.error.message, status: 500 };
+    savedFounderId = String(savedFounder.data.id);
+  } else if (founderId) {
+    const { error } = await db.from("startup_founders").delete()
+      .eq("id", founderId).eq("startup_id", startupId);
+    if (error) return { error: error.message, status: 500 };
+  }
+
+  return {
+    row: {
+      client_key: savedOperatorId,
+      operator_profile_id: savedOperatorId,
+      founder_profile_id: savedFounderId,
+      full_name: fullName,
+      title,
+      email: email ?? "",
+      bio: bio ?? "",
+      avatar_url: avatarUrl ?? "",
+      profile_type: isFounder ? "founder" : "operator",
+    },
+  };
+}
+
+async function unlinkCompanyKeyPerson(
+  db: SupabaseClient,
+  startupId: string,
+  operatorProfileId: string | null,
+  founderProfileId: string | null,
+): Promise<{ error?: string; status?: number }> {
+  if (!startupId || (!operatorProfileId && !founderProfileId)) return { error: "Company and key person are required", status: 400 };
+  if (founderProfileId) {
+    const { error } = await db.from("startup_founders").delete()
+      .eq("id", founderProfileId).eq("startup_id", startupId);
+    if (error) return { error: error.message, status: 500 };
+  }
+  if (operatorProfileId) {
+    const { error } = await db.from("operator_profiles")
+      .update({ startup_id: null, current_company_name: null, updated_at: new Date().toISOString() })
+      .eq("id", operatorProfileId).eq("startup_id", startupId);
+    if (error) return { error: error.message, status: 500 };
+  }
+  return {};
+}
+
+const PROFILE_ASSOCIATION_CONFIG = {
+  company: { table: "startups", labelColumn: "company_name", subtitleColumn: null },
+  firm: { table: "firm_records", labelColumn: "firm_name", subtitleColumn: null },
+  founder: { table: "startup_founders", labelColumn: "full_name", subtitleColumn: "role" },
+  investor: { table: "firm_investors", labelColumn: "full_name", subtitleColumn: "title" },
+  operator: { table: "operator_profiles", labelColumn: "full_name", subtitleColumn: "title" },
+} as const;
+type ProfileAssociationType = keyof typeof PROFILE_ASSOCIATION_CONFIG | "corporation";
+type ProfileAssociation = { type: ProfileAssociationType; id: string; label: string; subtitle: string | null };
+type ProfileAssociationEdge = {
+  id: string;
+  left_type: ProfileAssociationType;
+  left_id: string;
+  left_label: string | null;
+  right_type: ProfileAssociationType;
+  right_id: string;
+  right_label: string | null;
+};
+
+function isProfileAssociationType(value: unknown): value is ProfileAssociationType {
+  return value === "corporation" || (typeof value === "string" && Object.prototype.hasOwnProperty.call(PROFILE_ASSOCIATION_CONFIG, value));
+}
+
+function normalizeCorporationLabel(value: unknown): string {
+  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, 240) : "";
+}
+
+function corporationAssociationId(label: string): string {
+  return label.toLocaleLowerCase().normalize("NFKC");
+}
+
+function associationPairKey(leftType: ProfileAssociationType, leftId: string, rightType: ProfileAssociationType, rightId: string): string {
+  return `${leftType}:${leftId}|${rightType}:${rightId}`;
+}
+
+function canonicalAssociationPair(
+  firstType: ProfileAssociationType,
+  firstId: string,
+  secondType: ProfileAssociationType,
+  secondId: string,
+): { left_type: ProfileAssociationType; left_id: string; right_type: ProfileAssociationType; right_id: string } {
+  const firstKey = `${firstType}:${firstId}`;
+  const secondKey = `${secondType}:${secondId}`;
+  return firstKey <= secondKey
+    ? { left_type: firstType, left_id: firstId, right_type: secondType, right_id: secondId }
+    : { left_type: secondType, left_id: secondId, right_type: firstType, right_id: firstId };
+}
+
+async function getProfileAssociationEdges(
+  db: SupabaseClient,
+  profileType: "founder" | "operator",
+  profileId: string,
+): Promise<{ rows?: ProfileAssociationEdge[]; error?: string }> {
+  const [leftResult, rightResult] = await Promise.all([
+    db.from("admin_profile_associations").select("id,left_type,left_id,left_label,right_type,right_id,right_label")
+      .eq("left_type", profileType).eq("left_id", profileId),
+    db.from("admin_profile_associations").select("id,left_type,left_id,left_label,right_type,right_id,right_label")
+      .eq("right_type", profileType).eq("right_id", profileId),
+  ]);
+  const error = leftResult.error ?? rightResult.error;
+  if (error) return { error: error.message };
+  const rows = new Map<string, ProfileAssociationEdge>();
+  for (const row of [...(leftResult.data ?? []), ...(rightResult.data ?? [])] as ProfileAssociationEdge[]) {
+    rows.set(row.id, row);
+  }
+  return { rows: [...rows.values()] };
+}
+
+async function listProfileAssociations(
+  db: SupabaseClient,
+  profileType: "founder" | "operator",
+  profileId: string,
+): Promise<{ rows?: ProfileAssociation[]; error?: string; status?: number }> {
+  const profileConfig = PROFILE_ASSOCIATION_CONFIG[profileType];
+  const { data: profile, error: profileError } = await db.from(profileConfig.table)
+    .select("id").eq("id", profileId).maybeSingle();
+  if (profileError) return { error: profileError.message, status: 500 };
+  if (!profile) return { error: "Profile not found", status: 404 };
+
+  const edgeResult = await getProfileAssociationEdges(db, profileType, profileId);
+  if (edgeResult.error) return { error: edgeResult.error, status: 500 };
+  const targets = (edgeResult.rows ?? []).map((edge) => {
+    const isLeft = edge.left_type === profileType && edge.left_id === profileId;
+    return isLeft
+      ? { type: edge.right_type, id: edge.right_id, label: edge.right_label }
+      : { type: edge.left_type, id: edge.left_id, label: edge.left_label };
+  });
+
+  const byType = new Map<ProfileAssociationType, Set<string>>();
+  for (const target of targets) {
+    if (target.type === "corporation") continue;
+    const ids = byType.get(target.type) ?? new Set<string>();
+    ids.add(target.id);
+    byType.set(target.type, ids);
+  }
+  const resolved = new Map<string, Record<string, unknown>>();
+  for (const [type, ids] of byType) {
+    const config = PROFILE_ASSOCIATION_CONFIG[type];
+    const columns = ["id", config.labelColumn, ...(config.subtitleColumn ? [config.subtitleColumn] : [])].join(",");
+    const { data, error } = await db.from(config.table).select(columns).in("id", [...ids]);
+    if (error) return { error: error.message, status: 500 };
+    for (const row of (data ?? []) as Record<string, unknown>[]) {
+      resolved.set(`${type}:${String(row.id)}`, row);
+    }
+  }
+  for (const target of targets) {
+    if (target.type === "corporation" && target.label) {
+      resolved.set(`corporation:${target.id}`, { id: target.id, corporation_label: target.label });
+    }
+  }
+  return {
+    rows: targets.flatMap((target) => {
+      const row = resolved.get(`${target.type}:${target.id}`);
+      if (!row) return [];
+      const config = target.type === "corporation" ? null : PROFILE_ASSOCIATION_CONFIG[target.type];
+      return [{
+        type: target.type,
+        id: target.id,
+        label: String(target.type === "corporation" ? row.corporation_label : row[config!.labelColumn] ?? target.id),
+        subtitle: config?.subtitleColumn && typeof row[config.subtitleColumn] === "string"
+          ? row[config.subtitleColumn] as string
+          : null,
+      }];
+    }),
+  };
+}
+
+async function saveProfileAssociations(
+  db: SupabaseClient,
+  profileType: "founder" | "operator",
+  profileId: string,
+  input: unknown,
+): Promise<{ rows?: ProfileAssociation[]; error?: string; status?: number }> {
+  if (!Array.isArray(input)) return { error: "associations must be an array", status: 400 };
+  if (input.length > 100) return { error: "You can add up to 100 associations", status: 400 };
+  const targets: Array<{ type: ProfileAssociationType; id: string; label?: string }> = [];
+  const seen = new Set<string>();
+  for (const item of input) {
+    const target = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    if (!isProfileAssociationType(target.type)) {
+      return { error: "Each association needs a valid type and record id", status: 400 };
+    }
+    const label = target.type === "corporation" ? normalizeCorporationLabel(target.label) : "";
+    const id = target.type === "corporation"
+      ? corporationAssociationId(label)
+      : typeof target.id === "string" ? target.id.trim() : "";
+    if (!id || (target.type === "corporation" && !label)) {
+      return { error: target.type === "corporation" ? "Corporation name is required" : "Each association needs a valid record id", status: 400 };
+    }
+    if (target.type === profileType && id === profileId) return { error: "A profile cannot be associated with itself", status: 400 };
+    const key = `${target.type}:${id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      targets.push({ type: target.type, id, ...(label ? { label } : {}) });
+    }
+  }
+
+  const profileConfig = PROFILE_ASSOCIATION_CONFIG[profileType];
+  const { data: profile, error: profileError } = await db.from(profileConfig.table)
+    .select("id").eq("id", profileId).is("deleted_at", null).maybeSingle();
+  if (profileError) return { error: profileError.message, status: 500 };
+  if (!profile) return { error: "Profile not found", status: 404 };
+
+  const targetsByType = new Map<ProfileAssociationType, Set<string>>();
+  for (const target of targets) {
+    if (target.type === "corporation") continue;
+    const ids = targetsByType.get(target.type) ?? new Set<string>();
+    ids.add(target.id);
+    targetsByType.set(target.type, ids);
+  }
+  for (const [type, ids] of targetsByType) {
+    const config = PROFILE_ASSOCIATION_CONFIG[type];
+    const { data, error } = await db.from(config.table).select("id")
+      .in("id", [...ids]).is("deleted_at", null);
+    if (error) return { error: error.message, status: 500 };
+    const existing = new Set((data ?? []).map((row) => String(row.id)));
+    if ([...ids].some((id) => !existing.has(id))) return { error: `One or more ${type} records were not found`, status: 404 };
+  }
+
+  const desired = targets.map((target) => {
+    const pair = canonicalAssociationPair(profileType, profileId, target.type, target.id);
+    const profileIsLeft = pair.left_type === profileType && pair.left_id === profileId;
+    return {
+      ...pair,
+      left_label: target.type === "corporation" && !profileIsLeft ? target.label ?? null : null,
+      right_label: target.type === "corporation" && profileIsLeft ? target.label ?? null : null,
+    };
+  });
+  const desiredKeys = new Set(desired.map((pair) => associationPairKey(pair.left_type, pair.left_id, pair.right_type, pair.right_id)));
+  if (desired.length) {
+    const { error } = await db.from("admin_profile_associations").upsert(desired, {
+      onConflict: "left_type,left_id,right_type,right_id",
+      ignoreDuplicates: true,
+    });
+    if (error) return { error: error.message, status: 500 };
+  }
+  const current = await getProfileAssociationEdges(db, profileType, profileId);
+  if (current.error) return { error: current.error, status: 500 };
+  const staleIds = (current.rows ?? []).filter((row) => !desiredKeys.has(
+    associationPairKey(row.left_type, row.left_id, row.right_type, row.right_id),
+  )).map((row) => row.id);
+  if (staleIds.length) {
+    const { error } = await db.from("admin_profile_associations").delete().in("id", staleIds);
+    if (error) return { error: error.message, status: 500 };
+  }
+  return listProfileAssociations(db, profileType, profileId);
+}
+
+async function createProfileAssociationTarget(
+  db: SupabaseClient,
+  profileType: "founder" | "operator",
+  profileId: string,
+  targetType: Exclude<ProfileAssociationType, "corporation">,
+  rawName: unknown,
+  contextCompanyIdRaw: unknown,
+): Promise<{ association?: ProfileAssociation; error?: string; status?: number }> {
+  const name = typeof rawName === "string" ? rawName.trim().replace(/\s+/g, " ").slice(0, 240) : "";
+  if (name.length < 2) return { error: "Enter at least two characters", status: 400 };
+
+  const escapedName = name.replace(/[\\%_]/g, "\\$&");
+  const duplicate = async (table: string, nameColumn: string) => db.from(table).select("id")
+    .ilike(nameColumn, escapedName).is("deleted_at", null).limit(1).maybeSingle();
+  let created: ProfileAssociation | null = null;
+  let rollback: (() => Promise<unknown>) | null = null;
+
+  if (targetType === "firm") {
+    const existing = await duplicate("firm_records", "firm_name");
+    if (existing.error) return { error: existing.error.message, status: 500 };
+    if (existing.data) return { error: "A matching firm already exists. Select it from the suggestions.", status: 409 };
+    const { data, error } = await db.from("firm_records").insert({
+      firm_name: name,
+      enrichment_status: "pending",
+      completeness_score: 0,
+      needs_review: true,
+      ready_for_live: false,
+      manual_review_status: "needs_review",
+      status: "needs_review",
+      aliases: [],
+      thesis_verticals: [],
+      recent_deals: [],
+    }).select("id,firm_name").single();
+    if (error) return { error: error.message, status: 500 };
+    created = { type: "firm", id: String(data.id), label: String(data.firm_name), subtitle: null };
+    rollback = () => db.from("firm_records").update({ deleted_at: new Date().toISOString() }).eq("id", data.id);
+  } else if (targetType === "company") {
+    const existing = await duplicate("startups", "company_name");
+    if (existing.error) return { error: existing.error.message, status: 500 };
+    if (existing.data) return { error: "A matching company already exists. Select it from the suggestions.", status: 409 };
+    const id = `manual-${crypto.randomUUID()}`;
+    const { data, error } = await db.from("startups").insert({
+      id,
+      company_name: name,
+      stage: "UNKNOWN",
+      status: "UNKNOWN",
+      record_status: "needs_review",
+    }).select("id,company_name").single();
+    if (error) return { error: error.message, status: 500 };
+    created = { type: "company", id: String(data.id), label: String(data.company_name), subtitle: null };
+    rollback = () => db.from("startups").update({ deleted_at: new Date().toISOString() }).eq("id", data.id);
+  } else if (targetType === "operator") {
+    const existing = await duplicate("operator_profiles", "full_name");
+    if (existing.error) return { error: existing.error.message, status: 500 };
+    if (existing.data) return { error: "A matching operator already exists. Select it from the suggestions.", status: 409 };
+    const { data, error } = await db.from("operator_profiles").insert({
+      full_name: name,
+      title: null,
+      source: "manual",
+      record_status: "needs_review",
+      enrichment_status: "pending",
+      completeness_score: 0,
+      ready_for_live: false,
+      is_available: false,
+      expertise: [],
+      education: [],
+      stage_focuses: [],
+    }).select("id,full_name,title").single();
+    if (error) return { error: error.message, status: 500 };
+    created = { type: "operator", id: String(data.id), label: String(data.full_name), subtitle: null };
+    rollback = () => db.from("operator_profiles").update({ deleted_at: new Date().toISOString() }).eq("id", data.id);
+  } else if (targetType === "founder") {
+    const requestedCompanyId = typeof contextCompanyIdRaw === "string" ? contextCompanyIdRaw.trim() : "";
+    let startupId = requestedCompanyId;
+    if (!startupId) {
+      const sourceConfig = PROFILE_ASSOCIATION_CONFIG[profileType];
+      const { data: source, error } = await db.from(sourceConfig.table).select("startup_id").eq("id", profileId).maybeSingle();
+      if (error) return { error: error.message, status: 500 };
+      startupId = typeof source?.startup_id === "string" ? source.startup_id : "";
+    }
+    if (!startupId) return { error: "Choose a company association before creating a founder draft.", status: 400 };
+    const { data: startup, error: startupError } = await db.from("startups").select("id,company_name")
+      .eq("id", startupId).is("deleted_at", null).maybeSingle();
+    if (startupError) return { error: startupError.message, status: 500 };
+    if (!startup) return { error: "The associated company was not found.", status: 404 };
+    const existing = await db.from("startup_founders").select("id")
+      .eq("startup_id", startupId).ilike("full_name", escapedName).is("deleted_at", null).limit(1).maybeSingle();
+    if (existing.error) return { error: existing.error.message, status: 500 };
+    if (existing.data) return { error: "A matching founder already exists for this company. Select it from the suggestions.", status: 409 };
+
+    const operatorInsert = await db.from("operator_profiles").insert({
+      full_name: name,
+      title: "Founder",
+      source: "manual",
+      startup_id: startupId,
+      current_company_name: startup.company_name,
+      record_status: "needs_review",
+      enrichment_status: "pending",
+      completeness_score: 0,
+      ready_for_live: false,
+      is_available: false,
+      expertise: [],
+      education: [],
+      stage_focuses: [],
+    }).select("id").single();
+    if (operatorInsert.error) return { error: operatorInsert.error.message, status: 500 };
+    const savedKeyPerson = await saveCompanyKeyPerson(db, startupId, {
+      full_name: name,
+      title: "Founder",
+      email: null,
+      bio: null,
+      avatar_url: null,
+      operator_profile_id: String(operatorInsert.data.id),
+      founder_profile_id: null,
+      profile_type: "founder",
+    });
+    if (savedKeyPerson.error || !savedKeyPerson.row?.founder_profile_id) {
+      await db.from("operator_profiles").update({ deleted_at: new Date().toISOString() }).eq("id", operatorInsert.data.id);
+      return { error: savedKeyPerson.error ?? "Founder draft could not be created.", status: savedKeyPerson.status ?? 500 };
+    }
+    const founderId = String(savedKeyPerson.row.founder_profile_id);
+    const { error: draftStatusError } = await db.from("startup_founders").update({ record_status: "needs_review" })
+      .eq("id", founderId);
+    if (draftStatusError) {
+      await db.from("startup_founders").update({ deleted_at: new Date().toISOString() }).eq("id", founderId);
+      await db.from("operator_profiles").update({ deleted_at: new Date().toISOString() }).eq("id", operatorInsert.data.id);
+      return { error: draftStatusError.message, status: 500 };
+    }
+    created = { type: "founder", id: founderId, label: name, subtitle: "Founder" };
+    rollback = async () => {
+      const deletedAt = new Date().toISOString();
+      await Promise.all([
+        db.from("startup_founders").update({ deleted_at: deletedAt }).eq("id", founderId),
+        db.from("operator_profiles").update({ deleted_at: deletedAt }).eq("id", operatorInsert.data.id),
+      ]);
+    };
+  } else {
+    const existing = await duplicate("firm_investors", "full_name");
+    if (existing.error) return { error: existing.error.message, status: 500 };
+    if (existing.data) return { error: "A matching investor already exists. Select it from the suggestions.", status: 409 };
+    const result = await createStandaloneAngelInvestor(db, { full_name: name });
+    if (result.error || !result.row) return { error: result.error ?? "Investor draft could not be created.", status: result.status ?? 500 };
+    const row = result.row;
+    created = { type: "investor", id: String(row.id), label: String(row.full_name ?? name), subtitle: typeof row.title === "string" ? row.title : null };
+    rollback = async () => {
+      const deletedAt = new Date().toISOString();
+      await Promise.all([
+        db.from("firm_investors").update({ deleted_at: deletedAt }).eq("id", row.id),
+        db.from("firm_records").update({ deleted_at: deletedAt }).eq("id", row.firm_id),
+      ]);
+    };
+  }
+
+  const current = await listProfileAssociations(db, profileType, profileId);
+  if (current.error) {
+    await rollback?.();
+    return { error: current.error, status: current.status ?? 500 };
+  }
+  const saved = await saveProfileAssociations(db, profileType, profileId, [
+    ...(current.rows ?? []).map(({ type, id, label }) => ({ type, id, label })),
+    created,
+  ]);
+  if (saved.error) {
+    await rollback?.();
+    return { error: saved.error, status: saved.status ?? 500 };
+  }
+  const association = (saved.rows ?? []).find((row) => row.type === created!.type && row.id === created!.id);
+  return association ? { association } : { error: "Draft record was created, but the association could not be loaded.", status: 500 };
+}
+
+async function createStandaloneAngelInvestor(
+  db: SupabaseClient,
+  body: Record<string, unknown>,
+): Promise<{ row?: Record<string, unknown>; error?: string; status?: number }> {
+  const fullName = typeof body.full_name === "string" ? body.full_name.trim().slice(0, 240) : "";
+  const title = typeof body.title === "string" ? body.title.trim().slice(0, 180) : "";
+  const email = typeof body.email === "string" ? body.email.trim().slice(0, 320) : "";
+  if (!fullName) return { error: "full_name is required", status: 400 };
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address", status: 400 };
+
+  const { data: firm, error: firmError } = await db.from("firm_records").insert({
+    firm_name: fullName,
+    entity_type: "Angel",
+    enrichment_status: "pending",
+    completeness_score: 0,
+    needs_review: true,
+    ready_for_live: false,
+    manual_review_status: "needs_review",
+    aliases: [],
+    thesis_verticals: [],
+    recent_deals: [],
+  }).select("id, firm_name").single();
+  if (firmError) {
+    const code = (firmError as { code?: string }).code;
+    return { error: code === "23505" ? "An investor profile with this name already exists; search for it first." : firmError.message, status: code === "23505" ? 409 : 500 };
+  }
+
+  const names = splitPersonFullName(fullName);
+  const { data: person, error: personError } = await db.from("firm_investors").insert({
+    firm_id: firm.id,
+    full_name: fullName,
+    first_name: names.first_name,
+    last_name: names.last_name,
+    title: title || null,
+    email: email || null,
+    enrichment_status: "pending",
+    completeness_score: 0,
+    needs_review: true,
+    ready_for_live: false,
+    is_active: true,
+    is_actively_investing: true,
+    source_count: 0,
+  }).select("id, full_name, title, firm_id").single();
+  if (personError) {
+    const { error: rollbackError } = await db.from("firm_records").delete().eq("id", firm.id);
+    const rollbackNote = rollbackError ? ` The Angel firm profile remains and can be reused: ${rollbackError.message}` : "";
+    return { error: `${personError.message}${rollbackNote}`, status: 500 };
+  }
+
+  return {
+    row: {
+      ...person,
+      firm_name: firm.firm_name,
+    } as Record<string, unknown>,
+  };
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -853,6 +1551,13 @@ Deno.serve(async (req) => {
   if (req.method === "DELETE") {
     const id = url.searchParams.get("id")?.trim() ?? "";
     if (!id) return err("Missing id", 400);
+    if (entity === "company-key-people") {
+      const operatorProfileId = url.searchParams.get("operator_profile_id")?.trim() || null;
+      const founderProfileId = url.searchParams.get("founder_profile_id")?.trim() || null;
+      const result = await unlinkCompanyKeyPerson(db, id, operatorProfileId, founderProfileId);
+      if (result.error) return err(result.error, result.status ?? 500);
+      return json({ ok: true });
+    }
     if (entity === "vc-ratings") {
       const { data, error } = await db.from("vc_ratings").delete().eq("id", id).select("id").maybeSingle();
       if (error) return err(error.message, 500);
@@ -872,6 +1577,39 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+    if (entity === "profile-associations") {
+      if (body.action === "create_target") {
+        const profileType = body.profile_type;
+        const profileId = typeof body.profile_id === "string" ? body.profile_id.trim() : "";
+        const targetType = body.target_type;
+        if ((profileType !== "founder" && profileType !== "operator") || !profileId) {
+          return err("profile_type and profile_id are required", 400);
+        }
+        if (!isProfileAssociationType(targetType) || targetType === "corporation") {
+          return err("A supported record type is required to create a draft", 400);
+        }
+        const result = await createProfileAssociationTarget(db, profileType, profileId, targetType, body.label, body.context_company_id);
+        if (result.error || !result.association) return err(result.error ?? "Draft creation failed", result.status ?? 500);
+        return json({ association: result.association });
+      }
+      const profileType = body.profile_type;
+      const profileId = typeof body.profile_id === "string" ? body.profile_id.trim() : "";
+      if ((profileType !== "founder" && profileType !== "operator") || !profileId) {
+        return err("profile_type and profile_id are required", 400);
+      }
+      const result = await saveProfileAssociations(db, profileType, profileId, body.associations);
+      if (result.error) return err(result.error, result.status ?? 500);
+      return json({ rows: result.rows ?? [] });
+    }
+
+    if (entity === "company-key-people") {
+      const startupId = url.searchParams.get("id")?.trim() ?? "";
+      if (!startupId) return err("Missing company id", 400);
+      const result = await saveCompanyKeyPerson(db, startupId, (body.person ?? {}) as CompanyKeyPersonInput);
+      if (result.error) return err(result.error, result.status ?? 500);
+      return json({ row: result.row });
+    }
 
     if (entity === "firm-portfolio") {
       const firmId = typeof body.firm_id === "string" ? body.firm_id.trim() : "";
@@ -1319,6 +2057,11 @@ Deno.serve(async (req) => {
     }
 
     if (entity === "company-investors") {
+      if (body.action === "create_individual") {
+        const result = await createStandaloneAngelInvestor(db, body);
+        if (result.error) return err(result.error, result.status ?? 500);
+        return json({ row: result.row });
+      }
       if (body.action === "unlink") {
         const result = await unlinkCompanyInvestor(db, body);
         if ("error" in result) return err(result.error, result.status);
@@ -1661,6 +2404,11 @@ Deno.serve(async (req) => {
 
     // Admin UI legacy field names → real columns (startups table has no `hq` / `twitter_url`).
     if (table === "startups") {
+      if ("stage" in patch) {
+        const normalizedStage = normalizeOperatorCompanyStage(patch.stage);
+        if (!normalizedStage) return err("Invalid company stage", 400);
+        patch.stage = normalizedStage;
+      }
       // The admin company editor labels this field "Website URL" while startups
       // stores it as company_url. Accept the conventional website_url key too so
       // callers cannot silently send an unmapped website field.
@@ -1676,7 +2424,7 @@ Deno.serve(async (req) => {
         patch.x_url = patch.twitter_url;
         delete patch.twitter_url;
       }
-      for (const key of ["company_url", "linkedin_url", "x_url", "logo_url", "brand_icon_url"] as const) {
+      for (const key of ["company_url", "linkedin_url", "x_url", "facebook_url", "instagram_url", "tiktok_url", "logo_url", "brand_icon_url"] as const) {
         if (!(key in patch)) continue;
         const value = patch[key];
         if (value != null && typeof value !== "string") return err(`${key} must be text or null`, 400);
@@ -1838,6 +2586,24 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (entity === "company-key-people") {
+    if (!recordId) return err("Missing company id", 400);
+    const result = await listCompanyKeyPeople(db, recordId);
+    if (result.error) return err(result.error, result.status ?? 500);
+    return json({ rows: result.rows ?? [] });
+  }
+
+  if (entity === "profile-associations") {
+    const profileType = url.searchParams.get("profile_type");
+    const profileId = url.searchParams.get("profile_id")?.trim() ?? "";
+    if ((profileType !== "founder" && profileType !== "operator") || !profileId) {
+      return err("profile_type and profile_id are required", 400);
+    }
+    const result = await listProfileAssociations(db, profileType, profileId);
+    if (result.error) return err(result.error, result.status ?? 500);
+    return json({ rows: result.rows ?? [] });
+  }
+
   /** vc_funds rows + firm snapshot for admin list (Fund Watch or firm-scoped) */
   async function loadVcFundsWithFirms(
     queryExecutor: PromiseLike<{ data: unknown; error: { message: string } | null; count: number | null }>,
@@ -1885,11 +2651,21 @@ Deno.serve(async (req) => {
   if (entity === "companies") {
     const stage  = url.searchParams.get("stage")  ?? "";
     const status = url.searchParams.get("status") ?? "";
+    const recordStatus = url.searchParams.get("record_status") ?? "";
+    const includeDeleted = url.searchParams.get("include_deleted") === "true";
+    const deletedOnly = url.searchParams.get("deleted_only") === "true" || recordStatus === "deleted";
     let q = db.from("startups").select(COMPANY_COLS, { count: "exact" })
-      .is("deleted_at", null).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+      .order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (deletedOnly) q = q.not("deleted_at", "is", null);
+    else if (!includeDeleted || recordStatus) q = q.is("deleted_at", null);
     if (search) q = q.ilike("company_name", `%${search}%`);
     if (stage)  q = q.eq("stage",  stage);
     if (status) q = q.eq("status", status);
+    if (["live", "needs_review", "archived"].includes(recordStatus)) {
+      q = recordStatus === "live"
+        ? q.or("record_status.eq.live,record_status.is.null")
+        : q.eq("record_status", recordStatus);
+    }
     const { data, error, count } = await q;
     if (error) return err(error.message, 500);
     return json({ rows: data ?? [], total: count ?? 0 });
@@ -1898,9 +2674,19 @@ Deno.serve(async (req) => {
   if (entity === "founders") {
     const repeat = url.searchParams.get("repeat") ?? "";
     const exit   = url.searchParams.get("exit")   ?? "";
+    const includeDeleted = url.searchParams.get("include_deleted") === "true";
+    const recordStatus = url.searchParams.get("record_status") ?? "";
+    const deletedOnly = url.searchParams.get("deleted_only") === "true" || recordStatus === "deleted";
     let q = db.from("startup_founders").select(FOUNDER_COLS, { count: "exact" })
       .order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (deletedOnly) q = q.not("deleted_at", "is", null);
+    else if (!includeDeleted || recordStatus) q = q.is("deleted_at", null);
     if (search)             q = q.ilike("full_name", `%${search}%`);
+    if (["live", "needs_review", "archived"].includes(recordStatus)) {
+      q = recordStatus === "live"
+        ? q.or("record_status.eq.live,record_status.is.null")
+        : q.eq("record_status", recordStatus);
+    }
     if (repeat === "true")  q = q.eq("is_repeat_founder", true);
     if (repeat === "false") q = q.eq("is_repeat_founder", false);
     if (exit   === "true")  q = q.eq("has_prior_exit", true);
@@ -1913,9 +2699,19 @@ Deno.serve(async (req) => {
   if (entity === "operators") {
     const available  = url.searchParams.get("available")  ?? "";
     const enrichment = url.searchParams.get("enrichment") ?? "";
+    const includeDeleted = url.searchParams.get("include_deleted") === "true";
+    const recordStatus = url.searchParams.get("record_status") ?? "";
+    const deletedOnly = url.searchParams.get("deleted_only") === "true" || recordStatus === "deleted";
     let q = db.from("operator_profiles").select(OPERATOR_COLS, { count: "exact" })
-      .is("deleted_at", null).order("completeness_score", { ascending: false }).range(offset, offset + limit - 1);
+      .order("completeness_score", { ascending: false }).range(offset, offset + limit - 1);
+    if (deletedOnly) q = q.not("deleted_at", "is", null);
+    else if (!includeDeleted || recordStatus) q = q.is("deleted_at", null);
     if (search)               q = q.ilike("full_name", `%${search}%`);
+    if (["live", "needs_review", "archived"].includes(recordStatus)) {
+      q = recordStatus === "live"
+        ? q.or("record_status.eq.live,record_status.is.null")
+        : q.eq("record_status", recordStatus);
+    }
     if (available === "true")  q = q.eq("is_available", true);
     if (available === "false") q = q.eq("is_available", false);
     if (enrichment)            q = q.eq("enrichment_status", enrichment);

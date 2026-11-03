@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Zap,
   Share2,
-  UserSearch,
   Handshake,
   Target,
   Orbit,
@@ -25,6 +24,7 @@ import { CompanySettingsLogo } from "@/components/ui/company-settings-logo";
 import { WorkspaceAccountMenu } from "@/components/WorkspaceAccountMenu";
 import { dispatchInvestorsAllFocus } from "@/lib/investorMatchNavigation";
 import { requestOpenQuickActions } from "@/lib/appShellNavigate";
+import { SemanticIcon } from "@/components/ui/semantic-icon";
 
 type ViewType =
   | "home"
@@ -557,7 +557,7 @@ export function AppSidebar({
                     activeView === "investor-trending",
                 )}
               >
-                <UserSearch className={iconCls} />
+                <SemanticIcon role="navigation.investors" fallback="Users" className={iconCls} aria-hidden="true" />
                 {!collapsed && "Investors"}
               </button>
             </SidebarHint>

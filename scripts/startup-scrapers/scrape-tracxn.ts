@@ -345,6 +345,15 @@ async function scrape(): Promise<void> {
   const stats = new ScrapeStats("Tracxn");
   const progress = new ScrapeProgress("tracxn");
 
+  if (process.env.TRACXN_BROWSER_EXTRACTION_WRITTEN_PERMISSION !== "1" || !process.env.TRACXN_LICENSE_SCOPE?.trim()) {
+    console.error("[tracxn] Browser extraction is disabled. Use a licensed API/export or configure written browser authorization and TRACXN_LICENSE_SCOPE.");
+    return;
+  }
+  if (!DRY_RUN && process.env.TRACXN_CANONICAL_WRITES_APPROVED !== "1") {
+    console.error("[tracxn] Direct canonical writes are disabled. Stage authorized exports for review or configure explicit write approval.");
+    return;
+  }
+
   if (!TRACXN_EMAIL || !TRACXN_PASSWORD) {
     console.error("[tracxn] Missing TRACXN_EMAIL or TRACXN_PASSWORD in .env — skipping");
     console.log("[tracxn] Set TRACXN_EMAIL and TRACXN_PASSWORD to enable this scraper");

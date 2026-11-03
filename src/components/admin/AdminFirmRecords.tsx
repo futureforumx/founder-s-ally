@@ -90,6 +90,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as strin
 
 export type FirmRow = {
   id: string; firm_name: string; legal_name: string | null; aliases: string[] | null; alternate_names: string[] | null; slug: string | null;
+  deleted_at?: string | null;
   team_people_url?: string | null;
   tagline: string | null; elevator_pitch: string | null; description: string | null; sentiment_detail: string | null;
   location: string | null; address: string | null; hq_city: string | null; hq_state: string | null; hq_zip_code: string | null; hq_country: string | null;
@@ -598,7 +599,10 @@ function portfolioRoundIsLed(row: Pick<FirmPortfolioRow, "stage" | "led_rounds">
   const roundName = portfolioRoundName(row.stage);
   return Boolean(roundName && (row.led_rounds ?? []).some(round => portfolioRoundKey(round) === portfolioRoundKey(roundName)));
 }
-const COMPANY_SECTOR_OPTIONS = Constants.public.Enums.SectorFocus.map(value => ({ value, label: value.replaceAll("_", " ") }));
+const COMPANY_SECTOR_OPTIONS = Constants.public.Enums.SectorFocus.map(value => ({
+  value,
+  label: value === "LOGISTICS_SUPPLY_CHAIN" ? "Logistics & Supply Chain" : value.replaceAll("_", " "),
+}));
 
 async function searchPortfolioCompanies(search: string): Promise<{ rows: PortfolioCompanyOption[]; error?: string }> {
   const params = new URLSearchParams({ entity: "companies", search, limit: "50" });
@@ -991,14 +995,16 @@ function displayPersonFunds(funds: PersonLinkedFund[] | undefined): string {
 
   return `${first} +${funds.length - 1}`;
 }
-type FirmAdminStatus = "live" | "needs_review" | "archive";
+type FirmAdminStatus = "live" | "needs_review" | "archive" | "deleted";
 function getFirmAdminStatus(row: FirmRow): FirmAdminStatus {
+  if (row.deleted_at) return "deleted";
   const normalized = (row.status ?? "").toLowerCase().replace(/[\s-]+/g, "_");
   if (normalized === "archive" || normalized === "archived") return "archive";
   if (row.needs_review || normalized === "needs_review") return "needs_review";
   return "live";
 }
 function getPersonAdminStatus(row: PersonDirectoryRow): FirmAdminStatus {
+  if (row.deleted_at) return "deleted";
   if (!row.is_active) return "archive";
 
   if (row.needs_review || !row.ready_for_live) return "needs_review";
@@ -1006,11 +1012,13 @@ function getPersonAdminStatus(row: PersonDirectoryRow): FirmAdminStatus {
   return "live";
 }
 function firmStatusLabel(status: FirmAdminStatus): string {
+  if (status === "deleted") return "DELETED";
   if (status === "needs_review") return "NEEDS REVIEW";
-  if (status === "archive") return "ARCHIVE";
+  if (status === "archive") return "ARCHIVED";
   return "LIVE";
 }
 function firmStatusStyle(status: FirmAdminStatus) {
+  if (status === "deleted") return { background: "rgba(239,68,68,0.12)", color: "#f87171", borderColor: "rgba(239,68,68,0.28)" };
   if (status === "needs_review") return { background: "rgba(245,158,11,0.15)", color: "#f59e0b", borderColor: "rgba(245,158,11,0.25)" };
   if (status === "archive") return { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.42)", borderColor: "rgba(255,255,255,0.1)" };
   return { background: "rgba(46,230,166,0.12)", color: "#2EE6A6", borderColor: "rgba(46,230,166,0.28)" };
@@ -1085,10 +1093,11 @@ function FirmEditPanel({
   const setFirmStatus = (next: FirmAdminStatus) => {
     setDraft(d => ({
       ...d,
-      status: next,
+      status: next === "deleted" ? d.status : next,
+      deleted_at: next === "deleted" ? d.deleted_at ?? new Date().toISOString() : null,
       ready_for_live: next === "live",
       needs_review: next === "needs_review",
-      manual_review_status: next === "needs_review" ? "needs_review" : next,
+      manual_review_status: next === "deleted" ? d.manual_review_status : next === "needs_review" ? "needs_review" : next,
     }));
   };
 
@@ -1175,7 +1184,7 @@ function FirmEditPanel({
       setSaving(false);
       return;
     }
-    const { id, created_at, deleted_at, sector_embedding, updated_at, ...patch } = draft as FirmRow & { created_at?: unknown; deleted_at?: unknown; sector_embedding?: unknown };
+    const { id, created_at, sector_embedding, updated_at, ...patch } = draft as FirmRow & { created_at?: unknown; sector_embedding?: unknown };
     patch.location = formatCanonicalHqLine(patch.hq_city, patch.hq_state, patch.hq_country);
     const { row: updated, error } = await patchFirm(row.id, patch as Record<string, unknown>);
     if (error) { toast.error("Save failed", { description: error }); }
@@ -1212,7 +1221,7 @@ function FirmEditPanel({
   };
 
   const savePerson = async (item: FirmPersonRow) => {
-    const { id, firm_id, created_at, deleted_at, updated_at, ...patch } = item;
+    const { id, firm_id, created_at, updated_at, ...patch } = item;
     const { row: updated, error } = await patchLinkedRow<FirmPersonRow>("firm-investors", id, patch);
     if (error) toast.error("Investor save failed", { description: error });
     else {
@@ -1298,6 +1307,16 @@ function FirmEditPanel({
 
   function updatePerson<K extends keyof FirmPersonRow>(id: string, key: K, value: FirmPersonRow[K]) {
     setPeople(prev => prev.map(r => r.id === id ? { ...r, [key]: value } : r));
+  }
+
+  function setPersonStatus(id: string, status: FirmAdminStatus) {
+    setPeople(prev => prev.map(person => person.id !== id ? person : ({
+      ...person,
+      deleted_at: status === "deleted" ? person.deleted_at ?? new Date().toISOString() : null,
+      is_active: status === "live" || status === "needs_review" ? true : status === "archive" ? false : person.is_active,
+      ready_for_live: status === "live",
+      needs_review: status === "needs_review",
+    })));
   }
 
   function updatePortfolio<K extends keyof FirmPortfolioRow>(id: string, key: K, value: FirmPortfolioRow[K]) {
@@ -1386,7 +1405,8 @@ function FirmEditPanel({
                 >
                   <option value="live">LIVE</option>
                   <option value="needs_review">NEEDS REVIEW</option>
-                  <option value="archive">ARCHIVE</option>
+                  <option value="archive">ARCHIVED</option>
+                  <option value="deleted">DELETED</option>
                 </select>
                 <button onClick={handleSave} disabled={saving} className="inline-flex items-center gap-1.5 rounded-xl px-4 py-[9px] text-[13px] font-semibold disabled:opacity-50" style={{ background: "#2EE6A6", color: "#020403" }}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -1527,13 +1547,8 @@ function FirmEditPanel({
               <UF label="PitchBook" value={draft.pitchbook_url} onChange={set("pitchbook_url")} />
               <UF label="VC Sheet" value={draft.vcsheet_url} onChange={set("vcsheet_url")} />
 
-              <Sect title="Admin Status" />
+              <Sect title="Enrichment Status" />
               <div className="grid grid-cols-2 gap-3">
-                <SF label="Firm Status" value={firmStatus} onChange={v => setFirmStatus(v as FirmAdminStatus)} options={[
-                  { value: "live", label: "LIVE" },
-                  { value: "needs_review", label: "NEEDS REVIEW" },
-                  { value: "archive", label: "ARCHIVE" },
-                ]} />
                 <SF label="Enrichment Status" value={draft.enrichment_status} onChange={set("enrichment_status")} options={[
                   { value: "enriched", label: "Enriched" },
                   { value: "partial", label: "Partial" },
@@ -1726,9 +1741,23 @@ function FirmEditPanel({
                     <TF label="Title" value={item.title} onChange={v => updatePerson(item.id, "title", v)} />
                     <TF label="Email" value={item.email} onChange={v => updatePerson(item.id, "email", v)} />
                     <RF label="Person ID" value={item.id} />
-                    <button type="button" onClick={() => savePerson(item)} className="mt-5 inline-flex h-[31px] items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
-                      <Save className="h-3.5 w-3.5" /> Save
-                    </button>
+                    <div className="mt-5 flex items-center justify-end gap-2">
+                      <select
+                        aria-label={`Record status for ${item.full_name}`}
+                        value={getPersonAdminStatus(item)}
+                        onChange={event => setPersonStatus(item.id, event.target.value as FirmAdminStatus)}
+                        className="h-[31px] min-w-0 rounded px-2 text-[10px] font-semibold uppercase tracking-wide outline-none"
+                        style={{ ...firmStatusStyle(getPersonAdminStatus(item)), border: `1px solid ${firmStatusStyle(getPersonAdminStatus(item)).borderColor}` }}
+                      >
+                        <option value="live">LIVE</option>
+                        <option value="needs_review">NEEDS REVIEW</option>
+                        <option value="archive">ARCHIVED</option>
+                        <option value="deleted">DELETED</option>
+                      </select>
+                      <button type="button" onClick={() => savePerson(item)} className="inline-flex h-[31px] shrink-0 items-center justify-center gap-1.5 rounded px-3 text-[12px] font-semibold" style={{ background: "#2EE6A6", color: "#020403" }}>
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                    </div>
                   </div>
 
                   <Sect title="Profile" />

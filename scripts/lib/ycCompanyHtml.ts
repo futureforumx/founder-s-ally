@@ -82,6 +82,23 @@ export type YcCompanyPageData = {
   logoUrl?: string;
 };
 
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&quot;|&#0*34;/gi, '"')
+    .replace(/&apos;|&#0*39;|&#x0*27;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function isLikelyPersonName(value: string): boolean {
+  const name = value.trim().replace(/\s+/g, " ");
+  if (name.length < 4 || name.length > 100 || /[<>@/\\\[\]{}\n\r#=]/.test(name)) return false;
+  if (/\b(founder|co-founder|ceo|cto|engineer|based|previously|employees|team|company|inc\.?|llc|https?)\b/i.test(name)) return false;
+  const tokens = name.match(/[\p{L}\p{M}]+(?:['’.-][\p{L}\p{M}]+)*\.?/gu) ?? [];
+  return tokens.length >= 2 && tokens.length <= 6 && tokens.join(" ").replace(/\.$/, "") === name.replace(/\.$/, "");
+}
+
 /** Parse a single /companies/{slug} HTML document (__NEXT_DATA__ or fallbacks). */
 export function parseYcCompanyPage(html: string, slug: string): YcCompanyPageData | null {
   const data: YcCompanyPageData = { name: "", slug };
@@ -107,13 +124,14 @@ export function parseYcCompanyPage(html: string, slug: string): YcCompanyPageDat
 
         if (company.founders && Array.isArray(company.founders)) {
           data.founders = company.founders.map((f: Record<string, unknown>) => ({
-            name:
+            name: decodeHtml(
               (f.full_name as string) ||
               (f.name as string) ||
               `${(f.first_name as string) || ""} ${(f.last_name as string) || ""}`.trim(),
+            ).trim().replace(/^[\s"“”']+|[\s"“”']+$/gu, ""),
             title: (f.title as string) || null,
             linkedin: (f.linkedin_url as string) || (f.linkedin as string) || null,
-          }));
+          })).filter((f: { name: string }) => isLikelyPersonName(f.name));
         }
         return data;
       }
@@ -136,18 +154,22 @@ export function parseYcCompanyPage(html: string, slug: string): YcCompanyPageDat
   const ogImage = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/);
   data.logoUrl = ogImage?.[1] || null;
 
-  const websiteMatch = html.match(/href="(https?:\/\/(?!www\.ycombinator\.com)[^"]+)"\s*(?:target="_blank"|rel="noopener")/);
-  data.website = websiteMatch?.[1] || null;
+  const websiteCandidates = [...html.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)]
+    .map((match) => decodeHtml(match[1]!).trim())
+    .filter((candidate) => {
+      try {
+        const host = new URL(candidate).hostname.toLowerCase();
+        return host !== "startupschool.org" && !host.endsWith(".startupschool.org")
+          && host !== "ycombinator.com" && !host.endsWith(".ycombinator.com");
+      } catch {
+        return false;
+      }
+    });
+  data.website = websiteCandidates[0] ?? null;
 
-  const founderSection = html.match(/(?:Founders?|Team)[\s:]+([^<]{5,200})/i);
-  if (founderSection) {
-    const junk = /^(directory|founders?|team|apply|jobs?)$/i;
-    data.founders = founderSection[1]!
-      .split(/[,&]/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 2 && s.length < 60 && !junk.test(s))
-      .map((n) => ({ name: n }));
-  }
+  // The rendered page contains arbitrary navigation, testimonials, and bio text.
+  // A generic "Team" regex turned those fragments into thousands of fake people.
+  // Founder names now come only from the structured company JSON above.
 
   return data;
 }

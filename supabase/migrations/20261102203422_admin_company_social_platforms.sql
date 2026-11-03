@@ -1,0 +1,4 @@
+ALTER TABLE public.startups
+  ADD COLUMN IF NOT EXISTS facebook_url text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS instagram_url text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS tiktok_url text DEFAULT NULL;

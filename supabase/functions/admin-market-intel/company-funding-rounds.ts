@@ -35,6 +35,7 @@ export type CompanyFundingRoundRow = {
   startup_id: string;
   round_type: string;
   amount_usd: number | null;
+  announcement_date: string | null;
   sort_order: number;
 };
 
@@ -74,7 +75,7 @@ export async function listCompanyFundingRounds(
 
   const { data, error } = await db
     .from("company_funding_rounds")
-    .select("id, startup_id, round_type, amount_usd, sort_order")
+    .select("id, startup_id, round_type, amount_usd, announcement_date, sort_order")
     .eq("startup_id", id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
@@ -85,6 +86,7 @@ export async function listCompanyFundingRounds(
     startup_id: String(row.startup_id),
     round_type: String(row.round_type),
     amount_usd: asUsd(row.amount_usd),
+    announcement_date: typeof row.announcement_date === "string" ? row.announcement_date : null,
     sort_order: Number(row.sort_order) || 0,
   }));
   return { rows };
@@ -102,7 +104,7 @@ export async function saveCompanyFundingRounds(
   const startup = await assertStartup(db, startupId);
   if ("error" in startup) return startup;
 
-  const cleaned: Array<{ id: string | null; round_type: string; amount_usd: number | null }> = [];
+  const cleaned: Array<{ id: string | null; round_type: string; amount_usd: number | null; announcement_date: string | null }> = [];
   for (const raw of body.rounds) {
     if (!raw || typeof raw !== "object") return { error: "Each round must be an object", status: 400 };
     const rec = raw as Record<string, unknown>;
@@ -115,12 +117,27 @@ export async function saveCompanyFundingRounds(
     if (rec.amount_usd != null && rec.amount_usd !== "" && (amount == null || amount < 0)) {
       return { error: "Money raised must be zero or greater", status: 400 };
     }
+    const announcementDate = rec.announcement_date == null || rec.announcement_date === ""
+      ? null
+      : typeof rec.announcement_date === "string" ? rec.announcement_date.trim() : "invalid";
+    const parsedAnnouncementDate = announcementDate && announcementDate !== "invalid"
+      ? new Date(`${announcementDate}T00:00:00.000Z`)
+      : null;
+    if (announcementDate === "invalid" || (announcementDate && (
+      !/^\d{4}-\d{2}-\d{2}$/.test(announcementDate)
+      || !parsedAnnouncementDate
+      || Number.isNaN(parsedAnnouncementDate.getTime())
+      || parsedAnnouncementDate.toISOString().slice(0, 10) !== announcementDate
+    ))) {
+      return { error: "Announcement date must be a valid date", status: 400 };
+    }
     if (duplicate) {
       if (!duplicate.id && id) duplicate.id = id;
       if (duplicate.amount_usd == null && amount != null) duplicate.amount_usd = amount;
+      if (duplicate.announcement_date == null && announcementDate) duplicate.announcement_date = announcementDate;
       continue;
     }
-    cleaned.push({ id, round_type: roundType, amount_usd: amount });
+    cleaned.push({ id, round_type: roundType, amount_usd: amount, announcement_date: announcementDate });
   }
 
   const { data: existing, error: existingErr } = await db
@@ -141,6 +158,7 @@ export async function saveCompanyFundingRounds(
         .update({
           round_type: row.round_type,
           amount_usd: row.amount_usd,
+          announcement_date: row.announcement_date,
           sort_order: index,
           updated_at: now,
         })
@@ -161,6 +179,7 @@ export async function saveCompanyFundingRounds(
         startup_id: startupId,
         round_type: row.round_type,
         amount_usd: row.amount_usd,
+        announcement_date: row.announcement_date,
         sort_order: index,
       })
       .select("id")

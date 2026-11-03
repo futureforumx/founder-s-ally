@@ -7,8 +7,8 @@
  *    Requires CRUNCHBASE_API_KEY in .env.
  *    Endpoint: https://api.crunchbase.com/api/v4/
  *
- * 2. **Web mode** (fallback): Uses Playwright to scrape the public Crunchbase site.
- *    Slower, rate-limited, and may be blocked. Use as a last resort.
+ * 2. **Web mode**: Disabled unless the applicable license expressly authorizes
+ *    browser extraction. Crunchbase API or licensed exports are preferred.
  *
  * Data captured:
  *   - Company name, domain, description (short + long)
@@ -26,7 +26,7 @@
  *   npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
  *   DRY_RUN=1 npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
  *   CB_MODE=api npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
- *   CB_MODE=web npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
+ *   CB_MODE=web CRUNCHBASE_BROWSER_EXTRACTION_WRITTEN_PERMISSION=1 CRUNCHBASE_LICENSE_SCOPE=<scope> npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
  *   CB_MAX=100 npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
  *   CB_SEARCH_TERMS="fintech,ai" npx tsx scripts/startup-scrapers/scrape-crunchbase.ts
  */
@@ -55,7 +55,9 @@ const HEADLESS = process.env.HEADLESS !== "false";
 const API_KEY = process.env.CRUNCHBASE_API_KEY;
 const CB_EMAIL = process.env.CB_EMAIL;
 const CB_PASSWORD = process.env.CB_PASSWORD;
-const MODE = process.env.CB_MODE || (API_KEY ? "api" : "web");
+const MODE = process.env.CB_MODE || "api";
+const BROWSER_EXTRACTION_AUTHORIZED = process.env.CRUNCHBASE_BROWSER_EXTRACTION_WRITTEN_PERMISSION === "1" && Boolean(process.env.CRUNCHBASE_LICENSE_SCOPE?.trim());
+const CANONICAL_WRITES_AUTHORIZED = process.env.CRUNCHBASE_CANONICAL_WRITES_APPROVED === "1" && Boolean(process.env.CRUNCHBASE_LICENSE_SCOPE?.trim());
 const API_BASE = "https://api.crunchbase.com/api/v4";
 
 const DEFAULT_SEARCH_TERMS = [
@@ -335,6 +337,7 @@ async function webScrapeProfile(page: Page, slug: string): Promise<Partial<Start
 // ---------------------------------------------------------------------------
 
 async function scrape(): Promise<void> {
+  if (!DRY_RUN && !CANONICAL_WRITES_AUTHORIZED) throw new Error("Direct canonical writes are disabled; use the authorized staging pipeline or configure explicit license/write approval");
   const stats = new ScrapeStats("Crunchbase");
   const progress = new ScrapeProgress("crunchbase");
 
@@ -342,24 +345,19 @@ async function scrape(): Promise<void> {
 
   if (MODE === "api") {
     if (!API_KEY) {
-      console.error("[crunchbase] CRUNCHBASE_API_KEY not set — falling back to web mode");
-      console.log("[crunchbase] Set CRUNCHBASE_API_KEY in .env to use the faster API mode");
-    } else {
-      await scrapeViaApi(stats, progress);
-      console.log(stats.summary());
-      return;
+      throw new Error("CRUNCHBASE_API_KEY is required; browser scraping is not an automatic fallback");
     }
+    await scrapeViaApi(stats, progress);
+    console.log(stats.summary());
+    return;
   }
-
-  // Web mode
-  if (!API_KEY && MODE !== "web") {
-    console.log("[crunchbase] No API key found. Using web scraping mode.");
-    console.log("[crunchbase] Note: Web scraping may be rate-limited or blocked by Crunchbase.");
-    console.log("[crunchbase] For production use, set CRUNCHBASE_API_KEY in .env.");
+  if (MODE === "web") {
+    if (!BROWSER_EXTRACTION_AUTHORIZED) throw new Error("Crunchbase browser extraction is disabled: configure written permission and CRUNCHBASE_LICENSE_SCOPE first");
+    await scrapeViaWeb(stats, progress);
+    console.log(stats.summary());
+    return;
   }
-
-  await scrapeViaWeb(stats, progress);
-  console.log(stats.summary());
+  throw new Error(`Unsupported CB_MODE '${MODE}'`);
 }
 
 async function scrapeViaApi(stats: ScrapeStats, progress: ScrapeProgress): Promise<void> {

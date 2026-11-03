@@ -123,9 +123,9 @@ function main(): void {
         source === "cbinsights"
           ? !!process.env.CBI_EMAIL && !!process.env.CBI_PASSWORD
           : source === "crunchbase"
-          ? !!process.env.CB_EMAIL && !!process.env.CB_PASSWORD
+          ? Boolean(process.env.CRUNCHBASE_API_KEY) || (process.env.CRUNCHBASE_BROWSER_EXTRACTION_WRITTEN_PERMISSION === "1" && Boolean(process.env.CRUNCHBASE_LICENSE_SCOPE?.trim()))
           : source === "tracxn"
-          ? !!process.env.TRACXN_EMAIL && !!process.env.TRACXN_PASSWORD
+          ? process.env.TRACXN_BROWSER_EXTRACTION_WRITTEN_PERMISSION === "1" && Boolean(process.env.TRACXN_LICENSE_SCOPE?.trim()) && Boolean(process.env.TRACXN_EMAIL) && Boolean(process.env.TRACXN_PASSWORD)
           : true;
 
       if (!hasAuth) {

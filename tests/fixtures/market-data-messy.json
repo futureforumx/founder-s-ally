@@ -1,0 +1,31 @@
+[
+  {
+    "provider": "crunchbase",
+    "entityType": "company",
+    "sourceId": "fixture-company-001",
+    "payload": {
+      "name": "  Acme&nbsp; &amp; Co., Inc. Inc. ",
+      "website": "http://www.acme.example/path?utm_source=fixture",
+      "country": "United States",
+      "founded_on": "2021"
+    }
+  },
+  {
+    "provider": "tracxn",
+    "entityType": "company",
+    "sourceId": "fixture-company-002",
+    "payload": { "name": "Unknown", "country": "Atlantis" }
+  },
+  {
+    "provider": "crunchbase",
+    "entityType": "person",
+    "sourceId": "fixture-person-001",
+    "payload": { "full_name": "Ada Lovelace — Founder", "linkedin_url": "https://www.linkedin.com/in/ada-fixture" }
+  },
+  {
+    "provider": "tracxn",
+    "entityType": "funding_round",
+    "sourceId": "fixture-round-001",
+    "payload": { "name": "Acme Seed round", "round_type": "SERIES_A", "funding_amount": "125000", "announcement_date": "2024-08" }
+  }
+]

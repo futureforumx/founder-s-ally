@@ -170,7 +170,30 @@ export function normalizeDomain(url: string | null | undefined): string | null {
   s = s.replace(/^https?:\/\//, "");
   s = s.split("/")[0]!.split("?")[0]!.split("#")[0]!;
   s = s.replace(/^www\./, "");
+  // YC's generic footer link is not a company domain and previously caused
+  // unrelated YC pages to collapse into one startup during founder ingestion.
+  if (s === "startupschool.org" || s.endsWith(".startupschool.org")) return null;
   return s || null;
+}
+
+function normalizeFounderName(raw: string): string {
+  return raw
+    .normalize("NFKC")
+    .replace(/&quot;|&#0*34;/gi, '"')
+    .replace(/&apos;|&#0*39;|&#x0*27;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/^[\s"“”']+|[\s"“”']+$/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelyFounderName(value: string): boolean {
+  if (value.length < 4 || value.length > 100 || /[<>@/\\\[\]{}#=]/.test(value)) return false;
+  if (/\b(founder|co-founder|ceo|cto|engineer|based|previously|employees|team|company|inc\.?|llc|https?)\b/i.test(value)) return false;
+  const tokens = value.match(/[\p{L}\p{M}]+(?:['’.-][\p{L}\p{M}]+)*\.?/gu) ?? [];
+  return tokens.length >= 2 && tokens.length <= 6 && tokens.join(" ").replace(/\.$/, "") === value.replace(/\.$/, "");
 }
 
 export function normalizeCompanyName(name: string): string {
@@ -413,8 +436,8 @@ export async function upsertStartup(
   // --- Upsert founders ---
   if (raw.founders?.length) {
     for (const f of raw.founders) {
-      const fName = f.full_name.normalize("NFKC").replace(/\s+/g, " ").trim();
-      if (!fName) continue;
+      const fName = normalizeFounderName(f.full_name);
+      if (!isLikelyFounderName(fName)) continue;
 
       const { data: existingF } = await sb
         .from("startup_founders")

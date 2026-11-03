@@ -1,4 +1,4 @@
-import { Wifi, ScrollText, Brain, ArrowRight, History, Users, LineChart } from "lucide-react";
+import { Wifi, ScrollText, Brain, ArrowRight, History, Users, LineChart, Palette } from "lucide-react";
 import { AdminStickyHeader } from "@/components/admin/AdminStickyHeader";
 
 const STATS = [
@@ -8,7 +8,7 @@ const STATS = [
   { label: "Tokens Near Expiry", value: "2", color: "#FF6B35" },
 ];
 
-type AdminView = "overview" | "analytics" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
+type AdminView = "overview" | "design-system" | "analytics" | "users" | "record-updates" | "api-health" | "sync-logs" | "ai-debugger";
 
 interface AdminOverviewProps {
   onNavigate: (view: AdminView) => void;
@@ -44,6 +44,7 @@ export function AdminOverview({ onNavigate, stats = STATS }: AdminOverviewProps)
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {[
           { key: "analytics", icon: LineChart, title: "Analytics", desc: "Users, waitlist, clicks, and investor actions" },
+          { key: "design-system", icon: Palette, title: "Design System", desc: "Inspect tokens, components, and shared patterns" },
           { key: "users", icon: Users, title: "Users", desc: "Manage permissions and monitor user activity" },
           { key: "record-updates", icon: History, title: "Record updates", desc: "Latest changes across firms, investors, companies, users" },
           { key: "api-health", icon: Wifi, title: "API Health", desc: "Monitor 7 integration endpoints" },

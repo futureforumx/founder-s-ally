@@ -8,6 +8,8 @@ export const ControlType = {
     Object: "object",
     Image: "image",
     File: "file",
+    Slot: "slot",
+    Array: "array",
 }
 
 export const RenderTarget = {
@@ -19,3 +21,11 @@ export const RenderTarget = {
 }
 
 export function addPropertyControls() {}
+
+export function useIsOnFramerCanvas() {
+    return false
+}
+
+export const defaultEvents = {}
+
+export { motion } from "framer-motion"

@@ -9,11 +9,13 @@ import "./index.css";
 import { initMixpanel } from "@/lib/mixpanel";
 import { applyTheme, readStoredTheme } from "@/lib/theme";
 import { captureLandingAttribution } from "@/lib/signupAttribution";
+import { loadPublishedDesignConfig } from "@/lib/designStudioRuntime";
 
 initMixpanel();
 
 if (typeof document !== "undefined") {
   applyTheme(readStoredTheme());
+  void loadPublishedDesignConfig();
 }
 
 // Record first-touch referrer / UTM before any client-side navigation.

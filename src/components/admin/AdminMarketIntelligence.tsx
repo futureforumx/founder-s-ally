@@ -8,8 +8,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight,
-  ExternalLink, Loader2, RefreshCw, Save, Search, Target, Unlink, Users, X, XCircle,
+  AlertCircle, Briefcase, Building2, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Plus,
+  ExternalLink, Loader2, RefreshCw, Save, Search, Target, Trash2, Unlink, Users, X, XCircle,
 } from "lucide-react";
 import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,9 @@ function formatStartupHq(r: Pick<CompanyRow, "location" | "hq_city" | "hq_state"
     }) ?? ""
   );
 }
-const COMPANY_STAGES      = ["pre_seed","seed","series_a","series_b","series_c","growth","public","acquired","unknown"];
+// Values must match public."OperatorCompanyStage" exactly. The enum has one
+// historical lowercase label (`series_b`); all other stage values are uppercase.
+const COMPANY_STAGES      = ["PRE_SEED","SEED","SERIES_A","series_b","SERIES_C","GROWTH","PUBLIC","ACQUIRED","UNKNOWN"];
 /** `startups.status` is the StartupStatus enum (uppercase labels). */
 const COMPANY_STATUSES    = ["ACTIVE","ACQUIRED","SHUT_DOWN","IPO","UNKNOWN"];
 /** `startups.record_status` is the catalog workflow status, separate from operating status. */
@@ -61,11 +63,30 @@ const RECORD_STATUSES = [
   { value: "needs_review", label: "Needs Review" },
   { value: "archived", label: "Archived" },
 ] as const;
-
+const RECORD_STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All" },
+  ...RECORD_STATUSES,
+  { value: "deleted", label: "Deleted" },
+];
 type RecordStatus = (typeof RECORD_STATUSES)[number]["value"];
+type RecordLifecycleStatus = RecordStatus | "deleted";
+
+function matchesRecordStatusFilter(
+  row: { record_status?: string | null; deleted_at?: string | null },
+  filter: string,
+  showDeleted = false,
+): boolean {
+  if (filter === "deleted") return Boolean(row.deleted_at);
+  if (row.deleted_at) return filter === "all" && showDeleted;
+  return filter === "all" || normalizeRecordStatus(row.record_status) === filter;
+}
 
 function normalizeRecordStatus(value: string | null | undefined): RecordStatus {
   return value === "needs_review" || value === "archived" ? value : "live";
+}
+
+function toLifecycleStatus(row: { record_status?: string | null; deleted_at?: string | null }): RecordLifecycleStatus {
+  return row.deleted_at ? "deleted" : normalizeRecordStatus(row.record_status);
 }
 
 function recordStatusLabel(value: string | null | undefined): string {
@@ -79,13 +100,25 @@ function recordStatusColor(value: string | null | undefined): string {
   if (key === "archived") return "#94a3b8";
   return "#2EE6A6";
 }
+
+function lifecycleStatusLabel(row: { record_status?: string | null; deleted_at?: string | null }): string {
+  return row.deleted_at ? "Deleted" : recordStatusLabel(row.record_status);
+}
+
+function lifecycleStatusColor(row: { record_status?: string | null; deleted_at?: string | null }): string {
+  return row.deleted_at ? "#f87171" : recordStatusColor(row.record_status);
+}
 /** `startups.sector` is the SectorFocus enum. */
-const SECTOR_WORD_LABELS: Record<string, string> = { ai: "AI", saas: "SaaS", web3: "Web3" };
+const SECTOR_WORD_LABELS: Record<string, string> = {
+  ai: "AI",
+  saas: "SaaS",
+  web3: "Web3",
+};
 
 function formatSectorSchemaLabel(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "logistics_supply_chain") return "Logistics & Supply Chain";
+  return normalized
     .split("_")
     .filter(Boolean)
     .map((word) => SECTOR_WORD_LABELS[word] ?? word.charAt(0).toUpperCase() + word.slice(1))
@@ -96,7 +129,24 @@ const COMPANY_SECTORS = Constants.public.Enums.SectorFocus.map((value) => ({
   value,
   label: formatSectorSchemaLabel(value),
 }));
-const FOUNDER_ARCHETYPES  = ["technical","commercial","operator","domain_expert","unknown"];
+const FOUNDER_ARCHETYPES = ["Technical", "Commercial", "Hybrid", "Domain Expert", "Operator", "Product", "Academic"];
+
+function normalizeFounderArchetype(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toUpperCase().replace(/[ -]+/g, "_") ?? "";
+  return FOUNDER_ARCHETYPES.find((option) => option.toUpperCase().replace(/[ -]+/g, "_") === normalized) ?? null;
+}
+
+function normalizeFounderArchetypes(values: unknown, legacyValue?: string | null): string[] {
+  const source = Array.isArray(values) ? values : legacyValue ? [legacyValue] : [];
+  return [...new Set(source.flatMap((value) => {
+    const option = typeof value === "string" ? normalizeFounderArchetype(value) : null;
+    return option ? [option] : [];
+  }))];
+}
+
+function founderArchetypeCode(value: string): string {
+  return value.toUpperCase().replace(/[ -]+/g, "_");
+}
 
 type TabKey = "companies" | "founders" | "operators";
 
@@ -114,6 +164,7 @@ export type CompanyRow = {
   stage: string | null;
   status: string | null;
   record_status: RecordStatus | null;
+  deleted_at?: string | null;
   /** Stored combined HQ line. The company editor does not change this; save omits it. */
   location: string | null;
   hq_city: string | null;
@@ -124,27 +175,56 @@ export type CompanyRow = {
   yc_batch: string | null;
   linkedin_url: string | null;
   x_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  industry_verticals?: string[] | null;
   founded_year: number | null;
   updated_at: string | null;
   created_at: string;
+};
+
+type EmploymentEntry = {
+  id: string;
+  employer_type: "company" | "corporation";
+  employer_name: string;
+  title: string;
+  relationship: "founded" | "hired";
+  is_current: boolean;
 };
 
 export type FounderRow = {
   id: string;
   full_name: string;
   role: string | null;
+  bio?: string | null;
   startup_id: string | null;
+  company_profile_ids?: string[] | null;
+  employment_history?: EmploymentEntry[] | null;
+  is_currently_at_startup?: boolean | null;
+  current_employer_name?: string | null;
+  current_employer_type?: "company" | "corporation" | null;
+  current_employer_title?: string | null;
   location: string | null;
   linkedin_url: string | null;
   x_url: string | null;
+  website_url?: string | null;
   avatar_url: string | null;
   email: string | null;
   founder_archetype: string | null;
+  founder_archetypes?: string[] | null;
   is_repeat_founder: boolean;
   has_prior_exit: boolean;
   operator_to_founder: boolean;
   domain_expertise: string[] | null;
   prior_companies: string[] | null;
+  education?: string[] | null;
+  education_highlight?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  record_status?: RecordStatus | null;
+  deleted_at?: string | null;
   updated_at: string | null;
   created_at: string;
   /** Present when the person is stored on operator_profiles but classified as a founder by title. */
@@ -158,6 +238,7 @@ export type OperatorRow = {
   id: string;
   full_name: string;
   title: string | null;
+  bio?: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -166,17 +247,40 @@ export type OperatorRow = {
   website_url: string | null;
   avatar_url: string | null;
   email: string | null;
-  stage_focus: string[] | null;
+  stage_focus: string | null;
+  stage_focuses?: string[] | null;
   is_available: boolean;
   enrichment_status: string;
   completeness_score: number | null;
   expertise: string[] | null;
   sector_focus: string[] | null;
   prior_companies: string[] | null;
+  education?: string[] | null;
   ready_for_live: boolean;
+  record_status?: RecordStatus | null;
+  deleted_at?: string | null;
   startup_id: string | null;
+  company_profile_ids?: string[] | null;
+  founder_archetypes?: string[] | null;
+  employment_history?: EmploymentEntry[] | null;
+  is_currently_at_startup?: boolean | null;
+  current_employer_name?: string | null;
+  current_employer_type?: "company" | "corporation" | null;
+  current_employer_title?: string | null;
   updated_at: string | null;
   created_at: string;
+};
+
+type CompanyKeyPerson = {
+  client_key: string;
+  operator_profile_id: string | null;
+  founder_profile_id: string | null;
+  full_name: string;
+  title: string;
+  email: string;
+  bio: string;
+  avatar_url: string;
+  profile_type: "founder" | "operator";
 };
 
 // ── Auth helper ────────────────────────────────────────────────────────────────
@@ -211,6 +315,70 @@ async function fetchCompanyById(id: string): Promise<{ row?: CompanyRow; error?:
     return { row: json.row };
   } catch (e: unknown) {
     return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function fetchCompanyKeyPeople(startupId: string): Promise<{ rows: CompanyKeyPerson[]; error?: string }> {
+  if (!SUPABASE_URL) return { rows: [], error: "SUPABASE_URL not set" };
+  try {
+    const params = new URLSearchParams({ entity: "company-key-people", id: startupId });
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, { headers: await adminHeaders() });
+    const json = await res.json().catch(() => ({})) as { rows?: CompanyKeyPerson[]; error?: string; message?: string };
+    if (!res.ok) return { rows: [], error: json.error ?? json.message ?? `HTTP ${res.status}` };
+    return { rows: Array.isArray(json.rows) ? json.rows : [] };
+  } catch (error: unknown) {
+    return { rows: [], error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function saveCompanyKeyPerson(startupId: string, person: CompanyKeyPerson): Promise<{ row?: CompanyKeyPerson; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const params = new URLSearchParams({ entity: "company-key-people", id: startupId });
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: JSON.stringify({ person }),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: CompanyKeyPerson; error?: string; message?: string };
+    if (!res.ok) return { error: json.error ?? json.message ?? `HTTP ${res.status}` };
+    return { row: json.row };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function removeCompanyKeyPerson(startupId: string, person: CompanyKeyPerson): Promise<{ error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const params = new URLSearchParams({ entity: "company-key-people", id: startupId });
+    if (person.operator_profile_id) params.set("operator_profile_id", person.operator_profile_id);
+    if (person.founder_profile_id) params.set("founder_profile_id", person.founder_profile_id);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+      method: "DELETE",
+      headers: await adminHeaders(),
+    });
+    const json = await res.json().catch(() => ({})) as { error?: string; message?: string };
+    if (!res.ok) return { error: json.error ?? json.message ?? `HTTP ${res.status}` };
+    return {};
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function fetchRecordById<T>(entity: string, id: string): Promise<{ row?: T; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const params = new URLSearchParams({ entity, id });
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+      headers: await adminHeaders(),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: T; error?: string; message?: string };
+    if (!res.ok) return { error: json.error ?? json.message ?? `HTTP ${res.status}` };
+    if (!json.row) return { error: "Record not found" };
+    return { row: json.row };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -328,6 +496,305 @@ function loadCompanyOptions(): Promise<CompanyOption[]> {
   return companyOptionsInflight;
 }
 
+function useCompanyNameSuggestions(): string[] {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    void loadCompanyOptions()
+      .then((options) => {
+        if (active) setNames([...new Map(options.map((option) => [option.company_name.toLowerCase(), option.company_name])).values()]);
+      })
+      .catch(() => { if (active) setNames([]); });
+    return () => { active = false; };
+  }, []);
+  return names;
+}
+
+const UNIVERSITY_SUGGESTIONS = [
+  "Arizona State University", "Bocconi University", "Brown University", "California Institute of Technology",
+  "Carnegie Mellon University", "Columbia University", "Cornell University", "Dartmouth College",
+  "Duke University", "ETH Zurich", "Harvard University", "Imperial College London", "London School of Economics",
+  "Massachusetts Institute of Technology", "McGill University", "Northwestern University", "Oxford University",
+  "Princeton University", "Stanford University", "Technical University of Munich", "Tel Aviv University",
+  "The University of Chicago", "UC Berkeley", "UCLA", "University of Cambridge", "University of Michigan",
+  "University of Pennsylvania", "University of Southern California", "University of Toronto", "Yale University",
+];
+const UNIVERSITY_SUGGESTIONS_KEY = "vekta.admin.education-university-suggestions";
+const CUSTOM_PAST_COMPANY_SUGGESTIONS: string[] = [];
+const PAST_COMPANY_SUGGESTIONS_KEY = "vekta.admin.past-company-suggestions";
+
+const DOMAIN_EXPERTISE_SUGGESTIONS = [
+  "AI & Machine Learning", "Biotech", "Climate Tech", "Consumer", "Cybersecurity", "Data & Analytics",
+  "Developer Tools", "E-commerce", "Education", "Enterprise SaaS", "Finance", "Fintech", "Healthcare",
+  "HR Tech", "Industrials", "Logistics", "Marketplaces", "Media", "Mobility", "Privacy & Security",
+  "Proptech", "Robotics", "Sales & Marketing", "Supply Chain", "Web3",
+];
+const DOMAIN_EXPERTISE_SUGGESTIONS_KEY = "vekta.admin.domain-expertise-suggestions";
+const OPERATOR_STAGE_SUGGESTIONS = Constants.public.Enums.stage_focus_enum.filter((stage) =>
+  !["Series B+", "Series B", "Series C", "Growth"].includes(stage),
+);
+const SERIES_A_INDEX = OPERATOR_STAGE_SUGGESTIONS.indexOf("Series A");
+OPERATOR_STAGE_SUGGESTIONS.splice(SERIES_A_INDEX + 1, 0, "Series B", "Series C", "Growth");
+const OPERATOR_STAGE_SUGGESTIONS_KEY = "vekta.admin.operator-stage-suggestions";
+const OPERATOR_SECTOR_SUGGESTIONS = [
+  "AI", "Biotech", "Climate Tech", "Consumer", "Cybersecurity", "Data & Analytics", "Developer Tools",
+  "Education", "Enterprise Software", "Fintech", "Healthcare", "Industrials", "Logistics & Supply Chain", "Logistics", "Marketplaces",
+  "Media", "Mobility", "Proptech", "Robotics", "SaaS", "Supply Chain", "Web3",
+];
+const OPERATOR_SECTOR_SUGGESTIONS_KEY = "vekta.admin.operator-sector-suggestions";
+const INDUSTRY_VERTICAL_SUGGESTIONS = [
+  "Adtech",
+  "Advanced manufacturing",
+  "Agtech",
+  "Artificial intelligence and machine learning (AI/ML)",
+  "Audiotech",
+  "Augmented reality (AR)",
+  "Autonomous cars",
+  "B2B payments",
+  "Beauty",
+  "Big Data",
+  "Cannabis",
+  "Carsharing",
+  "Cleantech",
+  "Climate tech",
+  "Cloudtech and DevOps",
+  "Construction technology",
+  "Cryptocurrency and blockchain",
+  "Cybersecurity",
+  "Digital health",
+  "Ecommerce",
+  "Edtech",
+  "Ephemeral content",
+  "eSports",
+  "Femtech",
+  "Fintech",
+  "Foodtech",
+  "Gaming",
+  "Healthtech",
+  "HRtech",
+  "Impact investing",
+  "Industrials",
+  "Infrastructure",
+  "Insurtech",
+  "Internet of Things (IoT)",
+  "Legal tech",
+  "Life sciences",
+  "Lifestyles of Health and Sustainability (LOHAS) and wellness",
+  "Manufacturing",
+  "Marketing tech",
+  "Micro-mobility",
+  "Mobile",
+  "Mobile commerce",
+  "Mobility tech",
+  "Mortgage tech",
+  "Nanotechnology",
+  "Oil and gas",
+  "Oncology",
+  "Pet tech",
+  "Real estate tech",
+  "Restaurant tech",
+  "Ridesharing",
+  "Robotics and drones",
+  "Software as a service (SaaS)",
+  "Space tech",
+  "Supply chain technology",
+  "Technology, media and telecommunications (TMT)",
+  "Virtual reality (VR)",
+  "Wearables and quantified self",
+  "3D printing",
+];
+
+function rememberSuggestion(value: string, options: string[], storageKey: string) {
+  const suggestion = value.trim();
+  if (!suggestion || options.some((item) => item.toLowerCase() === suggestion.toLowerCase())) return;
+  options.push(suggestion);
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(options));
+  } catch {
+    // The suggestion remains available to other records for this app session.
+  }
+}
+
+function restoreSuggestions(options: string[], storageKey: string) {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]") as unknown;
+    if (Array.isArray(saved)) {
+      for (const value of saved) {
+        if (typeof value === "string"
+          && !(storageKey === OPERATOR_STAGE_SUGGESTIONS_KEY && value.trim().toLowerCase() === "series b+")) {
+          rememberSuggestion(value, options, storageKey);
+        }
+      }
+    }
+  } catch {
+    // Built-in suggestions remain available if browser storage is unavailable.
+  }
+}
+
+restoreSuggestions(OPERATOR_STAGE_SUGGESTIONS, OPERATOR_STAGE_SUGGESTIONS_KEY);
+restoreSuggestions(OPERATOR_SECTOR_SUGGESTIONS, OPERATOR_SECTOR_SUGGESTIONS_KEY);
+
+function rememberDomainExpertiseSuggestion(value: string) {
+  rememberSuggestion(value, DOMAIN_EXPERTISE_SUGGESTIONS, DOMAIN_EXPERTISE_SUGGESTIONS_KEY);
+}
+
+restoreSuggestions(DOMAIN_EXPERTISE_SUGGESTIONS, DOMAIN_EXPERTISE_SUGGESTIONS_KEY);
+restoreSuggestions(UNIVERSITY_SUGGESTIONS, UNIVERSITY_SUGGESTIONS_KEY);
+restoreSuggestions(CUSTOM_PAST_COMPANY_SUGGESTIONS, PAST_COMPANY_SUGGESTIONS_KEY);
+
+function AffinityMultiSelect({
+  label, value, options, placeholder, addLabel, onAddCustom, onChange, disallowCustomValues = [], allowCustom = true,
+}: {
+  label: string;
+  value: string[] | null | undefined;
+  options: string[];
+  placeholder: string;
+  addLabel: (value: string) => string;
+  onAddCustom?: (value: string) => void;
+  onChange: (value: string[]) => void;
+  disallowCustomValues?: string[];
+  allowCustom?: boolean;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const selected = value ?? [];
+  const needle = query.trim().toLowerCase();
+  const filtered = options
+    .filter((option) => option.toLowerCase().includes(needle))
+    .filter((option) => !selected.some((entry) => entry.toLowerCase() === option.toLowerCase()))
+    .slice(0, 8);
+  const exactMatch = options.some((option) => option.toLowerCase() === needle);
+  const customValueDisallowed = disallowCustomValues.some((item) => item.toLowerCase() === needle);
+  const canAddCustom = allowCustom
+    && needle.length > 0
+    && !exactMatch
+    && !customValueDisallowed
+    && !selected.some((entry) => entry.toLowerCase() === needle);
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, [open]);
+
+  const add = (entry: string) => {
+    const trimmed = entry.trim();
+    if (!trimmed || selected.some((item) => item.toLowerCase() === trimmed.toLowerCase())) return;
+    if (!options.some((option) => option.toLowerCase() === trimmed.toLowerCase())) onAddCustom?.(trimmed);
+    onChange([...selected, trimmed]);
+    setQuery("");
+    setOpen(true);
+  };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") { setOpen(false); return; }
+    if (event.key === "ArrowDown" && (filtered.length || canAddCustom)) {
+      event.preventDefault();
+      setHighlight((index) => Math.min(index + 1, filtered.length + (canAddCustom ? 0 : -1)));
+    } else if (event.key === "ArrowUp" && (filtered.length || canAddCustom)) {
+      event.preventDefault();
+      setHighlight((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter" && open) {
+      event.preventDefault();
+      if (highlight < filtered.length && filtered[highlight]) add(filtered[highlight]);
+      else if (canAddCustom) add(query);
+    }
+  };
+
+  return (
+    <FL label={label}>
+      <div ref={rootRef}>
+        <div className="relative">
+          <input
+            className={IC}
+            style={open ? IF : IS}
+            value={query}
+            placeholder={placeholder}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            onFocus={() => setOpen(true)}
+            onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+            onKeyDown={onKeyDown}
+          />
+          {open && (filtered.length > 0 || canAddCustom) && (
+            <div role="listbox" aria-label={`${label} suggestions`}
+              className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-md p-1 shadow-xl"
+              style={{ background: "#111", border: "1px solid rgba(255,255,255,0.12)" }}>
+              {filtered.map((option, index) => (
+                <button key={option} type="button" role="option" aria-selected={highlight === index}
+                  onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setHighlight(index)} onClick={() => add(option)}
+                  className="block w-full rounded px-2.5 py-2 text-left text-[12px] hover:bg-white/[0.06]"
+                  style={{ color: "rgba(255,255,255,0.82)", background: highlight === index ? "rgba(46,230,166,0.1)" : undefined }}>
+                  {option}
+                </button>
+              ))}
+              {canAddCustom && (
+                <button type="button" role="option" aria-selected={highlight === filtered.length}
+                  onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setHighlight(filtered.length)} onClick={() => add(query)}
+                  className="block w-full rounded px-2.5 py-2 text-left text-[12px] hover:bg-white/[0.06]"
+                  style={{ color: "#2EE6A6", background: highlight === filtered.length ? "rgba(46,230,166,0.1)" : undefined }}>
+                  {addLabel(query.trim())}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {selected.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {selected.map((entry) => (
+              <span key={entry} className="inline-flex max-w-full items-center gap-1 rounded px-2 py-1 text-[11px]"
+                style={{ color: "rgba(255,255,255,0.78)", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                <span className="truncate">{entry}</span>
+                <button type="button" aria-label={`Remove ${entry}`} onClick={() => onChange(selected.filter((item) => item !== entry))}
+                  className="shrink-0 rounded p-0.5 hover:bg-white/10" style={{ color: "rgba(255,255,255,0.48)" }}>
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </FL>
+  );
+}
+
+function AffinityFields({
+  education, priorCompanies, onEducationChange, onPriorCompaniesChange,
+}: {
+  education: string[] | null | undefined;
+  priorCompanies: string[] | null | undefined;
+  onEducationChange: (value: string[]) => void;
+  onPriorCompaniesChange: (value: string[]) => void;
+}) {
+  const companyNames = useCompanyNameSuggestions();
+  const pastCompanySuggestions = [...new Map(
+    [...companyNames, ...CUSTOM_PAST_COMPANY_SUGGESTIONS].map((name) => [name.toLowerCase(), name]),
+  ).values()];
+  return (
+    <>
+      <Sect title="AFFINITY" />
+      <AffinityMultiSelect label="Education" value={education} options={UNIVERSITY_SUGGESTIONS}
+        placeholder="Search universities" addLabel={(value) => `Add university: ${value}`}
+        onAddCustom={(value) => rememberSuggestion(value, UNIVERSITY_SUGGESTIONS, UNIVERSITY_SUGGESTIONS_KEY)}
+        onChange={onEducationChange} />
+      <AffinityMultiSelect label="Past Companies" value={priorCompanies} options={pastCompanySuggestions}
+        placeholder="Search companies or add a name" addLabel={(value) => `Add “${value}” without creating a company profile`}
+        onAddCustom={(value) => rememberSuggestion(value, CUSTOM_PAST_COMPANY_SUGGESTIONS, PAST_COMPANY_SUGGESTIONS_KEY)}
+        onChange={onPriorCompaniesChange} />
+    </>
+  );
+}
+
 /** Live companies are status ACTIVE. A name-only company does not meet that, so it is stored as UNKNOWN. */
 async function createNonLiveCompany(name: string): Promise<{ option?: CompanyOption; error?: string }> {
   const trimmed = name.trim();
@@ -400,14 +867,14 @@ function FL({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function TF({ label, value, onChange, type = "text", placeholder }: {
+function TF({ label, value, onChange, type = "text", placeholder, list }: {
   label: string; value: string | null; onChange: (v: string) => void;
-  type?: string; placeholder?: string;
+  type?: string; placeholder?: string; list?: string;
 }) {
   return (
     <FL label={label}>
       <input
-        className={IC} style={IS} type={type} placeholder={placeholder}
+        className={IC} style={IS} type={type} placeholder={placeholder} list={list}
         value={value ?? ""}
         onChange={e => onChange(e.target.value)}
         onFocus={e => Object.assign(e.currentTarget.style, IF)}
@@ -644,10 +1111,12 @@ function CompanyField({
   startupId,
   onChange,
   allowEmpty = false,
+  label = "Company",
 }: {
   startupId: string | null;
   onChange: (startupId: string | null) => void;
   allowEmpty?: boolean;
+  label?: string;
 }) {
   const [options, setOptions] = useState<CompanyOption[]>([]);
   const [open, setOpen] = useState(false);
@@ -695,7 +1164,7 @@ function CompanyField({
   };
 
   return (
-    <FL label="Company">
+    <FL label={label}>
       <input
         className={IC}
         style={IS}
@@ -771,6 +1240,187 @@ function CompanyField({
   );
 }
 
+function CompanyProfilesField({ startupIds, onChange, required = false, label = "Founder company profile" }: {
+  startupIds: string[];
+  onChange: (startupIds: string[]) => void;
+  required?: boolean;
+  label?: string;
+}) {
+  const [options, setOptions] = useState<CompanyOption[]>([]);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void loadCompanyOptions().then((rows) => { if (active) setOptions(rows); }).catch((loadFailure: unknown) => {
+      if (active) setLoadError(loadFailure instanceof Error ? loadFailure.message : "Could not load companies.");
+    });
+    return () => { active = false; };
+  }, []);
+
+  const selected = startupIds.flatMap((id) => {
+    const option = options.find((row) => row.id === id);
+    return option ? [option] : [];
+  });
+  const trimmed = query.trim();
+  const filtered = options.filter((row) => row.company_name.toLowerCase().includes(trimmed.toLowerCase()))
+    .filter((row) => !startupIds.includes(row.id)).slice(0, 40);
+  const hasExact = trimmed.length > 0 && options.some((row) => row.company_name.toLowerCase() === trimmed.toLowerCase());
+
+  const choose = (option: CompanyOption) => {
+    if (!startupIds.includes(option.id)) onChange([...startupIds, option.id]);
+    setOptions((previous) => previous.some((row) => row.id === option.id) ? previous : [...previous, option].sort((a, b) => a.company_name.localeCompare(b.company_name)));
+    setQuery("");
+    setOpen(false);
+    setError(null);
+  };
+
+  const addCompany = async () => {
+    setAdding(true);
+    setError(null);
+    const result = await createNonLiveCompany(trimmed);
+    setAdding(false);
+    if (result.error || !result.option) { setError(result.error ?? "Could not add company."); return; }
+    choose(result.option);
+  };
+
+  return (
+    <FL label={label}>
+      <div className="relative">
+        <input className={IC} style={open ? IF : IS} value={query} placeholder="Search company records"
+          aria-label="Search company records to link to this founder"
+          onFocus={() => setOpen(true)}
+          onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+          onBlur={() => { window.setTimeout(() => setOpen(false), 150); }} />
+        {open && (filtered.length > 0 || (trimmed && !hasExact)) && (
+          <div className="absolute inset-x-0 top-full z-[80] mt-1 max-h-48 overflow-y-auto rounded-md border shadow-xl" style={{ background: "#111", borderColor: "rgba(255,255,255,0.12)" }}>
+            {filtered.map((option) => (
+              <button key={option.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}
+                className="block w-full truncate px-3 py-2 text-left text-xs hover:bg-white/[0.05]" style={{ color: "rgba(255,255,255,0.82)" }}>
+                {option.company_name}
+              </button>
+            ))}
+            {trimmed && !hasExact && (
+              <button type="button" disabled={adding} onMouseDown={(event) => event.preventDefault()} onClick={() => void addCompany()}
+                className="block w-full border-t px-3 py-2 text-left text-xs disabled:opacity-50" style={{ borderColor: "rgba(255,255,255,0.08)", color: "#2EE6A6" }}>
+                {adding ? "Adding company profile…" : `Add “${trimmed}” as a company profile`}
+              </button>
+            )}
+            {!filtered.length && !trimmed && <div className="px-3 py-2 text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>No company records available</div>}
+          </div>
+        )}
+      </div>
+      {selected.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {selected.map((option) => (
+            <span key={option.id} className="inline-flex max-w-full items-center gap-1 rounded border px-2 py-1 text-[11px]"
+              style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.78)" }}>
+              <span className="max-w-56 truncate">{option.company_name}</span>
+              {(!required || startupIds.length > 1) && (
+                <button type="button" aria-label={`Unlink ${option.company_name}`} onClick={() => onChange(startupIds.filter((id) => id !== option.id))}
+                  className="shrink-0 rounded px-0.5 text-white/45 hover:bg-white/10" title={`Unlink ${option.company_name}`}>×</button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      {required && startupIds.length === 0 && <p className="text-[10px]" style={{ color: "#fca5a5" }}>Link at least one company profile.</p>}
+      {selected.some((option) => !isActiveCompanyStatus(option.status)) && (
+        <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>Linked company profiles are not live until their status is Active.</p>
+      )}
+      {loadError && <p className="text-[10px]" style={{ color: "#f87171" }}>{loadError}</p>}
+      {error && <p role="alert" className="text-[10px]" style={{ color: "#f87171" }}>{error}</p>}
+    </FL>
+  );
+}
+
+function newEmploymentEntry(): EmploymentEntry {
+  return {
+    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `employment-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    employer_type: "company",
+    employer_name: "",
+    title: "",
+    relationship: "hired",
+    is_current: false,
+  };
+}
+
+function normalizeEmploymentHistory(value: unknown): EmploymentEntry[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): EmploymentEntry[] => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const row = item as Record<string, unknown>;
+    return [{
+      id: typeof row.id === "string" && row.id ? row.id : newEmploymentEntry().id,
+      employer_type: row.employer_type === "corporation" ? "corporation" : "company",
+      employer_name: typeof row.employer_name === "string" ? row.employer_name : "",
+      title: typeof row.title === "string" ? row.title : "",
+      relationship: row.relationship === "founded" ? "founded" : "hired",
+      is_current: row.is_current === true,
+    }];
+  });
+}
+
+function normalizeCompanyProfileIds(value: unknown, fallbackId?: string | null): string[] {
+  const ids = Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === "string" && id.trim().length > 0).map((id) => id.trim())
+    : [];
+  const unique = [...new Set(ids)];
+  if (unique.length > 0) return unique;
+  return fallbackId ? [fallbackId] : [];
+}
+
+function EmploymentHistoryEditor({ value, onChange }: {
+  value: EmploymentEntry[] | null | undefined;
+  onChange: (value: EmploymentEntry[]) => void;
+}) {
+  const entries = normalizeEmploymentHistory(value);
+  const update = (index: number, patch: Partial<EmploymentEntry>) => {
+    onChange(entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, ...patch } : entry));
+  };
+  const remove = (index: number) => onChange(entries.filter((_, entryIndex) => entryIndex !== index));
+
+  return (
+    <div className="flex flex-col gap-3">
+      {entries.map((entry, index) => (
+        <div key={entry.id} className="rounded-lg border p-3" style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}>
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <TF label={`Employer ${index + 1}`} value={entry.employer_name} onChange={(employer_name) => update(index, { employer_name })} placeholder="Enter a company or corporation" />
+            </div>
+            <button type="button" onClick={() => remove(index)} aria-label={`Remove employer ${index + 1}`}
+              className="mb-0.5 rounded border p-2 text-white/45 hover:text-red-300" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {entry.employer_name.trim() && (
+            <div className="mt-3 grid gap-3">
+              <SFld label="Employer type" value={entry.employer_type} onChange={(employer_type) => update(index, { employer_type: employer_type === "corporation" ? "corporation" : "company" })}
+                options={[{ value: "company", label: "Company" }, { value: "corporation", label: "Corporation" }]} allowEmpty={false} />
+              <TF label="Title" value={entry.title} onChange={(title) => update(index, { title })} placeholder="Role or title" />
+              <SFld label="Relationship" value={entry.relationship} onChange={(relationship) => update(index, { relationship: relationship === "founded" ? "founded" : "hired" })}
+                options={[{ value: "founded", label: "Founded" }, { value: "hired", label: "Hired" }]} allowEmpty={false} />
+              <label className="flex cursor-pointer items-center gap-2 text-[12px]" style={{ color: "rgba(255,255,255,0.78)" }}>
+                <input type="checkbox" checked={entry.is_current} onChange={(event) => update(index, { is_current: event.target.checked })} className="accent-emerald-400" />
+                Current employer
+              </label>
+            </div>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...entries, newEmploymentEntry()])}
+        className="flex w-fit items-center gap-2 rounded-md border px-3 py-2 text-[11px] font-medium transition-colors hover:bg-white/[0.04]"
+        style={{ borderColor: "rgba(46,230,166,0.3)", color: "#2EE6A6" }}>
+        <Plus className="h-3.5 w-3.5" /> Add employer
+      </button>
+      <p className="-mt-1 text-[10px]" style={{ color: "rgba(255,255,255,0.38)" }}>Employer entries are saved to this profile only and do not create separate company records.</p>
+    </div>
+  );
+}
+
 function logoHref(value: string | null | undefined): string | null {
   const raw = value?.trim();
   if (!raw || !/^https?:\/\//i.test(raw)) return null;
@@ -819,28 +1469,50 @@ function Sect({ title }: { title: string }) {
 // ── Panel shell ────────────────────────────────────────────────────────────────
 
 function PanelShell({
-  title, subtitle, saving, onClose, onSave, children,
+  title, subtitle, saving, onClose, onSave, onDelete, children, zIndex = 50, recordStatus, onRecordStatusChange,
 }: {
   title: string; subtitle: string; saving: boolean;
-  onClose: () => void; onSave: () => void; children: React.ReactNode;
+  onClose: () => void; onSave: () => void; onDelete?: () => void; children: React.ReactNode; zIndex?: number;
+  recordStatus?: RecordLifecycleStatus; onRecordStatusChange?: (status: RecordLifecycleStatus) => void;
 }) {
   return (
     <div
       style={{
-        position: "fixed", right: 0, top: 0, bottom: 0, width: 440, zIndex: 50,
+        position: "fixed", right: 0, top: 0, bottom: 0, width: 440, zIndex,
         background: "#0c0c0c", borderLeft: "1px solid rgba(255,255,255,0.07)",
         display: "flex", flexDirection: "column", boxShadow: "-8px 0 32px rgba(0,0,0,0.6)",
       }}
     >
       <div className="flex items-center justify-between px-5 py-4 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-[11px] font-mono uppercase tracking-widest" style={{ color: "#2EE6A6" }}>{title}</p>
-          <p className="text-[13px] font-semibold text-white/80 mt-0.5 truncate max-w-[320px]">{subtitle}</p>
+          <p className="text-[13px] font-semibold text-white/80 mt-0.5 truncate max-w-[240px]">{subtitle}</p>
         </div>
-        <button type="button" onClick={onClose} className="p-1 rounded hover:bg-white/05 transition-colors">
-          <X className="h-4 w-4" style={{ color: "rgba(255,255,255,0.4)" }} />
-        </button>
+        <div className="ml-3 flex shrink-0 items-center gap-2">
+          {recordStatus && onRecordStatusChange && (
+            <select
+              aria-label="Record status"
+              value={recordStatus}
+              disabled={saving}
+              onChange={event => onRecordStatusChange(event.target.value as RecordLifecycleStatus)}
+              className="h-8 max-w-[138px] rounded-md px-2 text-[11px] font-semibold outline-none disabled:opacity-50"
+              style={{
+                color: recordStatus === "deleted" ? "#f87171" : recordStatusColor(recordStatus),
+                background: recordStatus === "deleted" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${recordStatus === "deleted" ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.14)"}`,
+              }}
+            >
+              <option value="live">Live</option>
+              <option value="needs_review">Needs Review</option>
+              <option value="archived">Archived</option>
+              <option value="deleted">Deleted</option>
+            </select>
+          )}
+          <button type="button" aria-label="Close record editor" onClick={onClose} className="p-1 rounded hover:bg-white/05 transition-colors">
+            <X className="h-4 w-4" style={{ color: "rgba(255,255,255,0.4)" }} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
@@ -849,6 +1521,15 @@ function PanelShell({
 
       <div className="flex items-center gap-3 px-5 py-4 shrink-0"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+        {onDelete && (
+          <button
+            type="button" onClick={onDelete} disabled={saving}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-medium transition-colors disabled:opacity-40"
+            style={{ background: "rgba(239,68,68,0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.2)" }}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        )}
         <button
           type="button" onClick={onSave} disabled={saving}
           className="flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-[12px] font-semibold transition-colors"
@@ -909,10 +1590,11 @@ type FundingRoundDraft = {
   id: string | null;
   round_type: string;
   amount_usd: number | null;
+  announcement_date: string | null;
 };
 
 function blankFundingRound(): FundingRoundDraft {
-  return { key: crypto.randomUUID(), id: null, round_type: "", amount_usd: null };
+  return { key: crypto.randomUUID(), id: null, round_type: "", amount_usd: null, announcement_date: null };
 }
 
 function normalizeFundingRounds(rows: FundingRoundDraft[]): FundingRoundDraft[] {
@@ -923,8 +1605,12 @@ function normalizeFundingRounds(rows: FundingRoundDraft[]): FundingRoundDraft[] 
     const key = fundingRoundKey(canonical);
     const existing = filledByRound.get(key);
     if (!existing) filledByRound.set(key, { ...row, round_type: canonical });
-    else if (existing.amount_usd == null && row.amount_usd != null) {
-      filledByRound.set(key, { ...existing, amount_usd: row.amount_usd });
+    else {
+      filledByRound.set(key, {
+        ...existing,
+        amount_usd: existing.amount_usd ?? row.amount_usd,
+        announcement_date: existing.announcement_date ?? row.announcement_date,
+      });
     }
   }
   const filled = [...filledByRound.values()];
@@ -1015,6 +1701,7 @@ type StoredFundingRound = {
   id: string;
   round_type: string;
   amount_usd: number | null;
+  announcement_date: string | null;
   sort_order: number;
 };
 
@@ -1022,8 +1709,8 @@ async function loadCompanyFundingRounds(startupId: string): Promise<{ rows: Stor
   if (isTestAdminSampleId(startupId)) {
     return {
       rows: [
-        { id: `${startupId}-seed`, round_type: "seed", amount_usd: 4_500_000, sort_order: 0 },
-        { id: `${startupId}-a`, round_type: "series_a", amount_usd: 18_000_000, sort_order: 1 },
+        { id: `${startupId}-seed`, round_type: "seed", amount_usd: 4_500_000, announcement_date: null, sort_order: 0 },
+        { id: `${startupId}-a`, round_type: "series_a", amount_usd: 18_000_000, announcement_date: null, sort_order: 1 },
       ],
     };
   }
@@ -1051,6 +1738,7 @@ async function saveCompanyFundingRounds(
         id: row.id ?? `${startupId}-round-${index}`,
         round_type: row.round_type,
         amount_usd: row.amount_usd,
+        announcement_date: row.announcement_date,
         sort_order: index,
       })),
     };
@@ -1068,6 +1756,7 @@ async function saveCompanyFundingRounds(
             id: row.id,
             round_type: row.round_type,
             amount_usd: row.amount_usd,
+            announcement_date: row.announcement_date,
           })),
         }),
       },
@@ -1080,7 +1769,7 @@ async function saveCompanyFundingRounds(
   }
 }
 
-async function createFirmInvestor(body: { firm_id: string; full_name: string; title: string }): Promise<{ person?: CardPerson; error?: string }> {
+async function createFirmInvestor(body: { firm_id: string; full_name: string; title: string; email?: string }): Promise<{ person?: CardPerson; error?: string }> {
   if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
   try {
     const res = await fetch(
@@ -1103,6 +1792,51 @@ async function createFirmInvestor(body: { firm_id: string; full_name: string; ti
   }
 }
 
+async function createInvestorFirm(firmName: string): Promise<{ firm?: FirmHit; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=firms`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: JSON.stringify({ firm_name: firmName.trim() }),
+    });
+    const json = await res.json().catch(() => ({})) as { row?: { id?: string; firm_name?: string | null }; error?: string };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    if (!json.row?.id) return { error: "Firm was not created" };
+    return { firm: { id: json.row.id, firm_name: json.row.firm_name ?? firmName.trim() } };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function createStandaloneInvestor(body: { full_name: string; title: string; email: string }): Promise<{ person?: CardPerson; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?entity=company-investors`, {
+      method: "POST",
+      headers: await adminHeaders(),
+      body: JSON.stringify({ ...body, action: "create_individual" }),
+    });
+    const json = await res.json().catch(() => ({})) as {
+      row?: { id?: string; full_name?: string | null; title?: string | null; firm_id?: string; firm_name?: string | null };
+      error?: string;
+    };
+    if (!res.ok) return { error: json.error ?? `HTTP ${res.status}` };
+    const row = json.row;
+    if (!row?.id || !row.firm_id) return { error: "Individual investor was not created" };
+    return {
+      person: {
+        id: row.id,
+        name: row.full_name?.trim() || body.full_name,
+        title: row.title ?? (body.title.trim() || null),
+        firm: { id: row.firm_id, firm_name: row.firm_name ?? body.full_name },
+      },
+    };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function saveCompanyInvestorLink(body: Record<string, unknown>): Promise<{ created?: boolean; error?: string }> {
   if (isTestAdminSampleId(String(body.startup_id ?? ""))) return { created: true };
   if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
@@ -1119,39 +1853,56 @@ async function saveCompanyInvestorLink(body: Record<string, unknown>): Promise<{
   }
 }
 
-function FirmLookup({ selected, onSelect }: {
+function FirmLookup({ selected, onSelect, onCreateFirm }: {
   selected: FirmHit | null;
   onSelect: (firm: FirmHit | null) => void;
+  onCreateFirm: (name: string) => Promise<FirmHit | null>;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [hits, setHits] = useState<FirmHit[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     const q = query.trim();
-    if (!open || q.length < 2) { setHits([]); return; }
+    if (!open || q.length < 2) { setHits([]); setSearching(false); return; }
     let cancelled = false;
+    setSearching(true);
     const timer = window.setTimeout(() => {
       void fetchRows<FirmHit>("firms", { page: 0, search: q, limit: 8 }).then((res) => {
-        if (!cancelled) setHits(res.rows);
+        if (!cancelled) { setHits(res.rows); setSearching(false); }
       });
     }, 250);
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [query, open]);
 
+  const typed = query.trim();
+  const exactMatch = hits.some((hit) => sameInvestorName(hit.firm_name ?? "", typed));
+  const addFirm = async () => {
+    setCreating(true);
+    const created = await onCreateFirm(typed);
+    setCreating(false);
+    if (!created) return;
+    onSelect(created);
+    setQuery("");
+    setOpen(false);
+  };
+
   return (
     <FL label="Firm">
       <input
         className={IC} style={IS}
-        placeholder="Search existing firms"
+        placeholder="Search existing firms or add one"
         value={open ? query : (selected?.firm_name ?? "")}
         onFocus={(e) => { setOpen(true); setQuery(selected?.firm_name ?? ""); Object.assign(e.currentTarget.style, IF); }}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); if (selected) onSelect(null); }}
         onBlur={(e) => { Object.assign(e.currentTarget.style, IS); window.setTimeout(() => setOpen(false), 150); }}
       />
-      {open && query.trim().length >= 2 && (
+      {open && typed.length >= 2 && (
         <div className="mt-1 max-h-40 overflow-y-auto rounded" style={{ background: "#111", border: "1px solid rgba(255,255,255,0.1)" }}>
-          {hits.length === 0 && <div className="px-3 py-2 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>No firms found</div>}
+          {searching && <div className="px-3 py-2 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>Searching firms…</div>}
+          {!searching && hits.length === 0 && <div className="px-3 py-2 text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>No firms found</div>}
           {hits.map((hit) => (
             <button
               key={hit.id}
@@ -1164,6 +1915,18 @@ function FirmLookup({ selected, onSelect }: {
               {hit.firm_name ?? "Untitled firm"}
             </button>
           ))}
+          {!searching && !exactMatch && (
+            <button
+              type="button"
+              disabled={creating}
+              className="block w-full border-t px-3 py-2 text-left text-[12px] font-medium disabled:opacity-50"
+              style={{ color: "#2EE6A6", borderColor: "rgba(255,255,255,0.08)" }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { void addFirm(); }}
+            >
+              {creating ? "Adding firm…" : `+ Add “${typed}” as a firm`}
+            </button>
+          )}
         </div>
       )}
     </FL>
@@ -1705,6 +2468,60 @@ function NewInvestorLink({
   const [people, setPeople] = useState<CardPerson[]>([]);
   const [rounds, setRounds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [entryType, setEntryType] = useState<"firm" | "individual">("firm");
+  const [individualName, setIndividualName] = useState("");
+  const [individualTitle, setIndividualTitle] = useState("");
+  const [individualEmail, setIndividualEmail] = useState("");
+  const [creatingIndividual, setCreatingIndividual] = useState(false);
+
+  const createFirm = async (name: string): Promise<FirmHit | null> => {
+    if (isTestAdminSampleId(startupId)) {
+      const sampleFirm = { id: `demo-firm-${crypto.randomUUID()}`, firm_name: name };
+      toast.success("Firm added in the test console");
+      return sampleFirm;
+    }
+    const result = await createInvestorFirm(name);
+    if (result.error || !result.firm) {
+      toast.error("Could not add firm", { description: result.error ?? "No firm returned" });
+      return null;
+    }
+    toast.success("Firm added — add a person below if needed");
+    return result.firm;
+  };
+
+  const createIndividual = async () => {
+    const fullName = individualName.trim();
+    if (!fullName) { toast.error("Enter the individual's name"); return; }
+    setCreatingIndividual(true);
+    if (isTestAdminSampleId(startupId)) {
+      const personFirm = { id: `demo-angel-${crypto.randomUUID()}`, firm_name: fullName };
+      const person = {
+        id: `demo-person-${crypto.randomUUID()}`,
+        name: fullName,
+        title: individualTitle.trim() || null,
+        firm: personFirm,
+      };
+      setFirm(personFirm);
+      setPeople([person]);
+      setCreatingIndividual(false);
+      toast.success("Individual investor added in the test console");
+      return;
+    }
+
+    const personResult = await createStandaloneInvestor({
+      full_name: fullName,
+      title: individualTitle.trim(),
+      email: individualEmail.trim(),
+    });
+    setCreatingIndividual(false);
+    if (personResult.error || !personResult.person) {
+      toast.error("Could not add individual investor", { description: personResult.error ?? "Person was not created" });
+      return;
+    }
+    setFirm(personResult.person.firm ?? null);
+    setPeople([personResult.person]);
+    toast.success("Individual investor added");
+  };
 
   const save = async () => {
     if (!firm) { toast.error("Pick a firm"); return; }
@@ -1736,28 +2553,55 @@ function NewInvestorLink({
   return (
     <div className="flex flex-col gap-2 rounded-md p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
       <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>Add investor</p>
-      <FirmLookup
-        selected={firm}
-        onSelect={(next) => {
-          if (firm && next && firm.id !== next.id) {
-            for (const round of rounds) {
-              if (ledByRound[round] === firm.id) onLead(round, next.id, true);
+      <div className="inline-flex self-start rounded-md p-0.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} aria-label="Investor type">
+        {(["firm", "individual"] as const).map((type) => (
+          <button key={type} type="button" aria-pressed={entryType === type} onClick={() => setEntryType(type)}
+            className="rounded px-2.5 py-1 text-[11px] capitalize transition-colors"
+            style={{ background: entryType === type ? "rgba(46,230,166,0.14)" : "transparent", color: entryType === type ? "#2EE6A6" : "rgba(255,255,255,0.48)" }}>
+            {type}
+          </button>
+        ))}
+      </div>
+      {entryType === "firm" ? (
+        <FirmLookup
+          selected={firm}
+          onCreateFirm={createFirm}
+          onSelect={(next) => {
+            if (firm && next && firm.id !== next.id) {
+              for (const round of rounds) {
+                if (ledByRound[round] === firm.id) onLead(round, next.id, true);
+              }
             }
-          }
-          if (!next && firm) {
-            for (const round of rounds) {
-              if (ledByRound[round] === firm.id) onLead(round, firm.id, false);
+            if (!next && firm) {
+              for (const round of rounds) {
+                if (ledByRound[round] === firm.id) onLead(round, firm.id, false);
+              }
             }
-          }
-          if (next?.id !== firm?.id) setPeople([]);
-          setFirm(next);
-        }}
-      />
+            if (next?.id !== firm?.id) setPeople([]);
+            setFirm(next);
+          }}
+        />
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <TF label="Individual name" value={individualName} onChange={setIndividualName} placeholder="e.g. Jordan Lee" />
+          <TF label="Title" value={individualTitle} onChange={setIndividualTitle} placeholder="Angel investor" />
+          <TF label="Email (optional)" value={individualEmail} onChange={setIndividualEmail} type="email" />
+          <button type="button" disabled={creatingIndividual} onClick={() => { void createIndividual(); }}
+            className="inline-flex h-[31px] items-center justify-center gap-1.5 self-end rounded px-3 text-[12px] font-semibold disabled:opacity-60"
+            style={{ background: "rgba(46,230,166,0.14)", color: "#2EE6A6", border: "1px solid rgba(46,230,166,0.24)" }}>
+            {creatingIndividual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
+            {creatingIndividual ? "Adding individual…" : "Add individual"}
+          </button>
+          <p className="sm:col-span-2 text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>
+            Creates an Angel profile and a linked person record for this individual investor.
+          </p>
+        </div>
+      )}
       <FundingRoundPicker
         fundingRounds={fundingRounds}
         selected={rounds}
         onChange={setRounds}
-        firmId={firm?.id ?? null}
+        firmId={entryType === "firm" ? firm?.id ?? null : null}
         ledByRound={ledByRound}
         onLead={(round, led) => {
           if (!firm) { toast.error("Pick a firm first"); return; }
@@ -1828,6 +2672,7 @@ function CompanyFundingRounds({
         id: row.id,
         round_type: row.round_type,
         amount_usd: row.amount_usd,
+        announcement_date: row.announcement_date,
       })));
       rowsRef.current = loaded;
       setRows(loaded);
@@ -1848,6 +2693,7 @@ function CompanyFundingRounds({
         id: row.id,
         round_type: row.round_type,
         amount_usd: row.amount_usd,
+        announcement_date: row.announcement_date,
       })));
       rowsRef.current = loaded;
       setRows(loaded);
@@ -1885,6 +2731,12 @@ function CompanyFundingRounds({
             label="Money Raised (USD)"
             value={row.amount_usd}
             onChange={(value) => publish(rowsRef.current.map((item) => item.key === row.key ? { ...item, amount_usd: value } : item))}
+          />
+          <TF
+            label="Announcement Date"
+            type="date"
+            value={row.announcement_date}
+            onChange={(value) => publish(rowsRef.current.map((item) => item.key === row.key ? { ...item, announcement_date: value || null } : item))}
           />
         </div>
       ))}
@@ -1981,6 +2833,11 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
     setD((prev) => (Object.is(prev.total_raised_usd, sum) ? prev : { ...prev, total_raised_usd: sum }));
   }, []);
   const set = <K extends keyof CompanyRow>(k: K, v: CompanyRow[K]) => setD(p => ({ ...p, [k]: v }));
+  const setLifecycleStatus = (status: RecordLifecycleStatus) => setD(previous => ({
+    ...previous,
+    record_status: status === "deleted" ? normalizeRecordStatus(previous.record_status) : status,
+    deleted_at: status === "deleted" ? previous.deleted_at ?? new Date().toISOString() : null,
+  }));
   const setTotalRaised = (value: number | null) => {
     if (value == null || !Number.isFinite(value)) {
       totalRaisedManualRef.current = false;
@@ -1989,6 +2846,23 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
     }
     totalRaisedManualRef.current = true;
     setD((prev) => ({ ...prev, total_raised_usd: value }));
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${row.company_name}? It will be removed from the active catalog.`)) return;
+    setSaving(true);
+    const deletedAt = new Date().toISOString();
+    if (isTestAdminSampleId(row.id)) {
+      onSaved({ ...d, deleted_at: deletedAt, updated_at: deletedAt });
+      setSaving(false);
+      toast.success("Company deleted from the test console");
+      return;
+    }
+    const { row: updated, error } = await patchRow<CompanyRow>("companies", row.id, { deleted_at: deletedAt });
+    setSaving(false);
+    if (error || !updated) { toast.error(`Delete failed: ${error ?? "no data"}`); return; }
+    toast.success("Company deleted");
+    onSaved(updated);
   };
 
   const handleSave = async () => {
@@ -2013,6 +2887,9 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
     patch.company_url = patch.company_url?.trim() || null;
     patch.linkedin_url = patch.linkedin_url?.trim() || null;
     patch.x_url = patch.x_url?.trim() || null;
+    patch.facebook_url = patch.facebook_url?.trim() || null;
+    patch.instagram_url = patch.instagram_url?.trim() || null;
+    patch.tiktok_url = patch.tiktok_url?.trim() || null;
     patch.record_status = normalizeRecordStatus(patch.record_status);
     const persistCalculatedTotal = row.total_raised_usd == null && !totalRaisedManualRef.current;
     if (persistCalculatedTotal) {
@@ -2033,7 +2910,8 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
   };
 
   return (
-    <PanelShell title="Edit Company" subtitle={row.company_name} saving={saving} onClose={onClose} onSave={handleSave}>
+    <PanelShell title="Edit Company" subtitle={row.company_name} saving={saving} onClose={onClose} onSave={handleSave} onDelete={handleDelete}
+      recordStatus={toLifecycleStatus(d)} onRecordStatusChange={setLifecycleStatus}>
       <Sect title="Basic Info" />
       <TF label="Company Name"      value={d.company_name}      onChange={v => set("company_name", v)} />
       <TF label="Website URL"       value={d.company_url}       onChange={v => set("company_url", v)} placeholder="https://" />
@@ -2093,20 +2971,22 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
           </a>
         </div>
       </FL>
-      <TF label="LinkedIn URL"      value={d.linkedin_url}      onChange={v => set("linkedin_url", v)} />
-      <TF label="X URL"             value={d.x_url}           onChange={v => set("x_url", v)} placeholder="https://x.com/…" />
       <TA label="Short Description" value={d.description_short} onChange={v => set("description_short", v)} rows={2} />
       <TA label="Long Description"  value={d.description_long}  onChange={v => set("description_long", v)} rows={4} />
 
+      <Sect title="Social Platforms" />
+      <TF label="LinkedIn URL" value={d.linkedin_url} onChange={v => set("linkedin_url", v)} placeholder="https://linkedin.com/company/…" />
+      <TF label="X URL" value={d.x_url} onChange={v => set("x_url", v)} placeholder="https://x.com/…" />
+      <TF label="Facebook URL" value={d.facebook_url} onChange={v => set("facebook_url", v)} placeholder="https://facebook.com/…" />
+      <TF label="Instagram URL" value={d.instagram_url} onChange={v => set("instagram_url", v)} placeholder="https://instagram.com/…" />
+      <TF label="TikTok URL" value={d.tiktok_url} onChange={v => set("tiktok_url", v)} placeholder="https://tiktok.com/@…" />
+
       <Sect title="Classification" />
       <SFld label="Sector" value={d.sector} onChange={v => set("sector", v || null)} options={COMPANY_SECTORS} />
-      <SFld
-        label="Status"
-        value={normalizeRecordStatus(d.record_status)}
-        onChange={v => set("record_status", normalizeRecordStatus(v))}
-        options={RECORD_STATUSES}
-        allowEmpty={false}
-      />
+      <AffinityMultiSelect label="Industry Verticals" value={d.industry_verticals} options={INDUSTRY_VERTICAL_SUGGESTIONS}
+        placeholder="Search industry verticals" addLabel={(value) => `Add vertical: ${value}`}
+        allowCustom={false}
+        onChange={(value) => set("industry_verticals", value)} />
       <SFld label="Stage"  value={d.stage}   onChange={v => set("stage", v)}   options={COMPANY_STAGES} />
       <SFld label="Operating Status" value={d.status} onChange={v => set("status", v)} options={COMPANY_STATUSES} />
       <CompanyHqFields
@@ -2124,10 +3004,258 @@ function CompanyEditPanel({ row, onClose, onSaved }: {
         <NF label="Founded Year"       value={d.founded_year}     onChange={v => set("founded_year", v)} />
       </div>
 
+      <CompanyKeyPeopleEditor startupId={row.id} />
       <CompanyFundingRounds startupId={row.id} onRoundsChange={onRoundsChange} saveRef={saveRoundsRef} />
       <CompanyInvestors startupId={row.id} fundingRounds={fundingRounds} />
 
     </PanelShell>
+  );
+}
+
+const KEY_PERSON_TITLE_SUGGESTIONS = [
+  "Founder", "Co-Founder", "Founder & CEO", "Co-Founder & CEO", "CEO",
+  "CTO", "CFO", "COO", "CMO", "CPO", "CRO", "Chief of Staff",
+  "VP of Engineering", "VP of Operations", "VP of Product", "VP of Marketing",
+  "VP of Sales", "VP of Finance", "Head of Engineering", "Head of Ops",
+  "Head of Product", "Head of Growth", "Head of Sales", "Head of Finance",
+];
+
+const PROFILE_TITLE_SUGGESTIONS_ID = "admin-profile-title-suggestions";
+
+function ProfileTitleField({ label, value, onChange }: {
+  label: string;
+  value: string | null;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <TF label={label} value={value} onChange={onChange} list={PROFILE_TITLE_SUGGESTIONS_ID} />
+      <datalist id={PROFILE_TITLE_SUGGESTIONS_ID}>
+        {KEY_PERSON_TITLE_SUGGESTIONS.map((title) => <option key={title} value={title} />)}
+      </datalist>
+    </>
+  );
+}
+
+function newCompanyKeyPerson(): CompanyKeyPerson {
+  return {
+    client_key: crypto.randomUUID(),
+    operator_profile_id: null,
+    founder_profile_id: null,
+    full_name: "",
+    title: "",
+    email: "",
+    bio: "",
+    avatar_url: "",
+    profile_type: "operator",
+  };
+}
+
+function CompanyKeyPeopleEditor({ startupId }: { startupId: string }) {
+  const demo = isTestAdminSampleId(startupId);
+  const [people, setPeople] = useState<CompanyKeyPerson[]>([]);
+  const [loading, setLoading] = useState(!demo);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [openingProfileKey, setOpeningProfileKey] = useState<string | null>(null);
+  const [activeProfile, setActiveProfile] = useState<
+    | { type: "founder"; clientKey: string; row: FounderRow }
+    | { type: "operator"; clientKey: string; row: OperatorRow }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (demo) {
+      setPeople([]);
+      setLoading(false);
+      setLoadError(null);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    void fetchCompanyKeyPeople(startupId).then(({ rows, error }) => {
+      if (!active) return;
+      setPeople(rows.map((person) => ({ ...person, client_key: person.client_key || crypto.randomUUID() })));
+      setLoadError(error ?? null);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [demo, startupId]);
+
+  const update = (clientKey: string, patch: Partial<CompanyKeyPerson>) => {
+    setPeople((previous) => previous.map((person) => person.client_key === clientKey ? { ...person, ...patch } : person));
+  };
+
+  const save = async (person: CompanyKeyPerson) => {
+    if (!person.full_name.trim()) { toast.error("Enter a name for this key person"); return; }
+    if (!person.title.trim()) { toast.error("Enter a title for this key person"); return; }
+    setSavingKey(person.client_key);
+    if (demo) {
+      setPeople((previous) => previous.map((item) => item.client_key === person.client_key ? {
+        ...person,
+        operator_profile_id: person.operator_profile_id ?? `demo-operator-${person.client_key}`,
+        founder_profile_id: person.profile_type === "founder" ? person.founder_profile_id ?? `demo-founder-${person.client_key}` : null,
+      } : item));
+      toast.success("Key person saved in the test console");
+      setSavingKey(null);
+      return;
+    }
+    const { row, error } = await saveCompanyKeyPerson(startupId, person);
+    setSavingKey(null);
+    if (error || !row) { toast.error(`Key person save failed: ${error ?? "no data"}`); return; }
+    setPeople((previous) => previous.map((item) => item.client_key === person.client_key ? { ...row, client_key: item.client_key } : item));
+    toast.success(row.profile_type === "founder" ? "Founder and operator profiles linked" : "Operator profile linked");
+  };
+
+  const remove = async (person: CompanyKeyPerson) => {
+    if (person.operator_profile_id || person.founder_profile_id) {
+      setSavingKey(person.client_key);
+      const { error } = await removeCompanyKeyPerson(startupId, person);
+      setSavingKey(null);
+      if (error) { toast.error(`Could not unlink key person: ${error}`); return; }
+    }
+    setPeople((previous) => previous.filter((item) => item.client_key !== person.client_key));
+    toast.success("Key person unlinked from this company");
+  };
+
+  const openProfile = async (person: CompanyKeyPerson) => {
+    const founderId = person.profile_type === "founder" ? person.founder_profile_id : null;
+    const type = founderId ? "founder" : "operator";
+    const id = founderId ?? person.operator_profile_id;
+    if (!id || id.startsWith("demo-")) return;
+    setOpeningProfileKey(person.client_key);
+    const result = await fetchRecordById<FounderRow | OperatorRow>(type === "founder" ? "founders" : "operators", id);
+    setOpeningProfileKey(null);
+    if (result.error || !result.row) {
+      toast.error(`Could not open ${type} record: ${result.error ?? "no data"}`);
+      return;
+    }
+    if (type === "founder") {
+      setActiveProfile({ type, clientKey: person.client_key, row: result.row as FounderRow });
+    } else {
+      setActiveProfile({ type, clientKey: person.client_key, row: result.row as OperatorRow });
+    }
+  };
+
+  const syncProfileIntoKeyPerson = (clientKey: string, patch: Partial<CompanyKeyPerson>) => {
+    update(clientKey, patch);
+    setActiveProfile(null);
+  };
+
+  return (
+    <>
+      <Sect title="Key People" />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="max-w-lg text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>
+          Founder entries create a founder record linked to an operator profile. Other titles create an operator profile.
+        </p>
+        <button type="button" onClick={() => setPeople((previous) => [...previous, newCompanyKeyPerson()])}
+          className="shrink-0 rounded px-2.5 py-1.5 text-[11px] font-medium transition-colors hover:bg-white/[0.06]"
+          style={{ color: "#2EE6A6", border: "1px solid rgba(46,230,166,0.2)" }}>
+          + Add key person
+        </button>
+      </div>
+      {loading && <p className="py-3 text-[11px]" style={{ color: "rgba(255,255,255,0.42)" }}>Loading key people…</p>}
+      {loadError && <p role="alert" className="py-2 text-[11px]" style={{ color: "#f87171" }}>Could not load key people: {loadError}</p>}
+      {!loading && !people.length && !loadError && <p className="py-2 text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>No key people added yet.</p>}
+      <div className="space-y-3">
+        {people.map((person, index) => (
+          <div key={person.client_key} className="space-y-3 rounded-lg p-3" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.72)" }}>Person {index + 1}</p>
+              <div className="flex items-center gap-1.5">
+                {(["founder", "operator"] as const).map((profileType) => (
+                  <button key={profileType} type="button" aria-pressed={person.profile_type === profileType}
+                    onClick={() => update(person.client_key, { profile_type: profileType })}
+                    className="rounded px-2 py-1 text-[10px] capitalize transition-colors"
+                    style={{ color: person.profile_type === profileType ? "#2EE6A6" : "rgba(255,255,255,0.45)", border: `1px solid ${person.profile_type === profileType ? "rgba(46,230,166,0.28)" : "rgba(255,255,255,0.08)"}` }}>
+                    {profileType} profile
+                  </button>
+                ))}
+                <button type="button" aria-label={`Remove ${person.full_name || "key person"}`} disabled={savingKey === person.client_key}
+                  onClick={() => { void remove(person); }} className="rounded p-1.5 hover:bg-white/[0.06] disabled:opacity-40"
+                  style={{ color: "rgba(255,255,255,0.45)" }}><X className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TF label="Name" value={person.full_name} onChange={(full_name) => update(person.client_key, { full_name })} />
+              <TF label="Title" value={person.title} onChange={(title) => update(person.client_key, {
+                title,
+                ...(title.toLowerCase().includes("founder") ? { profile_type: "founder" as const } : {}),
+              })} placeholder="Founder & CEO" list={`key-person-title-${person.client_key}`} />
+              <datalist id={`key-person-title-${person.client_key}`}>
+                {KEY_PERSON_TITLE_SUGGESTIONS.map((title) => <option key={title} value={title} />)}
+              </datalist>
+              <TF label="Email" value={person.email} onChange={(email) => update(person.client_key, { email })} type="email" />
+              <TF label="Photo URL" value={person.avatar_url} onChange={(avatar_url) => update(person.client_key, { avatar_url })} type="url" placeholder="https://…" />
+            </div>
+            <TA label="Bio" value={person.bio} onChange={(bio) => update(person.client_key, { bio })} rows={3} />
+            <div className="flex flex-wrap justify-end gap-2">
+              {(person.operator_profile_id || person.founder_profile_id) && !String(person.operator_profile_id ?? "").startsWith("demo-") && (
+                <button type="button" disabled={openingProfileKey === person.client_key}
+                  onClick={() => { void openProfile(person); }}
+                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[11px] font-medium disabled:opacity-50"
+                  style={{ color: "rgba(255,255,255,0.75)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                  <ExternalLink className="h-3 w-3" />
+                  {openingProfileKey === person.client_key ? "Opening…" : `View full ${person.profile_type} record`}
+                </button>
+              )}
+              <button type="button" disabled={savingKey === person.client_key} onClick={() => { void save(person); }}
+                className="rounded px-3 py-1.5 text-[11px] font-medium disabled:opacity-50"
+                style={{ color: "#050505", background: "#2EE6A6" }}>
+                {savingKey === person.client_key ? "Saving…" : "Save person"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {activeProfile?.type === "founder" && (
+        <FounderEditPanel
+          row={activeProfile.row}
+          zIndex={60}
+          onClose={() => setActiveProfile(null)}
+          onSaved={(row) => {
+            if (row.deleted_at) {
+              setPeople((previous) => previous.filter((person) => person.client_key !== activeProfile.clientKey));
+              setActiveProfile(null);
+              return;
+            }
+            syncProfileIntoKeyPerson(activeProfile.clientKey, {
+              founder_profile_id: row.id,
+              full_name: row.full_name,
+              title: row.role ?? "",
+              email: row.email ?? "",
+              bio: row.bio ?? "",
+              avatar_url: row.avatar_url ?? "",
+              profile_type: "founder",
+            });
+          }}
+        />
+      )}
+      {activeProfile?.type === "operator" && (
+        <OperatorEditPanel
+          row={activeProfile.row}
+          zIndex={60}
+          onClose={() => setActiveProfile(null)}
+          onSaved={(row) => {
+            if (row.deleted_at) {
+              setPeople((previous) => previous.filter((person) => person.client_key !== activeProfile.clientKey));
+              setActiveProfile(null);
+              return;
+            }
+            syncProfileIntoKeyPerson(activeProfile.clientKey, {
+              operator_profile_id: row.id,
+              full_name: row.full_name,
+              title: row.title ?? "",
+              email: row.email ?? "",
+              bio: row.bio ?? "",
+              avatar_url: row.avatar_url ?? "",
+              profile_type: "operator",
+            });
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -2199,12 +3327,350 @@ export function AdminStartupEditor({
 
 // ── Founder Edit Panel ─────────────────────────────────────────────────────────
 
-function FounderEditPanel({ row, onClose, onSaved }: {
-  row: FounderRow; onClose: () => void; onSaved: (u: FounderRow) => void;
+type ProfileAssociationType = "firm" | "investor" | "founder" | "operator" | "company" | "corporation";
+type ProfileAssociation = { type: ProfileAssociationType; id: string; label: string; subtitle: string | null };
+type ProfileAssociationSearchRow = {
+  id: string;
+  firm_name?: string | null;
+  company_name?: string | null;
+  full_name?: string | null;
+  role?: string | null;
+  title?: string | null;
+};
+
+const PROFILE_ASSOCIATION_TYPES: Array<{ value: ProfileAssociationType; label: string; entity?: string }> = [
+  { value: "firm", label: "Firm", entity: "firms" },
+  { value: "investor", label: "Investor", entity: "firm-people" },
+  { value: "founder", label: "Founder", entity: "founders" },
+  { value: "operator", label: "Operator", entity: "operators" },
+  { value: "company", label: "Company", entity: "companies" },
+  { value: "corporation", label: "Corporation" },
+];
+
+function normalizeCorporationAssociationLabel(value: string): string {
+  return value.trim().replace(/\s+/g, " ").slice(0, 240);
+}
+
+function corporationAssociationKey(value: string): string {
+  return normalizeCorporationAssociationLabel(value).toLowerCase().normalize("NFKC");
+}
+
+function profileAssociationKey(item: Pick<ProfileAssociation, "type" | "id">): string {
+  return `${item.type}:${item.id}`;
+}
+
+async function requestProfileAssociations(
+  profileType: "founder" | "operator",
+  profileId: string,
+): Promise<{ rows?: ProfileAssociation[]; error?: string }> {
+  if (!SUPABASE_URL) return { error: "SUPABASE_URL not set" };
+  try {
+    const params = new URLSearchParams({ entity: "profile-associations", profile_type: profileType, profile_id: profileId });
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+      headers: await adminHeaders(),
+    });
+    const json = await response.json().catch(() => ({})) as { rows?: ProfileAssociation[]; error?: string; message?: string };
+    if (!response.ok) return { error: json.error ?? json.message ?? `HTTP ${response.status}` };
+    return { rows: json.rows ?? [] };
+  } catch (error: unknown) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function profileAssociationOption(type: ProfileAssociationType, row: ProfileAssociationSearchRow): ProfileAssociation | null {
+  const label = type === "firm" ? row.firm_name : type === "company" ? row.company_name : row.full_name;
+  if (!label?.trim()) return null;
+  return { type, id: row.id, label: label.trim(), subtitle: row.role ?? row.title ?? null };
+}
+
+function AssociationsEditor({
+  profileType,
+  profileId,
+  disabled = false,
+}: {
+  profileType: "founder" | "operator";
+  profileId: string;
+  disabled?: boolean;
 }) {
-  const [d, setD] = useState<FounderRow>({ ...row });
+  const [type, setType] = useState<ProfileAssociationType>("firm");
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<ProfileAssociation[]>([]);
+  const [associations, setAssociations] = useState<ProfileAssociation[]>([]);
+  const [savedKeys, setSavedKeys] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (disabled) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void requestProfileAssociations(profileType, profileId).then((result) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (result.error) { setError(result.error); return; }
+      const rows = result.rows ?? [];
+      setAssociations(rows);
+      setSavedKeys(rows.map(profileAssociationKey).sort());
+    });
+    return () => { cancelled = true; };
+  }, [disabled, profileId, profileType]);
+
+  useEffect(() => {
+    const selectedType = PROFILE_ASSOCIATION_TYPES.find((option) => option.value === type);
+    const needle = query.trim();
+    if (disabled || type === "corporation" || !selectedType?.entity || needle.length < 2) { setHits([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      void fetchRows<ProfileAssociationSearchRow>(selectedType.entity, { page: 0, search: needle, limit: 8 }).then((result) => {
+        if (cancelled) return;
+        setSearching(false);
+        if (result.error) { setHits([]); setError(result.error); return; }
+        const currentKey = `${profileType}:${profileId}`;
+        const selected = new Set(associations.map(profileAssociationKey));
+        setHits(result.rows.flatMap((row) => {
+          const option = profileAssociationOption(type, row);
+          if (!option || `${type}:${option.id}` === currentKey || selected.has(profileAssociationKey(option))) return [];
+          return [option];
+        }));
+      });
+    }, 220);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [associations, disabled, profileId, profileType, query, type]);
+
+  const addAssociationValue = async () => {
+    const label = normalizeCorporationAssociationLabel(query);
+    if (label.length < 2) return;
+    if (type === "corporation") {
+      const association: ProfileAssociation = {
+        type,
+        id: corporationAssociationKey(label),
+        label,
+        subtitle: null,
+      };
+      if (associations.some((item) => profileAssociationKey(item) === profileAssociationKey(association))) return;
+      setAssociations((previous) => [...previous, association]);
+      setQuery("");
+      setHits([]);
+      return;
+    }
+    if (!SUPABASE_URL) { setError("SUPABASE_URL not set"); return; }
+    setCreating(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ entity: "profile-associations" });
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+        method: "POST",
+        headers: { ...(await adminHeaders()), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_target",
+          profile_type: profileType,
+          profile_id: profileId,
+          target_type: type,
+          label,
+          context_company_id: associations.find((item) => item.type === "company")?.id ?? null,
+        }),
+      });
+      const json = await response.json().catch(() => ({})) as { association?: ProfileAssociation; error?: string; message?: string };
+      if (!response.ok || !json.association) throw new Error(json.error ?? json.message ?? `HTTP ${response.status}`);
+      const association = json.association;
+      setAssociations((previous) => previous.some((item) => profileAssociationKey(item) === profileAssociationKey(association))
+        ? previous
+        : [...previous, association]);
+      setSavedKeys((previous) => [...new Set([...previous, profileAssociationKey(association)])].sort());
+      setQuery("");
+      setHits([]);
+      toast.success(`${association.label} draft created and associated`);
+    } catch (createError: unknown) {
+      const message = createError instanceof Error ? createError.message : String(createError);
+      setError(message);
+      toast.error(`Draft could not be created: ${message}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const dirty = associations.map(profileAssociationKey).sort().join("|") !== savedKeys.join("|");
+  const save = async () => {
+    if (!SUPABASE_URL) { setError("SUPABASE_URL not set"); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ entity: "profile-associations" });
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-market-intel?${params}`, {
+        method: "POST",
+        headers: { ...(await adminHeaders()), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile_type: profileType,
+          profile_id: profileId,
+          associations: associations.map(({ type: associationType, id }) => ({ type: associationType, id })),
+        }),
+      });
+      const json = await response.json().catch(() => ({})) as { rows?: ProfileAssociation[]; error?: string; message?: string };
+      if (!response.ok) throw new Error(json.error ?? json.message ?? `HTTP ${response.status}`);
+      const rows = json.rows ?? [];
+      setAssociations(rows);
+      setSavedKeys(rows.map(profileAssociationKey).sort());
+      toast.success("Associations saved");
+    } catch (saveError: unknown) {
+      const message = saveError instanceof Error ? saveError.message : String(saveError);
+      setError(message);
+      toast.error(`Associations could not be saved: ${message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Sect title="Associations" />
+      {disabled ? (
+        <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Associations are unavailable for sample records.</p>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.42)" }}>Connect this profile to other records in Vekta. New records start in Needs Review; corporation values are tracked here without a separate profile.</p>
+          <div className="flex gap-2">
+            <select value={type} onChange={(event) => { setType(event.target.value as ProfileAssociationType); setQuery(""); setHits([]); }}
+              className="h-9 rounded-md border px-2 text-xs" style={{ background: "#171717", borderColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.82)" }}>
+              {PROFILE_ASSOCIATION_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <div className="relative min-w-0 flex-1">
+              <Input value={query} onChange={(event) => setQuery(event.target.value)}
+              placeholder={type === "corporation" ? "Add a corporation name" : `Search ${type === "company" ? "companies" : `${type}s`}…`}
+                className="h-9 text-xs" style={{ background: "#171717", borderColor: "rgba(255,255,255,0.12)" }} />
+              {(searching || hits.length > 0 || (query.trim().length >= 2 && !associations.some((item) => profileAssociationKey(item) === `${type}:${type === "corporation" ? corporationAssociationKey(query) : ""}`))) && (
+                <div className="absolute left-0 right-0 top-full z-[80] mt-1 max-h-48 overflow-y-auto rounded-md border shadow-xl"
+                  style={{ background: "#111", borderColor: "rgba(255,255,255,0.12)" }}>
+                  {searching && <div className="px-3 py-2 text-xs" style={{ color: "rgba(255,255,255,0.42)" }}>Searching…</div>}
+                  {hits.map((hit) => (
+                    <button key={profileAssociationKey(hit)} type="button"
+                      onClick={() => { setAssociations((previous) => [...previous, hit]); setQuery(""); setHits([]); }}
+                      className="block w-full px-3 py-2 text-left hover:bg-white/[0.05]">
+                      <span className="block truncate text-xs" style={{ color: "rgba(255,255,255,0.86)" }}>{hit.label}</span>
+                      <span className="block truncate text-[10px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                        {PROFILE_ASSOCIATION_TYPES.find((option) => option.value === hit.type)?.label}{hit.subtitle ? ` · ${hit.subtitle}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                  {!searching && hits.length === 0 && type !== "corporation" && <div className="px-3 py-2 text-xs" style={{ color: "rgba(255,255,255,0.42)" }}>No matching records</div>}
+                  {!searching && query.trim().length >= 2 && (
+                    <button type="button" disabled={creating} onClick={() => void addAssociationValue()}
+                      className="block w-full border-t px-3 py-2 text-left hover:bg-white/[0.05] disabled:opacity-50"
+                      style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                      <span className="block truncate text-xs" style={{ color: "#2EE6A6" }}>
+                        {creating ? "Creating draft…" : type === "corporation" ? `Add corporation “${normalizeCorporationAssociationLabel(query)}”` : `Create draft ${type} “${normalizeCorporationAssociationLabel(query)}”`}
+                      </span>
+                      <span className="block text-[10px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                        {type === "corporation" ? "Tracked as an association value only" : "Starts as Needs Review for later editing or enrichment"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          {loading ? (
+            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>Loading associations…</p>
+          ) : associations.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {associations.map((association) => (
+                <span key={profileAssociationKey(association)} className="inline-flex max-w-full items-center gap-1 rounded border px-2 py-1 text-[11px]"
+                  style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.72)" }}>
+                  <span className="shrink-0" style={{ color: "rgba(46,230,166,0.75)" }}>{PROFILE_ASSOCIATION_TYPES.find((option) => option.value === association.type)?.label}</span>
+                  <span className="truncate">{association.label}{association.subtitle ? ` · ${association.subtitle}` : ""}</span>
+                  <button type="button" aria-label={`Remove association to ${association.label}`}
+                    onClick={() => setAssociations((previous) => previous.filter((item) => profileAssociationKey(item) !== profileAssociationKey(association)))}
+                    className="ml-1 text-sm leading-none" style={{ color: "rgba(255,255,255,0.5)" }}>×</button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>No associations yet.</p>
+          )}
+          {error && <p role="alert" className="text-[11px]" style={{ color: "#f87171" }}>{error}</p>}
+          <button type="button" disabled={!dirty || saving || loading} onClick={() => void save()}
+            className="rounded-md border px-3 py-1.5 text-[11px] disabled:opacity-40"
+            style={{ borderColor: "rgba(46,230,166,0.34)", color: "#2ee6a6" }}>
+            {saving ? "Saving associations…" : "Save associations"}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function FounderEditPanel({ row, onClose, onSaved, zIndex = 50 }: {
+  row: FounderRow; onClose: () => void; onSaved: (u: FounderRow) => void; zIndex?: number;
+}) {
+  const [d, setD] = useState<FounderRow>({
+    ...row,
+    founder_archetype: normalizeFounderArchetype(row.founder_archetype),
+    founder_archetypes: normalizeFounderArchetypes(row.founder_archetypes, row.founder_archetype),
+    company_profile_ids: normalizeCompanyProfileIds(row.company_profile_ids, row.startup_id),
+    employment_history: normalizeEmploymentHistory(row.employment_history),
+    city: row.city ?? row.location ?? null,
+    state: row.state ?? row.operator_state ?? null,
+    country: row.country ?? row.operator_country ?? null,
+    education: row.education ?? [],
+    prior_companies: row.prior_companies ?? [],
+  });
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof FounderRow>(k: K, v: FounderRow[K]) => setD(p => ({ ...p, [k]: v }));
+  const setLifecycleStatus = (status: RecordLifecycleStatus) => setD(previous => ({
+    ...previous,
+    record_status: status === "deleted" ? normalizeRecordStatus(previous.record_status) : status,
+    deleted_at: status === "deleted" ? previous.deleted_at ?? new Date().toISOString() : null,
+  }));
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${row.full_name}? It will be removed from the active catalog.`)) return;
+    setSaving(true);
+    const deletedAt = new Date().toISOString();
+    if (isTestAdminSampleId(row.id)) {
+      onSaved({ ...d, deleted_at: deletedAt, updated_at: deletedAt });
+      setSaving(false);
+      toast.success("Founder deleted from the test console");
+      return;
+    }
+    if (row.source === "operator_profiles") {
+      const { row: updated, error } = await patchRow<OperatorRow>("operators", row.id, { deleted_at: deletedAt });
+      setSaving(false);
+      if (error || !updated) { toast.error(`Delete failed: ${error ?? "no data"}`); return; }
+      toast.success("Founder record deleted");
+      onSaved(operatorProfileToFounder(updated));
+      return;
+    }
+    const { row: updated, error } = await patchRow<FounderRow>("founders", row.id, { deleted_at: deletedAt });
+    setSaving(false);
+    if (error || !updated) { toast.error(`Delete failed: ${error ?? "no data"}`); return; }
+    toast.success("Founder deleted");
+    onSaved(updated);
+  };
+
+  useEffect(() => {
+    if (isTestAdminSampleId(row.id) || row.source === "operator_profiles") return;
+    let active = true;
+    void fetchRecordById<FounderRow>("founders", row.id).then(({ row: fullRow }) => {
+      if (!active || !fullRow) return;
+      setD((previous) => ({
+        ...previous,
+        education: fullRow.education ?? previous.education ?? [],
+        prior_companies: fullRow.prior_companies ?? previous.prior_companies ?? [],
+        founder_archetypes: normalizeFounderArchetypes(fullRow.founder_archetypes, fullRow.founder_archetype),
+        employment_history: normalizeEmploymentHistory(fullRow.employment_history ?? previous.employment_history),
+        city: fullRow.city ?? previous.city ?? fullRow.location ?? null,
+        state: fullRow.state ?? previous.state ?? null,
+        country: fullRow.country ?? previous.country ?? null,
+        record_status: fullRow.record_status ?? previous.record_status ?? "live",
+        deleted_at: fullRow.deleted_at ?? previous.deleted_at ?? null,
+      }));
+    });
+    return () => { active = false; };
+  }, [row.id, row.source]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -2215,23 +3681,33 @@ function FounderEditPanel({ row, onClose, onSaved }: {
       return;
     }
     if (row.source === "operator_profiles") {
-      const locationChanged = (d.location ?? "") !== (row.location ?? "");
+      const employmentHistory = normalizeEmploymentHistory(d.employment_history);
+      const currentEmployment = employmentHistory.find((entry) => entry.is_current);
       const patch: Record<string, unknown> = {
         full_name: d.full_name,
-        title: d.role,
+        title: currentEmployment?.title.trim() || d.role,
         linkedin_url: d.linkedin_url,
         x_url: d.x_url,
+        website_url: d.website_url,
         email: d.email,
         avatar_url: d.avatar_url,
+        record_status: normalizeRecordStatus(d.record_status),
+        deleted_at: d.deleted_at ?? null,
         expertise: d.domain_expertise,
-        prior_companies: d.prior_companies,
-        startup_id: d.startup_id,
+        education: d.education ?? [],
+        prior_companies: d.prior_companies ?? [],
+        startup_id: normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id)[0] ?? null,
+        company_profile_ids: normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id),
+        founder_archetypes: normalizeFounderArchetypes(d.founder_archetypes, d.founder_archetype).map(founderArchetypeCode),
+        employment_history: employmentHistory,
+        is_currently_at_startup: null,
+        current_employer_name: currentEmployment?.employer_name.trim() || null,
+        current_employer_type: currentEmployment?.employer_type ?? null,
+        current_employer_title: currentEmployment?.title.trim() || null,
+        city: d.city ?? null,
+        state: d.state ?? null,
+        country: d.country ?? null,
       };
-      if (locationChanged) {
-        patch.city = d.location;
-        patch.state = null;
-        patch.country = null;
-      }
       const { row: saved, error } = await patchRow<OperatorRow>("operators", row.id, patch);
       setSaving(false);
       if (error || !saved) { toast.error(`Save failed: ${error ?? "no data"}`); return; }
@@ -2240,6 +3716,29 @@ function FounderEditPanel({ row, onClose, onSaved }: {
       return;
     }
     const { id, created_at, updated_at, source, operator_city, operator_state, operator_country, ...patch } = d;
+    patch.record_status = normalizeRecordStatus(d.record_status);
+    patch.location = formatCanonicalHqLine(d.city, d.state, d.country);
+    patch.education_highlight = d.education?.join(", ") || null;
+    const employmentHistory = normalizeEmploymentHistory(d.employment_history);
+    const currentEmployment = employmentHistory.find((entry) => entry.is_current);
+    const companyProfileIds = normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id);
+    if (!companyProfileIds.length) {
+      setSaving(false);
+      toast.error("Link at least one company profile to this founder.");
+      return;
+    }
+    patch.startup_id = companyProfileIds[0] ?? d.startup_id;
+    patch.company_profile_ids = companyProfileIds;
+    const founderArchetypes = normalizeFounderArchetypes(d.founder_archetypes, d.founder_archetype);
+    patch.founder_archetypes = founderArchetypes.map(founderArchetypeCode);
+    const legacyArchetype = founderArchetypes.find((archetype) => !["Product", "Academic"].includes(archetype));
+    patch.founder_archetype = legacyArchetype ? founderArchetypeCode(legacyArchetype) : null;
+    if (currentEmployment?.title.trim()) patch.role = currentEmployment.title.trim();
+    patch.employment_history = employmentHistory;
+    patch.is_currently_at_startup = null;
+    patch.current_employer_name = currentEmployment?.employer_name.trim() || null;
+    patch.current_employer_type = currentEmployment?.employer_type ?? null;
+    patch.current_employer_title = currentEmployment?.title.trim() || null;
     const { row: u, error } = await patchRow<FounderRow>("founders", row.id, patch);
     setSaving(false);
     if (error || !u) { toast.error(`Save failed: ${error ?? "no data"}`); return; }
@@ -2248,26 +3747,58 @@ function FounderEditPanel({ row, onClose, onSaved }: {
   };
 
   return (
-    <PanelShell title="Edit Founder" subtitle={row.full_name} saving={saving} onClose={onClose} onSave={handleSave}>
+    <PanelShell title="Edit Founder" subtitle={row.full_name} saving={saving} onClose={onClose} onSave={handleSave} onDelete={handleDelete} zIndex={zIndex}
+      recordStatus={toLifecycleStatus(d)} onRecordStatusChange={setLifecycleStatus}>
       <Sect title="Identity" />
       <TF label="Full Name"    value={d.full_name} onChange={v => set("full_name", v)} />
-      <TF label="Role / Title" value={d.role}      onChange={v => set("role", v)} />
-      <CompanyField startupId={d.startup_id} onChange={(id) => set("startup_id", id)} />
-      <TF label="Location"     value={d.location}  onChange={v => set("location", v)} />
+      <CompanyHqFields
+        city={d.city ?? d.location}
+        state={d.state ?? d.operator_state ?? null}
+        country={d.country ?? d.operator_country ?? null}
+        onChange={(patch) => setD((previous) => ({
+          ...previous,
+          ...(patch.hq_city !== undefined ? { city: patch.hq_city } : {}),
+          ...(patch.hq_state !== undefined ? { state: patch.hq_state } : {}),
+          ...(patch.hq_country !== undefined ? { country: patch.hq_country } : {}),
+        }))}
+      />
+      <TF label="Headshot URL" value={d.avatar_url} onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
+      <TA label="Bio" value={d.bio ?? ""} onChange={v => set("bio", v)} rows={4} />
+      <Sect title="Employment" />
+      <EmploymentHistoryEditor value={d.employment_history} onChange={(value) => set("employment_history", value)} />
+      <CompanyProfilesField startupIds={normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id)} required={row.source !== "operator_profiles"}
+        onChange={(ids) => setD((previous) => ({
+          ...previous,
+          company_profile_ids: ids,
+          startup_id: ids[0] ?? (row.source === "operator_profiles" ? null : previous.startup_id),
+        }))} />
 
       <Sect title="Contact" />
       <TF label="LinkedIn URL" value={d.linkedin_url} onChange={v => set("linkedin_url", v)} />
       <TF label="X URL"        value={d.x_url}        onChange={v => set("x_url", v)} />
+      <TF label="Website URL"  value={d.website_url}  onChange={v => set("website_url", v)} placeholder="https://…" />
       <TF label="Email"        value={d.email}        onChange={v => set("email", v)} type="email" />
-      <TF label="Headshot URL" value={d.avatar_url}   onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
+
+      <AssociationsEditor profileType={row.source === "operator_profiles" ? "operator" : "founder"}
+        profileId={row.id} disabled={isTestAdminSampleId(row.id)} />
 
       <Sect title="Founder Profile" />
-      <SFld label="Archetype"          value={d.founder_archetype}  onChange={v => set("founder_archetype", v)}  options={FOUNDER_ARCHETYPES} />
+      <AffinityMultiSelect label="Archetype" value={normalizeFounderArchetypes(d.founder_archetypes, d.founder_archetype)} options={FOUNDER_ARCHETYPES}
+        placeholder="Search archetypes" addLabel={(value) => `Add archetype: ${value}`} allowCustom={false}
+        onChange={(value) => set("founder_archetypes", value)} />
       <BF   label="Repeat Founder"     value={d.is_repeat_founder}  onChange={v => set("is_repeat_founder", v)} />
       <BF   label="Prior Exit"         value={d.has_prior_exit}     onChange={v => set("has_prior_exit", v)} />
       <BF   label="Operator → Founder" value={d.operator_to_founder} onChange={v => set("operator_to_founder", v)} />
-      <TagF label="Domain Expertise"   value={d.domain_expertise}   onChange={v => set("domain_expertise", v)} />
-      <TagF label="Prior Companies"    value={d.prior_companies}    onChange={v => set("prior_companies", v)} />
+      <AffinityMultiSelect label="Domain Expertise" value={d.domain_expertise} options={DOMAIN_EXPERTISE_SUGGESTIONS}
+        placeholder="Search expertise areas" addLabel={(value) => `Add expertise: ${value}`}
+        onAddCustom={rememberDomainExpertiseSuggestion}
+        onChange={(value) => set("domain_expertise", value)} />
+      <AffinityFields
+        education={d.education}
+        priorCompanies={d.prior_companies}
+        onEducationChange={(value) => set("education", value)}
+        onPriorCompaniesChange={(value) => set("prior_companies", value)}
+      />
 
     </PanelShell>
   );
@@ -2275,12 +3806,55 @@ function FounderEditPanel({ row, onClose, onSaved }: {
 
 // ── Operator Edit Panel ────────────────────────────────────────────────────────
 
-function OperatorEditPanel({ row, onClose, onSaved }: {
-  row: OperatorRow; onClose: () => void; onSaved: (u: OperatorRow) => void;
+function OperatorEditPanel({ row, onClose, onSaved, zIndex = 50 }: {
+  row: OperatorRow; onClose: () => void; onSaved: (u: OperatorRow) => void; zIndex?: number;
 }) {
-  const [d, setD] = useState<OperatorRow>({ ...row });
+  const [d, setD] = useState<OperatorRow>({
+    ...row,
+    company_profile_ids: normalizeCompanyProfileIds(row.company_profile_ids, row.startup_id),
+    stage_focuses: row.stage_focuses ?? asTagList(row.stage_focus),
+  });
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof OperatorRow>(k: K, v: OperatorRow[K]) => setD(p => ({ ...p, [k]: v }));
+  const setLifecycleStatus = (status: RecordLifecycleStatus) => setD(previous => ({
+    ...previous,
+    record_status: status === "deleted" ? normalizeRecordStatus(previous.record_status) : status,
+    deleted_at: status === "deleted" ? previous.deleted_at ?? new Date().toISOString() : null,
+  }));
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${row.full_name}? It will be removed from the active catalog.`)) return;
+    setSaving(true);
+    const deletedAt = new Date().toISOString();
+    if (isTestAdminSampleId(row.id)) {
+      onSaved({ ...d, deleted_at: deletedAt, updated_at: deletedAt });
+      setSaving(false);
+      toast.success("Operator deleted from the test console");
+      return;
+    }
+    const { row: updated, error } = await patchRow<OperatorRow>("operators", row.id, { deleted_at: deletedAt });
+    setSaving(false);
+    if (error || !updated) { toast.error(`Delete failed: ${error ?? "no data"}`); return; }
+    toast.success("Operator deleted");
+    onSaved(updated);
+  };
+
+  useEffect(() => {
+    if (isTestAdminSampleId(row.id)) return;
+    let active = true;
+    void fetchRecordById<OperatorRow>("operators", row.id).then(({ row: fullRow }) => {
+      if (!active || !fullRow) return;
+      setD((previous) => ({
+        ...previous,
+        ...fullRow,
+        company_profile_ids: normalizeCompanyProfileIds(fullRow.company_profile_ids, fullRow.startup_id),
+        stage_focuses: fullRow.stage_focuses ?? previous.stage_focuses ?? asTagList(fullRow.stage_focus),
+        education: fullRow.education ?? previous.education ?? [],
+        prior_companies: fullRow.prior_companies ?? previous.prior_companies ?? [],
+      }));
+    });
+    return () => { active = false; };
+  }, [row.id]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -2291,6 +3865,13 @@ function OperatorEditPanel({ row, onClose, onSaved }: {
       return;
     }
     const { id, created_at, updated_at, ...patch } = d;
+    patch.record_status = normalizeRecordStatus(d.record_status);
+    patch.stage_focuses = d.stage_focuses ?? asTagList(d.stage_focus);
+    patch.stage_focus = patch.stage_focuses[0] ?? null;
+    patch.education = d.education ?? [];
+    patch.prior_companies = d.prior_companies ?? [];
+    patch.company_profile_ids = normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id);
+    patch.startup_id = patch.company_profile_ids[0] ?? null;
     const { row: u, error } = await patchRow<OperatorRow>("operators", row.id, patch);
     setSaving(false);
     if (error || !u) { toast.error(`Save failed: ${error ?? "no data"}`); return; }
@@ -2299,32 +3880,58 @@ function OperatorEditPanel({ row, onClose, onSaved }: {
   };
 
   return (
-    <PanelShell title="Edit Operator" subtitle={row.full_name} saving={saving} onClose={onClose} onSave={handleSave}>
+    <PanelShell title="Edit Operator" subtitle={row.full_name} saving={saving} onClose={onClose} onSave={handleSave} onDelete={handleDelete} zIndex={zIndex}
+      recordStatus={toLifecycleStatus(d)} onRecordStatusChange={setLifecycleStatus}>
       <Sect title="Identity" />
       <TF label="Full Name" value={d.full_name} onChange={v => set("full_name", v)} />
-      <TF label="Role / Title" value={d.title} onChange={v => set("title", v)} />
-      <CompanyField startupId={d.startup_id} allowEmpty onChange={(id) => set("startup_id", id)} />
-
+      <ProfileTitleField label="Role / Title" value={d.title} onChange={v => set("title", v)} />
+      <CompanyProfilesField label="Company profiles" startupIds={normalizeCompanyProfileIds(d.company_profile_ids, d.startup_id)}
+        onChange={(ids) => setD((previous) => ({ ...previous, company_profile_ids: ids, startup_id: ids[0] ?? null }))} />
+      <TF label="Headshot URL" value={d.avatar_url} onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
+      <TA label="Bio" value={d.bio ?? ""} onChange={v => set("bio", v)} rows={4} />
       <Sect title="Location" />
-      <div className="grid grid-cols-3 gap-2">
-        <TF label="City"    value={d.city}    onChange={v => set("city", v)} />
-        <TF label="State"   value={d.state}   onChange={v => set("state", v)} />
-        <TF label="Country" value={d.country} onChange={v => set("country", v)} />
-      </div>
+      <CompanyHqFields
+        city={d.city}
+        state={d.state}
+        country={d.country}
+        onChange={(patch) => setD((previous) => ({
+          ...previous,
+          ...(patch.hq_city !== undefined ? { city: patch.hq_city } : {}),
+          ...(patch.hq_state !== undefined ? { state: patch.hq_state } : {}),
+          ...(patch.hq_country !== undefined ? { country: patch.hq_country } : {}),
+        }))}
+      />
 
       <Sect title="Contact" />
       <TF label="LinkedIn URL" value={d.linkedin_url} onChange={v => set("linkedin_url", v)} />
       <TF label="X URL"        value={d.x_url}        onChange={v => set("x_url", v)} />
       <TF label="Website URL"  value={d.website_url}  onChange={v => set("website_url", v)} placeholder="https://…" />
       <TF label="Email"        value={d.email}        onChange={v => set("email", v)} type="email" />
-      <TF label="Headshot URL" value={d.avatar_url}   onChange={v => set("avatar_url", v)} placeholder="Direct image URL from LinkedIn/company site/X" />
+
+      <AssociationsEditor profileType="operator" profileId={row.id} disabled={isTestAdminSampleId(row.id)} />
 
       <Sect title="Operator Profile" />
-      <TagF label="Stage Focus"     value={d.stage_focus}    onChange={v => set("stage_focus", v)} />
-      <TagF label="Sector Focus"    value={d.sector_focus}   onChange={v => set("sector_focus", v)} />
-      <TagF label="Expertise"       value={d.expertise}      onChange={v => set("expertise", v)} />
-      <TagF label="Prior Companies" value={d.prior_companies} onChange={v => set("prior_companies", v)} />
+      <AffinityMultiSelect label="Stage Focus" value={d.stage_focuses ?? asTagList(d.stage_focus)} options={OPERATOR_STAGE_SUGGESTIONS}
+        placeholder="Search stages" addLabel={(value) => `Add stage: ${value}`}
+        disallowCustomValues={["Series B+"]}
+        onAddCustom={(value) => rememberSuggestion(value, OPERATOR_STAGE_SUGGESTIONS, OPERATOR_STAGE_SUGGESTIONS_KEY)}
+        onChange={(value) => set("stage_focuses", value)} />
+      <AffinityMultiSelect label="Sector Focus" value={d.sector_focus} options={OPERATOR_SECTOR_SUGGESTIONS}
+        placeholder="Search sectors" addLabel={(value) => `Add sector: ${value}`}
+        onAddCustom={(value) => rememberSuggestion(value, OPERATOR_SECTOR_SUGGESTIONS, OPERATOR_SECTOR_SUGGESTIONS_KEY)}
+        onChange={(value) => set("sector_focus", value)} />
+      <AffinityMultiSelect label="Expertise" value={d.expertise} options={DOMAIN_EXPERTISE_SUGGESTIONS}
+        placeholder="Search expertise areas" addLabel={(value) => `Add expertise: ${value}`}
+        onAddCustom={rememberDomainExpertiseSuggestion}
+        onChange={(value) => set("expertise", value)} />
       <BF   label="Is Available"    value={d.is_available}   onChange={v => set("is_available", v)} />
+
+      <AffinityFields
+        education={d.education}
+        priorCompanies={d.prior_companies}
+        onEducationChange={(value) => set("education", value)}
+        onPriorCompaniesChange={(value) => set("prior_companies", value)}
+      />
 
       <Sect title="Enrichment" />
       <SFld label="Enrichment Status" value={d.enrichment_status} onChange={v => set("enrichment_status", v)} options={ENRICHMENT_STATUSES} />
@@ -2359,22 +3966,37 @@ function titleContainsFounder(title: string | null | undefined): boolean {
 }
 
 function operatorProfileToFounder(row: OperatorRow): FounderRow {
+  const archetypes = normalizeFounderArchetypes(row.founder_archetypes);
+  const legacyArchetype = archetypes.find((archetype) => !["Product", "Academic"].includes(archetype));
   return {
     id: row.id,
     full_name: row.full_name,
     role: row.title,
+    city: row.city,
+    state: row.state,
+    country: row.country,
     startup_id: row.startup_id ?? null,
+    employment_history: normalizeEmploymentHistory(row.employment_history),
+    is_currently_at_startup: row.is_currently_at_startup ?? Boolean(row.startup_id),
+    current_employer_name: row.current_employer_name ?? null,
+    current_employer_type: row.current_employer_type ?? null,
+    current_employer_title: row.current_employer_title ?? null,
     location: formatCanonicalHqLine(row.city, row.state, row.country),
     linkedin_url: row.linkedin_url,
     x_url: row.x_url,
+    website_url: row.website_url,
     avatar_url: row.avatar_url,
     email: row.email,
-    founder_archetype: null,
+    founder_archetype: legacyArchetype ? founderArchetypeCode(legacyArchetype) : null,
+    founder_archetypes: archetypes,
     is_repeat_founder: false,
     has_prior_exit: false,
     operator_to_founder: false,
     domain_expertise: row.expertise,
     prior_companies: row.prior_companies,
+    education: row.education,
+    record_status: row.record_status ?? "live",
+    deleted_at: row.deleted_at ?? null,
     updated_at: row.updated_at,
     created_at: row.created_at,
     source: "operator_profiles",
@@ -2490,6 +4112,7 @@ function CompaniesTab({
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
   const [stage, setStage]       = useState("all");
+  const [recordStatusFilter, setRecordStatusFilter] = useState("all");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [selected, setSelected] = useState<CompanyRow | null>(null);
@@ -2499,6 +4122,7 @@ function CompaniesTab({
       const needle = search.trim().toLowerCase();
       const matched = demoCompanies.filter((row) => {
         if (stage !== "all" && row.stage !== stage) return false;
+        if (!matchesRecordStatusFilter(row, recordStatusFilter)) return false;
         if (!needle) return true;
         return row.company_name.toLowerCase().includes(needle) || (row.company_url ?? "").toLowerCase().includes(needle);
       });
@@ -2510,12 +4134,17 @@ function CompaniesTab({
     }
     setLoading(true); setError(null);
     const { rows: r, total: t, error: e } = await fetchRows<CompanyRow>("companies", {
-      page, search, filter: { stage },
+      page, search, filter: {
+        stage,
+        record_status: recordStatusFilter === "deleted" ? "" : recordStatusFilter,
+        include_deleted: recordStatusFilter === "deleted" ? "true" : "",
+        deleted_only: recordStatusFilter === "deleted" ? "true" : "",
+      },
     });
     setLoading(false);
     if (e) { setError(e); return; }
     setRows(r); setTotal(t);
-  }, [demoCompanies, page, search, stage]);
+  }, [demoCompanies, page, search, stage, recordStatusFilter]);
 
   const loadMetrics = useCallback(async () => {
     if (demoCompanies) {
@@ -2645,6 +4274,13 @@ function CompaniesTab({
           ]}
           onValueChange={(value) => { setStage(value); setPage(0); }}
         />
+        <FilterSelect
+          label="Record status"
+          icon={CircleDot}
+          value={recordStatusFilter}
+          options={RECORD_STATUS_FILTER_OPTIONS}
+          onValueChange={(value) => { setRecordStatusFilter(value); setPage(0); }}
+        />
         <button onClick={() => { void load(); void loadMetrics(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
@@ -2678,7 +4314,7 @@ function CompaniesTab({
                 {row.company_url && <div className="text-[10px] mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{row.company_url}</div>}
               </div>
               <div style={{ ...CELL, color: "rgba(255,255,255,0.5)" }}>{row.sector ? formatSectorSchemaLabel(row.sector) : "—"}</div>
-              <div style={CELL}><Pill text={recordStatusLabel(row.record_status)} color={recordStatusColor(row.record_status)} /></div>
+              <div style={CELL}><Pill text={lifecycleStatusLabel(row)} color={lifecycleStatusColor(row)} /></div>
               <div style={CELL}>{row.stage ? <Pill text={row.stage} /> : "—"}</div>
               <div style={CELL}>{row.status ? <Pill text={row.status} color="#a78bfa" /> : "—"}</div>
               <div style={{ ...CELL, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>{formatStartupHq(row) || "—"}</div>
@@ -2711,7 +4347,11 @@ function CompaniesTab({
           key={selected.id}
           row={selected}
           onClose={() => setSelected(null)}
-          onSaved={u => { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); void loadMetrics(); }}
+          onSaved={u => {
+            if (u.deleted_at) { setRows(prev => prev.filter(r => r.id !== u.id)); setSelected(null); }
+            else { setRows(prev => prev.map(r => r.id === u.id ? u : r)); setSelected(u); }
+            void loadMetrics();
+          }}
         />
       )}
     </div>
@@ -2721,7 +4361,7 @@ function CompaniesTab({
 // ── Founders Tab ───────────────────────────────────────────────────────────────
 
 function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | null }) {
-  const COL = "2fr 1fr 1fr 1fr 1fr";
+  const COL = "2fr 1fr 1fr 1fr 1fr 1fr";
   const [rows, setRows]         = useState<FounderRow[]>([]);
   const [total, setTotal]       = useState(0);
   const [totalFounders, setTotalFounders] = useState<number | null>(null);
@@ -2731,6 +4371,8 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
+  const [recordStatusFilter, setRecordStatusFilter] = useState("all");
+  const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [selected, setSelected] = useState<FounderRow | null>(null);
@@ -2762,7 +4404,11 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
       setReclassified([]);
       return;
     }
-    const { rows: operatorRows, error: operatorErr } = await fetchAllRows<OperatorRow>("operators");
+    const { rows: operatorRows, error: operatorErr } = await fetchAllRows<OperatorRow>("operators", {
+      include_deleted: recordStatusFilter === "deleted" || (recordStatusFilter === "all" && showDeleted) ? "true" : "",
+      record_status: recordStatusFilter === "all" || recordStatusFilter === "deleted" ? "" : recordStatusFilter,
+      deleted_only: recordStatusFilter === "deleted" ? "true" : "",
+    });
     if (operatorErr) {
       console.warn("[AdminMarketIntelligence] Founder-titled operators load failed:", operatorErr);
       return;
@@ -2771,7 +4417,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
     setReclassified(
       withCompanies.filter((row) => titleContainsFounder(row.title)).map(operatorProfileToFounder),
     );
-  }, [demoFounders]);
+  }, [demoFounders, recordStatusFilter, showDeleted]);
 
   const totalRef = useRef(0);
   const loadedSearchRef = useRef<string | null>(null);
@@ -2780,12 +4426,13 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
     if (demoFounders) {
       const needle = search.trim().toLowerCase();
       const matched = demoFounders.filter((row) => (
-        !needle
-        || row.full_name.toLowerCase().includes(needle)
-        || String(row.role ?? "").toLowerCase().includes(needle)
+        matchesRecordStatusFilter(row, recordStatusFilter, showDeleted)
+        && (!needle
+          || row.full_name.toLowerCase().includes(needle)
+          || String(row.role ?? "").toLowerCase().includes(needle))
       ));
       totalRef.current = matched.length;
-      loadedSearchRef.current = search;
+      loadedSearchRef.current = `${search}|${recordStatusFilter}|${showDeleted}`;
       setRows(matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
       setTotal(matched.length);
       setError(null);
@@ -2793,21 +4440,28 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
       setStartupReady(true);
       return;
     }
-    if (loadedSearchRef.current === search && page * PAGE_SIZE >= totalRef.current) {
+    const requestKey = `${search}|${recordStatusFilter}|${showDeleted}`;
+    if (loadedSearchRef.current === requestKey && page > 0 && page * PAGE_SIZE >= totalRef.current) {
       setLoading(false);
       setError(null);
       setStartupReady(true);
       return;
     }
     setLoading(true); setError(null);
-    const { rows: r, total: t, error: e } = await fetchRows<FounderRow>("founders", { page, search });
+    const { rows: r, total: t, error: e } = await fetchRows<FounderRow>("founders", {
+      page, search, filter: {
+        include_deleted: recordStatusFilter === "deleted" || (recordStatusFilter === "all" && showDeleted) ? "true" : "",
+        record_status: recordStatusFilter === "all" || recordStatusFilter === "deleted" ? "" : recordStatusFilter,
+        deleted_only: recordStatusFilter === "deleted" ? "true" : "",
+      },
+    });
     setLoading(false);
     setStartupReady(true);
     if (e) { setError(e); return; }
     totalRef.current = t;
-    loadedSearchRef.current = search;
+    loadedSearchRef.current = requestKey;
     setRows(r); setTotal(t);
-  }, [demoFounders, page, search]);
+  }, [demoFounders, page, search, recordStatusFilter, showDeleted]);
 
   const loadMetrics = useCallback(async () => {
     if (demoFounders) {
@@ -2816,11 +4470,11 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
       let maxUpdatedAt: string | null = null;
       let maxUpdatedMs = -Infinity;
       for (const row of demoFounders) {
-        const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+        const live = !row.deleted_at && normalizeRecordStatus(row.record_status) === "live";
         if (live) liveCount += 1;
         const scoreFields = [
           hasValue(row.role), hasValue(row.location), hasValue(row.linkedin_url), hasValue(row.email),
-          hasValue(row.founder_archetype), hasValue(row.domain_expertise), hasValue(row.prior_companies),
+          hasValue(row.founder_archetypes ?? row.founder_archetype), hasValue(row.domain_expertise), hasValue(row.prior_companies),
         ];
         completenessSum += (scoreFields.filter(Boolean).length / scoreFields.length) * 100;
         const updatedMs = parseIsoMs(row.updated_at);
@@ -2842,7 +4496,9 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
     }
     setMetricsLoading(true);
     try {
-      const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<FounderRow>("founders");
+      const { rows: allRows, total: totalCount, error: metricsErr } = await fetchAllRows<FounderRow>("founders", {
+        include_deleted: showDeleted ? "true" : "",
+      });
       if (metricsErr) throw new Error(metricsErr);
 
       let liveCount = 0;
@@ -2852,7 +4508,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
       let maxUpdatedMs = -Infinity;
 
       for (const row of allRows) {
-        const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+        const live = !row.deleted_at && row.record_status === "live";
         if (live) liveCount += 1;
 
         const scoreFields = [
@@ -2860,7 +4516,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
           hasValue(row.location),
           hasValue(row.linkedin_url),
           hasValue(row.email),
-          hasValue(row.founder_archetype),
+          hasValue(row.founder_archetypes ?? row.founder_archetype),
           hasValue(row.domain_expertise),
           hasValue(row.prior_companies),
         ];
@@ -2893,7 +4549,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
     } finally {
       setMetricsLoading(false);
     }
-  }, [demoFounders]);
+  }, [demoFounders, showDeleted]);
 
   useEffect(() => {
     if (!startupMetrics) return;
@@ -2904,7 +4560,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
     let maxUpdatedMs = startupMetrics.lastUpdateMs;
 
     for (const row of reclassified) {
-      const live = hasValue(row.linkedin_url) || hasValue(row.email) || hasValue(row.role);
+      const live = !row.deleted_at && normalizeRecordStatus(row.record_status) === "live";
       if (live) liveCount += 1;
 
       const scoreFields = [
@@ -2912,7 +4568,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
         hasValue(row.location),
         hasValue(row.linkedin_url),
         hasValue(row.email),
-        hasValue(row.founder_archetype),
+        hasValue(row.founder_archetypes ?? row.founder_archetype),
         hasValue(row.domain_expertise),
         hasValue(row.prior_companies),
       ];
@@ -2959,7 +4615,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
         loading={metricsLoading}
       />
 
-      <AdminStickyFilters className="flex gap-3">
+      <AdminStickyFilters className="flex gap-3 flex-wrap">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search founders…" value={search}
@@ -2967,10 +4623,21 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
             className="pl-9 text-[12px] h-8"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} />
         </div>
+        <FilterSelect
+          label="Record status"
+          icon={CircleDot}
+          value={recordStatusFilter}
+          options={RECORD_STATUS_FILTER_OPTIONS}
+          onValueChange={(value) => { setRecordStatusFilter(value); setPage(0); }}
+        />
         <button onClick={() => { void load(); void loadMetrics(); void loadReclassified(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
+        <label className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.48)" }}>
+          <input type="checkbox" checked={showDeleted} onChange={event => { setShowDeleted(event.target.checked); setPage(0); }} />
+          Show deleted
+        </label>
       </AdminStickyFilters>
 
       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{combinedTotal.toLocaleString()} founders — click any row to edit</p>
@@ -2985,7 +4652,7 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          {["Name","Role","Location","Archetype","Flags"].map(h => <div key={h} style={HDR}>{h}</div>)}
+          {["Name","Role","Location","Archetype","Flags","Record Status"].map(h => <div key={h} style={HDR}>{h}</div>)}
         </div>
         {listLoading && <div className="flex items-center justify-center py-12"><BouncingDots /></div>}
         {!listLoading && displayRows.length === 0 && !error && <div className="flex items-center justify-center py-12 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>No founders found</div>}
@@ -3007,12 +4674,17 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
               </div>
               <div style={{ ...CELL, color: "rgba(255,255,255,0.5)" }}>{row.role ?? "—"}</div>
               <div style={{ ...CELL, color: "rgba(255,255,255,0.45)", fontSize: 11 }}>{row.location ?? "—"}</div>
-              <div style={CELL}>{row.founder_archetype ? <Pill text={row.founder_archetype} color="#a78bfa" /> : "—"}</div>
+              <div style={CELL} className="flex flex-wrap gap-1">
+                {normalizeFounderArchetypes(row.founder_archetypes, row.founder_archetype).length
+                  ? normalizeFounderArchetypes(row.founder_archetypes, row.founder_archetype).map((archetype) => <Pill key={archetype} text={archetype} color="#a78bfa" />)
+                  : "—"}
+              </div>
               <div style={CELL} className="flex items-center gap-1.5 flex-wrap">
                 {row.is_repeat_founder   && <Pill text="repeat" color="#f59e0b" />}
                 {row.has_prior_exit      && <Pill text="exit"   color="#34d399" />}
                 {row.operator_to_founder && <Pill text="op→f"   color="#60a5fa" />}
               </div>
+              <div style={CELL}><Pill text={lifecycleStatusLabel(row)} color={lifecycleStatusColor(row)} /></div>
             </div>
           );
         })}
@@ -3039,6 +4711,19 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
           row={selected}
           onClose={() => setSelected(null)}
           onSaved={u => {
+            if (u.deleted_at) {
+              if (showDeleted) {
+                if (u.source === "operator_profiles") setReclassified(prev => prev.map(r => r.id === u.id ? u : r));
+                else setRows(prev => prev.map(r => r.id === u.id ? u : r));
+                setSelected(u);
+              } else {
+                if (u.source === "operator_profiles") setReclassified(prev => prev.filter(r => r.id !== u.id));
+                else setRows(prev => prev.filter(r => r.id !== u.id));
+                setSelected(null);
+              }
+              void loadMetrics();
+              return;
+            }
             if (u.source === "operator_profiles") {
               if (titleContainsFounder(u.role)) {
                 setReclassified(prev => prev.map(r => r.id === u.id ? u : r));
@@ -3062,11 +4747,13 @@ function FoundersTab({ demoFounders = null }: { demoFounders?: FounderRow[] | nu
 // ── Operators Tab ──────────────────────────────────────────────────────────────
 
 function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] | null }) {
-  const COL = "2fr 1fr 1fr 1fr 1fr";
+  const COL = "2fr 1fr 1fr 1fr 1fr 1fr";
   const [catalog, setCatalog]   = useState<OperatorRow[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [page, setPage]         = useState(0);
   const [search, setSearch]     = useState("");
+  const [recordStatusFilter, setRecordStatusFilter] = useState("all");
+  const [showDeleted, setShowDeleted] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [selected, setSelected] = useState<OperatorRow | null>(null);
@@ -3082,7 +4769,9 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
     setLoading(true);
     setMetricsLoading(true);
     setError(null);
-    const { rows: allRows, error: loadErr } = await fetchAllRows<OperatorRow>("operators");
+    const { rows: allRows, error: loadErr } = await fetchAllRows<OperatorRow>("operators", {
+      include_deleted: recordStatusFilter === "deleted" || showDeleted ? "true" : "",
+    });
     setLoading(false);
     setMetricsLoading(false);
     if (loadErr) {
@@ -3093,17 +4782,17 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
     }
     const withCompanies = await withOperatorStartupIds(allRows);
     setCatalog(withCompanies.filter((row) => !titleContainsFounder(row.title)));
-  }, [demoOperators]);
+  }, [demoOperators, recordStatusFilter, showDeleted]);
 
   useEffect(() => { void load(); }, [load]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return catalog;
-    return catalog.filter((row) =>
-      row.full_name.toLowerCase().includes(q) || String(row.title ?? "").toLowerCase().includes(q),
-    );
-  }, [catalog, search]);
+    return catalog.filter((row) => (
+      matchesRecordStatusFilter(row, recordStatusFilter, showDeleted)
+      && (!q || row.full_name.toLowerCase().includes(q) || String(row.title ?? "").toLowerCase().includes(q))
+    ));
+  }, [catalog, search, recordStatusFilter, showDeleted]);
 
   const operatorMetrics = useMemo(() => {
     let live = 0;
@@ -3112,7 +4801,7 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
     let maxUpdatedAt: string | null = null;
     let maxUpdatedMs = -Infinity;
     for (const row of catalog) {
-      if (row.ready_for_live === true) live += 1;
+      if (!row.deleted_at && normalizeRecordStatus(row.record_status) === "live" && row.ready_for_live === true) live += 1;
       const score = Number(row.completeness_score ?? 0);
       if (Number.isFinite(score)) {
         scoreSum += score;
@@ -3147,7 +4836,7 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
         loading={metricsLoading}
       />
 
-      <AdminStickyFilters className="flex gap-3">
+      <AdminStickyFilters className="flex gap-3 flex-wrap">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
           <Input placeholder="Search operators…" value={search}
@@ -3155,10 +4844,21 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
             className="pl-9 text-[12px] h-8"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }} />
         </div>
+        <FilterSelect
+          label="Record status"
+          icon={CircleDot}
+          value={recordStatusFilter}
+          options={RECORD_STATUS_FILTER_OPTIONS}
+          onValueChange={(value) => { setRecordStatusFilter(value); setPage(0); }}
+        />
         <button onClick={() => { void load(); }} className="flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px]"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
+        <label className="flex items-center gap-1.5 text-[11px]" style={{ color: "rgba(255,255,255,0.48)" }}>
+          <input type="checkbox" checked={showDeleted} onChange={event => { setShowDeleted(event.target.checked); setPage(0); }} />
+          Show deleted
+        </label>
       </AdminStickyFilters>
 
       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{filtered.length.toLocaleString()} operators — click any row to edit</p>
@@ -3173,7 +4873,7 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <div style={{ display: "grid", gridTemplateColumns: COL, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          {["Name","Title","Location","Expertise","Status"].map(h => <div key={h} style={HDR}>{h}</div>)}
+          {["Name","Title","Location","Expertise","Availability","Record Status"].map(h => <div key={h} style={HDR}>{h}</div>)}
         </div>
         {loading && <div className="flex items-center justify-center py-12"><BouncingDots /></div>}
         {!loading && pageRows.length === 0 && !error && <div className="flex items-center justify-center py-12 text-[12px]" style={{ color: "rgba(255,255,255,0.3)" }}>No operators found</div>}
@@ -3207,6 +4907,7 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
                   ? <Pill text="available" color="#34d399" />
                   : <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>unavailable</span>}
               </div>
+              <div style={CELL}><Pill text={lifecycleStatusLabel(row)} color={lifecycleStatusColor(row)} /></div>
             </div>
           );
         })}
@@ -3233,6 +4934,16 @@ function OperatorsTab({ demoOperators = null }: { demoOperators?: OperatorRow[] 
           row={selected}
           onClose={() => setSelected(null)}
           onSaved={u => {
+            if (u.deleted_at) {
+              if (showDeleted) {
+                setCatalog(prev => prev.map(r => r.id === u.id ? u : r));
+                setSelected(u);
+              } else {
+                setCatalog(prev => prev.filter(r => r.id !== u.id));
+                setSelected(null);
+              }
+              return;
+            }
             if (titleContainsFounder(u.title)) {
               setCatalog(prev => prev.filter(r => r.id !== u.id));
               setSelected(null);

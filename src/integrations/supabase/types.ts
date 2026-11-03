@@ -39,6 +39,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_profile_associations: {
+        Row: {
+          created_at: string
+          id: string
+          left_id: string
+          left_label: string | null
+          left_type: string
+          right_id: string
+          right_label: string | null
+          right_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          left_id: string
+          left_label?: string | null
+          left_type: string
+          right_id: string
+          right_label?: string | null
+          right_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          left_id?: string
+          left_label?: string | null
+          left_type?: string
+          right_id?: string
+          right_label?: string | null
+          right_type?: string
+        }
+        Relationships: []
+      }
       _prisma_migrations: {
         Row: {
           applied_steps_count: number
@@ -666,6 +699,7 @@ export type Database = {
       }
       company_funding_rounds: {
         Row: {
+          announcement_date: string | null
           amount_usd: number | null
           created_at: string
           id: string
@@ -675,6 +709,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          announcement_date?: string | null
           amount_usd?: number | null
           created_at?: string
           id?: string
@@ -684,6 +719,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          announcement_date?: string | null
           amount_usd?: number | null
           created_at?: string
           id?: string
@@ -6694,17 +6730,25 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           city: string | null
+          company_profile_ids: string[]
           completeness_score: number
           country: string | null
+          current_employer_name: string | null
+          current_employer_title: string | null
+          current_employer_type: string | null
           created_at: string
           deleted_at: string | null
           email: string | null
           engagement_type: string | null
           enrichment_status: string
+          education: string[]
           expertise: string[] | null
+          employment_history: Json
+          founder_archetypes: string[]
           first_name: string | null
           full_name: string
           id: string
+          is_currently_at_startup: boolean | null
           is_available: boolean | null
           last_enriched_at: string | null
           last_name: string | null
@@ -6712,11 +6756,13 @@ export type Database = {
           people_id: string | null
           prior_companies: string[] | null
           ready_for_live: boolean
+          record_status: string
           sector_focus: string[] | null
           source: string | null
           source_id: string | null
           startup_id: string | null
           stage_focus: string | null
+          stage_focuses: string[]
           state: string | null
           title: string | null
           updated_at: string
@@ -6727,17 +6773,25 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           city?: string | null
+          company_profile_ids?: string[]
           completeness_score?: number
           country?: string | null
+          current_employer_name?: string | null
+          current_employer_title?: string | null
+          current_employer_type?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string | null
           engagement_type?: string | null
           enrichment_status?: string
+          education?: string[]
           expertise?: string[] | null
+          employment_history?: Json
+          founder_archetypes?: string[]
           first_name?: string | null
           full_name: string
           id?: string
+          is_currently_at_startup?: boolean | null
           is_available?: boolean | null
           last_enriched_at?: string | null
           last_name?: string | null
@@ -6745,11 +6799,13 @@ export type Database = {
           people_id?: string | null
           prior_companies?: string[] | null
           ready_for_live?: boolean
+          record_status?: string
           sector_focus?: string[] | null
           source?: string | null
           source_id?: string | null
           startup_id?: string | null
           stage_focus?: string | null
+          stage_focuses?: string[]
           state?: string | null
           title?: string | null
           updated_at?: string
@@ -6760,17 +6816,25 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           city?: string | null
+          company_profile_ids?: string[]
           completeness_score?: number
           country?: string | null
+          current_employer_name?: string | null
+          current_employer_title?: string | null
+          current_employer_type?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string | null
           engagement_type?: string | null
           enrichment_status?: string
+          education?: string[]
           expertise?: string[] | null
+          employment_history?: Json
+          founder_archetypes?: string[]
           first_name?: string | null
           full_name?: string
           id?: string
+          is_currently_at_startup?: boolean | null
           is_available?: boolean | null
           last_enriched_at?: string | null
           last_name?: string | null
@@ -6778,11 +6842,13 @@ export type Database = {
           people_id?: string | null
           prior_companies?: string[] | null
           ready_for_live?: boolean
+          record_status?: string
           sector_focus?: string[] | null
           source?: string | null
           source_id?: string | null
           startup_id?: string | null
           stage_focus?: string | null
+          stage_focuses?: string[]
           state?: string | null
           title?: string | null
           updated_at?: string
@@ -8387,18 +8453,30 @@ export type Database = {
       startup_founders: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          city: string | null
           confidence: number | null
+          country: string | null
+          company_profile_ids: string[]
+          current_employer_name: string | null
+          current_employer_title: string | null
+          current_employer_type: string | null
           created_at: string
+          deleted_at: string | null
           data_source: Database["public"]["Enums"]["StartupDataSource"] | null
           domain_expertise: string[] | null
+          education: string[]
           education_highlight: string | null
+          employment_history: Json
           email: string | null
           founder_archetype:
             | Database["public"]["Enums"]["FounderArchetype"]
             | null
+          founder_archetypes: string[]
           full_name: string
           has_prior_exit: boolean
           id: string
+          is_currently_at_startup: boolean | null
           is_repeat_founder: boolean
           linkedin_url: string | null
           location: string | null
@@ -8409,25 +8487,40 @@ export type Database = {
           prior_outcome_summary: string | null
           professional_id: string | null
           role: string | null
+          record_status: string
+          state: string | null
           startup_id: string
           track_record_score: number | null
           updated_at: string
+          website_url: string | null
           x_url: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
           confidence?: number | null
+          country?: string | null
+          company_profile_ids?: string[]
+          current_employer_name?: string | null
+          current_employer_title?: string | null
+          current_employer_type?: string | null
           created_at?: string
+          deleted_at?: string | null
           data_source?: Database["public"]["Enums"]["StartupDataSource"] | null
           domain_expertise?: string[] | null
+          education?: string[]
           education_highlight?: string | null
+          employment_history?: Json
           email?: string | null
           founder_archetype?:
             | Database["public"]["Enums"]["FounderArchetype"]
             | null
+          founder_archetypes?: string[]
           full_name: string
           has_prior_exit?: boolean
           id: string
+          is_currently_at_startup?: boolean | null
           is_repeat_founder?: boolean
           linkedin_url?: string | null
           location?: string | null
@@ -8438,25 +8531,40 @@ export type Database = {
           prior_outcome_summary?: string | null
           professional_id?: string | null
           role?: string | null
+          record_status?: string
+          state?: string | null
           startup_id: string
           track_record_score?: number | null
           updated_at?: string
+          website_url?: string | null
           x_url?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
           confidence?: number | null
+          country?: string | null
+          company_profile_ids?: string[]
+          current_employer_name?: string | null
+          current_employer_title?: string | null
+          current_employer_type?: string | null
           created_at?: string
+          deleted_at?: string | null
           data_source?: Database["public"]["Enums"]["StartupDataSource"] | null
           domain_expertise?: string[] | null
+          education?: string[]
           education_highlight?: string | null
+          employment_history?: Json
           email?: string | null
           founder_archetype?:
             | Database["public"]["Enums"]["FounderArchetype"]
             | null
+          founder_archetypes?: string[]
           full_name?: string
           has_prior_exit?: boolean
           id?: string
+          is_currently_at_startup?: boolean | null
           is_repeat_founder?: boolean
           linkedin_url?: string | null
           location?: string | null
@@ -8467,9 +8575,12 @@ export type Database = {
           prior_outcome_summary?: string | null
           professional_id?: string | null
           role?: string | null
+          record_status?: string
+          state?: string | null
           startup_id?: string
           track_record_score?: number | null
           updated_at?: string
+          website_url?: string | null
           x_url?: string | null
         }
         Relationships: [
@@ -8665,6 +8776,7 @@ export type Database = {
           description_short: string | null
           domain: string | null
           external_ids: Json | null
+          facebook_url: string | null
           founded_year: number | null
           founding_date: string | null
           fundraising_readiness_score: number | null
@@ -8683,6 +8795,8 @@ export type Database = {
           id: string
           investor_fit_score: number | null
           investor_names: string[] | null
+          instagram_url: string | null
+          industry_verticals: string[]
           last_funding_date: string | null
           last_round_date: string | null
           last_round_size_usd: number | null
@@ -8711,6 +8825,7 @@ export type Database = {
           status: Database["public"]["Enums"]["StartupStatus"]
           target_customer: Database["public"]["Enums"]["TargetCustomer"] | null
           tech_stack: string[] | null
+          tiktok_url: string | null
           total_raised_usd: number | null
           updated_at: string
           valuation_usd: number | null
@@ -8736,6 +8851,7 @@ export type Database = {
           description_short?: string | null
           domain?: string | null
           external_ids?: Json | null
+          facebook_url?: string | null
           founded_year?: number | null
           founding_date?: string | null
           fundraising_readiness_score?: number | null
@@ -8754,6 +8870,8 @@ export type Database = {
           id: string
           investor_fit_score?: number | null
           investor_names?: string[] | null
+          instagram_url?: string | null
+          industry_verticals?: string[]
           last_funding_date?: string | null
           last_round_date?: string | null
           last_round_size_usd?: number | null
@@ -8782,6 +8900,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["StartupStatus"]
           target_customer?: Database["public"]["Enums"]["TargetCustomer"] | null
           tech_stack?: string[] | null
+          tiktok_url?: string | null
           total_raised_usd?: number | null
           updated_at?: string
           valuation_usd?: number | null
@@ -8807,6 +8926,7 @@ export type Database = {
           description_short?: string | null
           domain?: string | null
           external_ids?: Json | null
+          facebook_url?: string | null
           founded_year?: number | null
           founding_date?: string | null
           fundraising_readiness_score?: number | null
@@ -8825,6 +8945,8 @@ export type Database = {
           id?: string
           investor_fit_score?: number | null
           investor_names?: string[] | null
+          instagram_url?: string | null
+          industry_verticals?: string[]
           last_funding_date?: string | null
           last_round_date?: string | null
           last_round_size_usd?: number | null
@@ -8853,6 +8975,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["StartupStatus"]
           target_customer?: Database["public"]["Enums"]["TargetCustomer"] | null
           tech_stack?: string[] | null
+          tiktok_url?: string | null
           total_raised_usd?: number | null
           updated_at?: string
           valuation_usd?: number | null
@@ -11589,6 +11712,7 @@ export type Database = {
         | "MARKETPLACE"
         | "AGRITECH"
         | "PROPTECH"
+        | "LOGISTICS_SUPPLY_CHAIN"
         | "OTHER"
       stage_classification: "multi_stage" | "early_stage" | "growth" | "buyout"
       stage_focus_enum:
@@ -11979,6 +12103,7 @@ export const Constants = {
         "MARKETPLACE",
         "AGRITECH",
         "PROPTECH",
+        "LOGISTICS_SUPPLY_CHAIN",
         "OTHER",
       ],
       stage_classification: ["multi_stage", "early_stage", "growth", "buyout"],

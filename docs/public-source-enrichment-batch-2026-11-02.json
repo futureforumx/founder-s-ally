@@ -1,0 +1,211 @@
+{
+  "batchId": "public-web-2026-11-02-primary-lyric-1mind",
+  "collectedAt": "2026-11-02T21:52:09Z",
+  "mode": "candidate-staging-and-dry-run",
+  "canonicalWrites": 0,
+  "customerDisplayAuthorized": false,
+  "method": "Public official company and investor pages discovered via web search; no authenticated scraping or Crunchbase/Tracxn data used.",
+  "summary": {
+    "existingRecordsInspected": 5,
+    "sourcePagesReviewed": 7,
+    "existingRecordsWithCandidateEnrichment": 4,
+    "newRelationshipCandidates": 2,
+    "conflictsQuarantined": 2,
+    "stagedPendingReviewCandidates": 3,
+    "canonicalRecordsUpdated": 0
+  },
+  "stagedCandidateIds": [
+    "2c7a1c37-e0d5-4056-af0d-e76c2d25c6de",
+    "e544906d-57f0-475b-8666-7165efc5ded3",
+    "d61a8c55-1d08-4305-bbe8-e3c79ab1d22b"
+  ],
+  "candidates": [
+    {
+      "entityType": "firm",
+      "canonicalId": "a5e90dc4-7e54-42ad-a49c-e234c28a5a35",
+      "canonicalName": "Primary Venture Partners",
+      "match": "Exact existing firm name and official domain primary.vc",
+      "observations": [
+        {
+          "field": "current_fund_size",
+          "currentValue": null,
+          "candidateValue": "$625M",
+          "confidence": 0.94,
+          "sourceUrl": "https://www.primary.vc/approach",
+          "evidence": "Primary's official approach page labels $625M as its current fund. The page does not name a specific numbered vehicle, so this is scoped to the firm-level current-fund field."
+        },
+        {
+          "field": "aum_usd",
+          "currentValue": 1600000000,
+          "candidateValue": 1600000000,
+          "confidence": 0.94,
+          "sourceUrl": "https://www.primary.vc/approach",
+          "evidence": "Official page reports $1.6B AUM; existing value agrees, so this is a provenance refresh only."
+        },
+        {
+          "field": "operating_team_size",
+          "currentValue": null,
+          "candidateValue": "60+",
+          "confidence": 0.9,
+          "sourceUrl": "https://www.primary.vc/approach",
+          "evidence": "Official page describes a 60+ person operating team. No numeric schema field is proposed because the source describes the team broadly."
+        }
+      ],
+      "decision": "stage_for_review"
+    },
+    {
+      "entityType": "fund",
+      "canonicalId": "3dbeb2b4-86fa-4f4f-9699-10bc13911f59",
+      "canonicalName": "Primary Venture Partners Fund",
+      "match": "Existing generic fund row associated with the exact firm",
+      "observations": [
+        {
+          "field": "size_usd",
+          "currentValue": 625000000,
+          "candidateValue": 625000000,
+          "confidence": 0.75,
+          "sourceUrl": "https://www.primary.vc/approach",
+          "evidence": "The official site reports a $625M current fund, matching the generic row's amount. It does not identify the row's vehicle, so no numbered fund row is updated."
+        }
+      ],
+      "decision": "review_vehicle_identity_and_refresh_provenance"
+    },
+    {
+      "entityType": "investor_operator",
+      "canonicalId": "d258a39e-8c4e-4807-a2d0-6d55cf6ab843",
+      "canonicalName": "Cassie Young",
+      "match": "Exact name, existing Primary firm relationship, and matching LinkedIn profile identifier",
+      "observations": [
+        {
+          "field": "firm_bio_page_url",
+          "currentValue": null,
+          "candidateValue": "https://www.primary.vc/team/cassie-young",
+          "confidence": 0.99,
+          "sourceUrl": "https://www.primary.vc/team/cassie-young",
+          "evidence": "The official team profile identifies Cassie Young as Partner, Enterprise AI."
+        },
+        {
+          "field": "operator_background",
+          "currentValue": null,
+          "candidateValue": "15 years in go-to-market; previously CRO at Sailthru and worked on a Marigold martech roll-up; leads Primary's operating team and supports companies from seed through Series A and beyond.",
+          "confidence": 0.94,
+          "sourceUrl": "https://www.primary.vc/team/cassie-young",
+          "evidence": "Summary of the official profile; existing investor bio contains duplicated portfolio copy, so this candidate is kept in a separate operator field."
+        }
+      ],
+      "decision": "stage_for_review"
+    },
+    {
+      "entityType": "startup",
+      "canonicalId": "cs_mvrc7fiozpawlc",
+      "canonicalName": "Lyric",
+      "match": "Exact existing name and official domain lyric.tech",
+      "observations": [
+        {
+          "field": "description_short",
+          "currentValue": null,
+          "candidateValue": "AI-native supply-chain planning, modeling, and decision-intelligence platform.",
+          "confidence": 0.97,
+          "sourceUrl": "https://lyric.tech/ai-info-about-lyric",
+          "evidence": "Paraphrase of Lyric's official company information page."
+        },
+        {
+          "field": "hq_city",
+          "currentValue": null,
+          "candidateValue": "Sunnyvale",
+          "confidence": 0.97,
+          "sourceUrl": "https://lyric.tech/ai-info-about-lyric",
+          "evidence": "Official company information page states headquarters in Sunnyvale, California."
+        },
+        {
+          "field": "hq_country",
+          "currentValue": null,
+          "candidateValue": "US",
+          "confidence": 0.97,
+          "sourceUrl": "https://lyric.tech/ai-info-about-lyric",
+          "evidence": "Official company information page states United States."
+        },
+        {
+          "field": "founded_year",
+          "currentValue": 2022,
+          "candidateValue": null,
+          "confidence": 0.45,
+          "sourceUrl": "https://lyric.tech/ai-info-about-lyric",
+          "evidence": "Lyric's official structured information page says 2021; its official about timeline and Primary's portfolio page point to 2022. Preserve 2022 and send the discrepancy to review."
+        }
+      ],
+      "decision": "stage_safe_missing_fields_and_quarantine_founding_year_conflict"
+    },
+    {
+      "entityType": "founder_relationship",
+      "canonicalId": null,
+      "canonicalName": "Ganesh Ramakrishna",
+      "relatedCanonicalId": "cs_mvrc7fiozpawlc",
+      "relatedCanonicalName": "Lyric",
+      "match": "Official Lyric company page names Ganesh Ramakrishna as Founder & CEO; VEKTA currently has no founder row linked to this startup.",
+      "observations": [
+        {
+          "field": "full_name_and_role",
+          "currentValue": null,
+          "candidateValue": { "full_name": "Ganesh Ramakrishna", "role": "Founder & CEO" },
+          "confidence": 0.98,
+          "sourceUrl": "https://lyric.tech/ai-info-about-lyric",
+          "evidence": "Explicitly stated on Lyric's official company information page."
+        }
+      ],
+      "decision": "pending_person_resolution_before_relationship_creation"
+    },
+    {
+      "entityType": "startup",
+      "canonicalId": "cs_mvr50nsizpblpk",
+      "canonicalName": "1mind",
+      "match": "Exact existing name and company_url 1mind.com",
+      "observations": [
+        {
+          "field": "description_short",
+          "currentValue": "Express your interests. Discover people like you!",
+          "candidateValue": "AI Superhumans for revenue teams that handle sales and customer conversations and workflows.",
+          "confidence": 0.9,
+          "sourceUrl": "https://www.1mind.com/announcements/1mind-launches-ride-along-with-the-industrys-first-ai-that-joins-live-sales-calls-as-a-visible-named-sales-engineer-speaking-directly-to-buyers",
+          "evidence": "The official company announcement describes 1mind's AI sales-engineer product and identifies the company as a provider of AI-led growth software. Existing description_short is unrelated and should be reviewed for correction."
+        }
+      ],
+      "decision": "stage_for_review_existing_short_description_conflicts"
+    },
+    {
+      "entityType": "founder_relationship",
+      "canonicalId": null,
+      "canonicalName": "Amanda Kahlow",
+      "relatedCanonicalId": "cs_mvr50nsizpblpk",
+      "relatedCanonicalName": "1mind",
+      "match": "Official 1mind announcement names Amanda Kahlow as founder and CEO; VEKTA currently has no founder row linked to this startup.",
+      "observations": [
+        {
+          "field": "full_name_and_role",
+          "currentValue": null,
+          "candidateValue": { "full_name": "Amanda Kahlow", "role": "Founder & CEO" },
+          "confidence": 0.98,
+          "sourceUrl": "https://www.1mind.com/announcements/1mind-launches-ride-along-with-the-industrys-first-ai-that-joins-live-sales-calls-as-a-visible-named-sales-engineer-speaking-directly-to-buyers",
+          "evidence": "Explicitly stated by the official company announcement."
+        }
+      ],
+      "decision": "pending_person_resolution_before_relationship_creation"
+    }
+  ],
+  "sourceObservations": [
+    { "url": "https://www.primary.vc/approach", "publisher": "Primary Venture Partners", "type": "official firm strategy page" },
+    { "url": "https://www.primary.vc/team/cassie-young", "publisher": "Primary Venture Partners", "type": "official team profile" },
+    { "url": "https://www.primary.vc/people", "publisher": "Primary Venture Partners", "type": "official team directory" },
+    { "url": "https://www.primary.vc/portfolio-investors/cassie-young", "publisher": "Primary Venture Partners", "type": "official portfolio and investor profile" },
+    { "url": "https://lyric.tech/ai-info-about-lyric", "publisher": "Lyric", "type": "official company information page" },
+    { "url": "https://lyric.tech/about-us", "publisher": "Lyric", "type": "official company history and team page" },
+    { "url": "https://www.1mind.com/announcements/1mind-launches-ride-along-with-the-industrys-first-ai-that-joins-live-sales-calls-as-a-visible-named-sales-engineer-speaking-directly-to-buyers", "publisher": "1mind", "type": "official company announcement" }
+  ],
+  "limitations": [
+    "No Crunchbase or Tracxn API/export credentials or license scopes were configured; neither source was accessed.",
+    "Three firm/investor candidates were inserted into the existing pending-review table. No canonical database fields or relationships were changed.",
+    "The existing enrichment candidate table only supports firm and investor entity types; startup and founder candidates remain in this evidence batch for a compatible review workflow.",
+    "Only short factual summaries and source references are retained here; source page payloads were not copied.",
+    "Customer-facing use remains disabled pending source-specific downstream-use approval and field-level provenance staging."
+  ]
+}
