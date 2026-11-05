@@ -34,6 +34,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
       PITCHBOOK_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
       PITCHBOOK_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.batch_size || '50' }}
       PITCHBOOK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
@@ -52,13 +53,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Confirm Supabase secrets are configured
+      - name: Confirm cloud secrets are configured
         run: |
           test -n "$SUPABASE_URL" || { echo "SUPABASE_URL secret is missing"; exit 1; }
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "SUPABASE_SERVICE_ROLE_KEY secret is missing"; exit 1; }
+          test -n "$FIRECRAWL_API_KEY" || { echo "FIRECRAWL_API_KEY secret is missing"; exit 1; }
 
-      - name: Run or probe PitchBook enrichment
+      - name: Run or probe PitchBook enrichment through Firecrawl
         run: node scripts/pitchbook-cloud-enrichment.mjs

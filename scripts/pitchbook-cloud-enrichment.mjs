@@ -1,17 +1,18 @@
-import { chromium } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Supabase cloud secrets are missing.');
+const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY;
+if (!SUPABASE_URL || !SERVICE_KEY || !FIRECRAWL_API_KEY) throw new Error('Supabase or Firecrawl cloud secrets are missing.');
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 const LIMIT = Math.max(1, Math.min(100, Number(process.env.PITCHBOOK_BATCH_SIZE || 25)));
 const DRY_RUN = process.env.PITCHBOOK_DRY_RUN === '1';
 const STALE_RUN_PREFIX = 'pitchbook-full-v1';
 const PAUSE_MS = 1400;
+const FIRECRAWL_API = 'https://api.firecrawl.dev/v2';
 const STATE_NAMES = {
   AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'District of Columbia'
 };
@@ -51,6 +52,30 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 const norm = (s) => clean(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const isBlank = (v) => v === null || v === undefined || v === '';
+
+async function firecrawl(endpoint, payload) {
+  const response = await fetch(`${FIRECRAWL_API}/${endpoint}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(90000),
+  });
+  const result = await response.json().catch(() => ({}));
+  if ([402, 403, 429, 503].includes(response.status)) throw new Error(`PITCHBOOK_RATE_LIMIT: Firecrawl returned ${response.status}`);
+  if (!response.ok || result.success === false) throw new Error(`Firecrawl ${endpoint} failed (${response.status}): ${String(result.error || result.message || 'unknown error').slice(0, 250)}`);
+  return result;
+}
+
+function normalizeMarkdown(markdown) {
+  return String(markdown || '')
+    .replace(/^\s*#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*]\s*/gm, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*(Year Founded|Employees|Professionals|Portfolio|Exits)\s*-\s*(.+)\s*$/gim, '$1\n$2')
+    .replace(/^\s*\|.*\|\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function parseFacts(text) {
   const lines = text.split(/\r?\n/).map(clean).filter(Boolean);
@@ -143,57 +168,44 @@ function profileMatches(record, header, body, facts, kind) {
     : record.pitchbook_url;
   if (existingUrl) return true; // Existing PitchBook URL + exact displayed name is an established match.
   if (kind === 'person') {
-    return Boolean(profileName === recordName && (bodyNorm.includes('investor') || bodyNorm.includes('investment')));
+    const firmContext = norm(record.firm_name);
+    return Boolean(profileName === recordName && (bodyNorm.includes('investor') || bodyNorm.includes('investment')) && (!firmContext || bodyNorm.includes(firmContext)));
   }
   const expected = (record.domain || record.website_url || record.company_url || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
   return Boolean(expected && facts.website && (facts.website === expected || facts.website.endsWith(`.${expected}`)));
 }
 
-async function discoverProfile(page, record, kind) {
+async function discoverProfile(record, kind) {
   const profileType = kind === 'startup' ? 'company' : kind === 'person' ? 'person' : 'investor';
   const name = kind === 'person' ? record.full_name : (record.firm_name || record.company_name);
   const domain = record.domain || record.website_url || record.company_url || '';
-  const query = `site:pitchbook.com/profiles/${profileType} "${name}" ${domain ? `"${domain.replace(/^https?:\/\//, '').split('/')[0]}"` : ''}`;
-  const searchResponse = await page.goto(`https://www.google.com/search?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  const searchTitle = await page.title().catch(() => '');
-  if (searchResponse?.status() === 429 || /unusual traffic|sorry/i.test(searchTitle)) throw new Error('PITCHBOOK_RATE_LIMIT: search provider throttled the lookup');
-  await sleep(500);
-  const links = await page.locator('a').evaluateAll((anchors) => anchors.map((a, index) => ({ index, text: (a.innerText || '').trim(), href: a.href }))
-    .filter((a) => /PitchBook/i.test(a.text) && (/pitchbook\.com\/profiles\//i.test(a.href) || /google\.com\/goto\?url=/i.test(a.href))));
-  if (!links.length) return null;
-  for (const candidate of links.slice(0, 3)) {
-    try {
-      await page.locator('a').nth(candidate.index).click({ timeout: 10000 });
-      await page.waitForURL(/pitchbook\.com\/profiles\//i, { timeout: 20000 });
-      return page.url();
-    } catch {
-      const current = page.url();
-      if (/pitchbook\.com\/profiles\//i.test(current)) return current;
-      await page.goBack({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-    }
-  }
-  return null;
+  const context = kind === 'person' ? record.firm_name : domain.replace(/^https?:\/\//, '').split('/')[0];
+  const query = `site:pitchbook.com/profiles/${profileType} "${name}" ${context ? `"${context}"` : ''}`;
+  const result = await firecrawl('search', { query, limit: 5, sources: [{ type: 'web' }], includeDomains: ['pitchbook.com'], timeout: 60000 });
+  const links = (result.data?.web || []).map((item) => item.url).filter((url) => {
+    try { const parsed = new URL(url); return parsed.hostname === 'pitchbook.com' && parsed.pathname.startsWith(`/profiles/${profileType}/`); }
+    catch { return false; }
+  });
+  return [...new Set(links)].slice(0, 3);
 }
 
-async function loadProfile(page, record, kind, directUrl) {
-  let url = directUrl;
-  if (!url) url = await discoverProfile(page, record, kind);
-  if (!url) return { outcome: 'no_profile' };
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null);
-    await sleep(350);
-    const body = await page.locator('body').innerText().catch(() => '');
-    if (response?.status() === 429 || /Performing security verification|Just a moment\.\.\./i.test(await page.title().catch(() => ''))) {
-      if (attempt === 0) { await sleep(30000); continue; }
-      return { outcome: 'rate_limited' };
-    }
-    if (!/pitchbook\.com\/profiles\//i.test(page.url()) || !body) return { outcome: 'no_profile' };
-    const header = await page.locator('h1').first().innerText().catch(() => '');
+async function loadProfile(record, kind, directUrl) {
+  const urls = directUrl ? [directUrl] : await discoverProfile(record, kind);
+  if (!urls.length) return { outcome: 'no_profile' };
+  let sawAmbiguous = false;
+  for (const url of urls) {
+    const result = await firecrawl('scrape', { url, formats: ['markdown'], onlyMainContent: true, maxAge: 0, timeout: 60000 });
+    const rawBody = result.data?.markdown || '';
+    const body = normalizeMarkdown(rawBody);
+    const status = result.data?.metadata?.statusCode;
+    if (status === 429 || /Performing security verification|Just a moment\.\.\./i.test(result.data?.metadata?.title || '')) return { outcome: 'rate_limited' };
+    if (!body || status >= 400) continue;
+    const header = clean(rawBody.match(/^\s*#\s+(.+)$/m)?.[1] || result.data?.metadata?.title || '').replace(/\s+\|.*$/, '');
     const facts = parseFacts(body);
-    if (!profileMatches(record, header, body, facts, kind)) return { outcome: 'ambiguous' };
-    return { outcome: 'matched', url: page.url().split('#')[0], header: clean(header), body, facts };
+    if (!profileMatches(record, header, body, facts, kind)) { sawAmbiguous = true; continue; }
+    return { outcome: 'matched', url: url.split('#')[0], header, body, facts };
   }
-  return { outcome: 'rate_limited' };
+  return { outcome: sawAmbiguous ? 'ambiguous' : 'no_profile' };
 }
 
 async function getCheckpoint(runId, entityType) {
@@ -218,7 +230,7 @@ async function provenance(entityType, entityId, field, newValue, sourceUrl, snip
     entity_type: entityType, entity_id: String(entityId), field_name: field,
     old_value: null, new_value: typeof newValue === 'string' ? newValue : JSON.stringify(newValue),
     source_platform: 'pitchbook', source_url: sourceUrl, confidence_score: 0.99,
-    extraction_method: 'playwright_public_profile_preview', match_method: matchMethod,
+    extraction_method: 'firecrawl_api_public_profile_preview', match_method: matchMethod,
     reviewer_required: false, raw_snippet: clean(snippet).slice(0, 500), auto_applied: !DRY_RUN,
   });
   if (error) console.error('provenance_insert_failed', error.message);
@@ -275,7 +287,7 @@ async function updateStartup(record, profile) {
   for (const [field, value] of Object.entries(updates)) {
     if (isBlank(record[field]) && !isBlank(value)) {
       const ok = await guardedPatch('startups', record.id, field, value);
-      if (ok) writes++;
+      if (ok) { writes++; await provenance('firm', record.id, field, value, url, facts.description || body.slice(0, 500), 'existing_pitchbook_profile_url_and_exact_name'); }
     }
   }
   if (!DRY_RUN) {
@@ -283,7 +295,7 @@ async function updateStartup(record, profile) {
     externalIds.pitchbook_url = url;
     externalIds.pitchbook_profile_id = url.match(/profiles\/company\/([^/?#]+)/)?.[1] || null;
     if (JSON.stringify(externalIds) !== JSON.stringify(record.external_ids || {})) {
-      const { error } = await db.from('startups').update({ external_ids: externalIds, data_sources: [...new Set([...(record.data_sources || []), 'OTHER'])] }).eq('id', record.id).is('deleted_at', null);
+      const { error } = await db.from('startups').update({ external_ids: externalIds }).eq('id', record.id).is('deleted_at', null);
       if (!error) writes++;
     }
   }
@@ -347,7 +359,7 @@ async function getFirmName(id) {
   return data?.firm_name || '';
 }
 
-async function runQueue({ page, runId, entityType, entityKind, limit, loadRows, process }) {
+async function runQueue({ runId, entityType, entityKind, limit, loadRows, process }) {
   let cp = await getCheckpoint(runId, entityType);
   if (cp.status === 'completed') { console.log('queue_already_completed', runId); return { processed: 0, updated: 0, skipped: 0, completed: true }; }
   const rows = await loadRows(cp.last_entity_id, limit);
@@ -368,7 +380,7 @@ async function runQueue({ page, runId, entityType, entityKind, limit, loadRows, 
       if (typeof outcome === 'number' && outcome > 0) updated += outcome;
       else skipped++;
       lastId = record.id;
-      await saveCheckpoint(cp, { last_entity_id: lastId, last_entity_name: record.firm_name || record.company_name || record.full_name || null, records_processed: (cp.records_processed || 0) + processed, records_updated: (cp.records_updated || 0) + updated, records_skipped: (cp.records_skipped || 0) + skipped, status: 'in_progress', error_message: null, metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
+      await saveCheckpoint(cp, { last_entity_id: lastId, last_entity_name: record.firm_name || record.company_name || record.full_name || null, records_processed: (cp.records_processed || 0) + 1, records_updated: (cp.records_updated || 0) + (typeof outcome === 'number' ? outcome : 0), records_skipped: (cp.records_skipped || 0) + (typeof outcome === 'number' && outcome > 0 ? 0 : 1), status: 'in_progress', error_message: null, metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
       await sleep(PAUSE_MS);
     } catch (error) {
       if (/PITCHBOOK_RATE_LIMIT|Performing security verification|Too Many Requests/i.test(String(error?.message || error))) {
@@ -379,7 +391,7 @@ async function runQueue({ page, runId, entityType, entityKind, limit, loadRows, 
       console.error('record_failed', JSON.stringify({ id: record.id, name: record.firm_name || record.company_name || record.full_name, error: String(error?.message || error).slice(0, 300) }));
       processed++; skipped++;
       lastId = record.id;
-      await saveCheckpoint(cp, { last_entity_id: lastId, records_processed: (cp.records_processed || 0) + processed, records_skipped: (cp.records_skipped || 0) + skipped, records_failed: (cp.records_failed || 0) + 1, status: 'in_progress', error_message: String(error?.message || error).slice(0, 400), metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
+      await saveCheckpoint(cp, { last_entity_id: lastId, records_processed: (cp.records_processed || 0) + 1, records_skipped: (cp.records_skipped || 0) + 1, records_failed: (cp.records_failed || 0) + 1, status: 'in_progress', error_message: String(error?.message || error).slice(0, 400), metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
     }
   }
   return { processed, updated, skipped, completed: false };
@@ -387,49 +399,43 @@ async function runQueue({ page, runId, entityType, entityKind, limit, loadRows, 
 
 async function main() {
   await loadFirmCsvProfiles();
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ locale: 'en-US' });
-  page.setDefaultNavigationTimeout(45000);
   const totals = {};
-  try {
-    if (process.env.PITCHBOOK_MODE === 'probe') {
-      const url = process.env.PITCHBOOK_PROBE_URL || 'https://pitchbook.com/profiles/company/121885-75';
-      const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      const title = await page.title();
-      const heading = await page.locator('h1').first().innerText().catch(() => '');
-      const body = await page.locator('body').innerText().catch(() => '');
-      console.log('pitchbook_cloud_probe', JSON.stringify({ status: response?.status() ?? null, title, heading: clean(heading), preview: /profile preview from the PitchBook Platform/i.test(body), rate_limited: response?.status() === 429 || /Performing security verification|Just a moment\.\.\./i.test(title) }));
-      return;
-    }
-    totals.firms = await runQueue({
-      page, runId: `${STALE_RUN_PREFIX}-firms`, entityType: 'firm', entityKind: 'firm_records', limit: LIMIT,
+  if (process.env.PITCHBOOK_MODE === 'probe') {
+    const url = process.env.PITCHBOOK_PROBE_URL || 'https://pitchbook.com/profiles/company/121885-75';
+    const result = await firecrawl('scrape', { url, formats: ['markdown'], onlyMainContent: true, maxAge: 0, timeout: 60000 });
+    const markdown = result.data?.markdown || '';
+    console.log('pitchbook_cloud_probe', JSON.stringify({ status: result.data?.metadata?.statusCode ?? null, title: result.data?.metadata?.title || '', heading: clean(markdown.match(/^\s*#\s+(.+)$/m)?.[1] || ''), preview: /profile preview/i.test(markdown), rate_limited: result.data?.metadata?.statusCode === 429 }));
+    return;
+  }
+  totals.firms = await runQueue({
+      runId: `${STALE_RUN_PREFIX}-firms`, entityType: 'firm', entityKind: 'firm_records', limit: LIMIT,
       loadRows: nextFirmRows,
       process: async (record) => {
         const direct = record.pitchbook_url || firmCsvProfiles.get(norm(record.firm_name)) || null;
-        const profile = await loadProfile(page, record, 'firm', direct);
+        const profile = await loadProfile(record, 'firm', direct);
         if (profile.outcome === 'rate_limited') return 'rate_limited';
         if (profile.outcome !== 'matched') { console.log('firm_skipped', record.id, profile.outcome); return 0; }
         return await updateFirm(record, profile, record.pitchbook_url ? 'existing_profile_url_and_exact_name' : firmCsvProfiles.has(norm(record.firm_name)) ? 'provided_csv_profile_and_website_domain' : 'exact_name_and_website_domain');
       },
     });
-    totals.companies = await runQueue({
-      page, runId: `${STALE_RUN_PREFIX}-companies`, entityType: 'firm', entityKind: 'startups', limit: LIMIT,
+  totals.companies = await runQueue({
+      runId: `${STALE_RUN_PREFIX}-companies`, entityType: 'firm', entityKind: 'startups', limit: LIMIT,
       loadRows: nextStartupRows,
       process: async (record) => {
         const direct = record.external_ids?.pitchbook_url || record.external_ids?.pitchbook_profile_url || null;
-        const profile = await loadProfile(page, record, 'startup', direct);
+        const profile = await loadProfile(record, 'startup', direct);
         if (profile.outcome === 'rate_limited') return 'rate_limited';
         if (profile.outcome !== 'matched') { console.log('company_skipped', record.id, profile.outcome); return 0; }
         return await updateStartup(record, profile);
       },
     });
-    totals.investors = await runQueue({
-      page, runId: `${STALE_RUN_PREFIX}-investors`, entityType: 'investor', entityKind: 'firm_investors', limit: LIMIT,
+  totals.investors = await runQueue({
+      runId: `${STALE_RUN_PREFIX}-investors`, entityType: 'investor', entityKind: 'firm_investors', limit: LIMIT,
       loadRows: nextInvestorRows,
       process: async (record) => {
         const firmName = await getFirmName(record.firm_id);
         const direct = record.firm_bio_page_url && /pitchbook\.com\/profiles\/person\//i.test(record.firm_bio_page_url) ? record.firm_bio_page_url : null;
-        const profile = await loadProfile(page, { ...record, firm_name: firmName }, 'person', direct);
+        const profile = await loadProfile({ ...record, firm_name: firmName }, 'person', direct);
         if (profile.outcome === 'rate_limited') return 'rate_limited';
         if (profile.outcome !== 'matched') { console.log('investor_skipped', record.id, profile.outcome); return 0; }
         return await updatePerson(record, profile, direct ? 'existing_person_profile_url_and_exact_name' : 'exact_name_and_profile_context');
@@ -437,9 +443,6 @@ async function main() {
     });
     console.log('pitchbook_cloud_run', JSON.stringify({ dry_run: DRY_RUN, limit_per_queue: LIMIT, totals }));
     if (Object.values(totals).some((v) => v?.paused)) process.exitCode = 0;
-  } finally {
-    await browser.close();
-  }
 }
 
 main().catch((error) => { console.error('pitchbook_cloud_failed', String(error?.stack || error)); process.exitCode = 1; });
