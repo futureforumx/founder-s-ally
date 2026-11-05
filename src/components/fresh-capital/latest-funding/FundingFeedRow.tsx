@@ -274,6 +274,14 @@ export function FundingFeedRow({
   const hqLine = row.hqLine?.trim() || snapshot?.hqLine?.trim() || null;
   const description = row.description?.trim() || snapshot?.description?.trim() || null;
   const expandedName = snapshot?.name || row.companyName;
+  const websiteUrl = normalizeWebsiteUrl(row.websiteUrl);
+  const trackedWebsiteUrl = websiteUrl
+    ? (() => {
+        const url = new URL(websiteUrl);
+        url.searchParams.set("UTM_Source", "meetvekta.com_free");
+        return url.toString();
+      })()
+    : null;
   const expandedRow: RecentFundingRound = {
     ...row,
     companyLogoUrl: snapshot?.logoUrl || row.companyLogoUrl,
@@ -334,12 +342,30 @@ export function FundingFeedRow({
       {expanded ? (
         <tr className={cn("border-b last:border-b-0", app ? "border-border/50 bg-muted/20" : "border-zinc-800/60 bg-[#080808]")}>
           <td colSpan={7} className="px-4 pb-4 pt-1 first:pl-4 last:pr-4">
-            <div className={cn("max-w-2xl rounded-xl border px-4 py-4", app ? "border-border bg-card" : "border-zinc-800/80 bg-black/40")}>
+            <div className={cn("w-full rounded-xl border px-4 py-4", app ? "border-border bg-card" : "border-zinc-800/80 bg-black/40")}>
               <div className="flex min-w-0 items-center gap-3">
                 <CompanyRowMark row={expandedRow} size="md" />
                 <p className={cn("min-w-0 truncate text-base font-semibold tracking-tight", app ? "text-foreground" : "text-white")}>{expandedName}</p>
               </div>
               <dl className="mt-4 space-y-3">
+                <div>
+                  <dt className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>Website</dt>
+                  <dd className={cn("mt-1 text-sm", app ? "text-foreground" : "text-zinc-300")}>
+                    {trackedWebsiteUrl ? (
+                      <a
+                        href={trackedWebsiteUrl}
+                        {...EXTERNAL_SOURCE_LINK_ATTRS}
+                        className={cn("break-all underline-offset-4 hover:underline", app ? "text-primary" : "text-zinc-200")}
+                        onClick={stopRowOpen}
+                        onAuxClick={stopRowOpen}
+                      >
+                        {websiteUrl}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
                 <div>
                   <dt className={cn("flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>
                     <MapPin className="h-3 w-3" aria-hidden />
