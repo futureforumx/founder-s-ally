@@ -14,6 +14,11 @@ on:
         type: number
         default: 50
         required: true
+      run_prefix:
+        description: "Checkpoint prefix; reuse to resume a queue or change it to start a separate pass"
+        type: string
+        default: pitchbook-full-v1
+        required: true
       dry_run:
         description: "Read and report only; do not write database fields"
         type: boolean
@@ -37,6 +42,7 @@ jobs:
       FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
       PITCHBOOK_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
       PITCHBOOK_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.batch_size || '50' }}
+      PITCHBOOK_RUN_PREFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.run_prefix || 'pitchbook-full-v1' }}
       PITCHBOOK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4

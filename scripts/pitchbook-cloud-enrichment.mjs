@@ -10,7 +10,7 @@ if (!SUPABASE_URL || !SERVICE_KEY || !FIRECRAWL_API_KEY) throw new Error('Supaba
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 const LIMIT = Math.max(1, Math.min(100, Number(process.env.PITCHBOOK_BATCH_SIZE || 25)));
 const DRY_RUN = process.env.PITCHBOOK_DRY_RUN === '1';
-const STALE_RUN_PREFIX = 'pitchbook-full-v1';
+const STALE_RUN_PREFIX = process.env.PITCHBOOK_RUN_PREFIX || 'pitchbook-full-v1';
 const PAUSE_MS = 1400;
 const FIRECRAWL_API = 'https://api.firecrawl.dev/v2';
 const STATE_NAMES = {
@@ -189,13 +189,20 @@ async function discoverProfile(record, kind) {
   const name = kind === 'person' ? record.full_name : (record.firm_name || record.company_name);
   const domain = record.domain || record.website_url || record.company_url || '';
   const context = kind === 'person' ? record.firm_name : domain.replace(/^https?:\/\//, '').split('/')[0];
-  const query = `site:pitchbook.com/profiles/${profileType} "${name}" ${context ? `"${context}"` : ''}`;
-  const result = await firecrawl('search', { query, limit: 5, sources: [{ type: 'web' }], includeDomains: ['pitchbook.com'], timeout: 60000 });
-  const links = (result.data?.web || []).map((item) => item.url).filter((url) => {
-    try { const parsed = new URL(url); return parsed.hostname === 'pitchbook.com' && parsed.pathname.startsWith(`/profiles/${profileType}/`); }
-    catch { return false; }
-  });
-  return [...new Set(links)].slice(0, 3);
+  const queries = [
+    `site:pitchbook.com/profiles/${profileType} "${name}" ${context ? `"${context}"` : ''}`,
+    ...(kind === 'person' && context ? [`site:pitchbook.com/profiles/${profileType} "${name}"`] : []),
+  ];
+  for (const query of queries) {
+    const result = await firecrawl('search', { query, limit: 5, sources: [{ type: 'web' }], includeDomains: ['pitchbook.com'], timeout: 60000 });
+    const links = (result.data?.web || []).map((item) => item.url).filter((url) => {
+      try { const parsed = new URL(url); return parsed.hostname === 'pitchbook.com' && parsed.pathname.startsWith(`/profiles/${profileType}/`); }
+      catch { return false; }
+    });
+    const candidates = [...new Set(links)].slice(0, 3);
+    if (candidates.length) return candidates;
+  }
+  return [];
 }
 
 async function loadProfile(record, kind, directUrl) {
@@ -289,14 +296,17 @@ async function updateStartup(record, profile) {
     hq_city: facts.hq.city,
     hq_state: facts.hq.state,
     hq_country: facts.hq.country,
-    sector: facts.primaryIndustry,
     industry_verticals: facts.verticals.length ? facts.verticals : null,
   };
   let writes = 0;
   for (const [field, value] of Object.entries(updates)) {
     if (isBlank(record[field]) && !isBlank(value)) {
-      const ok = await guardedPatch('startups', record.id, field, value);
-      if (ok) { writes++; await provenance('firm', record.id, field, value, url, facts.description || body.slice(0, 500), 'existing_pitchbook_profile_url_and_exact_name'); }
+      try {
+        const ok = await guardedPatch('startups', record.id, field, value);
+        if (ok) { writes++; await provenance('firm', record.id, field, value, url, facts.description || body.slice(0, 500), 'existing_pitchbook_profile_url_and_exact_name'); }
+      } catch (error) {
+        console.warn('startup_field_skipped', JSON.stringify({ name: record.company_name, field, error: String(error?.message || error).slice(0, 200) }));
+      }
     }
   }
   if (!DRY_RUN) {
@@ -308,7 +318,7 @@ async function updateStartup(record, profile) {
       if (!error) writes++;
     }
   }
-  console.log('startup_evidence', JSON.stringify({ name: record.company_name, url, snippet: clean(facts.description || body.slice(0, 350)) }));
+  console.log('startup_evidence', JSON.stringify({ name: record.company_name, url, primaryIndustry: facts.primaryIndustry, snippet: clean(facts.description || body.slice(0, 350)) }));
   return writes;
 }
 
