@@ -389,7 +389,9 @@ async function runQueue({ runId, entityType, entityKind, limit, loadRows, proces
       if (typeof outcome === 'number' && outcome > 0) updated += outcome;
       else skipped++;
       lastId = record.id;
-      await saveCheckpoint(cp, { last_entity_id: lastId, last_entity_name: record.firm_name || record.company_name || record.full_name || null, records_processed: (cp.records_processed || 0) + 1, records_updated: (cp.records_updated || 0) + (typeof outcome === 'number' ? outcome : 0), records_skipped: (cp.records_skipped || 0) + (typeof outcome === 'number' && outcome > 0 ? 0 : 1), status: 'in_progress', error_message: null, metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
+      const checkpointFields = { last_entity_id: lastId, last_entity_name: record.firm_name || record.company_name || record.full_name || null, records_processed: (cp.records_processed || 0) + processed, records_updated: (cp.records_updated || 0) + updated, records_skipped: (cp.records_skipped || 0) + skipped, status: 'in_progress', error_message: null, metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } };
+      await saveCheckpoint(cp, checkpointFields);
+      cp = { ...cp, ...checkpointFields };
       await sleep(PAUSE_MS);
     } catch (error) {
       if (/PITCHBOOK_RATE_LIMIT|Performing security verification|Too Many Requests/i.test(String(error?.message || error))) {
@@ -400,7 +402,9 @@ async function runQueue({ runId, entityType, entityKind, limit, loadRows, proces
       console.error('record_failed', JSON.stringify({ id: record.id, name: record.firm_name || record.company_name || record.full_name, error: String(error?.message || error).slice(0, 300) }));
       processed++; skipped++;
       lastId = record.id;
-      await saveCheckpoint(cp, { last_entity_id: lastId, records_processed: (cp.records_processed || 0) + 1, records_skipped: (cp.records_skipped || 0) + 1, records_failed: (cp.records_failed || 0) + 1, status: 'in_progress', error_message: String(error?.message || error).slice(0, 400), metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } });
+      const checkpointFields = { last_entity_id: lastId, records_processed: (cp.records_processed || 0) + processed, records_skipped: (cp.records_skipped || 0) + skipped, records_failed: (cp.records_failed || 0) + 1, status: 'in_progress', error_message: String(error?.message || error).slice(0, 400), metadata: { ...(cp.metadata || {}), entity_kind: entityKind, last_id: lastId } };
+      await saveCheckpoint(cp, checkpointFields);
+      cp = { ...cp, ...checkpointFields };
     }
   }
   return { processed, updated, skipped, completed: false };
