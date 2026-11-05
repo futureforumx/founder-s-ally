@@ -19,6 +19,12 @@ on:
         type: string
         default: pitchbook-full-v1
         required: true
+      queue:
+        description: "Select which entity queue to process"
+        type: choice
+        options: [all, firms, companies, investors]
+        default: all
+        required: true
       dry_run:
         description: "Read and report only; do not write database fields"
         type: boolean
@@ -43,6 +49,7 @@ jobs:
       PITCHBOOK_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'batch' }}
       PITCHBOOK_BATCH_SIZE: ${{ github.event_name == 'workflow_dispatch' && inputs.batch_size || '50' }}
       PITCHBOOK_RUN_PREFIX: ${{ github.event_name == 'workflow_dispatch' && inputs.run_prefix || 'pitchbook-full-v1' }}
+      PITCHBOOK_QUEUE: ${{ github.event_name == 'workflow_dispatch' && inputs.queue || 'all' }}
       PITCHBOOK_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4

@@ -10,6 +10,7 @@ if (!SUPABASE_URL || !SERVICE_KEY || !FIRECRAWL_API_KEY) throw new Error('Supaba
 const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 const LIMIT = Math.max(1, Math.min(100, Number(process.env.PITCHBOOK_BATCH_SIZE || 25)));
 const DRY_RUN = process.env.PITCHBOOK_DRY_RUN === '1';
+const QUEUE = process.env.PITCHBOOK_QUEUE || 'all';
 const STALE_RUN_PREFIX = process.env.PITCHBOOK_RUN_PREFIX || 'pitchbook-full-v1';
 const PAUSE_MS = 1400;
 const FIRECRAWL_API = 'https://api.firecrawl.dev/v2';
@@ -430,7 +431,7 @@ async function main() {
     console.log('pitchbook_cloud_probe', JSON.stringify({ status: result.data?.metadata?.statusCode ?? null, title: result.data?.metadata?.title || '', heading: clean(markdown.match(/^\s*#\s+(.+)$/m)?.[1] || ''), preview: /profile preview/i.test(markdown), rate_limited: result.data?.metadata?.statusCode === 429 }));
     return;
   }
-  totals.firms = await runQueue({
+  if (QUEUE === 'all' || QUEUE === 'firms') totals.firms = await runQueue({
       runId: `${STALE_RUN_PREFIX}-firms`, entityType: 'firm', entityKind: 'firm_records', limit: LIMIT,
       loadRows: nextFirmRows,
       process: async (record) => {
@@ -441,7 +442,7 @@ async function main() {
         return await updateFirm(record, profile, record.pitchbook_url ? 'existing_profile_url_and_exact_name' : firmCsvProfiles.has(norm(record.firm_name)) ? 'provided_csv_profile_and_website_domain' : 'exact_name_and_website_domain');
       },
     });
-  totals.companies = await runQueue({
+  if (QUEUE === 'all' || QUEUE === 'companies') totals.companies = await runQueue({
       runId: `${STALE_RUN_PREFIX}-companies`, entityType: 'firm', entityKind: 'startups', limit: LIMIT,
       loadRows: nextStartupRows,
       process: async (record) => {
@@ -452,7 +453,7 @@ async function main() {
         return await updateStartup(record, profile);
       },
     });
-  totals.investors = await runQueue({
+  if (QUEUE === 'all' || QUEUE === 'investors') totals.investors = await runQueue({
       runId: `${STALE_RUN_PREFIX}-investors`, entityType: 'investor', entityKind: 'firm_investors', limit: LIMIT,
       loadRows: nextInvestorRows,
       process: async (record) => {
@@ -464,7 +465,7 @@ async function main() {
         return await updatePerson(record, profile, direct ? 'existing_person_profile_url_and_exact_name' : 'exact_name_and_profile_context');
       },
     });
-    console.log('pitchbook_cloud_run', JSON.stringify({ dry_run: DRY_RUN, limit_per_queue: LIMIT, totals }));
+  console.log('pitchbook_cloud_run', JSON.stringify({ dry_run: DRY_RUN, queue: QUEUE, limit_per_queue: LIMIT, totals }));
     if (Object.values(totals).some((v) => v?.paused)) process.exitCode = 0;
 }
 
