@@ -54,13 +54,22 @@ const norm = (s) => clean(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const isBlank = (v) => v === null || v === undefined || v === '';
 
 async function firecrawl(endpoint, payload) {
-  const response = await fetch(`${FIRECRAWL_API}/${endpoint}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(90000),
-  });
-  const result = await response.json().catch(() => ({}));
+  let response;
+  let result;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    response = await fetch(`${FIRECRAWL_API}/${endpoint}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(90000),
+    });
+    result = await response.json().catch(() => ({}));
+    if (![429, 503].includes(response.status) || attempt === 3) break;
+    const retryAfter = Number(response.headers.get('retry-after'));
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 90000) : 15000 * (2 ** attempt);
+    console.warn('firecrawl_backoff', JSON.stringify({ endpoint, status: response.status, attempt: attempt + 1, wait_ms: waitMs }));
+    await sleep(waitMs);
+  }
   if ([402, 403, 429, 503].includes(response.status)) throw new Error(`PITCHBOOK_RATE_LIMIT: Firecrawl returned ${response.status}`);
   if (!response.ok || result.success === false) throw new Error(`Firecrawl ${endpoint} failed (${response.status}): ${String(result.error || result.message || 'unknown error').slice(0, 250)}`);
   return result;
@@ -198,7 +207,7 @@ async function loadProfile(record, kind, directUrl) {
     const rawBody = result.data?.markdown || '';
     const body = normalizeMarkdown(rawBody);
     const status = result.data?.metadata?.statusCode;
-    if (status === 429 || /Performing security verification|Just a moment\.\.\./i.test(result.data?.metadata?.title || '')) return { outcome: 'rate_limited' };
+    if (status === 403 || status === 429 || /Performing security verification|Just a moment\.\.\./i.test(result.data?.metadata?.title || '')) return { outcome: 'rate_limited' };
     if (!body || status >= 400) continue;
     const header = clean(rawBody.match(/^\s*#\s+(.+)$/m)?.[1] || result.data?.metadata?.title || '').replace(/\s+\|.*$/, '');
     const facts = parseFacts(body);
@@ -385,7 +394,7 @@ async function runQueue({ runId, entityType, entityKind, limit, loadRows, proces
     } catch (error) {
       if (/PITCHBOOK_RATE_LIMIT|Performing security verification|Too Many Requests/i.test(String(error?.message || error))) {
         await saveCheckpoint(cp, { status: 'paused', error_message: 'Search or PitchBook temporarily rate-limited this run; stopped without bypass.', metadata: { ...(cp.metadata || {}), entity_kind: entityKind, processed, updated, skipped, last_id: lastId } });
-        console.warn('queue_paused_for_rate_limit', runId, lastId || '(start)');
+        console.warn('queue_paused_for_rate_limit', runId, lastId || '(start)', String(error?.message || error).slice(0, 120));
         return { processed, updated, skipped, paused: true };
       }
       console.error('record_failed', JSON.stringify({ id: record.id, name: record.firm_name || record.company_name || record.full_name, error: String(error?.message || error).slice(0, 300) }));
