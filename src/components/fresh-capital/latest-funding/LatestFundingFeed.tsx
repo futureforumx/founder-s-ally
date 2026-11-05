@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRecentFundingFeed } from "@/hooks/useRecentFundingFeed";
 import { useVCDirectory } from "@/hooks/useVCDirectory";
-import { isSupabaseConfigured } from "@/integrations/supabase/client";
-import { buildVcFirmMatchIndex, resolveMatchedVcFirm } from "@/lib/fundingFeedEntityMatch";
+import { isSupabaseConfigured, supabaseVcDirectory } from "@/integrations/supabase/client";
+import { buildVcFirmMatchIndex, firmDisplayMatchKeys, resolveMatchedVcFirm } from "@/lib/fundingFeedEntityMatch";
 import {
   applyLatestFundingTableFilters,
   buildDedupedRoundChoices,
@@ -38,7 +39,64 @@ type Props = {
 export function LatestFundingFeed({ stage, sector, onAvailableSectors, surface = "public" }: Props) {
   const { rows: sourceRows, isLoading, error, ingestEmpty, dataSource } = useRecentFundingFeed({ limit: 200 });
   const { firms } = useVCDirectory();
-  const leadFirmIndex = useMemo(() => buildVcFirmMatchIndex(firms), [firms]);
+  const investorRecordNames = useMemo(() => {
+    const leadKeys = new Set(sourceRows.flatMap((row) => firmDisplayMatchKeys(row.leadInvestor)));
+    const names = new Set<string>();
+    for (const row of sourceRows) {
+      const name = row.leadInvestor.trim();
+      if (name && name.toLowerCase() !== "unknown") names.add(name);
+    }
+    for (const firm of firms) {
+      if (firmDisplayMatchKeys(firm.name).some((key) => leadKeys.has(key))) names.add(firm.name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [sourceRows, firms]);
+  const investorRecordsQuery = useQuery({
+    queryKey: ["latest-funding-investor-records", investorRecordNames],
+    queryFn: async () => {
+      if (investorRecordNames.length === 0) return [];
+      const chunks: string[][] = [];
+      for (let index = 0; index < investorRecordNames.length; index += 50) {
+        chunks.push(investorRecordNames.slice(index, index + 50));
+      }
+      const batches = await Promise.all(
+        chunks.map(async (names) => {
+          const columns = "id, firm_name, aliases, logo_url, website_url, linkedin_url";
+          const aliasNames = [...new Set(names.flatMap((name) => [name, name.toLowerCase(), name.toUpperCase()]))];
+          const [byName, byAlias] = await Promise.all([
+            supabaseVcDirectory
+              .from("firm_records")
+              .select(columns)
+              .in("firm_name", names)
+              .is("deleted_at", null),
+            supabaseVcDirectory
+              .from("firm_records")
+              .select(columns)
+              .overlaps("aliases", aliasNames)
+              .is("deleted_at", null),
+          ]);
+          if (byName.error) throw byName.error;
+          if (byAlias.error) throw byAlias.error;
+          return [...(byName.data ?? []), ...(byAlias.data ?? [])];
+        }),
+      );
+      return batches.flat().map((record) => ({
+        id: record.id,
+        name: record.firm_name,
+        aliases: record.aliases,
+        logo_url: record.logo_url,
+        website_url: record.website_url,
+        linkedin_url: record.linkedin_url,
+      }));
+    },
+    enabled: isSupabaseConfigured && investorRecordNames.length > 0,
+    staleTime: 5 * 60_000,
+    retry: 0,
+  });
+  const leadFirmIndex = useMemo(
+    () => buildVcFirmMatchIndex([...(investorRecordsQuery.data ?? []), ...firms]),
+    [firms, investorRecordsQuery.data],
+  );
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedRounds, setSelectedRounds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");

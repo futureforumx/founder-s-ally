@@ -4,6 +4,7 @@ export type MatchedVcFirm = {
   id: string;
   logoUrl: string | null;
   websiteUrl: string | null;
+  linkedinUrl: string | null;
 };
 
 export type VcFirmMatchSource = {
@@ -12,6 +13,7 @@ export type VcFirmMatchSource = {
   aliases?: string[] | null;
   logo_url?: string | null;
   website_url?: string | null;
+  linkedin_url?: string | null;
 };
 
 const normalizeFirmName = (name: string | null | undefined) =>
@@ -57,6 +59,7 @@ export function buildVcFirmMatchIndex(firms: VcFirmMatchSource[]): Map<string, M
       id: firm.id,
       logoUrl: firm.logo_url?.trim() || null,
       websiteUrl: firm.website_url?.trim() || null,
+      linkedinUrl: firm.linkedin_url?.trim() || null,
     };
     for (const key of firmDisplayMatchKeys(firm.name)) add(key, matched);
     for (const alias of firm.aliases ?? []) {

@@ -223,7 +223,7 @@ export function FundingFeedRow({
   const snapshot = snapshotQuery.data;
   const displayDate = formatAnnouncedDate(row.announcedAt || null) || "—";
   const leadHref = buildOutboundUrl(
-    normalizeWebsiteUrl(leadFirm?.websiteUrl ?? row.leadWebsiteUrl ?? undefined),
+    normalizeWebsiteUrl(leadFirm?.linkedinUrl || leadFirm?.websiteUrl || row.leadWebsiteUrl || undefined),
     "lead_investor",
     "latest_funding",
     row.id,
@@ -274,7 +274,7 @@ export function FundingFeedRow({
   const hqLine = row.hqLine?.trim() || snapshot?.hqLine?.trim() || null;
   const description = row.description?.trim() || snapshot?.description?.trim() || null;
   const expandedName = snapshot?.name || row.companyName;
-  const websiteUrl = normalizeWebsiteUrl(row.websiteUrl);
+  const websiteUrl = normalizeWebsiteUrl(snapshot?.websiteUrl || row.websiteUrl);
   const trackedWebsiteUrl = websiteUrl
     ? (() => {
         const url = new URL(websiteUrl);
@@ -347,7 +347,7 @@ export function FundingFeedRow({
                 <CompanyRowMark row={expandedRow} size="md" />
                 <p className={cn("min-w-0 truncate text-base font-semibold tracking-tight", app ? "text-foreground" : "text-white")}>{expandedName}</p>
               </div>
-              <dl className="mt-4 space-y-3">
+              <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
                   <dt className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>Website</dt>
                   <dd className={cn("mt-1 text-sm", app ? "text-foreground" : "text-zinc-300")}>
@@ -379,7 +379,7 @@ export function FundingFeedRow({
                     )}
                   </dd>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <dt className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", app ? "text-muted-foreground" : "text-zinc-500")}>Description</dt>
                   <dd className={cn("mt-1 text-sm leading-relaxed", app ? "text-muted-foreground" : "text-zinc-400")}>
                     {snapshotQuery.isFetching && !description ? (

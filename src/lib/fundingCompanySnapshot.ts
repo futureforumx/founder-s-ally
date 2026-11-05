@@ -4,6 +4,7 @@ import { resolveFirmDisplayLocation } from "@/lib/formatCanonicalHqLine";
 export type FundingCompanySnapshot = {
   name: string;
   logoUrl: string | null;
+  websiteUrl: string | null;
   hqLine: string | null;
   description: string | null;
 };
@@ -23,6 +24,7 @@ export function snapshotFromOrganization(
   return {
     name: asText(row.canonicalName) ?? fallbackName,
     logoUrl: asText(row.logoUrl),
+    websiteUrl: asText(row.website),
     hqLine: resolveFirmDisplayLocation({
       hq_city: asText(row.city),
       hq_state: asText(row.state),
@@ -40,6 +42,7 @@ export function snapshotFromStartup(
   return {
     name: asText(row.company_name) ?? fallbackName,
     logoUrl: asText(row.logo_url),
+    websiteUrl: asText(row.website_url),
     hqLine: resolveFirmDisplayLocation({
       hq_city: asText(row.hq_city),
       hq_state: asText(row.hq_state),
