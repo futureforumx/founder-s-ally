@@ -525,7 +525,7 @@ function FundWatchExpandPanel({ row, onUnlock }: { row: FreshCapitalFundRow; onU
           type="button"
           size="sm"
           onClick={unlockFull}
-          className="rounded-full bg-primary px-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_0_24px_hsl(var(--primary)/0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_0_32px_hsl(var(--primary)/0.55)]"
+          className="rounded-full bg-primary px-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-black shadow-[0_0_24px_rgba(176,177,255,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-purple-300 hover:text-black hover:shadow-[0_0_32px_rgba(176,177,255,0.38)] focus-visible:bg-purple-300 focus-visible:text-black active:bg-purple-400"
         >
           Unlock full profile
         </Button>
