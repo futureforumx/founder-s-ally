@@ -661,7 +661,7 @@ function formatSyncTimestamp(iso: string): string {
 }
 
 const FEED_MAIN_TABS = [
-  { id: "fresh_funds" as const, label: "Fund Watch" },
+  { id: "fresh_funds" as const, label: "New Funds" },
   { id: "latest_funding" as const, label: "Latest funding" },
   { id: "insights" as const, label: "Insights" },
 ];

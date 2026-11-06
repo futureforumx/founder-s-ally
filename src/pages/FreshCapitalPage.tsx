@@ -54,7 +54,7 @@ export default function FreshCapitalPage() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = "Fund Watch · Vekta";
+    document.title = "New Funds · Vekta";
     return () => {
       document.title = prev;
     };
@@ -97,6 +97,7 @@ export default function FreshCapitalPage() {
   return (
     <div className="min-h-screen bg-[#050506] font-sans text-zinc-100 antialiased">
       <FreshCapitalHero
+        activeTab={mainTab}
         trackedCount={
           mainTab === "latest_funding"
             ? roundsQuery.isLoading

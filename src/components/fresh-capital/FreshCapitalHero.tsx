@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import MuxPlayer from "@mux/mux-player-react";
 import type MuxPlayerElement from "@mux/mux-player";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ type Props = {
   onNotifyClick: () => void;
   trackedCount: number;
   trackedLabel?: string;
+  activeTab: "fresh_funds" | "latest_funding" | "insights";
 };
 
 function RollingDigit({ digit, delayMs }: { digit: number; delayMs: number }) {
@@ -67,8 +67,13 @@ function TrackedStat({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function FreshCapitalHero({ onNotifyClick, trackedCount, trackedLabel = "Funds tracked" }: Props) {
+export function FreshCapitalHero({ onNotifyClick, trackedCount, trackedLabel = "Funds tracked", activeTab }: Props) {
   const muxRef = useRef<MuxPlayerElement | null>(null);
+  const logoCampaign = {
+    fresh_funds: "New_Funds",
+    latest_funding: "Latest_Funding",
+    insights: "Insights",
+  }[activeTab];
 
   /** Same autoplay kick as `/auth` — Safari / Low Power Mode need explicit play(). */
   useEffect(() => {
@@ -114,22 +119,22 @@ export function FreshCapitalHero({ onNotifyClick, trackedCount, trackedLabel = "
         <div className="absolute inset-0 bg-black/45" aria-hidden />
       </div>
 
-      <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-6 pt-8 sm:gap-7 sm:px-6 sm:pb-8 sm:pt-10">
+      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-6 pt-8 sm:gap-7 sm:px-6 sm:pb-8 sm:pt-10">
         <div className="flex items-center justify-between gap-4">
-          <Link
-            to="/"
+          <a
+            href={`https://meetvekta.com?UTM_Source=${logoCampaign}`}
             aria-label="Vekta home"
             className="inline-flex shrink-0 items-center outline-none ring-offset-black transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             <img
-              src="/brand/vekta-hero-wordmark.svg"
+              src="/brand/vekta-icon-white.svg"
               alt=""
-              width={120}
-              height={32}
-              className="h-7 w-auto max-w-[min(40vw,9rem)] bg-transparent object-contain object-left sm:h-8 sm:max-w-[10rem]"
+              width={32}
+              height={35}
+              className="h-8 w-auto bg-transparent object-contain object-left"
               decoding="async"
             />
-          </Link>
+          </a>
           <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
