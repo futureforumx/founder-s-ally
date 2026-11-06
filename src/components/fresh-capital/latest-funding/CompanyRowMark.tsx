@@ -66,7 +66,10 @@ export function EntityRowMark({
       alt=""
       width={24}
       height={24}
-      className={cn("h-6 w-6 shrink-0 rounded-md object-contain", app ? "bg-muted" : "bg-zinc-950")}
+      className={cn(
+        "h-6 w-6 shrink-0 rounded-md border bg-white p-0.5 object-contain",
+        app ? "border-border" : "border-zinc-200",
+      )}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
@@ -131,7 +134,11 @@ export function CompanyRowMark({
       alt=""
       width={px}
       height={px}
-      className={cn("shrink-0 rounded-md object-contain", app ? "bg-muted" : "bg-zinc-950", box)}
+      className={cn(
+        "shrink-0 rounded-md border bg-white p-0.5 object-contain",
+        app ? "border-border" : "border-zinc-200",
+        box,
+      )}
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
