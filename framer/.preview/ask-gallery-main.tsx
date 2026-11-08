@@ -2,7 +2,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import Ask from "../Ask"
 
-const shapes = ["map", "dataroom", "live", "network", "investor", "person"] as const
+const shapes = ["wordmark", "map", "dataroom", "live", "network", "investor", "person"] as const
 
 createRoot(document.getElementById("root")!).render(
     <div
@@ -17,7 +17,15 @@ createRoot(document.getElementById("root")!).render(
         }}
     >
         {shapes.map((shape) => (
-            <div key={shape} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div
+                key={shape}
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    gridColumn: shape === "wordmark" ? "1 / -1" : undefined,
+                }}
+            >
                 <div
                     style={{
                         color: "#8a8a8a",
@@ -32,7 +40,7 @@ createRoot(document.getElementById("root")!).render(
                 <div
                     style={{
                         width: "100%",
-                        aspectRatio: "1 / 1",
+                        aspectRatio: shape === "wordmark" ? "2.4 / 1" : "1 / 1",
                         background: "#000",
                         border: "1px solid rgba(255,255,255,0.08)",
                     }}

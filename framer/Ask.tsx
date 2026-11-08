@@ -17,8 +17,8 @@ const QUAD_VERTS = 4
 
 /**
  * Ask particle marks — same GPU motion as meetvekta.com/features/ai-agent (noise drift,
- * gather/scatter, cursor parting). Shape picks an icon outline (stroke, not fill): folded
- * map, data-room bars, live broadcast, network hub, investor ($ person), person, or cloud.
+ * gather/scatter, cursor parting). Shape picks an outline (stroke, not fill): folded map,
+ * data-room bars, live, network, investor, person, vekta wordmark, or cloud.
  *
  * @framerSupportedLayoutWidth any
  * @framerSupportedLayoutHeight any
@@ -914,6 +914,8 @@ function buildShapeField(shape: Shape): { positions: number[]; numSources: numbe
             return buildInvestorField(1600)
         case "person":
             return buildPersonField(1400)
+        case "wordmark":
+            return buildWordmarkField(2400)
         case "map":
         default:
             return buildFoldedMapField(1600)
@@ -1240,6 +1242,171 @@ function buildPersonField(count: number): { positions: number[]; numSources: num
     return subsample(out, count)
 }
 
+/**
+ * Lowercase "vekta" wordmark — letter outlines from the brand hero SVG paths.
+ * Framed so the longer side spans ~0.92 world units (same camera as other marks).
+ */
+function buildWordmarkField(count: number): { positions: number[]; numSources: number } {
+    // Paths from public/brand/vekta-hero-wordmark.svg (group translate 295,85 + per-letter).
+    const originX = 295
+    const originY = 85
+    const letters: Array<{ tx: number; ty: number; rings: Array<Array<[number, number]>> }> = [
+        {
+            tx: 0.0994388,
+            ty: 241.814999,
+            rings: [
+                [
+                    [75.765625, 0],
+                    [1.578125, -185.21875],
+                    [38.40625, -185.21875],
+                    [88.34375, -54],
+                    [138.03125, -185.21875],
+                    [174.46875, -185.21875],
+                    [100.671875, 0],
+                ],
+            ],
+        },
+        {
+            tx: 191.439898,
+            ty: 241.814999,
+            rings: [
+                [
+                    [23.859375, 0],
+                    [23.859375, -185.21875],
+                    [147.078125, -185.21875],
+                    [147.078125, -154.671875],
+                    [57.15625, -154.671875],
+                    [57.15625, -107.875],
+                    [140.90625, -107.875],
+                    [140.90625, -77.34375],
+                    [57.15625, -77.34375],
+                    [57.15625, -31.453125],
+                    [147.078125, -31.453125],
+                    [147.078125, 0],
+                ],
+            ],
+        },
+        {
+            tx: 369.934692,
+            ty: 241.814999,
+            rings: [
+                [
+                    [23.859375, 0],
+                    [23.859375, -185.21875],
+                    [57.15625, -185.21875],
+                    [57.15625, -88.609375],
+                    [147.328125, -185.21875],
+                    [191.90625, -185.21875],
+                    [117.84375, -109.328125],
+                    [193.34375, 0],
+                    [151.921875, 0],
+                    [94.765625, -87.03125],
+                    [57.15625, -48.109375],
+                    [57.15625, 0],
+                ],
+            ],
+        },
+        {
+            tx: 580.674735,
+            ty: 241.814999,
+            rings: [
+                [
+                    [60.6875, 0],
+                    [60.6875, -155.46875],
+                    [2.625, -155.46875],
+                    [2.625, -185.21875],
+                    [151.921875, -185.21875],
+                    [151.921875, -155.46875],
+                    [93.984375, -155.46875],
+                    [93.984375, 0],
+                ],
+            ],
+        },
+        {
+            tx: 750.649419,
+            ty: 241.814999,
+            rings: [
+                [
+                    [1.578125, 0],
+                    [75.765625, -185.21875],
+                    [100.671875, -185.21875],
+                    [174.46875, 0],
+                    [138.546875, 0],
+                    [124.265625, -40.234375],
+                    [52.296875, -40.234375],
+                    [37.875, 0],
+                ],
+                [
+                    [63.578125, -68.6875],
+                    [112.984375, -68.6875],
+                    [88.34375, -136.328125],
+                ],
+            ],
+        },
+    ]
+
+    const absRings: Array<Array<[number, number]>> = []
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const letter of letters) {
+        for (const ring of letter.rings) {
+            const abs: Array<[number, number]> = ring.map(([x, y]) => {
+                const ax = originX + letter.tx + x
+                const ay = originY + letter.ty + y
+                if (ax < minX) minX = ax
+                if (ax > maxX) maxX = ax
+                if (ay < minY) minY = ay
+                if (ay > maxY) maxY = ay
+                return [ax, ay]
+            })
+            absRings.push(abs)
+        }
+    }
+
+    const midX = (minX + maxX) / 2
+    const midY = (minY + maxY) / 2
+    const span = Math.max(maxX - minX, maxY - minY) || 1
+    const target = 0.92
+    const spacing = 2.6
+    const out: number[] = []
+    let seed = 9000
+
+    for (const ring of absRings) {
+        const worldPts: Array<[number, number]> = ring.map(([x, y]) => [
+            ((x - midX) / span) * target,
+            ((y - midY) / span) * target,
+        ])
+        // Sample in world space by converting back through temporary design-less push
+        const path = [...worldPts, worldPts[0]]
+        for (let i = 0; i < path.length - 1; i++) {
+            const [x0, y0] = path[i]
+            const [x1, y1] = path[i + 1]
+            const dx = x1 - x0
+            const dy = y1 - y0
+            const len = Math.hypot(dx, dy)
+            if (len < 1e-6) continue
+            // spacing is in design px; convert roughly to world units
+            const worldSpacing = (spacing / span) * target
+            const steps = Math.max(1, Math.ceil(len / worldSpacing))
+            for (let s = 0; s < steps; s++) {
+                const t = s / steps
+                seed++
+                const jx = (hash(seed, 1, 5) - 0.5) * worldSpacing * 0.28
+                const jy = (hash(seed, 2, 5) - 0.5) * worldSpacing * 0.28
+                out.push(
+                    x0 + dx * t + jx,
+                    y0 + dy * t + jy,
+                    (hash(seed, 3, 11) - 0.5) * 0.028
+                )
+            }
+        }
+    }
+
+    return subsample(out, count)
+}
+
 function buildNebulaField(count: number): { positions: number[]; numSources: number } {
     const out: number[] = []
     let attempts = 0
@@ -1295,7 +1462,7 @@ function loadTexture(
 type Vec3Control = { x: number; y: number; z: number }
 type SpringSettings = { duration: number; bounce: number }
 
-type Shape = "map" | "dataroom" | "live" | "network" | "investor" | "person" | "cloud"
+type Shape = "map" | "dataroom" | "live" | "network" | "investor" | "person" | "wordmark" | "cloud"
 
 type Props = {
     shape: Shape
@@ -1388,7 +1555,7 @@ addPropertyControls(Ask, {
         title: "Shape",
         type: ControlType.Enum,
         defaultValue: "map",
-        options: ["map", "dataroom", "live", "network", "investor", "person", "cloud"],
+        options: ["map", "dataroom", "live", "network", "investor", "person", "wordmark", "cloud"],
         optionTitles: [
             "Folded map",
             "Data room",
@@ -1396,9 +1563,10 @@ addPropertyControls(Ask, {
             "Network",
             "Investor",
             "Person",
+            "Vekta wordmark",
             "Nebula cloud",
         ],
-        description: "Icon outline for the particle field. Custom Points override this.",
+        description: "Outline for the particle field. Custom Points override this.",
     },
     points: {
         title: "Points",
