@@ -524,7 +524,7 @@ export default function Auth() {
         <a
           href="https://meetvekta.com?UTM_source=mobile_register"
           aria-label="Visit Vekta"
-          className="mb-8 lg:hidden"
+          className="mx-auto mb-8 flex w-full max-w-sm lg:hidden"
         >
           <img
             src="/brand/vekta-icon-transparent-white.png"
