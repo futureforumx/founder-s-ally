@@ -521,15 +521,19 @@ export default function Auth() {
   return (
     <div className="fixed inset-0 flex bg-black font-sans text-zinc-100">
       <section className="relative z-10 flex h-full w-full shrink-0 flex-col justify-between border-r border-zinc-900 bg-black px-8 py-10 sm:px-10 lg:w-[400px] xl:w-[440px]">
-        <div className="mb-8 lg:hidden">
+        <a
+          href="https://meetvekta.com?UTM_source=mobile_register"
+          aria-label="Visit Vekta"
+          className="mb-8 lg:hidden"
+        >
           <img
-            src="/brand/vekta-login-wordmark.png"
+            src="/brand/vekta-icon-transparent-white.png"
             alt="Vekta"
             className="h-10 w-auto object-contain"
-            width={149}
-            height={69}
+            width={37}
+            height={40}
           />
-        </div>
+        </a>
 
         <div className="scrollbar-hide mx-auto flex w-full max-w-sm flex-1 flex-col justify-center overflow-y-auto py-2">
           {formPanel}
