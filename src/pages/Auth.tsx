@@ -61,6 +61,9 @@ export default function Auth() {
   const videoSrc = useMemo(() => getAuthPageBackgroundVideoUrl(), []);
 
   const errorKey = searchParams.get("error") ?? "";
+  const marketingUrl = mode === "sign-up"
+    ? "https://meetvekta.com?utm_source=register_page"
+    : "https://meetvekta.com?utm_source=login_page";
   const errorMessage = ERROR_MESSAGES[errorKey] ?? (errorKey ? "An error occurred. Please try again." : null);
   const activeErrorMessage = localError ?? errorMessage;
 
@@ -537,11 +540,12 @@ export default function Auth() {
         </footer>
       </section>
 
-      <div className="relative hidden min-h-0 min-w-0 flex-1 overflow-hidden bg-black lg:block" aria-hidden>
+      <div className="relative hidden min-h-0 min-w-0 flex-1 overflow-hidden bg-black lg:block">
         <video
           ref={videoRef}
           key={videoSrc}
           className="auth-hero-native-video absolute inset-0 h-full w-full scale-[1.02] object-cover"
+          aria-hidden="true"
           src={videoSrc}
           autoPlay
           muted
@@ -551,7 +555,11 @@ export default function Auth() {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/30" />
 
-        <div className="absolute right-8 top-5 xl:right-12 xl:top-6">
+        <a
+          href={marketingUrl}
+          aria-label={mode === "sign-up" ? "Learn more about Vekta" : "Visit Vekta"}
+          className="absolute right-8 top-5 xl:right-12 xl:top-6"
+        >
           <img
             src="/brand/vekta-login-wordmark.png"
             alt=""
@@ -559,7 +567,13 @@ export default function Auth() {
             width={149}
             height={69}
           />
-        </div>
+        </a>
+        <a
+          href={marketingUrl}
+          className="absolute bottom-8 right-8 text-sm text-white drop-shadow-[0_1px_8px_rgba(0,0,0,0.9)] hover:underline xl:bottom-10 xl:right-12"
+        >
+          New to Vekta? Learn more here.
+        </a>
       </div>
     </div>
   );
