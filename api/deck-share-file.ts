@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Readable } from "node:stream";
 import { getR2PitchDeckObject, parseR2StoredValue } from "./_r2UserAssets.js";
-import { findViewerSession, getDeckShareService, consumeDeckShareLimit, readCookie, shareIsActive, type DeckShareWithDeck } from "./_deckShareServer.js";
+import { findViewerSession, getDeckShareService, getVerifiedOwnerId, consumeDeckShareLimit, readCookie, shareIsActive, type DeckShareWithDeck } from "./_deckShareServer.js";
 
 function setPdfHeaders(res: VercelResponse, details: { length?: number; range?: string; etag?: string }) {
   res.setHeader("Content-Type", "application/pdf");
@@ -41,18 +41,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
   const service = getDeckShareService();
   if (!service) return res.status(503).end();
-  const sessionToken = readCookie(req, "vekta_deck_session");
-  if (!sessionToken) return res.status(401).end();
   try {
-    const session = await findViewerSession(service, sessionToken);
-    if (!session || Date.parse(session.expires_at) <= Date.now()) return res.status(401).end();
-    const share = session.deck_shares as DeckShareWithDeck | null;
+    const previewLinkId = typeof req.query?.previewLinkId === "string" ? req.query.previewLinkId : "";
+    let share: DeckShareWithDeck | null;
+    let fileLimitKey: string;
+    if (previewLinkId) {
+      if (!/^[0-9a-f-]{36}$/i.test(previewLinkId)) return res.status(400).end();
+      const ownerId = await getVerifiedOwnerId(req.headers.authorization, service);
+      if (!ownerId) return res.status(401).end();
+      const { data, error } = await service.from("deck_shares")
+        .select("id,user_id,deck_id,expires_at,revoked_at,file_url_snapshot,company_pitch_decks!inner(id,user_id,file_name,file_size_bytes,slide_count)")
+        .eq("id", previewLinkId).eq("user_id", ownerId).maybeSingle();
+      if (error) throw error;
+      share = data as unknown as DeckShareWithDeck | null;
+      if (!share || share.user_id !== ownerId) return res.status(404).end();
+      fileLimitKey = `preview-file:${ownerId}:${share.id}`;
+    } else {
+      const sessionToken = readCookie(req, "vekta_deck_session");
+      if (!sessionToken) return res.status(401).end();
+      const session = await findViewerSession(service, sessionToken);
+      if (!session || Date.parse(session.expires_at) <= Date.now()) return res.status(401).end();
+      share = session.deck_shares as DeckShareWithDeck | null;
+      fileLimitKey = `file:${session.id}`;
+    }
     const deck = share?.company_pitch_decks;
     if (!share || !deck || share.user_id !== deck.user_id || !share.file_url_snapshot) return res.status(404).end();
     const inactive = shareIsActive(share);
     if (inactive) return res.status(410).end();
     if (!deck.file_name.toLowerCase().endsWith(".pdf")) return res.status(415).end();
-    if (!await consumeDeckShareLimit(service, `file:${session.id}`, 600, 60)) return res.status(429).end();
+    if (!await consumeDeckShareLimit(service, fileLimitKey, 600, 60)) return res.status(429).end();
 
     const stored = String(share.file_url_snapshot);
     const r2Key = parseR2StoredValue(stored);

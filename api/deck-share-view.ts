@@ -3,7 +3,7 @@ import { readJsonBody } from "./_readJsonBody.js";
 import { randomBytes } from "node:crypto";
 import { hashShareToken, verifySharePassword } from "./_deckShareCrypto.js";
 import { isAllowedDeckViewerEmail } from "./_deckShareEmail.js";
-import { consumeDeckShareLimit, findShareByPath, findShareByToken, getDeckShareService, getVerifiedViewer, setViewerCookies, shareIsActive } from "./_deckShareServer.js";
+import { consumeDeckShareLimit, findShareByPath, findShareByToken, getDeckShareService, getVerifiedOwnerId, getVerifiedViewer, setViewerCookies, shareIsActive } from "./_deckShareServer.js";
 
 /** Validate a public bearer link, apply its password gate, then issue a short-lived HttpOnly viewer session. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,6 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const companySlug = typeof body.companySlug === "string" ? body.companySlug.trim().toLowerCase() : "";
   const presentationSlug = typeof body.presentationSlug === "string" ? body.presentationSlug.trim().toLowerCase() : "";
   const suppliedEmail = typeof body.viewerEmail === "string" ? body.viewerEmail.trim().toLowerCase().slice(0, 254) : "";
+  const preview = body.preview === true;
   const tokenValid = /^[A-Za-z0-9_-]{32,60}$/.test(token);
   const pathValid = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(companySlug) && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(presentationSlug);
   if (!tokenValid && !pathValid) return res.status(404).json({ error: "This share link is unavailable." });
@@ -20,9 +21,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!service) return res.status(503).json({ error: "Deck viewing is temporarily unavailable." });
   try {
     const rateKey = tokenValid ? hashShareToken(token) : hashShareToken(`${companySlug}/${presentationSlug}`);
-    if (!await consumeDeckShareLimit(service, `access:${rateKey}`, 12, 60)) return res.status(429).json({ error: "Too many attempts for this link. Try again shortly." });
+    if (!await consumeDeckShareLimit(service, `${preview ? "preview-access" : "access"}:${rateKey}`, preview ? 60 : 12, 60)) return res.status(429).json({ error: "Too many attempts for this link. Try again shortly." });
     const share = tokenValid ? await findShareByToken(service, token) : await findShareByPath(service, companySlug, presentationSlug);
     if (!share) return res.status(404).json({ error: "This share link is unavailable." });
+    if (preview) {
+      const ownerId = await getVerifiedOwnerId(req.headers.authorization, service);
+      if (!ownerId) return res.status(401).json({ error: "Sign in to preview your shared link." });
+      if (ownerId !== share.user_id) return res.status(403).json({ error: "You can only preview your own shared links." });
+      res.setHeader("Cache-Control", "private, no-store");
+    }
     // Once a branded path is assigned, the original opaque token URL must stop
     // resolving too; otherwise editing the URL would leave the previous address live.
     if (tokenValid && share.presentation_slug) return res.status(404).json({ error: "This share link is unavailable." });
@@ -55,6 +62,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!deck || !share.file_url_snapshot) return res.status(404).json({ error: "This deck is no longer available." });
     if (!deck.file_name.toLowerCase().endsWith(".pdf")) return res.status(415).json({ error: "This shared deck is not a supported PDF." });
 
+    const metadata = {
+      ok: true, deckId: deck.id, fileName: deck.file_name, slideCount: deck.slide_count,
+      companyName: share.company_name_snapshot || "Vekta founder", companyLogoUrl: share.company_logo_url_snapshot,
+      companyStage: share.company_stage_snapshot || null, contactEmail: share.contact_email || null,
+      linkName: share.name || share.recipient_name, showDownload: Boolean(share.show_download), requiresEmail: Boolean(share.require_email),
+    };
+    // Owner previews use bearer authorization for the PDF, so they never create
+    // viewer sessions or replace the browser's existing recipient cookies.
+    if (preview) return res.status(200).json({ ...metadata, previewLinkId: share.id });
+
     const sessionToken = randomBytes(32).toString("base64url");
     let visitorToken = req.cookies?.vekta_deck_visitor || "";
     if (!visitorToken) {
@@ -72,12 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     if (insertError) return res.status(500).json({ error: "Could not start a secure viewer session." });
     setViewerCookies(res, sessionToken, visitorToken, 6 * 60 * 60);
-    return res.status(200).json({
-      ok: true, deckId: deck.id, fileName: deck.file_name, slideCount: deck.slide_count,
-      companyName: share.company_name_snapshot || "Vekta founder", companyLogoUrl: share.company_logo_url_snapshot,
-      companyStage: share.company_stage_snapshot || null, contactEmail: share.contact_email || null,
-      linkName: share.name || share.recipient_name, showDownload: Boolean(share.show_download), requiresEmail: Boolean(share.require_email),
-    });
+    return res.status(200).json(metadata);
   } catch {
     return res.status(503).json({ error: "Deck access checks are temporarily unavailable." });
   }

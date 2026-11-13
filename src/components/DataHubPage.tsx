@@ -6,6 +6,7 @@ import { MetricsPanel } from "./data-room/MetricsPanel";
 import { AssessmentBenchmarkBar } from "./data-room/AssessmentBenchmarkBar";
 import { MarketPanel } from "./data-room/MarketPanel";
 import { SharePanel } from "./data-room/SharePanel";
+import { ShowroomPanel } from "./data-room/ShowroomPanel";
 import { BestMatchesPanel } from "./data-room/BestMatchesPanel";
 import { RecentActivityPanel } from "./data-room/RecentActivityPanel";
 import { AnalyticsPanel } from "./data-room/AnalyticsPanel";
@@ -21,6 +22,7 @@ const DATA_ROOM_TABS = [
   { id: "assessment" as const, label: "Assessment" },
   { id: "market" as const, label: "Market" },
   { id: "share" as const, label: "Share" },
+  { id: "showroom" as const, label: "Showroom" },
   { id: "analytics" as const, label: "Analytics" },
 ];
 
@@ -52,7 +54,7 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
   return (
     <div className={cn(
       "mx-auto w-full px-4 py-8 sm:px-6 lg:px-8",
-      activeTab === "overview" || activeTab === "files" || activeTab === "analytics"
+      activeTab === "overview" || activeTab === "files" || activeTab === "showroom" || activeTab === "analytics"
         ? "max-w-[1312px]"
         : activeTab === "market" || activeTab === "metrics"
           ? "max-w-6xl"
@@ -121,6 +123,8 @@ export function DataHubPage({ initialTab = "overview" }: DataHubPageProps) {
           <MarketPanel profile={companyProfile} />
         ) : activeTab === "share" ? (
           <SharePanel initialDeckId={shareDeckId} />
+        ) : activeTab === "showroom" ? (
+          <ShowroomPanel onCreateLink={() => setActiveTab("share")} />
         ) : activeTab === "analytics" ? (
           <AnalyticsPanel onCreateLink={(deckId) => { setShareDeckId(deckId); setActiveTab("share"); }} />
         ) : (

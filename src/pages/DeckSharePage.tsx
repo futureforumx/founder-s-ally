@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Download, Expand, Loader2, Mail, MessageSquare, Minimize, Minus, Plus, Printer, ShieldAlert } from "lucide-react";
 import { BouncingDots } from "@/components/loading-ui/bouncing-dots";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { getSupabaseAccessToken } from "@/integrations/supabase/client";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-type ShareMetadata = { deckId: string; fileName: string; slideCount: number | null; companyName: string; companyLogoUrl: string | null; companyStage: string | null; showDownload: boolean; contactEmail: string | null };
+type ShareMetadata = { deckId: string; fileName: string; slideCount: number | null; companyName: string; companyLogoUrl: string | null; companyStage: string | null; showDownload: boolean; contactEmail: string | null; previewLinkId?: string };
 type GateBrand = { companyName: string; companyLogoUrl: string | null; contactEmail?: string | null };
 type SlideExitAction = "next_arrow" | "prev_arrow" | "keyboard" | "top_stepper" | "unload";
 type SlideChangeSource = Exclude<SlideExitAction, "unload">;
@@ -76,10 +76,10 @@ function QuestionSuccessToast({ onDismiss }: { onDismiss: () => void }) {
 
 const pdfjsPromise = import("pdfjs-dist/build/pdf.mjs").then((module) => { module.GlobalWorkerOptions.workerSrc = pdfWorkerUrl; return module; });
 
-async function checkSharedPdf(): Promise<void> {
-  const response = await fetch("/api/deck-share-file", {
+async function checkSharedPdf(fileUrl: string, headers: Record<string, string>): Promise<void> {
+  const response = await fetch(fileUrl, {
     credentials: "same-origin",
-    headers: { Range: "bytes=0-0" },
+    headers: { ...headers, Range: "bytes=0-0" },
   });
   await response.body?.cancel().catch(() => {});
   if (!response.ok) {
@@ -103,14 +103,16 @@ async function checkSharedPdf(): Promise<void> {
   }
 }
 
-async function openShare(shareLookup: { token?: string; companySlug?: string; presentationSlug?: string }, password?: string, viewerEmail?: string) {
+async function openShare(shareLookup: { token?: string; companySlug?: string; presentationSlug?: string }, password?: string, viewerEmail?: string, preview = false) {
   const authToken = await getSupabaseAccessToken();
-  const response = await fetch("/api/deck-share-view", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify({ ...shareLookup, password, viewerEmail }) });
+  const response = await fetch("/api/deck-share-view", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) }, body: JSON.stringify({ ...shareLookup, password, viewerEmail, ...(preview ? { preview: true } : {}) }) });
   const data = await response.json().catch(() => ({}));
   return { response, data };
 }
 
 function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; metadata: ShareMetadata; knownViewerEmail?: string }) {
+  const preview = Boolean(metadata.previewLinkId);
+  const fileUrl = metadata.previewLinkId ? `/api/deck-share-file?previewLinkId=${encodeURIComponent(metadata.previewLinkId)}` : "/api/deck-share-file";
   const wrapper = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -147,6 +149,7 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
   }, [knownViewerEmail]);
 
   useEffect(() => {
+    if (preview) return;
     let active = true;
     void getSupabaseAccessToken().then((accessToken) => {
       if (!active) return;
@@ -157,7 +160,7 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
       }
     });
     return () => { active = false; };
-  }, []);
+  }, [preview]);
 
   useEffect(() => {
     let timer = 0;
@@ -186,8 +189,9 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
   }, []);
 
   const enqueue = useCallback((event: Omit<ViewerEvent, "eventId">) => {
+    if (preview) return;
     queue.current.push({ ...event, eventId: crypto.randomUUID() });
-  }, []);
+  }, [preview]);
   const flush = useCallback(async (keepalive = false) => {
     if (!queue.current.length) return;
     const batch = queue.current.slice(0, 20);
@@ -205,10 +209,13 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
     let task: { promise: Promise<import("pdfjs-dist/types/src/display/api").PDFDocumentProxy>; destroy: () => Promise<void> } | undefined;
     (async () => {
       try {
-        await checkSharedPdf();
+        const accessToken = preview ? await getSupabaseAccessToken() : null;
+        if (preview && !accessToken) throw new Error("Sign in again to preview this deck.");
+        const headers: Record<string, string> = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+        await checkSharedPdf(fileUrl, headers);
         if (cancelled) return;
         const pdfjs = await pdfjsPromise;
-        task = pdfjs.getDocument({ url: "/api/deck-share-file", withCredentials: true, disableAutoFetch: true, disableStream: true, rangeChunkSize: 256 * 1024 });
+        task = pdfjs.getDocument({ url: fileUrl, httpHeaders: headers, withCredentials: true, disableAutoFetch: true, disableStream: true, rangeChunkSize: 256 * 1024 });
         const document = await task.promise;
         if (cancelled) { await document.destroy(); return; }
         pdfRef.current = document;
@@ -224,7 +231,7 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
       }
     })();
     return () => { cancelled = true; if (task) void task.destroy(); };
-  }, [token]);
+  }, [token, fileUrl, preview]);
 
   useEffect(() => {
     const node = stage.current;
@@ -324,6 +331,7 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
   }, [commitActiveTime, enqueue, metadata.deckId]);
 
   useEffect(() => {
+    if (preview) return;
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
         closeSlideSession();
@@ -356,7 +364,7 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
       window.removeEventListener("pagehide", onHide);
       window.removeEventListener("beforeunload", onHide);
     };
-  }, [closeSlideSession, commitActiveTime, enqueue, flush, sendBeaconBatch]);
+  }, [closeSlideSession, commitActiveTime, enqueue, flush, sendBeaconBatch, preview]);
 
   const changeSlide = useCallback((newIndex: number, triggerSource: SlideChangeSource) => {
     const destination = Math.max(1, Math.min(pageCount, Math.trunc(newIndex)));
@@ -452,8 +460,19 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
     if (Number.isInteger(destination) && destination >= 1 && destination <= pageCount) changeSlide(destination, "top_stepper");
     else setPageInput(String(page));
   };
-  const printDeck = () => {
+  const actionFileUrl = async () => {
+    if (!preview) return fileUrl;
+    const accessToken = await getSupabaseAccessToken();
+    if (!accessToken) throw new Error("Sign in again to preview this deck.");
+    const response = await fetch(fileUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) throw new Error("This deck is no longer available. Reload the preview and try again.");
+    return URL.createObjectURL(await response.blob());
+  };
+  const printDeck = async () => {
     if (!metadata.showDownload) return;
+    let url: string;
+    try { url = await actionFileUrl(); }
+    catch (actionError) { setError(actionError instanceof Error ? actionError.message : "The PDF could not be opened for printing."); return; }
     const frame = document.createElement("iframe");
     frame.title = "Print shared pitch deck";
     frame.setAttribute("aria-hidden", "true");
@@ -463,23 +482,27 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
     frame.style.right = "0";
     frame.style.bottom = "0";
     frame.style.border = "0";
-    frame.src = "/api/deck-share-file";
+    frame.src = url;
     frame.onload = () => {
       window.setTimeout(() => {
         frame.contentWindow?.focus();
         frame.contentWindow?.print();
-        window.setTimeout(() => frame.remove(), 60_000);
       }, 300);
     };
     document.body.appendChild(frame);
+    window.setTimeout(() => { frame.remove(); if (preview) URL.revokeObjectURL(url); }, 60_000);
   };
-  const downloadDeck = () => {
+  const downloadDeck = async () => {
     if (!metadata.showDownload) return;
+    let url: string;
+    try { url = await actionFileUrl(); }
+    catch (actionError) { setError(actionError instanceof Error ? actionError.message : "The PDF could not be downloaded."); return; }
     const link = document.createElement("a");
-    link.href = "/api/deck-share-file";
+    link.href = url;
     link.download = metadata.fileName;
     link.rel = "noreferrer";
     link.click();
+    if (preview) window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return <div ref={wrapper} className="relative flex h-[calc(100dvh-5rem)] min-h-[28rem] flex-col overflow-hidden border-y border-border bg-[#111318] data-[fullscreen=true]:h-screen data-[fullscreen=true]:min-h-screen data-[fullscreen=true]:border-0" data-fullscreen={fullscreen}>
@@ -551,6 +574,8 @@ function Viewer({ token, metadata, knownViewerEmail = "" }: { token: string; met
 
 export default function DeckSharePage() {
   const { token = "", companySlug = "", presentationSlug = "" } = useParams<{ token: string; companySlug: string; presentationSlug: string }>();
+  const [searchParams] = useSearchParams();
+  const preview = searchParams.get("preview") === "1";
   const shareLookup = useMemo(() => ({ ...(companySlug && presentationSlug ? { companySlug, presentationSlug } : { token }) }), [companySlug, presentationSlug, token]);
   const shareRouteKey = companySlug && presentationSlug ? `${companySlug}/${presentationSlug}` : token;
   const [metadata, setMetadata] = useState<ShareMetadata | null>(null);
@@ -565,7 +590,7 @@ export default function DeckSharePage() {
   const load = useCallback(async (candidate?: { password: string; email: string }) => {
     setLoading(true); setError("");
     try {
-      const { response, data } = await openShare(shareLookup, candidate?.password, candidate?.email);
+      const { response, data } = await openShare(shareLookup, candidate?.password, candidate?.email, preview);
       if ((response.status === 401 || response.status === 403) && (data.requiresPassword || data.requiresEmail)) {
         setRequiresPassword(Boolean(data.requiresPassword));
         setRequiresEmail(Boolean(data.requiresEmail));
@@ -574,12 +599,13 @@ export default function DeckSharePage() {
         return;
       }
       if (!response.ok || !data.ok) { setError(data.error || "This sharing link is unavailable."); return; }
+      if (preview && typeof data.previewLinkId !== "string") { setError("This link could not be previewed. Reload the showroom and try again."); return; }
       setRequiresPassword(false);
       setRequiresEmail(false);
-      setMetadata({ deckId: data.deckId, fileName: data.fileName, slideCount: data.slideCount, companyName: data.companyName, companyLogoUrl: data.companyLogoUrl, companyStage: data.companyStage, showDownload: data.showDownload, contactEmail: data.contactEmail || null });
+      setMetadata({ deckId: data.deckId, fileName: data.fileName, slideCount: data.slideCount, companyName: data.companyName, companyLogoUrl: data.companyLogoUrl, companyStage: data.companyStage, showDownload: data.showDownload, contactEmail: data.contactEmail || null, ...(preview ? { previewLinkId: data.previewLinkId } : {}) });
     } catch { setError("Something went wrong opening this deck."); }
     finally { setLoading(false); }
-  }, [shareLookup]);
+  }, [shareLookup, preview]);
   useEffect(() => { void load(); }, [load]);
 
   const accessGateVisible = !loading && (requiresPassword || requiresEmail) && !metadata;
